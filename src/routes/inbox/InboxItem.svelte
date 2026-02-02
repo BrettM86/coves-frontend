@@ -1,6 +1,5 @@
 <script lang="ts">
   import { getClient } from '$lib/api/client.svelte'
-  import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { escapeHtml } from '$lib/app/util.svelte'
@@ -57,8 +56,7 @@
     }
 
     item.read = isRead
-    if (profile.current.user)
-      profile.inbox.notifications.inbox += isRead ? -1 : 1
+    // TODO: Re-enable inbox notification tracking when Coves API provides it
 
     loading = false
   }
@@ -68,8 +66,7 @@
   <Button
     color={item.read ? 'secondary' : 'primary'}
     {loading}
-    disabled={loading ||
-      item.creator.id == profile.current.user?.local_user_view.person.id}
+    disabled={loading}
     onclick={(e) => {
       e.stopPropagation()
       markAsRead(!item.read)

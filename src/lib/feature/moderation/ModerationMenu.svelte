@@ -126,7 +126,7 @@
         {item.post.removed ? $t('moderation.restore') : $t('moderation.remove')}
       {/if}
     </MenuButton>
-    {#if profile.current?.user && profile.current.user.local_user_view.person.id != item.creator.id}
+    {#if profile.current?.jwt}
       <MenuButton
         color="danger-subtle"
         onclick={() =>

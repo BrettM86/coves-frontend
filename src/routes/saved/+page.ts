@@ -14,8 +14,9 @@ function getSavedItemPublished(item: PostView | CommentView) {
 export async function load({ url, fetch }) {
   if (!profile.current.jwt) throw error(401)
 
-  const user =
-    profile.current.user ?? (await client({ func: fetch }).getSite()).my_user
+  // TODO: Fetch user data from Coves API using DID
+  const siteData = await client({ func: fetch }).getSite()
+  const user = siteData.my_user
 
   if (!user) throw error(401)
 

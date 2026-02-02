@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { client, site } from '$lib/api/client.svelte'
-  import { PiefedClient } from '$lib/api/piefed/adapter'
+  import { site } from '$lib/api/client.svelte'
   import type { PostView } from '$lib/api/types'
-  import { profile } from '$lib/app/auth.svelte'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
@@ -12,14 +10,12 @@
   import FreeTextInput from '$lib/ui/form/FreeTextInput.svelte'
   import ImageInputModal from '$lib/ui/form/ImageInputModal.svelte'
   import ObjectAutocomplete from '$lib/ui/form/ObjectAutocomplete.svelte'
-  import MultiSelect from '$lib/ui/form/Switch.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import ErrorContainer, { pushError } from '$lib/ui/info/ErrorContainer.svelte'
   import { CommonList, Header } from '$lib/ui/layout'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import {
-    Badge,
     Button,
     ButtonGroup,
     Label,
@@ -36,14 +32,12 @@
   import type { Snippet } from 'svelte'
   import {
     ChatBubbleBottomCenterText,
-    Check,
     Icon,
     Language,
     Photo,
     Plus,
     QrCode,
     Sparkles,
-    Tag,
     Trash,
     XMark,
   } from 'svelte-hero-icons/dist'
@@ -62,13 +56,23 @@
     init ?? new PostFormState({ type: 'normal' }),
   )
 
-  let extendedCommunity = $derived.by(() => {
-    const api = client()
-    if (!(api instanceof PiefedClient)) return undefined
-
-    if (form.community?.id) {
-      return api.getCommunity({ id: form.community.id })
-    } else return undefined
+  // TODO: Re-enable extended community data when Coves API supports it
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  let _extendedCommunity: Promise<{
+    community_view: {
+      flair_list?: Array<{
+        id: number
+        flair_title: string
+        background_color: string
+        text_color: string
+        community_id: number
+        blur_images: boolean
+        ap_id: string
+      }>
+    }
+  } | null> | undefined = $derived.by(() => {
+    // Legacy PieFed code - disabled for Coves migration
+    return undefined
   })
 
   let loading = $state<boolean>(false)
@@ -106,19 +110,20 @@
   }
 </script>
 
-{#if profile.client instanceof PiefedClient && !editPost}
-  <div class="mb-3">
-    <MultiSelect
-      options={['normal', 'poll']}
-      optionNames={[
-        $t('form.post.types.normal'),
-        $t('form.post.types.poll'),
-        $t('form.post.types.event'),
-      ]}
-      bind:selected={form.type}
-    />
-  </div>
-{/if}
+<!-- TODO: Re-enable post type selection when Coves API supports polls/events -->
+<!--
+<div class="mb-3">
+  <MultiSelect
+    options={['normal', 'poll']}
+    optionNames={[
+      $t('form.post.types.normal'),
+      $t('form.post.types.poll'),
+      $t('form.post.types.event'),
+    ]}
+    bind:selected={form.type}
+  />
+</div>
+-->
 
 {#if uploadImage}
   <ImageInputModal
@@ -138,39 +143,7 @@
   <TextArea bind:value={form.altText} />
 {/snippet}
 
-{#snippet flairs()}
-  <Material color="uniform" class="flex flex-row gap-4 flex-wrap">
-    {#await extendedCommunity}
-      <div class="w-full h-full grid place-items-center">
-        <Spinner />
-      </div>
-    {:then communityView}
-      {#each communityView?.community_view.flair_list ?? [] as flair}
-        {@const selected = form.flairList?.some((i) => i.id == flair.id)}
-        <button
-          class="rounded-full cursor-pointer hover:brightness-100 badge-tag-color"
-          style="--tag-color: {flair.background_color}; --tag-text-color: {flair.text_color};"
-          onclick={() => {
-            if (selected) {
-              const index = form.flairList.findIndex((i) => i.id == flair.id)
-              if (index != -1) form.flairList.splice(index, 1)
-            } else form.flairList.push(flair)
-          }}
-        >
-          <Badge
-            color={selected ? 'gray-subtle' : 'custom'}
-            class="ring-white/20"
-          >
-            {#snippet icon()}
-              <Icon src={selected ? Check : Plus} size="16" micro />
-            {/snippet}
-            {flair.flair_title}
-          </Badge>
-        </button>
-      {/each}
-    {/await}
-  </Material>
-{/snippet}
+<!-- TODO: Re-enable flairs snippet when Coves API supports it -->
 
 {#snippet autofillPostModal()}
   <svelte:boundary>
@@ -445,6 +418,8 @@
           {$t('form.post.setLanguage')}
         </Button>
       {/if}
+      <!-- TODO: Re-enable flair button when Coves API supports community flairs -->
+      <!--
       {#await extendedCommunity then communityView}
         {#if (communityView?.community_view.flair_list?.length || 0) > 0}
           <Button
@@ -458,6 +433,7 @@
           </Button>
         {/if}
       {/await}
+      -->
     </ButtonGroup>
   </div>
 

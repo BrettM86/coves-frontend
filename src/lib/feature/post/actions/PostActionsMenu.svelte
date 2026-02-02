@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { PiefedClient } from '$lib/api/piefed/adapter'
   import type { PostView } from '$lib/api/types'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
@@ -43,7 +42,7 @@
   }
 </script>
 
-{#if profile.current?.user && profile.current?.jwt && profile.current.user.local_user_view.person.id == post.creator.id}
+{#if profile.current?.jwt && profile.current?.did && profile.current.did === post.creator.actor_id}
   <MenuButton onclick={() => (editing = true)} icon={PencilSquare}>
     {$t('post.actions.more.edit')}
   </MenuButton>
@@ -68,7 +67,7 @@
   >
     {$t('post.actions.more.crosspost')}
   </MenuButton>
-  {#if profile.current.user && post.creator.id == profile.current.user.local_user_view.person.id}
+  {#if profile.current?.did && profile.current.did === post.creator.actor_id}
     <MenuButton
       onclick={async () => {
         if (profile.current?.jwt)
@@ -82,29 +81,25 @@
         : $t('post.actions.more.delete')}
     </MenuButton>
   {/if}
-  {#if profile.current.user?.local_user_view.person.id != post.creator.id}
-    {#if !(profile.client instanceof PiefedClient)}
-      <MenuButton
-        onclick={async () => {
-          if (!profile.current?.jwt) return
-          const hidden = await hidePost(
-            post.post.id,
-            !post.hidden,
-            profile.current?.jwt,
-          )
-          post.hidden = hidden
-          if (hidden) onhide?.(hidden)
-        }}
-        color="danger-subtle"
-        icon={XMark}
-      >
-        {post.hidden
-          ? $t('post.actions.more.unhide')
-          : $t('post.actions.more.hide')}
-      </MenuButton>
-    {/if}
-    <MenuButton onclick={() => report(post)} color="danger-subtle" icon={Flag}>
-      {$t('moderation.report')}
-    </MenuButton>
-  {/if}
+  <MenuButton
+    onclick={async () => {
+      if (!profile.current?.jwt) return
+      const hidden = await hidePost(
+        post.post.id,
+        !post.hidden,
+        profile.current?.jwt,
+      )
+      post.hidden = hidden
+      if (hidden) onhide?.(hidden)
+    }}
+    color="danger-subtle"
+    icon={XMark}
+  >
+    {post.hidden
+      ? $t('post.actions.more.unhide')
+      : $t('post.actions.more.hide')}
+  </MenuButton>
+  <MenuButton onclick={() => report(post)} color="danger-subtle" icon={Flag}>
+    {$t('moderation.report')}
+  </MenuButton>
 {/if}

@@ -1,8 +1,8 @@
 import { client } from '$lib/api/client.svelte'
-import type { Community, MyUserInfo } from '$lib/api/types'
-import { profile, type ProfileInfo } from '$lib/app/auth.svelte'
+import type { MyUserInfo } from '$lib/api/types'
 
-// TODO obliterate this file
+// TODO(coves-migration): This file contains legacy Lemmy code that needs to be rewritten for Coves API
+
 export async function blockUser(block: boolean, id: number) {
   return await client().blockPerson({
     block: block,
@@ -14,24 +14,35 @@ export function isBlocked(me: MyUserInfo, user: number) {
   return me.person_blocks.find((b) => b.target.id == user)
 }
 
-export function addSubscription(
-  community: Community,
-  subscribe: boolean = true,
-) {
-  const index = profile.current.user?.follows
-    .map((f) => f.community.id)
-    .indexOf(community.id)
+let _warnedAddSubscription = false
 
-  if (subscribe && index == -1) {
-    profile.current.user?.follows.push({
-      follower: profile.current.user.follows[0]?.follower,
-      community: community,
-    })
-  } else {
-    profile.current.user?.follows.splice(index ?? 0, 1)
+/**
+ * @deprecated Legacy Lemmy code - needs Coves API replacement
+ * This is a no-op stub to maintain compilation
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function addSubscription(_community: unknown, _subscribe = true): void {
+  if (!_warnedAddSubscription) {
+    console.warn('addSubscription() is a stub - TODO(coves-migration): implement Coves subscription management')
+    _warnedAddSubscription = true
   }
 }
 
-export function hasFavorite(profile: ProfileInfo, id: number): boolean {
-  return profile.favorites?.map((i) => i.id).includes(id) ?? false
+let _warnedHasFavorite = false
+
+/**
+ * @deprecated Legacy Lemmy code - needs Coves API replacement
+ * Always returns false as favorites are not yet implemented
+ */
+export function hasFavorite(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _profile: unknown,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _id: number,
+): boolean {
+  if (!_warnedHasFavorite) {
+    console.warn('hasFavorite() is a stub - TODO(coves-migration): implement Coves favorites')
+    _warnedHasFavorite = true
+  }
+  return false
 }

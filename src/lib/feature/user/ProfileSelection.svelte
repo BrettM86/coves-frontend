@@ -1,7 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
-  import { DEFAULT_CLIENT_TYPE } from '$lib/api/base'
   import { profile, type ProfileInfo } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { LINKED_INSTANCE_URL } from '$lib/app/instance.svelte'
@@ -44,18 +43,15 @@
       {#snippet prefix()}
         <Avatar
           url={profile.current.avatar}
-          alt={profile.current.username}
+          alt={profile.current.handle}
           width={24}
         />
       {/snippet}
       <div class="flex-1">
-        <div class="font-medium">{profile.current.username}</div>
+        <div class="font-medium">{profile.current.handle ?? 'Guest'}</div>
         {#if !LINKED_INSTANCE_URL}
           <div class="text-xs text-slate-500 dark:text-zinc-500">
-            <span class="capitalize">
-              {profile.current.client?.name ?? DEFAULT_CLIENT_TYPE.name}
-            </span>
-            • {profile.current.instance}
+            {profile.current.instance}
           </div>
         {/if}
       </div>
@@ -78,16 +74,13 @@
       class={[selected && 'bg-slate-100! dark:bg-zinc-800!', 'gap-2!']}
     >
       {#snippet prefix()}
-        <Avatar url={p.avatar} alt={p.username} width={24} />
+        <Avatar url={p.avatar} alt={p.handle} width={24} />
       {/snippet}
       <div>
-        <div class="font-medium text-sm">{p.username}</div>
+        <div class="font-medium text-sm">{p.handle ?? 'Guest'}</div>
         {#if !LINKED_INSTANCE_URL}
           <div class="text-xs text-slate-500 dark:text-zinc-500">
-            <span class="capitalize">
-              {p.client?.name ?? DEFAULT_CLIENT_TYPE.name}
-            </span>
-            • {p.instance}
+            {p.instance}
           </div>
         {/if}
       </div>

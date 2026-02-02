@@ -30,10 +30,14 @@
     }
   }
 
+  // TODO(coves-migration): Use DID comparison when Coves API provides current user DID
   function getOtherPartyId(message: PrivateMessageView): number {
-    return message.creator.id == profile.current.user?.local_user_view.person.id
-      ? message.recipient.id
-      : message.creator.id
+    const currentUserId = profile.current?.id
+    // Return the party that is NOT the current user
+    if (message.creator.id === currentUserId) {
+      return message.recipient.id
+    }
+    return message.creator.id
   }
 
   function filterDuplicates<T, K>(array: T[], predicate: (item: T) => K): T[] {
@@ -56,19 +60,23 @@
       getOtherPartyId(i),
     )
 
+    const currentUserId = profile.current?.id
+
+    // TODO(coves-migration): Use DID comparison when Coves API provides current user DID
     return deduplicated
       .filter((c) => c.creator.id != c.recipient.id) // you messaged yourself
-      .map((i) => ({
-        user:
-          i.creator.id != profile.current.user?.local_user_view.person.id
-            ? i.creator
-            : i.recipient,
-        message: {
-          date: publishedToDate(i.private_message.published),
-          last_sender: i.creator.id,
-          content: i.private_message.content,
-        },
-      }))
+      .map((i) => {
+        // Get the other party (the person we're chatting with, not ourselves)
+        const otherParty = i.creator.id === currentUserId ? i.recipient : i.creator
+        return {
+          user: otherParty,
+          message: {
+            date: publishedToDate(i.private_message.published),
+            last_sender: i.creator.id,
+            content: i.private_message.content,
+          },
+        }
+      })
   }
 
   let searchModal = $state<{ open: boolean; user?: number }>({
@@ -104,8 +112,7 @@
 </Header>
 {#await data.messages}
   <div class="w-full h-full flex flex-col gap-2">
-    {#each new Array(5) as _, index}
-      {_}
+    {#each Array.from({ length: 5 }, (_, i) => i) as index (index)}
       <div
         in:fly|global={{
           duration: 1000,
@@ -146,9 +153,6 @@
             bg-linear-to-r from-slate-700 via-slate-700 to-slate-700/0 dark:from-zinc-300 dark:via-zinc-300 dark:to-zinc-300/0
             text-transparent bg-clip-text flex-1 overflow-hidden"
             >
-              {#if preview.message.last_sender == profile.current.user?.local_user_view.person.id}
-                {profile.current.user?.local_user_view.person.name}:
-              {/if}
               {preview.message.content}
             </div>
             <RelativeDate

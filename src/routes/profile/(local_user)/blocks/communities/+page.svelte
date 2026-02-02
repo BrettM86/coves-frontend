@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { profile } from '$lib/app/auth.svelte'
+  import { client } from '$lib/api/client.svelte'
   import { t } from '$lib/app/i18n'
   import { communityLink } from '$lib/app/util.svelte.js'
   import ItemList from '$lib/ui/generic/ItemList.svelte'
@@ -16,7 +16,7 @@
       1,
     )
 
-    await profile.client.blockCommunity({
+    await client().blockCommunity({
       block: false,
       community_id: id,
     })

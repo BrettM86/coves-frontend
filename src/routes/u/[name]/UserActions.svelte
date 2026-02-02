@@ -4,7 +4,7 @@
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { ban } from '$lib/feature/moderation/moderation'
-  import { blockUser, isBlocked } from '$lib/feature/user'
+  import { blockUser } from '$lib/feature/user'
   import UserNote from '$lib/feature/user/UserNote.svelte'
   import {
     Button,
@@ -27,10 +27,19 @@
     Tag,
   } from 'svelte-hero-icons/dist'
 
-  let { person }: { person: PersonView } = $props()
+  interface Props {
+    person: PersonView
+    blocked?: boolean
+  }
+
+  let { person, blocked = false }: Props = $props()
 
   let purgingUser = $state(false)
   let setNote = $state(false)
+  let isBlocked = $state<boolean | undefined>(undefined)
+
+  // Sync isBlocked with the blocked prop, but allow local overrides after user action
+  let effectiveBlocked = $derived(isBlocked ?? blocked)
 
   async function purgeUser() {
     purgingUser = false
@@ -91,7 +100,8 @@
   </Modal>
 {/if}
 
-{#if profile.current?.user && profile.current.jwt && person.person.id != profile.current.user.local_user_view.person.id}
+<!-- TODO: Check if viewing own profile using DID when Coves API provides it -->
+{#if profile.current?.jwt}
   <div class="flex items-center gap-2 w-full flex-wrap">
     <Button
       size="lg"
@@ -163,32 +173,21 @@
       <MenuButton
         color="danger-subtle"
         onclick={async () => {
-          const res = await blockUser(
-            !isBlocked(profile.current.user!, person.person.id),
-            person.person.id,
-          )
-
-          if (res.blocked) {
-            // TODO technically invalid but i don't use it so idc
-            profile.current.user!.person_blocks.push({
-              person: person.person,
-              target: person.person,
-            })
-          } else {
-            const index = profile.current.user!.person_blocks.findIndex(
-              (i) => i.target.id == person.person.id,
-            )
-            if (index != -1)
-              profile.current.user!.person_blocks.splice(index, 1)
-          }
+          const newBlockedState = !effectiveBlocked
+          await blockUser(newBlockedState, person.person.id)
+          isBlocked = newBlockedState
+          toast({
+            content: newBlockedState
+              ? $t('toast.blockedUser')
+              : $t('toast.unblockedUser'),
+            type: 'success',
+          })
         }}
       >
         {#snippet prefix()}
           <Icon mini size="16" src={NoSymbol} />
         {/snippet}
-        {isBlocked(profile.current.user, person.person.id)
-          ? 'Unblock'
-          : 'Block'}
+        {effectiveBlocked ? $t('account.unblock') : $t('account.block')}
       </MenuButton>
     </Menu>
   </div>

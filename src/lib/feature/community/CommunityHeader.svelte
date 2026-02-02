@@ -186,9 +186,7 @@
       {/if}
     {/if}
 
-    {#if profile.current?.user && profile.current.user.moderates
-        .map((c) => c.community.id)
-        .includes(community.id)}
+    {#if profile.isMod(community)}
       <Button
         color="secondary"
         size="square-lg"

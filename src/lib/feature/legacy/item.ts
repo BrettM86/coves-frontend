@@ -11,7 +11,6 @@ import type {
   PrivateMessageReportView,
   PrivateMessageView,
 } from '$lib/api/types'
-import { profile } from '$lib/app/auth.svelte'
 import { writable } from 'svelte/store'
 import type { Post } from '../post'
 
@@ -105,13 +104,11 @@ function resumableStore(limit: number = 10) {
 
 export const resumables = resumableStore()
 
-export function addFavorite(item: Community, add: boolean = true) {
-  const favs = profile.current.favorites ?? []
-  if (favs.map((fav) => fav.id).includes(item.id)) if (add) return
-  if (!add) {
-    favs.splice(favs.map((c) => c.id).indexOf(item.id), 1)
-  } else {
-    favs.unshift(item)
-  }
-  profile.current.favorites = favs
+/**
+ * @deprecated Legacy Lemmy code - needs Coves API replacement
+ * This is a no-op stub to maintain compilation
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function addFavorite(_item: Community, _add = true): void {
+  // TODO: Implement Coves favorites management
 }

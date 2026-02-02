@@ -130,11 +130,7 @@
       <PostMeta
         community={data.data.value.post.community}
         user={data.data.value.post.creator}
-        subscribed={profile.current.user?.follows.find(
-          (i) => i.community.id == data.data.value.post.community.id,
-        )
-          ? 'Subscribed'
-          : 'NotSubscribed'}
+        subscribed={data.data.value.post.subscribed}
         badges={{
           deleted: data.data.value.post.post.deleted,
           removed: data.data.value.post.post.removed,

@@ -96,30 +96,8 @@
         type: 'success',
       })
 
-      if (profile.current.user) {
-        const c = profile.current.user.moderates
-          .map((m) => m.community.id)
-          .indexOf(res.community_view.community.id)
-        if (c != -1) {
-          profile.current.user.moderates[c] = {
-            community: res.community_view.community,
-            moderator: profile.current.user.local_user_view.person,
-          }
-        } else {
-          profile.current.user = {
-            ...profile.current.user,
-            moderates: [
-              ...profile.current.user.moderates,
-              {
-                community: res.community_view.community,
-                moderator: profile.current.user.local_user_view.person,
-              },
-            ],
-          }
-        }
-
-        addSubscription(res.community_view.community, true)
-      }
+      // TODO: Update local state when Coves API provides user moderates data
+      addSubscription(res.community_view.community, true)
 
       if (!edit)
         goto(

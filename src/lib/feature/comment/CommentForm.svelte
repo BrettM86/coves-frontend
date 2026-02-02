@@ -54,7 +54,6 @@
 
   async function submit() {
     if (
-      !profile.current?.user ||
       !profile.current?.jwt ||
       value == '' ||
       editing

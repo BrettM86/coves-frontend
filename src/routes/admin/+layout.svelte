@@ -1,22 +1,11 @@
 <script>
-  import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { Tabs } from '$lib/ui/layout'
-  import { Badge } from 'mono-svelte'
 
   let { children } = $props()
 </script>
 
-<svelte:boundary>
-  {@const notifications = profile.inbox.notifications}
-  {#if notifications.applications > 0}
-    <span class="flex flex-row text-red-500 gap-2">
-      <Badge color="red-subtle" class="w-max">
-        {notifications.applications > 99 ? '∞' : notifications.applications}
-      </Badge> unread applications
-    </span>
-  {/if}
-</svelte:boundary>
+<!-- TODO: Re-enable application notification badge when Coves API provides it -->
 
 <Tabs
   routes={[

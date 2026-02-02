@@ -51,41 +51,22 @@
     <Spinner />
   {/if}
 {/snippet}
-{#snippet notifBadge(number: number)}
-  {#if number > 0}
-    <Badge
-      color="red-subtle"
-      class="min-w-5 h-5 p-0! px-0.5 grid place-items-center ml-auto"
-    >
-      {number > 99 ? '∞' : number}
-    </Badge>
-  {/if}
-{/snippet}
+
+<!-- TODO: Re-enable notification badge when Coves API provides notifications -->
 
 {#if profile.current?.jwt}
-  {@const notifications = profile.inbox.notifications}
+  <!-- TODO: Re-enable inbox notifications when Coves API provides them -->
   <MenuButton href="/inbox" icon={Inbox}>
     {$t('profile.inbox')}
-    {#if notifications.inbox > 0}
-      <Badge color="red-subtle" class="text-xs ml-auto font-bold py-0.5!">
-        {notifications.inbox > 99 ? '∞' : notifications.inbox}
-      </Badge>
-    {/if}
   </MenuButton>
   {#if profile.isMod()}
     <MenuButton href="/moderation" icon={ShieldCheck}>
       {$t('routes.moderation.feed')}
-      {#snippet suffix()}
-        {@render notifBadge(notifications.reports)}
-      {/snippet}
     </MenuButton>
   {/if}
   {#if profile.isAdmin}
     <MenuButton href="/admin/applications" icon={ServerStack}>
       {$t('routes.admin.applications.title')}
-      {#snippet suffix()}
-        {@render notifBadge(notifications.applications)}
-      {/snippet}
     </MenuButton>
   {/if}
   <MenuDivider>{$t('profile.profile')}</MenuDivider>

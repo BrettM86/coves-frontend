@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { PrivateMessageView } from '$lib/api/types'
-  import { profile } from '$lib/app/auth.svelte'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import UserLink from '../user/UserLink.svelte'
 
@@ -23,15 +22,14 @@
         avatar
         avatarSize={20}
       />
-      {#if profile.current?.user?.local_user_view.person.id != message.recipient.id}
-        to
-        <UserLink
-          showInstance={false}
-          user={message.recipient}
-          avatar
-          avatarSize={20}
-        />
-      {/if}
+      <!-- TODO: Show recipient when we can compare with current user DID -->
+      to
+      <UserLink
+        showInstance={false}
+        user={message.recipient}
+        avatar
+        avatarSize={20}
+      />
     </div>
   {/if}
   <Markdown

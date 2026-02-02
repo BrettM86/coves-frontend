@@ -1,5 +1,7 @@
 **Project**: Coves Frontend (Kelp) - A fork of Photon, building the web frontend for Coves, a forum-like atproto social media platform.
 
+> **Note**: This is a **Coves-only frontend** (forked from Photon for UI/data models). There is no need to maintain Lemmy/PiFed compatibility - we are migrating entirely to Coves/ATProto.
+
 **Related Projects**:
 - Backend: `/home/bretton/Code/Coves`
 - Mobile: `/home/bretton/Code/coves-mobile`

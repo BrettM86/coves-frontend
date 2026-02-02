@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { profile } from '$lib/app/auth.svelte'
+  import { client } from '$lib/api/client.svelte'
   import { t } from '$lib/app/i18n'
   import ItemList from '$lib/ui/generic/ItemList.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
@@ -15,7 +15,7 @@
       1,
     )
 
-    await profile.client.blockInstance({
+    await client().blockInstance({
       block: false,
       instance_id: id,
     })

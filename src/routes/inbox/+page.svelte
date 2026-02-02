@@ -17,7 +17,7 @@
   let markingAsRead = $state(false)
 
   async function markAllAsRead() {
-    if (!profile.current?.user) {
+    if (!profile.current?.jwt) {
       goto('/login')
       return
     }
@@ -26,7 +26,7 @@
 
     const response = await getClient().markAllAsRead()
 
-    profile.inbox.notifications.inbox = 0
+    // TODO: Re-enable inbox notification tracking when Coves API provides it
 
     goto(page.url, {
       invalidateAll: true,

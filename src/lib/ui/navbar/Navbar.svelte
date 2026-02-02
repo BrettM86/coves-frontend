@@ -120,7 +120,7 @@
         ]}
         title={$t('profile.profile')}
       >
-        {#if profile.current?.user}
+        {#if profile.current?.jwt}
           <div
             class={[
               'h-full aspect-square object-cover rounded-full grid place-items-center',
@@ -128,9 +128,9 @@
             ]}
           >
             <Avatar
-              url={profile.current.user.local_user_view.person.avatar}
+              url={profile.current.avatar}
               width={36}
-              alt={profile.current.user.local_user_view.person.name}
+              alt={profile.current.handle}
               class="group-hover:scale-90 transition-transform group-active:scale-85"
             />
           </div>
@@ -138,11 +138,6 @@
           <div class="w-full h-full grid place-items-center">
             <Icon src={Bars3} micro size="18" />
           </div>
-        {/if}
-        {#if Math.max(...Object.values(profile.inbox.notifications)) > 0}
-          <div
-            class="w-2 h-2 absolute top-0.5 right-0.5 bg-red-500 rounded-full"
-          ></div>
         {/if}
       </button>
     {/snippet}

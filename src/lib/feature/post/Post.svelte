@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { PostView } from '$lib/api/types'
-  import { profile } from '$lib/app/auth.svelte'
   import { type View, settings } from '$lib/app/settings.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import type { ClassValue } from 'svelte/elements'
@@ -109,11 +108,7 @@
     user={post.creator}
     published={publishedToDate(post.post.published)}
     {badges}
-    subscribed={profile.current?.user?.follows
-      .map((c) => c.community.id)
-      .includes(post.community.id)
-      ? 'Subscribed'
-      : 'NotSubscribed'}
+    subscribed={post.subscribed}
     id={post.post.id}
     title={hideTitle ? undefined : tags?.title ? tags.title : post.post.name}
     read={post.read}

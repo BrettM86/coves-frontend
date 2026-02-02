@@ -1,16 +1,12 @@
 <script lang="ts">
   import { browser } from '$app/environment'
   import { navigating, page } from '$app/state'
-  import { site } from '$lib/api/client.svelte'
-  import { profile } from '$lib/app/auth.svelte'
-  import { t } from '$lib/app/i18n'
   import { setSessionStorage } from '$lib/app/session'
   import CommunityHeader from '$lib/feature/community/CommunityHeader.svelte'
   import { resumables } from '$lib/feature/legacy/item'
   import { PostListShell } from '$lib/ui/layout'
-  import { Badge, Button, Note } from 'mono-svelte'
+  import { Note } from 'mono-svelte'
   import { onDestroy, onMount } from 'svelte'
-  import { ArrowRight, Icon, Plus } from 'svelte-hero-icons/dist'
 
   let { data } = $props()
 
@@ -73,40 +69,6 @@
     {#if data.community.community_view.blocked}
       <Note>You've blocked this community.</Note>
     {/if}
-    {#if profile.current.user}
-      {#if !data.community.discussion_languages.every( (l) => profile.current.user?.discussion_languages.includes(l), ) && profile.current.user.discussion_languages.length > 0}
-        {@const missing = data.community.discussion_languages.filter(
-          (i) => !profile.current.user?.discussion_languages.includes(i),
-        )}
-        <Note class="p-1! pl-3! flex-col md:flex-row">
-          <div>{$t('routes.community.languageWarning')}</div>
-          <Button
-            class="inline-block ml-auto"
-            href="/profile/settings"
-            color="tertiary"
-            rounding="pill"
-            size="md"
-          >
-            {$t('profile.profile')}
-            {#snippet suffix()}
-              <Icon src={ArrowRight} size="16" micro />
-            {/snippet}
-          </Button>
-        </Note>
-        <div class="flex flex-row gap-4 flex-wrap -mt-2">
-          {#if site.data?.all_languages}
-            {@const allLanguages = site.data.all_languages}
-            {#each missing as language (language)}
-              <a href="/profile/settings#languages" class="inline-block w-max">
-                <Badge color="blue-subtle">
-                  <Icon src={Plus} size="16" micro />
-                  {allLanguages.find((i) => language == i.id)?.name}
-                </Badge>
-              </a>
-            {/each}
-          {/if}
-        </div>
-      {/if}
-    {/if}
+    <!-- TODO: Re-enable language warning when Coves API provides user language preferences -->
   {/snippet}
 </PostListShell>

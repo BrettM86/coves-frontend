@@ -58,7 +58,7 @@
   >
     {$t('comment.reply')}
   </Button>
-  {#if profile.current?.user && (profile.isMod(comment.community) || profile.isAdmin)}
+  {#if profile.current?.jwt && (profile.isMod(comment.community) || profile.isAdmin)}
     <CommentModerationMenu bind:item={comment}>
       {#snippet target(attachment)}
         <Button
@@ -98,7 +98,7 @@
       {$t('post.actions.more.share')}
     </MenuButton>
     {#if profile.current?.jwt}
-      {#if comment.creator.id == profile.current.user?.local_user_view.person.id}
+      {#if profile.current?.did && profile.current.did === comment.creator.actor_id}
         <MenuButton onclick={() => onedit?.(comment)} icon={PencilSquare}>
           {$t('post.actions.more.edit')}
         </MenuButton>
@@ -112,7 +112,7 @@
       >
         {comment.saved ? $t('post.actions.unsave') : $t('post.actions.save')}
       </MenuButton>
-      {#if profile.current?.user && profile.current.jwt && profile.current.user.local_user_view.person.id == comment.creator.id}
+      {#if profile.current?.did && profile.current.did === comment.creator.actor_id}
         <MenuButton
           color="danger-subtle"
           onclick={async () => {
@@ -129,15 +129,13 @@
             : $t('post.actions.more.delete')}
         </MenuButton>
       {/if}
-      {#if profile.current.jwt && profile.current.user?.local_user_view.person.id != comment.creator.id}
-        <MenuButton
-          onclick={() => report(comment)}
-          color="danger-subtle"
-          icon={Flag}
-        >
-          {$t('moderation.report')}
-        </MenuButton>
-      {/if}
+      <MenuButton
+        onclick={() => report(comment)}
+        color="danger-subtle"
+        icon={Flag}
+      >
+        {$t('moderation.report')}
+      </MenuButton>
     {/if}
   </Menu>
   <div class="flex-1 w-full"></div>

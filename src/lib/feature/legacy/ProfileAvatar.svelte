@@ -18,7 +18,7 @@
   >
     <Avatar
       url={profile.avatar}
-      alt={profile.username}
+      alt={profile.handle}
       width={size}
       class={[
         'shrink-0 rounded-full',

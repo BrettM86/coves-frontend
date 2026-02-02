@@ -1,7 +1,5 @@
 <script lang="ts">
   import { page } from '$app/state'
-  import { PiefedClient } from '$lib/api/piefed/adapter'
-  import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { searchParam } from '$lib/app/util.svelte'
   import { Option, Select } from 'mono-svelte'
@@ -73,20 +71,19 @@
     <Option value="New" icon={Star}>
       {$t('filter.sort.new')}
     </Option>
-    {#if !(profile.client instanceof PiefedClient)}
-      <Option value="Old" icon={Clock}>
-        {$t('filter.sort.old')}
-      </Option>
-      <Option value="Controversial" icon={ArrowTrendingDown}>
-        {$t('filter.sort.controversial')}
-      </Option>
-      <Option value="MostComments" icon={ChatBubbleOvalLeft}>
-        {$t('filter.sort.mostcomments')}
-      </Option>
-      <Option value="NewComments" icon={ChatBubbleLeftRight}>
-        {$t('filter.sort.newcomments')}
-      </Option>
-    {/if}
+    <!-- TODO: Re-enable these options based on Coves API capabilities -->
+    <Option value="Old" icon={Clock}>
+      {$t('filter.sort.old')}
+    </Option>
+    <Option value="Controversial" icon={ArrowTrendingDown}>
+      {$t('filter.sort.controversial')}
+    </Option>
+    <Option value="MostComments" icon={ChatBubbleOvalLeft}>
+      {$t('filter.sort.mostcomments')}
+    </Option>
+    <Option value="NewComments" icon={ChatBubbleLeftRight}>
+      {$t('filter.sort.newcomments')}
+    </Option>
   </Select>
   {#if selected?.startsWith('Top')}
     <Select

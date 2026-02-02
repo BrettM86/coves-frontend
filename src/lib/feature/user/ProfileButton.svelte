@@ -48,7 +48,7 @@
       ? 'font-semibold'
       : ''}"
   >
-    {prof.username ?? prof.user?.local_user_view.person.name}
+    {prof.handle ?? 'Guest'}
     {#if !guest && !LINKED_INSTANCE_URL}
       <span class="text-slate-500 dark:text-zinc-400 font-normal text-xs">
         {prof.instance}

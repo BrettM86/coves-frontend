@@ -31,6 +31,7 @@ async function customFetch(
   input: RequestInfo | URL,
   init?: RequestInit | undefined,
   auth?: string,
+  _retried = false,
 ): Promise<Response> {
   const f = func ? func : fetch
 
@@ -47,6 +48,20 @@ async function customFetch(
   }
 
   const res = await f(input, init)
+
+  // Handle 401 with token refresh (only retry once)
+  if (res.status === 401 && auth && !_retried && profile.current?.did) {
+    const refreshed = await profile.refreshToken()
+    if (refreshed && profile.current?.jwt) {
+      // Retry with new token
+      return customFetch(func, input, init, profile.current.jwt, true)
+    }
+    // Log if refresh was attempted but failed
+    if (profile.current?.did) {
+      console.warn('Token refresh failed, request will return 401')
+    }
+  }
+
   if (!res.ok) error(res.status, await res.text())
   return res
 }
@@ -69,10 +84,11 @@ export function client({
     instanceURL = profile.current.instance || DEFAULT_INSTANCE_URL
 
   if (!clientType) {
-    clientType = profile.current.client ?? DEFAULT_CLIENT_TYPE
+    // TODO(coves-migration): Replace with Coves client when ready
+    clientType = DEFAULT_CLIENT_TYPE
   }
 
-  // we use nullish coealsiaihsa something so that
+  // we use nullish coalescing so that
   // we can set auth = '' to remove it
 
   const jwt = auth ?? profile.current?.jwt
@@ -80,7 +96,8 @@ export function client({
   // but not here, so that if jwt == '', it doesnt put a bearer
   const headers = jwt ? { authorization: `Bearer ${jwt}` } : {}
 
-  return new (clientType.name == 'piefed' ? PiefedClient : LemmyClient)(
+  // TODO(coves-migration): Replace with CovesClient when implemented
+  return new (clientType?.name == 'piefed' ? PiefedClient : LemmyClient)(
     instanceToURL(instanceURL),
     {
       fetchFunction: (input, init) => customFetch(func, input, init, jwt),

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { DEFAULT_CLIENT_TYPE } from '$lib/api/base'
   import { type ProfileInfo, profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import {
@@ -70,7 +69,7 @@
       <ProfileAvatar profile={removing.account} selected={true} />
 
       <div class="flex flex-col">
-        <span class="font-bold">{removing.account.username}</span>
+        <span class="font-bold">{removing.account.handle ?? 'Guest'}</span>
         <span class="text-sm text-slate-600 dark:text-zinc-400">
           {removing.account.instance}
         </span>
@@ -165,7 +164,7 @@
               />
               <div class="flex flex-col overflow-hidden">
                 <span class="break-words font-medium text-base">
-                  {p.username}
+                  {p.handle ?? 'Guest'}
                   {#if !p.jwt}
                     <Badge class="inline-grid w-6 h-6 p-0! place-items-center">
                       <Icon src={QuestionMarkCircle} size="16" micro />
@@ -174,10 +173,7 @@
                 </span>
                 {#if !LINKED_INSTANCE_URL}
                   <span class="text-xs text-slate-600 dark:text-zinc-400">
-                    <span class="capitalize">
-                      {p.client?.name ?? DEFAULT_CLIENT_TYPE.name}
-                    </span>
-                    • {p.instance}
+                    {p.instance}
                   </span>
                 {/if}
               </div>
@@ -224,7 +220,7 @@
                     {$t('common.debug')}
                   </MenuButton>
                 {/if}
-                {#if !LINKED_INSTANCE_URL || p.user}
+                {#if !LINKED_INSTANCE_URL || p.jwt}
                   <MenuButton
                     onclick={() => {
                       removing.account = p

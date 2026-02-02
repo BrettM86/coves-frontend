@@ -24,7 +24,6 @@
     toast,
   } from 'mono-svelte'
   import {
-    BuildingOffice2,
     Check,
     Cog6Tooth,
     EllipsisHorizontal,
@@ -188,9 +187,7 @@
       {$t('form.post.community')}
     </EndPlaceholder>
     {#if profile.current?.jwt}
-      {@const subscribed = profile.current.user?.follows.some(
-        (i) => i.community.id == community_view.community.id,
-      )}
+      {@const subscribed = community_view.subscribed == 'Subscribed' || community_view.subscribed == 'Pending'}
       <Button
         disabled={loading.subscribing}
         loading={loading.subscribing}
@@ -199,7 +196,7 @@
         onclick={() => subscribe(community_view)}
         class="px-4 relative z-[inherit]"
         alignment="left"
-        icon={community_view.subscribed == 'Subscribed' ? Check : Plus}
+        icon={subscribed ? Check : Plus}
       >
         {subscribed
           ? $t('cards.community.subscribed')
@@ -256,16 +253,17 @@
             ? $t('cards.community.unblock')
             : $t('cards.community.block')}
         </MenuButton>
-        {#if profile.current?.user}
-          <MenuButton
-            color="danger-subtle"
-            size="lg"
-            onclick={() => blockInstance(community_view.community.instance_id)}
-            icon={BuildingOffice2}
-          >
-            {$t('cards.community.blockInstance')}
-          </MenuButton>
-        {/if}
+        <!-- TODO: Re-enable when Coves API supports instance blocking -->
+        <!--
+        <MenuButton
+          color="danger-subtle"
+          size="lg"
+          onclick={() => blockInstance(community_view.community.instance_id)}
+          icon={BuildingOffice2}
+        >
+          {$t('cards.community.blockInstance')}
+        </MenuButton>
+        -->
         {#if profile.isAdmin}
           <MenuButton
             color="danger-subtle"

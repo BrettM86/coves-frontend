@@ -8,10 +8,9 @@ export const ssr = false
 export async function load({ fetch }) {
   if (!profile.current.jwt) error(401)
 
-  const my_user =
-    profile.current?.user ??
-    (await client({ auth: profile.current?.jwt, func: fetch }).getSite())
-      .my_user
+  // TODO: Fetch user data from Coves API using DID
+  const siteData = await client({ auth: profile.current?.jwt, func: fetch }).getSite()
+  const my_user = siteData.my_user
 
   return {
     my_user: my_user,

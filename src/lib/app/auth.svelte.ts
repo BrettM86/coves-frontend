@@ -1,12 +1,6 @@
 import { browser } from '$app/environment'
-import { env } from '$env/dynamic/public'
-import { DEFAULT_CLIENT_TYPE, type ClientType } from '$lib/api/base'
-import { client, site } from '$lib/api/client.svelte'
-import type { Community, GetSiteResponse, MyUserInfo } from '$lib/api/types'
-import { publishedToDate } from '$lib/ui/util/date'
 import { toast } from 'mono-svelte'
 import { errorMessage } from './error'
-import { t } from './i18n'
 import { DEFAULT_INSTANCE_URL } from './instance.svelte'
 import { instanceToURL, moveItem } from './util.svelte'
 
@@ -15,28 +9,32 @@ function getFromStorage<T>(key: string): T | undefined {
   const lc = localStorage.getItem(key)
   if (!lc) return undefined
 
-  return JSON.parse(lc)
+  try {
+    return JSON.parse(lc)
+  } catch (err) {
+    console.warn(`Failed to parse localStorage key "${key}":`, err)
+    localStorage.removeItem(key) // Clear corrupted data
+    return undefined
+  }
 }
 
-function setFromStorage(key: string, item: any, stringify: boolean = true) {
+function setFromStorage(key: string, item: unknown, stringify: boolean = true) {
   if (!browser) return
-  return localStorage.setItem(key, stringify ? JSON.stringify(item) : item)
+  return localStorage.setItem(key, stringify ? JSON.stringify(item) : String(item))
 }
 
 export interface ProfileInfo {
   id: number
   instance: string
-  jwt?: string
-  user?: MyUserInfo
-  username?: string
+  jwt?: string        // Sealed token (for API requests)
+  did?: string        // ATProto DID (e.g., did:plc:xxx)
+  sessionId?: string  // For token refresh
+  handle?: string     // User's ATProto handle
   avatar?: string
-  favorites?: Community[]
-  color?: string
-  client: ClientType
 }
 
 /**
- * What gets stored in localstorage.
+ * What gets stored in localStorage.
  */
 interface ProfileData {
   profiles: ProfileInfo[]
@@ -44,211 +42,162 @@ interface ProfileData {
   profile: number
 }
 
-interface Notifications {
-  inbox: number
-  reports: number
-  applications: number
+interface OAuthProfileData {
+  instance: string
+  token: string       // sealed token
+  did: string
+  sessionId: string
+  handle: string
+  avatar?: string
 }
 
-const getCookie = (key: string): string | undefined => {
-  if (!browser) return undefined
-
-  return document?.cookie
-    ?.split(';')
-    .map((c) => c.trim())
-    .find((c) => c.split('=')?.[0] == key)
-    ?.split('=')?.[1]
+interface RefreshTokenResponse {
+  sealed_token: string
+  access_token: string
 }
 
 class Profile {
-  private static readonly DONATION_CHECK_TIMEOUT = 3 * 1000
-  private static readonly DONATION_REMINDER_INTERVAL = 375 * 24 * 60 * 60 * 1000
-
   meta = $state<ProfileData>(
     getFromStorage<ProfileData>('profileData') ?? {
       profiles: [
         {
           id: 1,
           instance: DEFAULT_INSTANCE_URL,
-          username: 'Guest',
-          color: '#505050',
-          client: DEFAULT_CLIENT_TYPE,
+          handle: 'Guest',
         },
       ],
       profile: 1,
     },
   )
+
   #current = $derived(
     this.meta.profiles.find((i) => i.id == this.meta.profile) ??
       this.getDefaultProfile(),
   )
-  client = $derived(
-    client({
-      auth: this.#current.jwt,
-      clientType: this.#current.client,
-      instanceURL: this.#current.instance,
-    }),
-  )
-  inbox: InboxService = $state(new InboxService(this))
 
   getDefaultProfile(): ProfileInfo {
     return {
       id: -1,
       instance: DEFAULT_INSTANCE_URL,
-      client: DEFAULT_CLIENT_TYPE,
     }
-  }
-
-  constructor() {
-    this.initCookieMigrate()
-    this.donationPoll(Profile.DONATION_CHECK_TIMEOUT)
   }
 
   get current() {
     return this.#current
   }
+
   set current(value) {
     if (!value) return
     const index = this.meta.profiles.findLastIndex((i) => i.id === value.id)
     if (index != -1) this.meta.profiles[index] = value
   }
 
-  private async initCookieMigrate() {
-    if (
-      !(
-        env.PUBLIC_MIGRATE_COOKIE &&
-        this.meta.profiles.length == 0 &&
-        env.PUBLIC_INSTANCE_URL
-      )
-    )
-      return
-
-    const jwt = getCookie('jwt')
-    if (!jwt) return
-    const result = await this.add(
-      jwt,
-      env.PUBLIC_INSTANCE_URL ?? '',
-      DEFAULT_CLIENT_TYPE,
-    )
-
-    if (result)
-      toast({
-        content:
-          'Your instance migrated frontends, and your account was transferred.',
-        type: 'success',
-      })
-  }
-
-  private donationPoll(delay: number) {
-    return setTimeout(() => {
-      if (
-        profile.current.user?.local_user_view.local_user
-          .last_donation_notification
-      ) {
-        const donationDate = publishedToDate(
-          profile.current.user?.local_user_view.local_user
-            .last_donation_notification,
-        )
-        if (
-          Date.now() - donationDate.getTime() >
-          Profile.DONATION_REMINDER_INTERVAL
-        ) {
-          toast({
-            content: t.get('toast.lemmyDonate'),
-            duration: 3600 * 1000,
-            long: true,
-          })
-
-          // lemmy js client donation dialog is broken
-          fetch(
-            `${instanceToURL(profile.current.instance)}/api/v3/user/donation_dialog_shown`,
-            {
-              method: 'POST',
-              headers: {
-                authorization: `Bearer ${profile.current.jwt}`,
-              },
-            },
-          )
-        }
-      }
-    }, delay)
-  }
-
-  async fetchUserData() {
-    const startId = this.#current.id
-    if (this.#current.jwt) {
-      site.data = undefined
-
-      const res = await userFromJwt(
-        this.#current.jwt,
-        this.#current.instance,
-        this.#current.client,
-      )
-      if (!res?.user)
-        toast({
-          content:
-            "Your account's instance did not return your user data. Your login may have expired.",
-          type: 'error',
-        })
-
-      // TODO update authentication handling to not be this dynamic
-      if (this.#current.id != startId) {
-        console.error('profile was switched too fast, ID mismatch')
-        return
-      }
-
-      site.data = res?.site
-      this.#current.user = res?.user
-      if (profile.current.user) {
-        this.#current.avatar = res?.user?.local_user_view.person.avatar
-        this.#current.username = res?.user?.local_user_view.person.name
-      }
-      this.inbox.init()
-    } else {
-      if (browser) {
-        site.data = undefined
-        client({ instanceURL: this.#current.instance })
-          .getSite()
-          .then((res) => (site.data = res))
-      }
-    }
-
-    return this
-  }
-
-  async add(jwt: string, instance: string, type: ClientType) {
+  /**
+   * Add a new profile from OAuth authentication data.
+   */
+  async addOAuthProfile(data: OAuthProfileData): Promise<boolean> {
     try {
-      const user = await userFromJwt(jwt, instance, type)
-      if (!user?.user) {
-        throw new Error('No user data received')
-      }
-
       const id = Math.max(...this.meta.profiles.map((p) => p.id), 0) + 1
+
       this.meta.profiles.unshift({
         id,
-        instance,
-        jwt,
-        username: user.user.local_user_view.person.name,
-        avatar: user.user.local_user_view.person.avatar,
-        client: type,
+        instance: data.instance,
+        jwt: data.token,
+        did: data.did,
+        sessionId: data.sessionId,
+        handle: data.handle,
+        avatar: data.avatar,
       })
+
       this.meta.profile = id
-      return user
+      return true
     } catch (err) {
       toast({
         content: errorMessage(err as string),
         type: 'error',
       })
-      return null
+      return false
     }
   }
 
-  remove(id: number) {
+  /**
+   * Remove a profile and attempt to logout from the backend.
+   */
+  async remove(id: number): Promise<void> {
+    const profileToRemove = this.meta.profiles.find((p) => p.id === id)
+
+    // Best-effort logout - don't block on failure
+    if (profileToRemove?.jwt && profileToRemove?.did && profileToRemove?.sessionId) {
+      fetch(`${instanceToURL(profileToRemove.instance)}/oauth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          did: profileToRemove.did,
+          session_id: profileToRemove.sessionId,
+          sealed_token: profileToRemove.jwt,
+        }),
+      }).catch((err) => {
+        console.warn('OAuth logout failed (session may remain active on server):', err)
+      })
+    }
+
     this.meta.profiles.splice(
       this.meta.profiles.findIndex((p) => p.id == id),
       1,
     )
+
     if (id == this.meta.profile) this.meta.profile = -1
+  }
+
+  /**
+   * Refresh the current profile's sealed token by calling the OAuth refresh endpoint.
+   * Called automatically on 401 responses, or can be called manually.
+   * @returns `true` if the token was successfully refreshed, `false` otherwise
+   */
+  async refreshToken(): Promise<boolean> {
+    const current = this.current
+    if (!current?.jwt || !current?.did || !current?.sessionId) {
+      return false
+    }
+
+    try {
+      const response = await fetch(
+        `${instanceToURL(current.instance)}/oauth/refresh`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            did: current.did,
+            session_id: current.sessionId,
+            sealed_token: current.jwt,
+          }),
+        },
+      )
+
+      if (!response.ok) return false
+
+      const data: RefreshTokenResponse = await response.json()
+      this.updateToken(data.sealed_token)
+      return true
+    } catch (err) {
+      console.warn('Token refresh failed:', err)
+      return false
+    }
+  }
+
+  /**
+   * Update the current profile's JWT/sealed token in-place.
+   * Used after token refresh to persist the new token.
+   * @param token - The new sealed token to store
+   */
+  updateToken(token: string): void {
+    const index = this.meta.profiles.findIndex((p) => p.id === this.meta.profile)
+    if (index !== -1) {
+      this.meta.profiles[index] = {
+        ...this.meta.profiles[index],
+        jwt: token,
+      }
+    }
   }
 
   move(id: number, up: boolean) {
@@ -259,33 +208,57 @@ class Profile {
         index,
         index + (up ? -1 : 1),
       )
-    } catch {
-      /* empty */
+    } catch (err) {
+      console.warn('Failed to move profile:', err)
     }
-  }
-
-  isMod(community?: Community): boolean {
-    if (community)
-      return (
-        (this.#current.user?.moderates.some(
-          (i) => i.community.id == community.id,
-        ) ||
-          (community.local && this.isAdmin)) ??
-        false
-      )
-    else return (this.#current.user?.moderates.length ?? 0) > 0
-  }
-
-  get isAdmin(): boolean {
-    return (
-      site.data?.admins.some(
-        (i) => i.person.id == this.#current.user?.local_user_view.person.id,
-      ) ?? false
-    )
   }
 
   get isDefaultProfile(): boolean {
     return !this.#current.jwt && this.#current.instance == DEFAULT_INSTANCE_URL
+  }
+
+  /**
+   * Check if the current profile is authenticated with valid credentials.
+   * @returns `true` if the profile has both a JWT and a DID
+   */
+  get isAuthenticated(): boolean {
+    return !!this.#current.jwt && !!this.#current.did
+  }
+
+  // TODO(coves-migration): Remove these legacy compatibility stubs when migrating to Coves API
+  // These are placeholders to allow the codebase to compile during transition
+
+  #warnedIsMod = false
+  #warnedIsAdmin = false
+
+  /**
+   * @deprecated Legacy Lemmy compatibility - will be replaced with Coves roles
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  isMod(_community?: unknown): boolean {
+    if (!this.#warnedIsMod) {
+      console.warn('isMod() is a stub - TODO(coves-migration): implement Coves role checks')
+      this.#warnedIsMod = true
+    }
+    return false
+  }
+
+  /**
+   * @deprecated Legacy Lemmy compatibility - will be replaced with Coves roles
+   */
+  get isAdmin(): boolean {
+    if (!this.#warnedIsAdmin) {
+      console.warn('isAdmin is a stub - TODO(coves-migration): implement Coves role checks')
+      this.#warnedIsAdmin = true
+    }
+    return false
+  }
+
+  /**
+   * @deprecated Legacy Lemmy compatibility - no longer used in Coves
+   */
+  get client(): null {
+    return null
   }
 
   mainEffect = $effect.root(() => {
@@ -293,7 +266,7 @@ class Profile {
     $effect(() => {
       const serialized = {
         ...this.meta,
-        profiles: this.meta.profiles.map((p) => serializeUser(p)),
+        profiles: this.meta.profiles.map((p) => serializeProfile(p)),
       }
 
       setFromStorage('profileData', serialized)
@@ -304,142 +277,20 @@ class Profile {
         this.meta.profile = 1
       }
     })
-
-    $effect(() => {
-      this.fetchUserData()
-    })
   })
-}
-
-class InboxService {
-  private readonly POLL_INTERVAL = 4 * 60 * 1000
-  #pollInterval: NodeJS.Timeout | null = null
-
-  #profile: Profile
-
-  notifications = $state<Notifications>({
-    applications: 0,
-    inbox: 0,
-    reports: 0,
-  })
-
-  constructor(profile: Profile) {
-    this.#profile = profile
-  }
-
-  async init(): Promise<void> {
-    this.cleanup()
-
-    this.notifications = await this.checkInbox()
-
-    this.#pollInterval = setInterval(async () => {
-      this.notifications = await this.checkInbox()
-    }, this.POLL_INTERVAL)
-  }
-
-  cleanup(): void {
-    if (this.#pollInterval) clearInterval(this.#pollInterval)
-
-    this.#pollInterval = null
-  }
-
-  clear(): Notifications {
-    this.notifications = {
-      applications: 0,
-      inbox: 0,
-      reports: 0,
-    }
-    return this.notifications
-  }
-
-  async checkInbox(): Promise<Notifications> {
-    if (!this.#profile.current.user || !this.#profile.current.jwt)
-      return this.clear()
-
-    const unreadsPromise = client()
-      .getUnreadCount()
-      .then((res) => res.mentions + res.private_messages + res.replies)
-      .catch(() => 0)
-
-    const reportsPromise = this.#profile.isMod()
-      ? client()
-          .getReportCount({})
-          .then(
-            (res) =>
-              res.comment_reports +
-              res.post_reports +
-              (res.private_message_reports ?? 0),
-          )
-          .catch(() => 0)
-      : new Promise<number>((res) => res(0))
-
-    const applicationsPromise = this.#profile.isAdmin
-      ? client()
-          .getUnreadRegistrationApplicationCount()
-          .then((res) => res.registration_applications)
-          .catch(() => 0)
-      : new Promise<number>((res) => res(0))
-
-    const [unreads, reports, applications] = await Promise.all([
-      unreadsPromise,
-      reportsPromise,
-      applicationsPromise,
-    ])
-
-    return {
-      inbox: unreads,
-      reports: reports,
-      applications: applications,
-    }
-  }
 }
 
 export const profile = new Profile()
 
-// this is all garbage legacy code, remove later
-async function userFromJwt(
-  jwt: string,
-  instance: string,
-  type: ClientType,
-): Promise<{ user?: MyUserInfo; site: GetSiteResponse } | undefined> {
-  const sitePromise = client({
-    instanceURL: instance,
-    auth: jwt,
-    clientType: type,
-  }).getSite()
-
-  const timer = setTimeout(
-    () =>
-      toast({
-        content: `Still loading your user data...`,
-        type: 'warning',
-        loading: true,
-      }),
-    5000,
-  )
-
-  const site = await sitePromise
-    .then((r) => {
-      clearTimeout(timer)
-      return r
-    })
-    .catch((e) => {
-      toast({ content: `Failed to contact the instance. ${e}` })
-    })
-
-  if (!site) return
-
-  const myUser = site.my_user
-
+function serializeProfile(profileInfo: ProfileInfo): ProfileInfo {
+  // Return a clean copy without any runtime-only data
   return {
-    user: myUser,
-    site: site,
-  }
-}
-
-function serializeUser(user: ProfileInfo): ProfileInfo {
-  return {
-    ...user,
-    user: undefined,
+    id: profileInfo.id,
+    instance: profileInfo.instance,
+    jwt: profileInfo.jwt,
+    did: profileInfo.did,
+    sessionId: profileInfo.sessionId,
+    handle: profileInfo.handle,
+    avatar: profileInfo.avatar,
   }
 }

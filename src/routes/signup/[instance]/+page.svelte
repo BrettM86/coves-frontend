@@ -4,7 +4,6 @@
   import type { ClientType } from '$lib/api/base.js'
   import { getClient } from '$lib/api/client.svelte'
   import type { GetCaptchaResponse } from '$lib/api/types'
-  import { profile } from '$lib/app/auth.svelte'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
@@ -59,7 +58,8 @@
     nsfw = $state(false),
     verifying = $state(false)
 
-  const instanceType: ClientType = $state({ name: 'lemmy', baseUrl: '/api/v3' })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _instanceType: ClientType = $state({ name: 'lemmy', baseUrl: '/api/v3' })
 
   const getCaptcha = async () =>
     (captcha = await getClient(instance, fetch).getCaptcha())
@@ -88,10 +88,18 @@
       const registrationMode = data.site_view.local_site.registration_mode
 
       if (res?.jwt) {
-        await profile.add(res.jwt, page.params.instance!, instanceType)
-
-        toast({ content: $t('toast.logIn'), type: 'success' })
-        goto('/')
+        // Account created successfully - redirect to login for OAuth authentication
+        // Direct signup doesn't provide the DID/sessionId needed for full authentication
+        toast({
+          content: $t('toast.successSignup'),
+          type: 'success',
+        })
+        toast({
+          content: $t('form.signup.loginRequired'),
+          type: 'info',
+        })
+        goto(`/login?instance=${encodeURIComponent(page.params.instance!)}`)
+        return
       } else if (
         res.verify_email_sent ||
         registrationMode == 'RequireApplication'
@@ -127,8 +135,13 @@
       })
 
       if (res.jwt) {
-        await profile.add(res.jwt, data.instance, instanceType)
-        goto('/')
+        // Email verified - redirect to OAuth login flow for proper authentication
+        toast({
+          content: $t('form.signup.loginRequired'),
+          type: 'info',
+        })
+        goto(`/login?instance=${encodeURIComponent(data.instance)}`)
+        return
       } else if (res.verify_email_sent) {
         pushError({
           scope: page.url.pathname,

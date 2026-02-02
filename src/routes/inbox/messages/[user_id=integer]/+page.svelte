@@ -2,7 +2,6 @@
   import { browser } from '$app/environment'
   import { client } from '$lib/api/client.svelte'
   import type { PrivateMessageResponse } from '$lib/api/types'
-  import { profile } from '$lib/app/auth.svelte'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
@@ -116,13 +115,9 @@
   }
 
   async function markRead() {
+    // TODO: Use DID comparison when Coves API provides current user DID
     data.message.value.private_messages
-      .filter(
-        (i) =>
-          !i.private_message.read &&
-          i.private_message.creator_id !=
-            profile.current.user?.local_user_view.person.id,
-      )
+      .filter((i) => !i.private_message.read)
       .forEach((i) =>
         client().markPrivateMessageAsRead({
           private_message_id: i.private_message.id,

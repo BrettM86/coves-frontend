@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { profile } from '$lib/app/auth.svelte'
+  import { client } from '$lib/api/client.svelte'
   import { t } from '$lib/app/i18n'
   import { userLink } from '$lib/app/util.svelte.js'
   import ItemList from '$lib/ui/generic/ItemList.svelte'
@@ -16,7 +16,7 @@
       1,
     )
 
-    await profile.client.blockPerson({
+    await client().blockPerson({
       block: false,
       person_id: id,
     })

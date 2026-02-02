@@ -41,8 +41,8 @@
           : $t('moderation.remove')}
       {/if}
     </MenuButton>
-    {#if profile.current?.user && profile.current.user?.local_user_view.person.id != item.creator.id}
-      <!--Comment made by someone else-->
+    {#if profile.current?.jwt}
+      <!-- TODO: Check comment ownership using DID when Coves API provides creator DID -->
       <MenuButton
         color="danger-subtle"
         onclick={() =>

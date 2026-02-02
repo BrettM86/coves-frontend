@@ -1,5 +1,4 @@
 import { client, getClient } from '$lib/api/client.svelte'
-import { PiefedClient } from '$lib/api/piefed/adapter'
 import type { ListingType, SearchType, SortType } from '$lib/api/types'
 import { profile } from '$lib/app/auth.svelte'
 import { ReactiveState } from '$lib/app/util.svelte'
@@ -10,9 +9,8 @@ export async function load({ url, fetch }) {
   const page = Number(url.searchParams.get('page')) || 1
   const community = Number(url.searchParams.get('community')) || undefined
   const sort = url.searchParams.get('sort') || 'New'
-  const type =
-    url.searchParams.get('type') ||
-    (profile.client instanceof PiefedClient ? 'Posts' : 'All')
+  // TODO: Determine default search type based on Coves API capabilities
+  const type = url.searchParams.get('type') || 'All'
   const listing_type =
     (url.searchParams.get('listing_type') as ListingType) || 'All'
 

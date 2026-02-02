@@ -23,7 +23,7 @@
 
   let resolving = $state(false)
   async function resolve() {
-    if (!profile.current?.jwt || !profile.current.user) return
+    if (!profile.current?.jwt) return
     resolving = true
 
     try {
@@ -39,7 +39,7 @@
                 .then((res) => {
                   i.resolved = res.comment_report_view.comment_report.resolved
                   i.resolver = res.comment_report_view.resolver
-                  profile.inbox.notifications.reports += i.resolved ? -1 : 1
+                  // TODO: Re-enable report notification tracking when Coves API provides it
                 }),
             ),
           )
@@ -59,7 +59,7 @@
 
                   i.resolver = res.post_report_view.resolver
 
-                  profile.inbox.notifications.reports += i.resolved ? -1 : 1
+                  // TODO: Re-enable report notification tracking when Coves API provides it
                 }),
             ),
           )
@@ -80,7 +80,7 @@
 
                   i.resolver = res.private_message_report_view.resolver
 
-                  profile.inbox.notifications.reports += i.resolved ? -1 : 1
+                  // TODO: Re-enable report notification tracking when Coves API provides it
                 }),
             ),
           )

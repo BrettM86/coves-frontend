@@ -66,10 +66,10 @@
         type: 'success',
       })
       application.creator_local_user.accepted_application = approve
-      application.admin = profile.current.user!.local_user_view.person
+      // TODO: Set admin from Coves user data
       application.registration_application.deny_reason = denyReason
 
-      profile.inbox.notifications.applications -= 1
+      // TODO: Re-enable notification tracking when Coves API provides it
     } catch (err) {
       toast({
         content: errorMessage(err as string),

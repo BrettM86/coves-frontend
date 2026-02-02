@@ -1,7 +1,6 @@
 <script lang="ts">
   import { getClient } from '$lib/api/client.svelte'
   import type { ListingType, Person } from '$lib/api/types'
-  import { profile } from '$lib/app/auth.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { MenuButton, Search } from 'mono-svelte'
   import { createEventDispatcher } from 'svelte'
@@ -13,6 +12,7 @@
     instance?: string | undefined
     listing_type?: ListingType
     showWhenEmpty?: boolean
+    /** @deprecated No longer functional - will filter users when Coves API provides DID */
     hideOwnUser?: boolean
     placeholder?: string
     onselect?: (e?: Person) => void
@@ -23,6 +23,7 @@
     instance = undefined,
     listing_type = 'Subscribed',
     showWhenEmpty = false,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     hideOwnUser = false,
     ...rest
   }: Props = $props()
@@ -42,10 +43,7 @@
       })
     ).users.map((c) => c.person)
 
-    if (hideOwnUser) {
-      const myself = profile.current.user?.local_user_view.person.id
-      return users.filter((c) => c.id != myself)
-    }
+    // TODO: Filter out own user when DID comparison is available
     return users
   }}
   extractName={(c) => `${c.name}@${new URL(c.actor_id).hostname}`}

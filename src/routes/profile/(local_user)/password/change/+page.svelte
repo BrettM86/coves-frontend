@@ -19,9 +19,8 @@
         old_password: oldPassword,
       })
       if (res?.jwt) {
-        const { instance, client } = profile.current
-        profile.remove(profile.current.id)
-        await profile.add(res.jwt, instance, client)
+        // TODO: Update token refresh logic for Coves OAuth
+        profile.updateToken(res.jwt)
 
         toast({ content: $t('toast.loginRefresh'), type: 'success' })
       } else {

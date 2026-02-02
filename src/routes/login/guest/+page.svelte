@@ -56,8 +56,7 @@
       profile.meta.profiles.push({
         id: id,
         instance: form.instance,
-        username: form.username,
-        client: form.client,
+        handle: form.username,
       })
       profile.meta.profile = id
 

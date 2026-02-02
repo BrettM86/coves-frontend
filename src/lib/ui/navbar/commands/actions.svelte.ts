@@ -7,7 +7,6 @@ import {
 import { t } from '$lib/app/i18n'
 import { settings } from '$lib/app/settings.svelte'
 import { theme, type ThemeData } from '$lib/app/theme/theme.svelte'
-import { fullCommunityName } from '$lib/app/util.svelte'
 import type { ResumableItem } from '$lib/feature/legacy/item'
 import {
   ArrowRightOnRectangle,
@@ -46,7 +45,6 @@ import {
   ViewColumns,
   type IconSource,
 } from '@xylightdev/svelte-hero-icons'
-import { SvelteURL } from 'svelte/reactivity'
 
 export interface Group {
   name: string
@@ -308,7 +306,7 @@ export function getGroups(
     {
       name: t.get('account.accounts'),
       actions: profiles.map((p) => ({
-        name: p.username ?? t.get('account.guest'),
+        name: p.handle ?? t.get('account.guest'),
         icon: p.avatar ?? UserCircle,
         detail: p.instance,
         handle: async () => {
@@ -398,18 +396,10 @@ export function getGroups(
         },
       ],
     },
+    // TODO: Re-enable subscriptions list when Coves API provides it
     {
       name: t.get('profile.subscribed'),
-      actions:
-        profile.user?.follows.map((f) => ({
-          icon: f.community.icon ?? Newspaper,
-          name: f.community.title,
-          href: `/c/${fullCommunityName(
-            f.community.name,
-            f.community.actor_id,
-          )}`,
-          detail: new SvelteURL(f.community.actor_id).hostname,
-        })) ?? [],
+      actions: [],
     },
   ]
 }

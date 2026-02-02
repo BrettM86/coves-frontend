@@ -41,7 +41,7 @@
   let stage = $state<'signup' | 'verify' | 'application'>('signup')
 
   const instance = page.params.instance
-  let captchaRequired = data.site_view.local_site.captcha_enabled
+  let captchaRequired = $derived(data.site_view.local_site.captcha_enabled)
   let email: string | undefined = $state('')
 
   $effect(() => {

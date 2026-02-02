@@ -2,6 +2,8 @@
   import { Button, Modal } from 'mono-svelte'
   import { Icon } from 'svelte-hero-icons/dist'
   import { shownModal } from './modal'
+
+  let isOpen = $derived(!!$shownModal)
 </script>
 
 {#if $shownModal}
@@ -9,7 +11,7 @@
     title={$shownModal.title}
     dismissable={$shownModal.dismissable}
     ondismissed={() => shownModal.set(undefined)}
-    bind:open={$shownModal}
+    open={isOpen}
   >
     {#if $shownModal.snippet}
       {@render $shownModal.snippet?.()}

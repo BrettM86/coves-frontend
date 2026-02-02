@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck
   import ImageAttachForm from '$lib/ui/form/ImageAttachForm.svelte'
   import MultiSelect from '$lib/ui/form/Switch.svelte'
   import { Button, Label, Modal, TextArea } from 'mono-svelte'

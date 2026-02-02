@@ -33,3 +33,11 @@ declare const __VERSION__: string
 
 declare module 'markdown-it-sub'
 declare module 'markdown-it-sup'
+
+declare module '@xylightdev/svelte-hero-icons' {
+  interface IconProps {
+    'aria-label'?: string
+    'aria-hidden'?: boolean
+    title?: string
+  }
+}

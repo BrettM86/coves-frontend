@@ -15,6 +15,7 @@
 
 <script lang="ts">
   import { goto } from '$app/navigation'
+  import { DEFAULT_CLIENT_TYPE } from '$lib/api/base'
   import { validateInstance } from '$lib/api/client.svelte'
   import { t } from '$lib/app/i18n'
   import { DEFAULT_INSTANCE_URL } from '$lib/app/instance.svelte'
@@ -117,7 +118,7 @@
       if (selectedInstance != '') {
         validating = true
 
-        if (await validateInstance(selectedInstance.trim())) {
+        if (await validateInstance(selectedInstance.trim(), DEFAULT_CLIENT_TYPE)) {
           goto(`/signup/${encodeURIComponent(selectedInstance)}`)
         } else {
           toast({

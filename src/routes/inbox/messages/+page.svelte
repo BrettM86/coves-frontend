@@ -1,6 +1,5 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
-  import { resolveRoute } from '$app/paths'
   import type { Person, PrivateMessageView } from '$lib/api/types'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
@@ -84,10 +83,7 @@
   <UserAutocomplete
     listing_type="All"
     hideOwnUser={true}
-    onselect={(u) =>
-      goto(
-        resolveRoute('/inbox/messages/[user_id]', { user_id: u.id.toString() }),
-      )}
+    onselect={(u) => u && goto(`/inbox/messages/${u.id}`)}
   />
 </Modal>
 

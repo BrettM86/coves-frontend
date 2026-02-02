@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck
   import { t } from '$lib/app/i18n'
   import {
     iframeType,

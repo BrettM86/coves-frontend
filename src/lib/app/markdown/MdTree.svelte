@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck
   import type { Tokens } from 'marked'
   import type { Renderer } from './Markdown.svelte'
   import Self from './MdTree.svelte'

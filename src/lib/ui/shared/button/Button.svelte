@@ -2,11 +2,7 @@
   import { Spinner } from 'mono-svelte'
   import type { Snippet } from 'svelte'
   import { type IconSource, Icon } from 'svelte-hero-icons/dist'
-  import type {
-    ClassValue,
-    HTMLAnchorAttributes,
-    HTMLButtonAttributes,
-  } from 'svelte/elements'
+  import type { ClassValue, HTMLButtonAttributes } from 'svelte/elements'
 
   export type ButtonColor = keyof typeof buttonColor
   export type ButtonAlignment = keyof typeof buttonAlignment
@@ -77,8 +73,7 @@
   }
   type ButtonGap = keyof typeof buttonGap
 
-  interface Props
-    extends Omit<HTMLButtonAttributes | HTMLAnchorAttributes, 'prefix'> {
+  interface Props {
     loading?: boolean
     submit?: boolean
     type?: 'button' | 'none'
@@ -94,9 +89,25 @@
     prefix?: Snippet
     children?: Snippet
     suffix?: Snippet
-    onclick?: HTMLButtonAttributes['onclick']
     icon?: IconSource
     weight?: ButtonWeight
+    disabled?: boolean
+    onclick?: HTMLButtonAttributes['onclick']
+    // Common HTML attributes
+    id?: string
+    title?: string
+    tabindex?: number
+    'aria-label'?: string
+    'aria-describedby'?: string
+    'aria-expanded'?: boolean
+    'aria-haspopup'?: boolean | 'menu' | 'listbox' | 'tree' | 'grid' | 'dialog'
+    'aria-pressed'?: boolean | 'mixed'
+    'aria-controls'?: string
+    target?: string
+    rel?: string
+    download?: string | boolean
+    // Allow rest props
+    [key: string]: unknown
   }
 
   export type { Props as ButtonProps }

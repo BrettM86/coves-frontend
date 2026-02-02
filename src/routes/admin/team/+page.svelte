@@ -9,9 +9,10 @@
   import { CommonList, Header } from '$lib/ui/layout'
   import { Button, toast } from 'mono-svelte'
   import { Icon, Plus, QuestionMarkCircle, Trash } from 'svelte-hero-icons/dist'
+  import type { PageData } from './$types'
 
-  let { data: pageData } = $props()
-  let data = $state(pageData)
+  let { data: pageData }: { data: PageData } = $props()
+  let data = $state<PageData>(pageData)
 
   let newAdmin = $state<number>(),
     adding: boolean = $state(false)
@@ -101,7 +102,7 @@
     <div class="w-full">
       <UserAutocomplete
         listing_type="All"
-        onselect={(p) => (newAdmin = p.id)}
+        onselect={(p) => p && (newAdmin = p.id)}
       />
     </div>
     <Button

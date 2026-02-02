@@ -1,7 +1,6 @@
 <script lang="ts">
   import { Label, TextInput } from 'mono-svelte'
   import { DocumentPlus, Icon } from 'svelte-hero-icons/dist'
-  import { preventDefault } from 'svelte/legacy'
 
   interface Props {
     accept?: string
@@ -32,14 +31,21 @@
       : ''}
   {url != undefined ? 'rounded-b-none' : ''}
   "
-    ondrop={preventDefault((event) => (files = event.dataTransfer?.files))}
-    ondragover={preventDefault((event) => {
+    ondrop={(event: DragEvent) => {
+      event.preventDefault()
+      files = event.dataTransfer?.files ?? null
+    }}
+    ondragover={(event: DragEvent) => {
+      event.preventDefault()
       if (event.dataTransfer) {
         event.dataTransfer.dropEffect = 'copy'
         dragover = true
       }
-    })}
-    ondragleave={preventDefault(() => (dragover = false))}
+    }}
+    ondragleave={(event: DragEvent) => {
+      event.preventDefault()
+      dragover = false
+    }}
   >
     {#if files}
       <!-- svelte-ignore a11y_missing_attribute -->

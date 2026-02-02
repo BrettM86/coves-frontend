@@ -16,7 +16,7 @@
     children?: import('svelte').Snippet<
       [
         {
-          select: (item?: T) => void
+          select: (item: T) => void
           item: T
           extractName: (item: T) => string
         },

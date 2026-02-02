@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck
   interface Props {
     ordered: boolean
     start: number

@@ -18,14 +18,9 @@ export async function load({ params, fetch }) {
 
   const threadPath = split.slice(-3).join('.')
 
-  redirect(
-    302,
-    resolveRoute(
-      `/post/[instance]/[id]?thread=${threadPath}#${comment.comment_view.comment.id}`,
-      {
-        instance: encodeURIComponent(params.instance),
-        id: comment.comment_view.post.id.toString(),
-      },
-    ),
-  )
+  const postUrl = resolveRoute('/post/[instance]/[id=integer]', {
+    instance: encodeURIComponent(params.instance),
+    id: comment.comment_view.post.id.toString(),
+  })
+  redirect(302, `${postUrl}?thread=${threadPath}#${comment.comment_view.comment.id}`)
 }

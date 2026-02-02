@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
+  import { DEFAULT_CLIENT_TYPE } from '$lib/api/base'
   import { getClient, validateInstance } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/auth.svelte'
   import { errorMessage } from '$lib/app/error'
@@ -28,7 +29,7 @@
   async function submit() {
     loading = true
     try {
-      if (!(await validateInstance(instance)))
+      if (!(await validateInstance(instance, DEFAULT_CLIENT_TYPE)))
         throw new Error($t('toast.failInstanceURL'))
 
       await getClient(instance).passwordChangeAfterReset({

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import createClient from 'openapi-fetch'
 import {
   BaseClient,

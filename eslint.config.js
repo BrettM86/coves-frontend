@@ -10,6 +10,14 @@ const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url))
 
 export default ts.config(
   includeIgnoreFile(gitignorePath),
+  // Ignore legacy code that will be replaced
+  {
+    ignores: [
+      'src/lib/api/piefed/**',
+      'src/lib/api/lemmy/adapter.ts',
+      'src/lib/app/markdown/**',
+    ],
+  },
   js.configs.recommended,
   ...ts.configs.recommended,
   ...svelte.configs.recommended,

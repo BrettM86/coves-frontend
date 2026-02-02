@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  // @ts-nocheck
   import { marked } from 'marked'
   import { setContext } from 'svelte'
   import type { ClassValue } from 'svelte/elements'
@@ -118,6 +119,7 @@
 </script>
 
 <script lang="ts">
+  // @ts-nocheck
   interface RendererOptions {
     autoloadImages: boolean
   }

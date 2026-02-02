@@ -88,8 +88,8 @@
         rounding="2xl"
         class="dark:bg-zinc-950 max-h-96 overflow-auto"
       >
-        {#each filtered as profile, index (profile.id)}
-          <ProfileButton prof={profile} {index} />
+        {#each filtered as profile (profile.id)}
+          <ProfileButton prof={profile} />
         {/each}
         <SidebarButton
           href="/accounts/login/guest?redirect={page.url}"

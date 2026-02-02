@@ -21,14 +21,9 @@
     toast,
   } from 'mono-svelte'
   import { Icon, Plus } from 'svelte-hero-icons/dist'
-  import type { PageData } from '../$types'
+  import type { PageData } from './$types'
 
-  interface Props {
-    data: PageData
-  }
-
-  let { data: pageData }: Props = $props()
-  let data = $state(pageData)
+  let { data }: { data: PageData } = $props()
 
   const formData: Omit<EditSite, 'auth'> | undefined = $state(
     data.site

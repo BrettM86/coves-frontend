@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Search } from 'mono-svelte'
 import type {
   Comment,

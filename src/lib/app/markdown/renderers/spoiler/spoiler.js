@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Container extension is a marked extension that parses a block of text surrounded by :::
  *

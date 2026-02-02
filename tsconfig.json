@@ -9,10 +9,34 @@
     "skipLibCheck": true,
     "sourceMap": true,
     "strict": true,
-    "types": ["vite-plugin-pwa/client"]
-  }
-  // Path aliases are handled by https://kit.svelte.dev/docs/configuration#alias
-  //
-  // If you want to overwrite includes/excludes, make sure to copy over the relevant includes/excludes
-  // from the referenced tsconfig.json - TypeScript does not merge them in
+    "types": ["vite-plugin-pwa/client", "node"]
+  },
+  // Must copy include from base config since TypeScript doesn't merge arrays
+  "include": [
+    ".svelte-kit/ambient.d.ts",
+    ".svelte-kit/non-ambient.d.ts",
+    ".svelte-kit/types/**/$types.d.ts",
+    "vite.config.js",
+    "vite.config.ts",
+    "src/**/*.js",
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    "tests/**/*.js",
+    "tests/**/*.ts",
+    "tests/**/*.svelte"
+  ],
+  // Exclude legacy code that will be replaced:
+  // - piefed: Using Coves backend instead
+  // - lemmy/adapter.ts: API adapter to be replaced
+  // - markdown: Switching to RTF
+  "exclude": [
+    "node_modules/**",
+    "src/service-worker.js",
+    "src/service-worker.ts",
+    "src/service-worker.d.ts",
+    "src/service-worker/**",
+    "src/lib/api/piefed/**",
+    "src/lib/api/lemmy/adapter.ts",
+    "src/lib/app/markdown/**"
+  ]
 }

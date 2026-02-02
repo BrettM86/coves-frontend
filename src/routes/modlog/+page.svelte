@@ -186,7 +186,6 @@
       placeholder="Filter by user"
       listing_type="All"
       showWhenEmpty={true}
-      label="User"
       q={page.url.searchParams.get('user')
         ? (data.filters.user ?? 'Selected')
         : ''}
@@ -198,7 +197,6 @@
         placeholder="Filter by moderator"
         listing_type="All"
         showWhenEmpty={true}
-        label="Moderator"
         q={page.url.searchParams.get('mod_id')
           ? (data.filters.moderator ?? 'Selected')
           : ''}

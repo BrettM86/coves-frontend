@@ -6,7 +6,7 @@ import type {
   Post,
   PostView,
 } from '$lib/api/types'
-import { isComment, isCommentView } from './item'
+import { isCommentView } from './item'
 
 export type SubmissionView = PostView | CommentView
 export type Submission = Post | Comment
@@ -45,7 +45,7 @@ export const contentView = (item: SubmissionView): ContentView => {
 }
 
 export const contentItem = (item: Submission): ContentView => {
-  if (isComment(item))
+  if ('content' in item)
     return {
       type: 'comment',
       body: item.content,

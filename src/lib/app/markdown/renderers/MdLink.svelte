@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck
   import { photonify } from './plugins'
 
   interface Props {

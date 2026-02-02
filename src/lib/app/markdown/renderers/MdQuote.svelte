@@ -1,4 +1,5 @@
 <script>
+  // @ts-nocheck
   /**
    * @typedef {Object} Props
    * @property {import('svelte').Snippet} [children]

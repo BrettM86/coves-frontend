@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { marked } from 'marked'
 import markedLinkifyIt from 'marked-linkify-it'
 

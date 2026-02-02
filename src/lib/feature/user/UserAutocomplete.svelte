@@ -15,7 +15,7 @@
     showWhenEmpty?: boolean
     hideOwnUser?: boolean
     placeholder?: string
-    onselect?: (e: Person) => void
+    onselect?: (e?: Person) => void
   }
 
   let {

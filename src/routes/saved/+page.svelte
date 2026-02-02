@@ -20,7 +20,7 @@
 
   let { data } = $props()
 
-  let type = $state(data.type)!
+  let type = $derived(data.type)!
 
   const isComment = (item: CommentView | PostView): item is CommentView =>
     'comment' in item

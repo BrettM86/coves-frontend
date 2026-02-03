@@ -1,3 +1,4 @@
+import { browser } from '$app/environment'
 import { profile } from '$lib/app/auth.svelte'
 import { DEFAULT_INSTANCE_URL } from '$lib/app/instance.svelte'
 import { instanceToURL } from '$lib/app/util.svelte'
@@ -21,6 +22,46 @@ class SiteData {
 
 export const site = new SiteData()
 
+/**
+ * Converts an API URL to use the proxy path for client-side requests.
+ * Server-side requests continue to use direct URLs.
+ *
+ * @param input - The original API URL (e.g., https://coves.social/api/v3/posts)
+ * @returns The proxied URL for client-side, or original URL for server-side
+ */
+function toProxyUrl(input: RequestInfo | URL): RequestInfo | URL {
+  if (!browser) return input
+
+  const url = input instanceof Request ? input.url : input.toString()
+
+  // Extract the path from the URL (everything after the host)
+  try {
+    const parsed = new URL(url)
+    // Convert to proxy path: /api/proxy/{path}
+    const proxyPath = `/api/proxy${parsed.pathname}${parsed.search}`
+    return input instanceof Request
+      ? new Request(proxyPath, input)
+      : proxyPath
+  } catch (err) {
+    // URL parsing failure indicates a malformed URL - this should not happen
+    // in normal operation and could indicate a security issue or bug
+    console.error(
+      '[client] Failed to parse URL for proxy routing - aborting request:',
+      { url, error: err instanceof Error ? err.message : String(err) }
+    )
+    throw new Error(
+      `Invalid URL for API request: ${err instanceof Error ? err.message : String(err)}`
+    )
+  }
+}
+
+/**
+ * Custom fetch function that handles:
+ * - Client-side: Routes through /api/proxy for auth injection
+ * - Server-side: Direct calls with auth header (when func is SvelteKit's fetch)
+ * - User-Agent header addition
+ * - Error handling
+ */
 async function customFetch(
   func:
     | ((
@@ -31,39 +72,51 @@ async function customFetch(
   input: RequestInfo | URL,
   init?: RequestInit | undefined,
   auth?: string,
-  _retried = false,
 ): Promise<Response> {
-  const f = func ? func : fetch
+  const f = func ?? fetch
 
-  if (init) {
-    init.headers = {
-      ...init.headers,
-      'User-Agent': `Photon/${__VERSION__}`,
-      ...(auth ? { authorization: `Bearer ${auth}` } : {}),
+  // Initialize headers
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string>),
+    'User-Agent': `Photon/${__VERSION__}`,
+  }
+
+  if (browser) {
+    // Client-side: Route through proxy, which injects auth from session cookie
+    const proxyInput = toProxyUrl(input)
+    const proxyInit: RequestInit = {
+      ...init,
+      headers,
+      credentials: 'include', // Send cookies for session
+    }
+
+    // Don't cache authenticated requests
+    if (profile.isAuthenticated) {
+      proxyInit.cache = 'no-store'
+    }
+
+    const res = await f(proxyInput, proxyInit)
+    if (!res.ok) error(res.status, await res.text())
+    return res
+  } else {
+    // Server-side: Direct call with auth header (token from locals)
+    if (auth) {
+      headers['Authorization'] = `Bearer ${auth}`
+    }
+
+    const serverInit: RequestInit = {
+      ...init,
+      headers,
     }
 
     if (auth) {
-      init.cache = 'no-store'
+      serverInit.cache = 'no-store'
     }
+
+    const res = await f(input, serverInit)
+    if (!res.ok) error(res.status, await res.text())
+    return res
   }
-
-  const res = await f(input, init)
-
-  // Handle 401 with token refresh (only retry once)
-  if (res.status === 401 && auth && !_retried && profile.current?.did) {
-    const refreshed = await profile.refreshToken()
-    if (refreshed && profile.current?.jwt) {
-      // Retry with new token
-      return customFetch(func, input, init, profile.current.jwt, true)
-    }
-    // Log if refresh was attempted but failed
-    if (profile.current?.did) {
-      console.warn('Token refresh failed, request will return 401')
-    }
-  }
-
-  if (!res.ok) error(res.status, await res.text())
-  return res
 }
 
 export function client({
@@ -88,20 +141,22 @@ export function client({
     clientType = DEFAULT_CLIENT_TYPE
   }
 
-  // we use nullish coalescing so that
-  // we can set auth = '' to remove it
-
-  const jwt = auth ?? profile.current?.jwt
-
-  // but not here, so that if jwt == '', it doesnt put a bearer
-  const headers = jwt ? { authorization: `Bearer ${jwt}` } : {}
+  // Auth handling:
+  // - Client-side: The proxy at /api/proxy injects auth from the session cookie
+  // - Server-side: The caller MUST pass `auth` explicitly from locals.auth.authToken
+  //
+  // NOTE: profile.current?.jwt is now just the literal 'authenticated' marker (not a real token).
+  // Server-side requests that need auth MUST pass the auth parameter explicitly.
+  // We use nullish coalescing so that auth = '' can explicitly disable auth.
+  const authToken = auth ?? (browser ? undefined : undefined)
 
   // TODO(coves-migration): Replace with CovesClient when implemented
   return new (clientType?.name == 'piefed' ? PiefedClient : LemmyClient)(
     instanceToURL(instanceURL),
     {
-      fetchFunction: (input, init) => customFetch(func, input, init, jwt),
-      headers: headers,
+      // customFetch handles auth header injection for both client and server
+      fetchFunction: (input, init) => customFetch(func, input, init, authToken),
+      headers: {},
     },
   )
 }
@@ -118,11 +173,22 @@ export function getClient(
   return client({ instanceURL, func, auth })
 }
 
+/**
+ * Result of instance validation.
+ * Either valid with no error, or invalid with an error message.
+ */
+export type ValidateInstanceResult =
+  | { valid: true }
+  | { valid: false; error: string }
+
 export async function validateInstance(
   instance: string,
   type: ClientType,
-): Promise<boolean> {
-  if (instance == '') return false
+): Promise<ValidateInstanceResult> {
+  if (instance == '') {
+    console.warn('[validateInstance] Validation failed: instance URL is empty')
+    return { valid: false, error: 'Instance URL cannot be empty' }
+  }
 
   try {
     await client({
@@ -131,8 +197,15 @@ export async function validateInstance(
       auth: '',
     }).getSite()
 
-    return true
-  } catch {
-    return false
+    return { valid: true }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err)
+    console.warn(
+      '[validateInstance] Validation failed for instance:',
+      { instance, clientType: type?.name ?? 'default' },
+      'Error:',
+      errorMessage
+    )
+    return { valid: false, error: errorMessage }
   }
 }

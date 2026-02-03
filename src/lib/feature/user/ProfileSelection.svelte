@@ -5,7 +5,7 @@
   import { t } from '$lib/app/i18n'
   import { LINKED_INSTANCE_URL } from '$lib/app/instance.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
-  import { Badge, Button, Menu, MenuButton } from 'mono-svelte'
+  import { Badge, Button, Menu, MenuButton, toast } from 'mono-svelte'
   import {
     CheckCircle,
     ChevronUpDown,
@@ -19,12 +19,19 @@
     selectable = true,
   }: { profiles: ProfileInfo[]; selectable?: boolean } = $props()
 
-  function switchTo(id: number) {
-    profile.meta.profile = id
-
-    goto(page.url, {
-      invalidateAll: true,
-    })
+  async function switchTo(id: string) {
+    const result = await profile.switchTo(id)
+    if (result.success) {
+      goto(page.url, {
+        invalidateAll: true,
+      })
+    } else {
+      console.error('Failed to switch account:', result.error)
+      toast({
+        content: $t('error.accountSwitch'),
+        type: 'error',
+      })
+    }
   }
 </script>
 

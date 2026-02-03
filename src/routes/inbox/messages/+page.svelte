@@ -31,10 +31,12 @@
   }
 
   // TODO(coves-migration): Use DID comparison when Coves API provides current user DID
+  // Note: profile.current.id is a session ID (string), not a Lemmy user ID (number)
+  // For now, we use the creator's actor_id (ATProto-style) or handle for comparison
   function getOtherPartyId(message: PrivateMessageView): number {
-    const currentUserId = profile.current?.id
-    // Return the party that is NOT the current user
-    if (message.creator.id === currentUserId) {
+    const currentHandle = profile.current?.handle
+    // Return the party that is NOT the current user (compare by handle/name)
+    if (currentHandle && message.creator.name === currentHandle) {
       return message.recipient.id
     }
     return message.creator.id
@@ -60,14 +62,15 @@
       getOtherPartyId(i),
     )
 
-    const currentUserId = profile.current?.id
+    const currentHandle = profile.current?.handle
 
     // TODO(coves-migration): Use DID comparison when Coves API provides current user DID
     return deduplicated
       .filter((c) => c.creator.id != c.recipient.id) // you messaged yourself
       .map((i) => {
         // Get the other party (the person we're chatting with, not ourselves)
-        const otherParty = i.creator.id === currentUserId ? i.recipient : i.creator
+        // Compare by handle since profile.id is a session ID, not a Lemmy user ID
+        const otherParty = (currentHandle && i.creator.name === currentHandle) ? i.recipient : i.creator
         return {
           user: otherParty,
           message: {

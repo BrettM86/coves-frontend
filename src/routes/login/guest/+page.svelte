@@ -52,8 +52,10 @@
 
       await checkInstance()
 
-      const id = Math.max(...profile.meta.profiles.map((i) => i.id)) + 1
+      // Generate a unique guest ID using timestamp and random suffix
+      const id = `guest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       profile.meta.profiles.push({
+        type: 'guest',
         id: id,
         instance: form.instance,
         handle: form.username,
@@ -74,16 +76,21 @@
   }
 
   let detectedClient = $state<string | null | undefined>()
+  let instanceError = $state<string | null>(null)
 
   const checkDebounce = debounce(async () => {
     const startingText = form.instance
     try {
       detectedClient = null
+      instanceError = null
       await checkInstance()
       // so that debounce desync thing doesnt happen
       if (startingText == form.instance) detectedClient = form.client.name
     } catch {
-      if (startingText == form.instance) detectedClient = undefined
+      if (startingText == form.instance) {
+        detectedClient = undefined
+        instanceError = $t('error.not_live_supported')
+      }
     }
   }, 500)
 
@@ -135,13 +142,16 @@
         </TextInput>
       {/if}
     </div>
+    {#if instanceError}
+      <p class="text-sm text-red-600 dark:text-red-400">{instanceError}</p>
+    {/if}
     <Button
       submit
       class="w-full"
       color="primary"
       size="lg"
       loading={form.loading}
-      disabled={form.loading}
+      disabled={form.loading || (!!form.instance && detectedClient === undefined && !LINKED_INSTANCE_URL)}
     >
       {$t('form.submit')}
     </Button>

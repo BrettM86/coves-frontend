@@ -17,7 +17,8 @@
   import { Shell } from '$lib/ui/layout'
   import Navbar from '$lib/ui/navbar/Navbar.svelte'
   import Sidebar from '$lib/ui/sidebar/Sidebar.svelte'
-  import { Button, ModalContainer, Spinner, ToastContainer } from 'mono-svelte'
+  import { Button, ModalContainer, Spinner, toast, ToastContainer } from 'mono-svelte'
+  import { t } from '$lib/app/i18n'
   import nProgress from 'nprogress'
   import 'nprogress/nprogress.css'
   import { onMount } from 'svelte'
@@ -38,8 +39,35 @@
     showSpinner: false,
   })
 
+  /**
+   * Reads and clears the kelp_flash cookie for session expiration messages.
+   * This cookie is set by the server when session decryption fails.
+   */
+  function handleFlashMessage() {
+    const cookies = document.cookie.split(';')
+    const flashCookie = cookies.find((c) => c.trim().startsWith('kelp_flash='))
+    if (!flashCookie) return
+
+    try {
+      const value = decodeURIComponent(flashCookie.split('=')[1])
+      const flash = JSON.parse(value) as { type: string; message: string }
+
+      if (flash.type === 'session_expired') {
+        toast({ content: $t('toast.sessionExpired'), type: 'warning' })
+      }
+    } catch {
+      // Invalid flash cookie format - ignore
+    }
+
+    // Clear the cookie regardless of success/failure
+    document.cookie = 'kelp_flash=; path=/; max-age=0'
+  }
+
   onMount(() => {
     if (browser) {
+      // Handle flash messages from server (e.g., session expiration)
+      handleFlashMessage()
+
       if (window.location.hash == 'main') {
         history.replaceState(
           null,

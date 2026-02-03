@@ -10,6 +10,7 @@
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { CommonList, Header } from '$lib/ui/layout'
   import DebugObject from '$lib/ui/util/debug/DebugObject.svelte'
+  import { toast } from '$lib/ui/shared/toast/toasts'
   import { Badge, Button, Menu, MenuButton, Modal } from 'mono-svelte'
   import {
     ArrowLeftOnRectangle,
@@ -30,12 +31,42 @@
   let removing = $state({
     shown: false,
     account: undefined as ProfileInfo | undefined,
+    loading: false,
   })
 
   let radioSelected = $state(profile.current.id)
   $effect(() => {
     profile.meta.profile = radioSelected
   })
+
+  async function handleLogout(accountId: string): Promise<void> {
+    removing.loading = true
+    try {
+      const result = await profile.remove(accountId)
+      if (!result.success) {
+        toast({
+          content: result.error ?? $t('error.unknown'),
+          type: 'error',
+        })
+      } else if (result.remoteLogoutFailed) {
+        // Local logout succeeded but remote token revocation failed
+        // User should be informed but this is not a blocking error
+        toast({
+          content: $t('oauth.error.remoteLogoutFailed'),
+          type: 'warning',
+          long: true,
+        })
+      }
+    } catch (err) {
+      toast({
+        content: err instanceof Error ? err.message : $t('error.unknown'),
+        type: 'error',
+      })
+    } finally {
+      removing.loading = false
+      removing.shown = false
+    }
+  }
 </script>
 
 <svelte:head>
@@ -76,17 +107,23 @@
       </div>
     </div>
     <div class="flex flex-row gap-2 items-center">
-      <Button size="lg" class="flex-1" onclick={() => (removing.shown = false)}>
+      <Button
+        size="lg"
+        class="flex-1"
+        onclick={() => (removing.shown = false)}
+        disabled={removing.loading}
+      >
         Cancel
       </Button>
       <Button
         onclick={() => {
-          removing.shown = false
-          if (removing.account) profile.remove(removing.account.id)
+          if (removing.account) handleLogout(removing.account.id)
         }}
         size="lg"
         class="flex-1"
         color="danger"
+        loading={removing.loading}
+        disabled={removing.loading}
       >
         Remove
       </Button>

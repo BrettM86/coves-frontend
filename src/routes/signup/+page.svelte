@@ -118,11 +118,12 @@
       if (selectedInstance != '') {
         validating = true
 
-        if (await validateInstance(selectedInstance.trim(), DEFAULT_CLIENT_TYPE)) {
+        const result = await validateInstance(selectedInstance.trim(), DEFAULT_CLIENT_TYPE)
+        if (result.valid) {
           goto(`/signup/${encodeURIComponent(selectedInstance)}`)
         } else {
           toast({
-            content: $t('toast.failInstanceURL'),
+            content: result.error ?? $t('toast.failInstanceURL'),
             type: 'error',
           })
         }

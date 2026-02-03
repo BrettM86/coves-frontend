@@ -29,8 +29,9 @@
   async function submit() {
     loading = true
     try {
-      if (!(await validateInstance(instance, DEFAULT_CLIENT_TYPE)))
-        throw new Error($t('toast.failInstanceURL'))
+      const validationResult = await validateInstance(instance, DEFAULT_CLIENT_TYPE)
+      if (!validationResult.valid)
+        throw new Error(validationResult.error ?? $t('toast.failInstanceURL'))
 
       await getClient(instance).passwordChangeAfterReset({
         password: password,

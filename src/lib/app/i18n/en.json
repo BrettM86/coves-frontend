@@ -757,7 +757,8 @@
         "settingsImport": "Successfully imported settings",
         "settingsImportWarning": "The imported settings don't seem valid. Are you sure you want to import this?",
         "userLoading": "Still loading your user data...",
-        "lemmyDonate": "Your account's server runs Lemmy, and the developers are requesting donations. They are able to develop Lemmy as an open source platform, free of tracking and ads, thanks to the generosity of its users.\n\nAnnually, they ask you to consider donating to support their work, and allow them to continue maintaining and improving Lemmy.\n\n[Donate](https://join-lemmy.org/donate)\n\n*Note: this is a donation to Lemmy, not Photon.*"
+        "lemmyDonate": "Your account's server runs Lemmy, and the developers are requesting donations. They are able to develop Lemmy as an open source platform, free of tracking and ads, thanks to the generosity of its users.\n\nAnnually, they ask you to consider donating to support their work, and allow them to continue maintaining and improving Lemmy.\n\n[Donate](https://join-lemmy.org/donate)\n\n*Note: this is a donation to Lemmy, not Photon.*",
+        "sessionExpired": "Your session has expired. Please log in again."
     },
     "settings": {
         "title": "Settings",
@@ -972,7 +973,9 @@
         "unsupported": "That function is not supported by your account's server software.",
         "not_live_supported": "That server is not running supported software, or is offline.",
         "token_not_found": "That email verification link expired, or never existed.",
-        "invalid_password": "Invalid password."
+        "invalid_password": "Invalid password.",
+        "accountSwitch": "Failed to switch account. Please try again.",
+        "unknown": "An unexpected error occurred."
     },
     "aria": {
         "pagination": {
@@ -1014,5 +1017,20 @@
     "class": {
         "moderator": "Moderator",
         "admin": "Administrator"
+    },
+    "oauth": {
+        "loginInfo": "You will be redirected to your instance to complete login.",
+        "redirecting": "Redirecting...",
+        "error": {
+            "generic": "Login failed. Please try again.",
+            "noSession": "No session was established. Please try logging in again.",
+            "noPendingAuth": "Login flow expired or was not started. Please try again.",
+            "fetchFailed": "Could not connect to your instance. Please check the URL and try again.",
+            "invalidUserInfo": "Your instance returned invalid user information. Please try again.",
+            "invalidCredentialFormat": "Invalid credentials received from your instance.",
+            "serverConfig": "Server configuration error. Please contact the administrator.",
+            "invalidState": "Session verification failed. Please try logging in again.",
+            "remoteLogoutFailed": "You were logged out locally, but the server could not revoke your session. For security, you may want to revoke access from your account settings."
+        }
     }
 }

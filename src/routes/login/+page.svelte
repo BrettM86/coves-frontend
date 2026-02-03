@@ -1,12 +1,13 @@
 <script lang="ts">
   import { browser } from '$app/environment'
+  import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import { t } from '$lib/app/i18n'
   import {
     DEFAULT_INSTANCE_URL,
     LINKED_INSTANCE_URL,
   } from '$lib/app/instance.svelte'
-  import { DOMAIN_REGEX_FORMS, instanceToURL } from '$lib/app/util.svelte'
+  import { DOMAIN_REGEX_FORMS } from '$lib/app/util.svelte'
   import ErrorContainer, {
     clearErrorScope,
     pushError,
@@ -14,6 +15,19 @@
   import { Header } from '$lib/ui/layout'
   import { Button, Note, Spinner, TextInput } from 'mono-svelte'
   import { Icon, UserCircle } from 'svelte-hero-icons/dist'
+
+  /**
+   * Maps OAuth error codes from URL params to user-friendly i18n keys.
+   */
+  const ERROR_CODE_MAP: Record<string, string> = {
+    no_session: 'oauth.error.noSession',
+    no_pending_auth: 'oauth.error.noPendingAuth',
+    fetch_failed: 'oauth.error.fetchFailed',
+    invalid_user_info: 'oauth.error.invalidUserInfo',
+    invalid_credential_format: 'oauth.error.invalidCredentialFormat',
+    server_config: 'oauth.error.serverConfig',
+    invalid_state: 'oauth.error.invalidState',
+  }
 
   interface Props {
     ref?: string
@@ -35,27 +49,31 @@
     loading: false,
   })
 
-  // Store redirect URL in sessionStorage if provided
+  // Check for error query param on mount and display appropriate message
   $effect(() => {
-    if (ref && ref !== '/') {
-      sessionStorage.setItem('oauth_redirect', ref)
+    if (!browser) return
+
+    const errorCode = page.url.searchParams.get('error')
+    if (errorCode) {
+      const errorKey = ERROR_CODE_MAP[errorCode]
+      const errorMessage = errorKey ? $t(errorKey) : $t('oauth.error.generic')
+
+      pushError({
+        message: errorMessage,
+        scope: page.route.id!,
+      })
+
+      // Clean up the URL by removing the error param
+      const url = new URL(page.url)
+      url.searchParams.delete('error')
+      goto(url.pathname + url.search, { replaceState: true })
     }
   })
 
-  function buildOAuthUrl(instance: string, handle: string): string {
-    const baseUrl = instanceToURL(instance)
-    const redirectUri = browser
-      ? `${window.location.origin}/oauth/callback`
-      : '/oauth/callback'
-
-    const params = new URLSearchParams({
-      handle: handle.trim(),
-      redirect_uri: redirectUri,
-    })
-
-    return `${baseUrl}/oauth/mobile/login?${params.toString()}`
-  }
-
+  /**
+   * Start OAuth login by calling the server-side login endpoint.
+   * The server handles OAuth state generation and redirect URL construction.
+   */
   async function startOAuthLogin(): Promise<void> {
     if (!browser) return
 
@@ -63,19 +81,34 @@
     clearErrorScope(page.route.id)
 
     try {
-      // Validate handle format (basic ATProto handle validation)
+      // Validate handle format (basic validation)
       const handle = form.handle.trim()
       if (!handle) {
         throw new Error('handle_required')
       }
 
-      // Store instance in sessionStorage for callback to retrieve
       const instance = form.instance.trim().replace(/^https:\/\//, '')
-      sessionStorage.setItem('oauth_instance', instance)
 
-      // Build OAuth URL and redirect
-      const oauthUrl = buildOAuthUrl(instance, handle)
-      window.location.href = oauthUrl
+      // Call server-side login endpoint
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          handle,
+          instance,
+          redirect: ref,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error ?? 'login_failed')
+      }
+
+      const { redirectUrl } = await response.json()
+
+      // Redirect to OAuth provider
+      window.location.href = redirectUrl
     } catch (error) {
       pushError({
         message:

@@ -34,11 +34,6 @@
         href: '/profile/blocks',
         name: $t('routes.profile.blocks.title'),
       },
-
-      {
-        href: '/profile/password',
-        name: $t('routes.profile.credentials'),
-      },
     ]}
   >
     <Menu class="flex-1" placement="bottom-end">

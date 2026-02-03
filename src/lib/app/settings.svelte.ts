@@ -187,18 +187,25 @@ export const defaultSettings: Settings = {
   voteRatioBar: false,
 }
 
-function createSettingsState(initial: Settings): Settings {
-  let settings = $state(initial)
-  if (browser) {
-    try {
-      const localSettings = JSON.parse(localStorage.getItem('settings') ?? '{}')
-      const merged = mergeDeep(initial, localSettings)
-
-      settings = merged
-    } catch {
-      /* empty */
-    }
+function getInitialSettings(defaultValue: Settings): Settings {
+  if (!browser) {
+    return defaultValue
   }
+  try {
+    const localSettings = JSON.parse(localStorage.getItem('settings') ?? '{}') as unknown
+    const cloned = structuredClone(defaultValue) as unknown as Record<string, unknown>
+    return mergeDeep(cloned, localSettings) as unknown as Settings
+  } catch (err) {
+    console.error(
+      '[settings] Failed to parse settings from localStorage:',
+      err instanceof Error ? err.message : String(err)
+    )
+    return defaultValue
+  }
+}
+
+function createSettingsState(initial: Settings): Settings {
+  const settings = $state(getInitialSettings(initial))
   return settings
 }
 
@@ -220,27 +227,36 @@ $effect.root(() => {
   return () => {}
 })
 
-function isObject(item: object) {
-  return item && typeof item === 'object' && !Array.isArray(item)
+function isObject(item: unknown): item is Record<string, unknown> {
+  return item !== null && typeof item === 'object' && !Array.isArray(item)
 }
 
 /**
  * Deep merge two objects.
- * @param target
- * @param ...sources
+ * @param target - The target object to merge into
+ * @param sources - Source objects to merge from
+ * @returns The merged target object
  */
-
-export function mergeDeep(target: any, ...sources: any[]) {
+export function mergeDeep<T extends Record<string, unknown>>(
+  target: T,
+  ...sources: unknown[]
+): T {
   if (!sources.length) return target
   const source = sources.shift()
 
   if (isObject(target) && isObject(source)) {
     for (const key in source) {
-      if (isObject(source[key])) {
-        if (!target[key]) Object.assign(target, { [key]: {} })
-        mergeDeep(target[key], source[key])
+      const sourceValue = source[key]
+      if (isObject(sourceValue)) {
+        if (!target[key]) {
+          Object.assign(target, { [key]: {} })
+        }
+        const targetValue = target[key]
+        if (isObject(targetValue)) {
+          mergeDeep(targetValue, sourceValue)
+        }
       } else {
-        Object.assign(target, { [key]: source[key] })
+        Object.assign(target, { [key]: sourceValue })
       }
     }
   }

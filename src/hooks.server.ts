@@ -12,15 +12,14 @@ function getInstanceUrl(): string {
 
 /**
  * Checks whether an error is a network-level failure (DNS, TLS, connection refused, etc.).
- * `fetch` throws `TypeError` for network failures in most runtimes, but some runtimes
- * wrap the cause in a generic `Error`. This helper inspects the message as a fallback.
+ * Inspects the error message for known network-related keywords rather than matching on
+ * error type alone, to avoid misclassifying programming bugs as transient network errors.
  */
 function isNetworkError(error: unknown): boolean {
-  if (error instanceof TypeError) return true
   if (error instanceof Error) {
     const msg = error.message.toLowerCase()
     return (
-      msg.includes('fetch') ||
+      msg.includes('fetch failed') ||
       msg.includes('network') ||
       msg.includes('econnrefused') ||
       msg.includes('enotfound') ||

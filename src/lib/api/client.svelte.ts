@@ -4,6 +4,7 @@ import { DEFAULT_INSTANCE_URL } from '$lib/app/instance.svelte'
 import { instanceToURL } from '$lib/app/util.svelte'
 import { error } from '@sveltejs/kit'
 import { BaseClient, DEFAULT_CLIENT_TYPE, type ClientType } from './base'
+import { CovesClient } from './coves'
 import { LemmyClient } from './lemmy/adapter'
 import { PiefedClient } from './piefed/adapter'
 import type { GetSiteResponse } from './types'
@@ -39,18 +40,16 @@ function toProxyUrl(input: RequestInfo | URL): RequestInfo | URL {
     const parsed = new URL(url)
     // Convert to proxy path: /api/proxy/{path}
     const proxyPath = `/api/proxy${parsed.pathname}${parsed.search}`
-    return input instanceof Request
-      ? new Request(proxyPath, input)
-      : proxyPath
+    return input instanceof Request ? new Request(proxyPath, input) : proxyPath
   } catch (err) {
     // URL parsing failure indicates a malformed URL - this should not happen
     // in normal operation and could indicate a security issue or bug
     console.error(
       '[client] Failed to parse URL for proxy routing - aborting request:',
-      { url, error: err instanceof Error ? err.message : String(err) }
+      { url, error: err instanceof Error ? err.message : String(err) },
     )
     throw new Error(
-      `Invalid URL for API request: ${err instanceof Error ? err.message : String(err)}`
+      `Invalid URL for API request: ${err instanceof Error ? err.message : String(err)}`,
     )
   }
 }
@@ -161,6 +160,82 @@ export function client({
   )
 }
 
+/**
+ * Custom fetch for the Coves XRPC client.
+ *
+ * Unlike `customFetch`, this does NOT throw on non-ok responses. Instead it
+ * returns the raw Response so that XrpcClient can parse structured XRPC error
+ * bodies and throw typed `XrpcError` instances.
+ */
+async function covesCustomFetch(
+  func:
+    | ((
+        input: RequestInfo | URL,
+        init?: RequestInit | undefined,
+      ) => Promise<Response>)
+    | undefined,
+  input: RequestInfo | URL,
+  init?: RequestInit | undefined,
+  auth?: string,
+): Promise<Response> {
+  const f = func ?? fetch
+
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string>),
+    'User-Agent': `Photon/${__VERSION__}`,
+  }
+
+  if (browser) {
+    const proxyInput = toProxyUrl(input)
+    const proxyInit: RequestInit = {
+      ...init,
+      headers,
+      credentials: 'include',
+    }
+
+    if (profile.isAuthenticated) {
+      proxyInit.cache = 'no-store'
+    }
+
+    return f(proxyInput, proxyInit)
+  } else {
+    if (auth) {
+      headers['Authorization'] = `Bearer ${auth}`
+    }
+
+    const serverInit: RequestInit = {
+      ...init,
+      headers,
+    }
+
+    if (auth) {
+      serverInit.cache = 'no-store'
+    }
+
+    return f(input, serverInit)
+  }
+}
+
+export function coves({
+  instanceURL,
+  func,
+  auth,
+}: {
+  instanceURL?: string
+  func?: typeof fetch
+  auth?: string
+} = {}): CovesClient {
+  if (!instanceURL)
+    instanceURL = profile.current.instance || DEFAULT_INSTANCE_URL
+
+  const baseUrl = instanceToURL(instanceURL)
+
+  return new CovesClient({
+    baseUrl,
+    fetchFn: (input, init) => covesCustomFetch(func, input, init, auth),
+  })
+}
+
 // here for parts where i forgor to switch
 export function getClient(
   instanceURL?: string,
@@ -204,7 +279,7 @@ export async function validateInstance(
       '[validateInstance] Validation failed for instance:',
       { instance, clientType: type?.name ?? 'default' },
       'Error:',
-      errorMessage
+      errorMessage,
     )
     return { valid: false, error: errorMessage }
   }

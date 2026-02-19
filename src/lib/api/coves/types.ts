@@ -1,4 +1,5 @@
-// Coves API data model types, derived from Go backend structs.
+// Coves API data model types, derived from Go backend structs in:
+// github.com/coves-social/coves/internal/core/{posts,communities,comments,users,votes,discover,timeline,communityFeeds}
 import type { DID, Handle } from '$lib/types/atproto'
 
 // ---------------------------------------------------------------------------
@@ -25,6 +26,8 @@ export function tryAsAtUri(value: string): AtUri | null {
 }
 
 export function isValidCID(value: string): value is CID {
+  // Permissive check: CIDs can be multibase-encoded (base32, base58btc, base64, etc.)
+  // Full validation would require decoding; this just rejects obviously invalid strings.
   return value.length > 0 && /^[a-zA-Z0-9+/=]+$/.test(value)
 }
 
@@ -35,6 +38,36 @@ export function asCID(value: string): CID {
 
 export function tryAsCID(value: string): CID | null {
   return isValidCID(value) ? value : null
+}
+
+// ---------------------------------------------------------------------------
+// Record types — the actual atProto records stored in repositories
+// ---------------------------------------------------------------------------
+
+export interface PostRecord {
+  $type: string
+  community: string
+  author: string
+  createdAt: string
+  title?: string
+  content?: string
+  embed?: Record<string, unknown>
+  labels?: unknown
+  facets?: unknown[]
+  originalAuthor?: unknown
+  federatedFrom?: unknown
+  location?: unknown
+}
+
+export interface CommentRecord {
+  $type: string
+  content: string
+  reply: { root: StrongRef; parent: StrongRef }
+  createdAt: string
+  facets?: unknown[]
+  langs?: string[]
+  embed?: unknown
+  labels?: unknown
 }
 
 // ---------------------------------------------------------------------------
@@ -83,7 +116,7 @@ export interface PostView {
   community: CommunityRef
   editedAt?: string
   language?: string
-  record?: unknown
+  record?: PostRecord
   embed?: PostEmbed
   viewer?: PostViewerState
   stats?: PostStats
@@ -126,6 +159,8 @@ export interface PostRef {
 // Core view types — communities
 // ---------------------------------------------------------------------------
 
+export type CommunityVisibility = 'public' | 'unlisted' | 'private'
+
 export interface CommunityViewerState {
   subscribed?: boolean
   member?: boolean
@@ -141,7 +176,7 @@ export interface CommunityView {
   displayName?: string
   displayHandle?: string
   avatar?: string
-  visibility?: string
+  visibility?: CommunityVisibility
   viewer?: CommunityViewerState
 }
 
@@ -152,7 +187,7 @@ export interface CommunityViewDetailed extends CommunityView {
   banner?: string
   createdBy?: DID
   hostedBy?: DID
-  moderationType?: string
+  moderationType?: 'open' | 'restricted' | 'approval'
   contentWarnings?: string[]
 }
 
@@ -182,7 +217,7 @@ export interface CommentView {
   cid: CID
   createdAt: string
   indexedAt: string
-  record: unknown
+  record: CommentRecord
   author: AuthorView
   post: CommentRef
   stats: CommentStats
@@ -383,7 +418,7 @@ export interface GetCommunityParams {
 
 export interface ListCommunitiesParams {
   sort?: string
-  visibility?: string
+  visibility?: CommunityVisibility
   limit?: number
   offset?: number
 }
@@ -394,7 +429,7 @@ export interface ListCommunitiesResponse {
 
 export interface SearchCommunitiesParams {
   query: string
-  visibility?: string
+  visibility?: CommunityVisibility
   limit?: number
   offset?: number
 }
@@ -463,7 +498,7 @@ export interface CreateCommentOutput {
 export interface CreateCommunityInput {
   name: string
   description: string
-  visibility: string
+  visibility: CommunityVisibility
   displayName?: string
   language?: string
   allowExternalDiscovery?: boolean

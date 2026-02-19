@@ -163,7 +163,7 @@ export function parseApiMeResponse(
   sealedToken: SealedToken,
 ): AccountSession | null {
   if (typeof data !== 'object' || data === null) {
-    console.warn(
+    console.error(
       '[parseApiMeResponse] Invalid input: expected object, got',
       typeof data,
     )
@@ -172,20 +172,20 @@ export function parseApiMeResponse(
   const obj = data as Record<string, unknown>
 
   if (typeof obj.did !== 'string') {
-    console.warn('[parseApiMeResponse] Missing or non-string "did" field')
+    console.error('[parseApiMeResponse] Missing or non-string "did" field')
     return null
   }
   if (!isValidDID(obj.did)) {
-    console.warn('[parseApiMeResponse] Invalid DID format:', obj.did)
+    console.error('[parseApiMeResponse] Invalid DID format:', obj.did)
     return null
   }
 
   if (typeof obj.handle !== 'string') {
-    console.warn('[parseApiMeResponse] Missing or non-string "handle" field')
+    console.error('[parseApiMeResponse] Missing or non-string "handle" field')
     return null
   }
   if (!isValidHandle(obj.handle)) {
-    console.warn('[parseApiMeResponse] Invalid handle format:', obj.handle)
+    console.error('[parseApiMeResponse] Invalid handle format:', obj.handle)
     return null
   }
 

@@ -8,9 +8,12 @@ import { DEFAULT_INSTANCE_URL } from '$lib/app/instance.svelte'
  *
  * PURPOSE:
  * This proxy exists to keep authentication tokens secure by never exposing them
- * to the browser. In ATProto OAuth, access tokens are stored in encrypted
- * server-side session cookies. The proxy injects the Authorization header on
- * behalf of the client, so the client never needs to handle or store tokens.
+ * to the browser. Authentication is managed via a backend-delegated session: the
+ * Coves Go backend sets a sealed (encrypted) session cookie during OAuth, and
+ * the SvelteKit frontend forwards that cookie to the backend's /api/me endpoint
+ * for validation. The proxy injects the Authorization header (using the sealed
+ * token from the cookie) on behalf of the client, so the client never needs to
+ * handle or store tokens.
  *
  * TRUST MODEL:
  * - Client -> Proxy: Client is untrusted. All paths are validated for security
@@ -51,7 +54,7 @@ import { DEFAULT_INSTANCE_URL } from '$lib/app/instance.svelte'
  * 4. Backslash - Windows separator that could bypass Unix-style checks
  * 5. Encoded separators - %2F (/), %5C (\) that could bypass validation
  */
-function validateProxyPath(path: string): string | null {
+export function validateProxyPath(path: string): string | null {
   // Check for null bytes (can be used to bypass filters)
   if (path.includes('\x00')) {
     return 'Invalid path: null bytes not allowed'
@@ -64,7 +67,8 @@ function validateProxyPath(path: string): string | null {
 
   // Check for path traversal patterns
   // This catches: ../, ..\, and URL-encoded variants like %2F, %5C
-  const traversalPattern = /(?:^|[\\/])\.\.(?:[\\/]|$)|%2e%2e|%252e|%c0%ae|%c1%9c/i
+  const traversalPattern =
+    /(?:^|[\\/])\.\.(?:[\\/]|$)|%2e%2e|%252e|%c0%ae|%c1%9c/i
   if (traversalPattern.test(path)) {
     return 'Invalid path: path traversal not allowed'
   }
@@ -108,14 +112,14 @@ async function handler({
       {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
-      }
+      },
     )
   }
 
   // Determine target instance (from session or default)
   // Instance may already include protocol (e.g., "https://coves.social") or be just the hostname
   const instance = locals.auth.authenticated
-    ? locals.auth.activeAccount.instance
+    ? locals.auth.account.instance
     : DEFAULT_INSTANCE_URL
   let baseUrl: string
   if (instance.startsWith('http://') || instance.startsWith('https://')) {
@@ -136,7 +140,7 @@ async function handler({
       {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
-      }
+      },
     )
   }
   // Remove trailing slash from baseUrl if present to avoid double slashes
@@ -151,8 +155,9 @@ async function handler({
   headers.delete('host')
   headers.delete('connection')
 
-  // Inject Authorization header from encrypted session cookie
-  // This is the core security benefit: tokens never reach the browser
+  // Inject Authorization header from the sealed session cookie.
+  // The sealed token is opaque to the browser (encrypted by the Go backend),
+  // so raw access/refresh tokens are never exposed to client-side code.
   if (locals.auth.authenticated) {
     headers.set('Authorization', `Bearer ${locals.auth.authToken}`)
   }
@@ -186,7 +191,10 @@ async function handler({
     const requestId = crypto.randomUUID().slice(0, 8) // Short ID for easier reference
 
     // Connection error to upstream - include request context for debugging
-    console.error(`Proxy error [${request.method} /${path}] [requestId: ${requestId}]:`, error)
+    console.error(
+      `Proxy error [${request.method} /${path}] [requestId: ${requestId}]:`,
+      error,
+    )
     return new Response(
       JSON.stringify({
         error: 'Bad Gateway',
@@ -196,7 +204,7 @@ async function handler({
       {
         status: 502,
         headers: { 'Content-Type': 'application/json' },
-      }
+      },
     )
   }
 }

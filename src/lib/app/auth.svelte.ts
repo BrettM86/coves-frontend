@@ -1,9 +1,17 @@
 import { browser } from '$app/environment'
 import { DEFAULT_INSTANCE_URL } from './instance.svelte'
 import { moveItem } from './util.svelte'
-import type { ClientSession, DID, Handle, InstanceURL } from '$lib/server/session'
+import type {
+  ClientSession,
+  DID,
+  Handle,
+  InstanceURL,
+} from '$lib/server/session'
 
-function getFromStorage<T>(key: string, validator?: (data: unknown) => data is T): T | undefined {
+function getFromStorage<T>(
+  key: string,
+  validator?: (data: unknown) => data is T,
+): T | undefined {
   if (!browser) return
   const lc = localStorage.getItem(key)
   if (!lc) return undefined
@@ -15,7 +23,7 @@ function getFromStorage<T>(key: string, validator?: (data: unknown) => data is T
     if (validator) {
       if (!validator(parsed)) {
         console.warn(
-          `localStorage key "${key}" contains invalid data structure - clearing corrupted data`
+          `localStorage key "${key}" contains invalid data structure - clearing corrupted data`,
         )
         localStorage.removeItem(key)
         return undefined
@@ -32,7 +40,10 @@ function getFromStorage<T>(key: string, validator?: (data: unknown) => data is T
 
 function setFromStorage(key: string, item: unknown, stringify: boolean = true) {
   if (!browser) return
-  return localStorage.setItem(key, stringify ? JSON.stringify(item) : String(item))
+  return localStorage.setItem(
+    key,
+    stringify ? JSON.stringify(item) : String(item),
+  )
 }
 
 // ============================================================================
@@ -127,7 +138,9 @@ export type ProfileInfo = GuestProfile | AuthenticatedProfile
 /**
  * Type guard to check if a profile is authenticated.
  */
-export function isAuthenticated(profile: ProfileInfo): profile is AuthenticatedProfile {
+export function isAuthenticated(
+  profile: ProfileInfo,
+): profile is AuthenticatedProfile {
   return profile.type === 'authenticated'
 }
 
@@ -228,7 +241,8 @@ class Profile {
   )
 
   #current = $derived(
-    this.meta.profiles.find((i) => i.id == this.meta.profile) ?? createGuestProfile(),
+    this.meta.profiles.find((i) => i.id == this.meta.profile) ??
+      createGuestProfile(),
   )
 
   getDefaultProfile(): ProfileInfo {
@@ -252,30 +266,22 @@ class Profile {
    * @param serverSession - The session data from the server (passed via page data)
    */
   syncFromServer(serverSession: ServerSession | undefined): void {
-    if (!serverSession) return
+    if (!serverSession || !serverSession.authenticated) return
 
-    // Convert server accounts to client ProfileInfo format
-    // All accounts from the server are authenticated (they have DIDs)
-    const serverProfiles: ProfileInfo[] = serverSession.accounts.map(
-      (account): AuthenticatedProfile => ({
-        type: 'authenticated',
-        id: account.id,
-        instance: account.instance,
-        jwt: 'authenticated',
-        did: account.did,
-        handle: account.handle,
-        avatar: account.avatar,
-      })
-    )
-
-    // Find current active profile ID (already a string)
-    const activeId = serverSession.activeAccountId
+    // Convert server account to client ProfileInfo format
+    const serverProfile: AuthenticatedProfile = {
+      type: 'authenticated',
+      id: serverSession.account.id,
+      instance: serverSession.account.instance,
+      jwt: 'authenticated',
+      did: serverSession.account.did,
+      handle: serverSession.account.handle,
+      avatar: serverSession.account.avatar,
+    }
 
     // Update local state
-    if (serverProfiles.length > 0) {
-      this.meta.profiles = serverProfiles
-      this.meta.profile = activeId ?? serverProfiles[0].id
-    }
+    this.meta.profiles = [serverProfile]
+    this.meta.profile = serverSession.activeAccountId
   }
 
   /**
@@ -296,15 +302,16 @@ class Profile {
     try {
       response = await fetch('/api/auth/logout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: id }),
         credentials: 'include',
       })
     } catch (err) {
       // Network error - don't clear local state
       const errorMsg = err instanceof Error ? err.message : 'Network error'
       console.error('Logout request failed:', err)
-      return { success: false, error: `Logout failed: ${errorMsg}. Please try again.` }
+      return {
+        success: false,
+        error: `Logout failed: ${errorMsg}. Please try again.`,
+      }
     }
 
     if (!response.ok) {
@@ -319,7 +326,10 @@ class Profile {
         console.warn('[auth] Failed to parse error response JSON:', err)
       }
       console.error('Server logout failed:', errorMsg)
-      return { success: false, error: `Logout failed: ${errorMsg}. Please try again.` }
+      return {
+        success: false,
+        error: `Logout failed: ${errorMsg}. Please try again.`,
+      }
     }
 
     // Server logout succeeded - now safe to clear local state
@@ -344,60 +354,21 @@ class Profile {
     }
 
     if (id === this.meta.profile) {
-      this.meta.profile = this.meta.profiles.length > 0 ? this.meta.profiles[0].id : 'guest'
+      this.meta.profile =
+        this.meta.profiles.length > 0 ? this.meta.profiles[0].id : 'guest'
     }
 
     return result
   }
 
-  /**
-   * Switch to a different account.
-   * Calls the server to update the active session.
-   *
-   * @returns Object with success status and optional error message
-   */
-  async switchTo(id: string): Promise<{ success: boolean; error?: string }> {
-    const targetProfile = this.meta.profiles.find((p) => p.id === id)
-    if (!targetProfile) {
-      return { success: false, error: 'Account not found in local profiles' }
-    }
-
-    try {
-      const response = await fetch('/api/auth/switch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: id }),
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        let errorMsg = `Server returned status ${response.status}`
-        try {
-          const errorData = await response.json()
-          if (errorData.error) {
-            errorMsg = errorData.error
-          }
-        } catch (err) {
-          console.warn('[auth] Failed to parse switch account response JSON:', err)
-        }
-        console.warn('Account switch failed:', errorMsg)
-        return { success: false, error: errorMsg }
-      }
-
-      // Update local state
-      this.meta.profile = id
-      return { success: true }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Network error'
-      console.warn('Account switch request failed:', err)
-      return { success: false, error: `Network error: ${errorMsg}` }
-    }
-  }
-
   move(id: string, up: boolean) {
     try {
       const index = this.meta.profiles.findIndex((i) => i.id === id)
-      this.meta.profiles = moveItem(this.meta.profiles, index, index + (up ? -1 : 1))
+      this.meta.profiles = moveItem(
+        this.meta.profiles,
+        index,
+        index + (up ? -1 : 1),
+      )
     } catch (err) {
       console.warn('Failed to move profile:', err)
     }
@@ -405,7 +376,10 @@ class Profile {
 
   get isDefaultProfile(): boolean {
     // A default/guest profile has type 'guest'
-    return this.#current.type === 'guest' && this.#current.instance == DEFAULT_INSTANCE_URL
+    return (
+      this.#current.type === 'guest' &&
+      this.#current.instance == DEFAULT_INSTANCE_URL
+    )
   }
 
   /**
@@ -433,7 +407,9 @@ class Profile {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isMod(_community?: unknown): boolean {
     if (!this.#warnedIsMod) {
-      console.warn('isMod() is a stub - implement when Coves roles API is available')
+      console.warn(
+        'isMod() is a stub - implement when Coves roles API is available',
+      )
       this.#warnedIsMod = true
     }
     return false
@@ -444,7 +420,9 @@ class Profile {
    */
   get isAdmin(): boolean {
     if (!this.#warnedIsAdmin) {
-      console.warn('isAdmin is a stub - implement when Coves roles API is available')
+      console.warn(
+        'isAdmin is a stub - implement when Coves roles API is available',
+      )
       this.#warnedIsAdmin = true
     }
     return false

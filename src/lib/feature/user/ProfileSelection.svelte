@@ -1,11 +1,9 @@
 <script lang="ts">
-  import { goto } from '$app/navigation'
-  import { page } from '$app/state'
   import { profile, type ProfileInfo } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { LINKED_INSTANCE_URL } from '$lib/app/instance.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
-  import { Badge, Button, Menu, MenuButton, toast } from 'mono-svelte'
+  import { Badge, Button, Menu, MenuButton } from 'mono-svelte'
   import {
     CheckCircle,
     ChevronUpDown,
@@ -18,21 +16,6 @@
     profiles,
     selectable = true,
   }: { profiles: ProfileInfo[]; selectable?: boolean } = $props()
-
-  async function switchTo(id: string) {
-    const result = await profile.switchTo(id)
-    if (result.success) {
-      goto(page.url, {
-        invalidateAll: true,
-      })
-    } else {
-      console.error('Failed to switch account:', result.error)
-      toast({
-        content: $t('error.accountSwitch'),
-        type: 'error',
-      })
-    }
-  }
 </script>
 
 <Menu placement="bottom">
@@ -77,7 +60,6 @@
   {#each profiles as p}
     {@const selected = profile.meta.profile == p.id}
     <MenuButton
-      onclick={() => switchTo(p.id)}
       class={[selected && 'bg-slate-100! dark:bg-zinc-800!', 'gap-2!']}
     >
       {#snippet prefix()}

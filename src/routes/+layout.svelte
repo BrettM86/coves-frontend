@@ -2,6 +2,7 @@
   import { browser } from '$app/environment'
   import { navigating, page } from '$app/state'
   import { site } from '$lib/api/client.svelte'
+  import { profile } from '$lib/app/auth.svelte'
   import { locale } from '$lib/app/i18n'
   import { LINKED_INSTANCE_URL } from '$lib/app/instance.svelte'
   import { settings } from '$lib/app/settings.svelte'
@@ -17,7 +18,13 @@
   import { Shell } from '$lib/ui/layout'
   import Navbar from '$lib/ui/navbar/Navbar.svelte'
   import Sidebar from '$lib/ui/sidebar/Sidebar.svelte'
-  import { Button, ModalContainer, Spinner, toast, ToastContainer } from 'mono-svelte'
+  import {
+    Button,
+    ModalContainer,
+    Spinner,
+    toast,
+    ToastContainer,
+  } from 'mono-svelte'
   import { t } from '$lib/app/i18n'
   import nProgress from 'nprogress'
   import 'nprogress/nprogress.css'
@@ -106,6 +113,13 @@
         ($locale == 'he' || $locale == 'ar') && settings.useRtl ? 'rtl' : 'ltr'
     })
   }
+
+  // Sync server-validated session into client-side profile state.
+  // hooks.server.ts validates the coves_session cookie and returns the user
+  // via +layout.server.ts; this effect hydrates the client profile from it.
+  $effect(() => {
+    profile.syncFromServer(page.data.session ?? undefined)
+  })
 
   let nprogressTimeout = -1
   $effect(() => {

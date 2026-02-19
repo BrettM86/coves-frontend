@@ -1,7 +1,7 @@
 // See https://kit.svelte.dev/docs/types#app
 
 import type { Component } from 'svelte'
-import type { AccountSession, AppSession, SealedToken } from '$lib/server/session'
+import type { AccountSession, SealedToken } from '$lib/server/session'
 
 // for information about these interfaces
 declare global {
@@ -21,11 +21,14 @@ declare global {
      */
     interface AuthenticatedAuth {
       readonly authenticated: true
-      /** The complete session with all accounts */
-      readonly session: AppSession
-      /** The currently active account */
-      readonly activeAccount: AccountSession
-      /** The sealed token for API requests */
+      /** The authenticated account */
+      readonly account: AccountSession
+      /**
+       * Convenience alias for `account.sealedToken`.
+       * Duplicated at the top level so the proxy layer (`/api/proxy/[...path]`)
+       * can read the token directly from `locals.auth.authToken` without
+       * reaching into the nested account object on every proxied request.
+       */
       readonly authToken: SealedToken
     }
 
@@ -36,12 +39,23 @@ declare global {
      * @example
      * ```typescript
      * if (locals.auth.authenticated) {
-     *   // TypeScript knows session, activeAccount, and authToken exist
-     *   console.log(locals.auth.session.activeAccountId)
+     *   // TypeScript knows account and authToken exist
+     *   console.log(locals.auth.account.did)
      * }
      * ```
      */
     type AuthState = UnauthenticatedAuth | AuthenticatedAuth
+
+    /**
+     * Categories of authentication errors that can occur during session validation.
+     * These allow downstream code (layouts, pages) to show appropriate user feedback.
+     *
+     * - 'network_error': Infrastructure failure (DNS, TLS, timeout, connection refused).
+     *   The session cookie is preserved because the error may be temporary.
+     * - 'validation_error': The /api/me response was received but contained invalid data.
+     *   Indicates a server-side bug or protocol mismatch.
+     */
+    type AuthErrorKind = 'network_error' | 'validation_error'
 
     /**
      * Server-side request-local state populated by hooks.server.ts.
@@ -52,6 +66,14 @@ declare global {
      */
     interface Locals {
       auth: AuthState
+      /**
+       * Set when authentication failed due to an infrastructure or validation error
+       * (as opposed to simply not having a session cookie).
+       * The layout can use this to show a warning banner to the user.
+       */
+      authError?: AuthErrorKind
+      /** Set to true when a 401 from /api/me indicates the session has expired or been revoked */
+      sessionExpired?: boolean
     }
     interface PageData {
       slots?: {

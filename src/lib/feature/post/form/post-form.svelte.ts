@@ -102,9 +102,12 @@ export class PostFormState {
         })
       ).post_view
     } else {
+      if (!this.community) {
+        throw new Error('Community is required when creating a new post')
+      }
       res = (
         await api.createPost({
-          community_id: this.community!.id,
+          community_id: this.community.id,
           name: this.title,
           body: this.body,
           url: this.url,

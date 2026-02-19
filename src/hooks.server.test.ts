@@ -1,55 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Cookies, RequestEvent } from '@sveltejs/kit'
-import {
-  asDID,
-  asHandle,
-  asInstanceURL,
-  asSealedToken,
-  asSessionId,
-  type AppSession,
-  type AccountId,
-} from '$lib/server/session'
 
-// 32-byte hex key (64 characters) for testing
-const TEST_SECRET = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
-
-// Valid AccountIds (32 hex characters) for testing
-const TEST_ACCOUNT_ID_1 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1' as AccountId
-const TEST_ACCOUNT_ID_2 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2' as AccountId
-
-// Variable to control the mocked SESSION_SECRET
-let mockSessionSecret: string | undefined = TEST_SECRET
+// Variable to control the mocked instance URL
+let mockPublicInternalInstance: string | undefined = 'http://localhost:4000'
+let mockPublicInstanceUrl: string | undefined = undefined
 
 // Mock environment variables
-vi.mock('$env/dynamic/private', () => ({
+vi.mock('$env/dynamic/public', () => ({
   env: {
-    get SESSION_SECRET() {
-      return mockSessionSecret
+    get PUBLIC_INTERNAL_INSTANCE() {
+      return mockPublicInternalInstance
+    },
+    get PUBLIC_INSTANCE_URL() {
+      return mockPublicInstanceUrl
     },
   },
 }))
 
-// Mock decryptSession to control its behavior in tests
-const mockDecryptSession = vi.fn()
-
-vi.mock('$lib/server/session', async () => {
-  const actual = await vi.importActual('$lib/server/session')
-  return {
-    ...actual,
-    decryptSession: (...args: unknown[]) => mockDecryptSession(...args),
-  }
-})
-
 // Import handle and handleError after mocking
 const { handle, handleError } = await import('./hooks.server')
 
+// Mock global fetch
+const mockFetch = vi.fn()
+vi.stubGlobal('fetch', mockFetch)
+
 // Helper to create mock cookies
-function createMockCookies(initialCookies: Record<string, string> = {}): Cookies {
+function createMockCookies(
+  initialCookies: Record<string, string> = {},
+): Cookies {
   const store = new Map(Object.entries(initialCookies))
   return {
     get: vi.fn((name: string) => store.get(name)),
     getAll: vi.fn(() =>
-      Array.from(store.entries()).map(([name, value]) => ({ name, value }))
+      Array.from(store.entries()).map(([name, value]) => ({ name, value })),
     ),
     set: vi.fn((name: string, value: string) => {
       store.set(name, value)
@@ -69,7 +52,6 @@ function createMockEvent(options: {
   locals?: App.Locals
 }): RequestEvent {
   const url = new URL('http://localhost:5173/')
-  // Default to unauthenticated state
   const defaultLocals: App.Locals = { auth: { authenticated: false } }
   return {
     request: new Request(url),
@@ -97,314 +79,353 @@ function createMockResolve() {
 describe('hooks.server handle', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSessionSecret = TEST_SECRET
+    mockPublicInternalInstance = 'http://localhost:4000'
+    mockPublicInstanceUrl = undefined
   })
 
-  describe('valid session cookie', () => {
-    it('populates event.locals with session data when valid session cookie exists', async () => {
-      const session: AppSession = {
-        activeAccountId: TEST_ACCOUNT_ID_1,
-        accounts: [
-          {
-            id: TEST_ACCOUNT_ID_1,
-            did: asDID('did:plc:user1'),
-            handle: asHandle('user1.example.com'),
-            instance: asInstanceURL('https://coves.example.com'),
-            sealedToken: asSealedToken('sealed-token-123'),
-            sessionId: asSessionId('session-1'),
+  describe('no coves_session cookie', () => {
+    it('results in unauthenticated state and no fetch called', async () => {
+      const cookies = createMockCookies({})
+      const event = createMockEvent({ cookies })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      expect(mockFetch).not.toHaveBeenCalled()
+      expect(event.locals.auth.authenticated).toBe(false)
+      expect(event.locals.authError).toBeUndefined()
+      expect(resolve).toHaveBeenCalledWith(event)
+    })
+  })
+
+  describe('empty string coves_session cookie', () => {
+    it('treats empty string as no cookie and returns unauthenticated', async () => {
+      const cookies = createMockCookies({ coves_session: '' })
+      const event = createMockEvent({ cookies })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      // Empty string is falsy, so it's treated the same as no cookie
+      expect(event.locals.auth.authenticated).toBe(false)
+      expect(mockFetch).not.toHaveBeenCalled()
+      expect(resolve).toHaveBeenCalledWith(event)
+    })
+  })
+
+  describe('valid cookie and /api/me returns 200', () => {
+    it('populates authenticated state with correct account and authToken', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            did: 'did:plc:user1',
+            handle: 'user1.example.com',
             avatar: 'https://example.com/avatar.png',
-          },
-        ],
-      }
-
-      mockDecryptSession.mockReturnValue(session)
-
-      const cookies = createMockCookies({
-        kelp_session: 'encrypted-session-cookie',
-      })
-
-      const event = createMockEvent({ cookies })
-      const resolve = createMockResolve()
-
-      await handle({ event, resolve })
-
-      expect(mockDecryptSession).toHaveBeenCalledWith('encrypted-session-cookie', TEST_SECRET)
-      expect(event.locals.auth.authenticated).toBe(true)
-      if (event.locals.auth.authenticated) {
-        expect(event.locals.auth.session).toEqual(session)
-        expect(event.locals.auth.activeAccount).toEqual(session.accounts[0])
-        expect(event.locals.auth.authToken).toBe('sealed-token-123')
-      }
-      expect(resolve).toHaveBeenCalledWith(event)
-    })
-
-    it('populates event.locals with correct account when multiple accounts exist', async () => {
-      const session: AppSession = {
-        activeAccountId: TEST_ACCOUNT_ID_2,
-        accounts: [
-          {
-            id: TEST_ACCOUNT_ID_1,
-            did: asDID('did:plc:user1'),
-            handle: asHandle('user1.example.com'),
-            instance: asInstanceURL('https://coves.example.com'),
-            sealedToken: asSealedToken('token-1'),
-            sessionId: asSessionId('session-1'),
-          },
-          {
-            id: TEST_ACCOUNT_ID_2,
-            did: asDID('did:plc:user2'),
-            handle: asHandle('user2.example.com'),
-            instance: asInstanceURL('https://coves.example.com'),
-            sealedToken: asSealedToken('token-2'),
-            sessionId: asSessionId('session-2'),
-          },
-        ],
-      }
-
-      mockDecryptSession.mockReturnValue(session)
-
-      const cookies = createMockCookies({
-        kelp_session: 'encrypted-session-cookie',
-      })
-
-      const event = createMockEvent({ cookies })
-      const resolve = createMockResolve()
-
-      await handle({ event, resolve })
-
-      expect(event.locals.auth.authenticated).toBe(true)
-      if (event.locals.auth.authenticated) {
-        expect(event.locals.auth.activeAccount.id).toBe(TEST_ACCOUNT_ID_2)
-        expect(event.locals.auth.authToken).toBe('token-2')
-      }
-    })
-  })
-
-  describe('missing SESSION_SECRET', () => {
-    it('throws fatal error when SESSION_SECRET is undefined and session cookie exists', async () => {
-      mockSessionSecret = undefined
-
-      const cookies = createMockCookies({
-        kelp_session: 'encrypted-session-cookie',
-      })
-
-      const event = createMockEvent({ cookies })
-      const resolve = createMockResolve()
-
-      await expect(handle({ event, resolve })).rejects.toThrow(
-        '[FATAL] SESSION_SECRET environment variable is not set'
+          }),
+          { status: 200 },
+        ),
       )
 
-      expect(mockDecryptSession).not.toHaveBeenCalled()
-    })
-
-    it('throws fatal error when SESSION_SECRET is empty string and session cookie exists', async () => {
-      mockSessionSecret = ''
-
-      const cookies = createMockCookies({
-        kelp_session: 'encrypted-session-cookie',
-      })
-
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
       const event = createMockEvent({ cookies })
       const resolve = createMockResolve()
 
-      await expect(handle({ event, resolve })).rejects.toThrow(
-        '[FATAL] SESSION_SECRET environment variable is not set'
-      )
-
-      expect(mockDecryptSession).not.toHaveBeenCalled()
-    })
-
-    it('allows unauthenticated requests without session cookie when SESSION_SECRET is not set', async () => {
-      mockSessionSecret = undefined
-
-      const cookies = createMockCookies({})
-
-      const event = createMockEvent({ cookies })
-      const resolve = createMockResolve()
-
-      // Should not throw because no session cookie exists
       await handle({ event, resolve })
 
-      expect(mockDecryptSession).not.toHaveBeenCalled()
-      expect(event.locals.auth.authenticated).toBe(false)
+      expect(mockFetch).toHaveBeenCalledWith('http://localhost:4000/api/me', {
+        headers: { Cookie: 'coves_session=sealed-token-value' },
+      })
+      expect(event.locals.auth.authenticated).toBe(true)
+      if (event.locals.auth.authenticated) {
+        expect(event.locals.auth.account.did).toBe('did:plc:user1')
+        expect(event.locals.auth.account.handle).toBe('user1.example.com')
+        expect(event.locals.auth.account.instance).toBe('http://localhost:4000')
+        expect(event.locals.auth.account.sealedToken).toBe('sealed-token-value')
+        expect(event.locals.auth.account.avatar).toBe(
+          'https://example.com/avatar.png',
+        )
+        expect(event.locals.auth.authToken).toBe('sealed-token-value')
+      }
       expect(resolve).toHaveBeenCalledWith(event)
     })
   })
 
-  describe('invalid/malformed session cookie', () => {
-    it('results in unauthenticated request when decryption returns null', async () => {
-      mockDecryptSession.mockReturnValue(null)
+  describe('valid cookie and /api/me returns 401', () => {
+    it('results in unauthenticated state without console.warn', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-      const cookies = createMockCookies({
-        kelp_session: 'invalid-encrypted-data',
-      })
+      mockFetch.mockResolvedValue(new Response('Unauthorized', { status: 401 }))
 
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
       const event = createMockEvent({ cookies })
       const resolve = createMockResolve()
 
       await handle({ event, resolve })
 
-      expect(mockDecryptSession).toHaveBeenCalledWith('invalid-encrypted-data', TEST_SECRET)
       expect(event.locals.auth.authenticated).toBe(false)
+      // Should NOT log a warning for 401 (expected case)
+      expect(warnSpy).not.toHaveBeenCalled()
       expect(resolve).toHaveBeenCalledWith(event)
+
+      warnSpy.mockRestore()
     })
 
-    it('clears corrupted session cookie when decryption fails', async () => {
-      mockDecryptSession.mockReturnValue(null)
+    it('deletes the stale coves_session cookie on 401', async () => {
+      mockFetch.mockResolvedValue(new Response('Unauthorized', { status: 401 }))
 
-      const cookies = createMockCookies({
-        kelp_session: 'corrupted-session-data',
-      })
-
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
       const event = createMockEvent({ cookies })
       const resolve = createMockResolve()
 
       await handle({ event, resolve })
 
-      // Verify the corrupted cookie is cleared by setting it to empty with maxAge: 0
-      expect(cookies.set).toHaveBeenCalledWith('kelp_session', '', {
+      expect(cookies.delete).toHaveBeenCalledWith('coves_session', {
         path: '/',
-        maxAge: 0,
       })
     })
 
-    it('results in unauthenticated request when session cookie is missing', async () => {
-      const cookies = createMockCookies({})
+    it('sets sessionExpired flag on 401', async () => {
+      mockFetch.mockResolvedValue(new Response('Unauthorized', { status: 401 }))
 
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
       const event = createMockEvent({ cookies })
       const resolve = createMockResolve()
 
       await handle({ event, resolve })
 
-      expect(mockDecryptSession).not.toHaveBeenCalled()
-      expect(event.locals.auth.authenticated).toBe(false)
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(event.locals.sessionExpired).toBe(true)
     })
 
-    it('results in unauthenticated request when session cookie is empty string', async () => {
-      const cookies = createMockCookies({
-        kelp_session: '',
-      })
+    it('does not set authError on 401 (session expiry is expected)', async () => {
+      mockFetch.mockResolvedValue(new Response('Unauthorized', { status: 401 }))
 
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
       const event = createMockEvent({ cookies })
       const resolve = createMockResolve()
 
       await handle({ event, resolve })
 
-      // Empty string is falsy, so decryptSession should not be called
-      expect(mockDecryptSession).not.toHaveBeenCalled()
-      expect(event.locals.auth.authenticated).toBe(false)
+      expect(event.locals.authError).toBeUndefined()
     })
   })
 
-  describe('missing activeAccountId in session', () => {
-    it('results in unauthenticated request when activeAccountId is null', async () => {
-      const session: AppSession = {
-        activeAccountId: null,
-        accounts: [
-          {
-            id: TEST_ACCOUNT_ID_1,
-            did: asDID('did:plc:user1'),
-            handle: asHandle('user1.example.com'),
-            instance: asInstanceURL('https://coves.example.com'),
-            sealedToken: asSealedToken('sealed-token-123'),
-            sessionId: asSessionId('session-1'),
-          },
-        ],
-      }
+  describe('valid cookie and /api/me returns 500', () => {
+    it('results in unauthenticated state and logs warning', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-      mockDecryptSession.mockReturnValue(session)
+      mockFetch.mockResolvedValue(
+        new Response('Internal Server Error', { status: 500 }),
+      )
 
-      const cookies = createMockCookies({
-        kelp_session: 'encrypted-session-cookie',
-      })
-
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
       const event = createMockEvent({ cookies })
       const resolve = createMockResolve()
 
       await handle({ event, resolve })
 
-      expect(mockDecryptSession).toHaveBeenCalled()
       expect(event.locals.auth.authenticated).toBe(false)
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/api/me returned 500'),
+      )
       expect(resolve).toHaveBeenCalledWith(event)
-    })
 
-    it('results in unauthenticated request when activeAccountId references non-existent account', async () => {
-      const session: AppSession = {
-        activeAccountId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaff' as AccountId,
-        accounts: [
-          {
-            id: TEST_ACCOUNT_ID_1,
-            did: asDID('did:plc:user1'),
-            handle: asHandle('user1.example.com'),
-            instance: asInstanceURL('https://coves.example.com'),
-            sealedToken: asSealedToken('sealed-token-123'),
-            sessionId: asSessionId('session-1'),
-          },
-        ],
-      }
-
-      mockDecryptSession.mockReturnValue(session)
-
-      const cookies = createMockCookies({
-        kelp_session: 'encrypted-session-cookie',
-      })
-
-      const event = createMockEvent({ cookies })
-      const resolve = createMockResolve()
-
-      await handle({ event, resolve })
-
-      expect(mockDecryptSession).toHaveBeenCalled()
-      expect(event.locals.auth.authenticated).toBe(false)
-      expect(resolve).toHaveBeenCalledWith(event)
-    })
-
-    it('results in unauthenticated request when accounts array is empty', async () => {
-      const session: AppSession = {
-        activeAccountId: TEST_ACCOUNT_ID_1,
-        accounts: [],
-      }
-
-      mockDecryptSession.mockReturnValue(session)
-
-      const cookies = createMockCookies({
-        kelp_session: 'encrypted-session-cookie',
-      })
-
-      const event = createMockEvent({ cookies })
-      const resolve = createMockResolve()
-
-      await handle({ event, resolve })
-
-      expect(mockDecryptSession).toHaveBeenCalled()
-      expect(event.locals.auth.authenticated).toBe(false)
+      warnSpy.mockRestore()
     })
   })
 
-  describe('authToken population', () => {
-    it('populates authToken with sealedToken from active account', async () => {
-      const session: AppSession = {
-        activeAccountId: TEST_ACCOUNT_ID_1,
-        accounts: [
-          {
-            id: TEST_ACCOUNT_ID_1,
-            did: asDID('did:plc:user1'),
-            handle: asHandle('user1.example.com'),
-            instance: asInstanceURL('https://coves.example.com'),
-            sealedToken: asSealedToken('my-special-sealed-token'),
-            sessionId: asSessionId('session-1'),
-          },
-        ],
-      }
+  describe('valid cookie and fetch throws network error', () => {
+    it('sets authError to network_error for connection refused', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-      mockDecryptSession.mockReturnValue(session)
+      mockFetch.mockRejectedValue(
+        new Error('Network error: connection refused'),
+      )
 
-      const cookies = createMockCookies({
-        kelp_session: 'encrypted-session-cookie',
-      })
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({ cookies })
+      const resolve = createMockResolve()
 
+      await handle({ event, resolve })
+
+      expect(event.locals.auth.authenticated).toBe(false)
+      expect(event.locals.authError).toBe('network_error')
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Network error calling /api/me'),
+        expect.any(Error),
+      )
+      expect(resolve).toHaveBeenCalledWith(event)
+
+      warnSpy.mockRestore()
+    })
+
+    it('sets authError to network_error for TypeError (fetch failure)', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      mockFetch.mockRejectedValue(new TypeError('fetch failed'))
+
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({ cookies })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      expect(event.locals.auth.authenticated).toBe(false)
+      expect(event.locals.authError).toBe('network_error')
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Network error calling /api/me'),
+        expect.any(TypeError),
+      )
+      expect(resolve).toHaveBeenCalledWith(event)
+
+      warnSpy.mockRestore()
+    })
+
+    it('does not delete the coves_session cookie on network error', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      mockFetch.mockRejectedValue(new TypeError('fetch failed'))
+
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({ cookies })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      expect(cookies.delete).not.toHaveBeenCalled()
+    })
+
+    it('sets authError to network_error for unexpected non-network errors', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      mockFetch.mockRejectedValue(new Error('some completely unexpected error'))
+
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({ cookies })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      expect(event.locals.auth.authenticated).toBe(false)
+      expect(event.locals.authError).toBe('network_error')
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Unexpected error calling /api/me'),
+        expect.any(Error),
+      )
+      expect(resolve).toHaveBeenCalledWith(event)
+
+      warnSpy.mockRestore()
+    })
+  })
+
+  describe('valid cookie and /api/me returns invalid JSON', () => {
+    it('sets authError to validation_error and logs warning', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      mockFetch.mockResolvedValue(
+        new Response('not json', {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        }),
+      )
+
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({ cookies })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      expect(event.locals.auth.authenticated).toBe(false)
+      expect(event.locals.authError).toBe('validation_error')
+      // Invalid JSON triggers response.json() to throw as SyntaxError,
+      // which is categorized as a validation error
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/api/me returned invalid JSON'),
+        expect.any(SyntaxError),
+      )
+      expect(resolve).toHaveBeenCalledWith(event)
+
+      warnSpy.mockRestore()
+    })
+  })
+
+  describe('valid cookie and /api/me returns incomplete data', () => {
+    it('sets authError to validation_error when did is missing', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ handle: 'user1.example.com' }), {
+          status: 200,
+        }),
+      )
+
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({ cookies })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      expect(event.locals.auth.authenticated).toBe(false)
+      expect(event.locals.authError).toBe('validation_error')
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/api/me response failed validation'),
+      )
+      expect(resolve).toHaveBeenCalledWith(event)
+
+      warnSpy.mockRestore()
+    })
+
+    it('sets authError to validation_error when handle is missing', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ did: 'did:plc:user1' }), { status: 200 }),
+      )
+
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({ cookies })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      expect(event.locals.auth.authenticated).toBe(false)
+      expect(event.locals.authError).toBe('validation_error')
+      expect(resolve).toHaveBeenCalledWith(event)
+
+      warnSpy.mockRestore()
+    })
+  })
+
+  describe('no instance URL configured', () => {
+    it('throws a fatal error when instance URL is missing', async () => {
+      mockPublicInternalInstance = undefined
+      mockPublicInstanceUrl = undefined
+
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({ cookies })
+      const resolve = createMockResolve()
+
+      await expect(handle({ event, resolve })).rejects.toThrow(
+        'No instance URL configured',
+      )
+
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('authToken equals cookie value', () => {
+    it('authToken is the coves_session cookie value', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            did: 'did:plc:user1',
+            handle: 'user1.example.com',
+          }),
+          { status: 200 },
+        ),
+      )
+
+      const cookieValue = 'my-specific-sealed-token-value'
+      const cookies = createMockCookies({ coves_session: cookieValue })
       const event = createMockEvent({ cookies })
       const resolve = createMockResolve()
 
@@ -412,7 +433,7 @@ describe('hooks.server handle', () => {
 
       expect(event.locals.auth.authenticated).toBe(true)
       if (event.locals.auth.authenticated) {
-        expect(event.locals.auth.authToken).toBe('my-special-sealed-token')
+        expect(event.locals.auth.authToken).toBe(cookieValue)
       }
     })
   })
@@ -440,6 +461,37 @@ describe('hooks.server handle', () => {
       expect(result).toBe(expectedResponse)
     })
   })
+
+  describe('instance URL fallback', () => {
+    it('uses PUBLIC_INSTANCE_URL when PUBLIC_INTERNAL_INSTANCE is not set', async () => {
+      mockPublicInternalInstance = undefined
+      mockPublicInstanceUrl = 'https://coves.example.com'
+
+      mockFetch.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            did: 'did:plc:user1',
+            handle: 'user1.example.com',
+          }),
+          { status: 200 },
+        ),
+      )
+
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({ cookies })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://coves.example.com/api/me',
+        {
+          headers: { Cookie: 'coves_session=sealed-token-value' },
+        },
+      )
+      expect(event.locals.auth.authenticated).toBe(true)
+    })
+  })
 })
 
 describe('hooks.server handleError', () => {
@@ -460,7 +512,9 @@ describe('hooks.server handleError', () => {
 
   it('returns generic error message for non-404 errors', async () => {
     const result = await handleError({
-      error: new Error('Internal database connection failed with password xyz123'),
+      error: new Error(
+        'Internal database connection failed with password xyz123',
+      ),
       event: createMockEvent({ cookies: createMockCookies() }),
       status: 500,
       message: 'Internal Server Error',
@@ -470,7 +524,9 @@ describe('hooks.server handleError', () => {
   })
 
   it('does not expose internal error details in response', async () => {
-    const sensitiveError = new Error('Database password: secret123, API key: abc-def-ghi')
+    const sensitiveError = new Error(
+      'Database password: secret123, API key: abc-def-ghi',
+    )
     const result = await handleError({
       error: sensitiveError,
       event: createMockEvent({ cookies: createMockCookies() }),
@@ -478,7 +534,6 @@ describe('hooks.server handleError', () => {
       message: 'Internal Server Error',
     })
 
-    // The result should not contain any sensitive information
     const appError = result as App.Error
     expect(appError.message).not.toContain('secret123')
     expect(appError.message).not.toContain('abc-def-ghi')

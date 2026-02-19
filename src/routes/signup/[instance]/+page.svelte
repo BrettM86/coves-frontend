@@ -59,7 +59,10 @@
     verifying = $state(false)
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _instanceType: ClientType = $state({ name: 'lemmy', baseUrl: '/api/v3' })
+  const _instanceType: ClientType = $state({
+    name: 'lemmy',
+    baseUrl: '/api/v3',
+  })
 
   const getCaptcha = async () =>
     (captcha = await getClient(instance, fetch).getCaptcha())
@@ -89,7 +92,7 @@
 
       if (res?.jwt) {
         // Account created successfully - redirect to login for OAuth authentication
-        // Direct signup doesn't provide the DID/sessionId needed for full authentication
+        // Direct signup doesn't establish an OAuth session; the user must complete the OAuth flow
         toast({
           content: $t('toast.successSignup'),
           type: 'success',

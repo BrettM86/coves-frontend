@@ -116,6 +116,14 @@ src/
 └── app.html        # HTML template
 ```
 
+## Browser Testing (Playwright MCP)
+- Always use **Firefox** as the browser — Chrome is not installed
+- Dev environment runs on `http://localhost:8080` (Caddy proxy) with Go backend on :8081 and Vite on :5173
+- Start with `make run-web` from the Coves backend repo
+
+## Sub-Agent Pattern
+When using the Task tool to launch multiple agents, prefer **foreground** calls (no `run_in_background`). Multiple foreground Task calls in a single message run concurrently while keeping the main agent active to report results automatically. Background agents go idle and require manual check-ins.
+
 ## Success Metrics
 Your code is ready when:
 - [ ] `pnpm check` passes

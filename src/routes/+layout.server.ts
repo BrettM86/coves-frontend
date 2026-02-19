@@ -21,11 +21,12 @@ export const load = async ({ request, locals }) => {
 
   // Build client-safe session (without sensitive tokens)
   const session: ClientSession | null = locals.auth.authenticated
-    ? toClientSession(locals.auth.session)
+    ? toClientSession(locals.auth.account)
     : null
 
   return {
     lang: preferredLanguage,
     session,
+    sessionExpired: locals.sessionExpired ?? false,
   }
 }

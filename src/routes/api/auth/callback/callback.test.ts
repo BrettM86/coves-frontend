@@ -1,49 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, type Mock, beforeEach } from 'vitest'
 
-// Variable to control the mocked SESSION_SECRET
-let mockSessionSecret: string | undefined = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
+// Mock CSRF validation - control per test
+let mockValidateOAuthState: Mock
 
-// Mock environment variables
-vi.mock('$env/dynamic/private', () => ({
-  env: {
-    get SESSION_SECRET() {
-      return mockSessionSecret
-    },
-  },
-}))
-
-// Mock session functions
-const mockCreateSession = vi.fn()
-const mockAddAccount = vi.fn()
-const mockUpdateAccountByDid = vi.fn()
-const mockEncryptSession = vi.fn()
-const mockDecryptSession = vi.fn()
-
-vi.mock('$lib/server/session', () => ({
-  createSession: () => mockCreateSession(),
-  addAccount: (...args: unknown[]) => mockAddAccount(...args),
-  updateAccountByDid: (...args: unknown[]) => mockUpdateAccountByDid(...args),
-  encryptSession: (...args: unknown[]) => mockEncryptSession(...args),
-  decryptSession: (...args: unknown[]) => mockDecryptSession(...args),
-  asDID: (value: string) => value,
-  asHandle: (value: string) => value,
-  asInstanceURL: (value: string) => value,
-}))
-
-// Mock cookies module
-vi.mock('$lib/server/cookies', () => ({
-  SESSION_COOKIE_OPTIONS: {
-    httpOnly: true,
-    secure: false,
-    sameSite: 'lax' as const,
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30,
-  },
-}))
-
-// Mock CSRF validation to always return true (we test CSRF separately in auth.test.ts)
 vi.mock('$lib/server/csrf', () => ({
-  validateOAuthState: () => true,
+  validateOAuthState: (...args: unknown[]) => mockValidateOAuthState(...args),
 }))
 
 // Helper to create mock cookies
@@ -60,265 +21,455 @@ function createMockCookies(initialCookies: Record<string, string> = {}) {
   }
 }
 
-// Helper to create mock URL with state parameter
-function createMockUrl(state: string = 'test-state-1234567890abcdef1234567890abcdef1234567890abcdef12345678') {
-  return new URL(`https://kelp.example.com/api/auth/callback?state=${state}`)
+// Helper to create mock URL with optional state parameter
+function createMockUrl(state?: string): URL {
+  const base = 'https://kelp.example.com/api/auth/callback'
+  if (state !== undefined) {
+    return new URL(`${base}?state=${state}`)
+  }
+  return new URL(base)
 }
 
-describe('auth callback endpoint', () => {
+describe('GET /api/auth/callback', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSessionSecret = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
-    global.fetch = vi.fn()
+    mockValidateOAuthState = vi.fn(() => true)
   })
 
-  describe('missing SESSION_SECRET', () => {
-    const testState = 'test-state-1234567890abcdef1234567890abcdef1234567890abcdef12345678'
-
-    it('redirects to login with server_config error when SESSION_SECRET is not set', async () => {
-      // Import the module after mocks are set up
+  describe('missing pending auth cookie', () => {
+    it('redirects to /login?error=no_pending_auth when kelp_pending_auth is missing', async () => {
       const { GET } = await import('./+server')
 
-      mockSessionSecret = undefined
-
-      const cookies = createMockCookies({
-        coves_session: 'valid-coves-session',
-        kelp_pending_auth: JSON.stringify({
-          instance: 'https://coves.example.com',
-          redirect: '/',
-          state: testState,
-        }),
-      })
-
-      // Mock the /api/me response
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            did: 'did:plc:user123',
-            handle: 'user.example.com',
-            sessionId: 'session-123',
-            sealedToken: 'sealed-token-123',
-          }),
-      })
+      const cookies = createMockCookies({})
 
       try {
         await GET({
-          cookies: cookies as any,
-          url: createMockUrl(testState),
-        } as any)
-        // Should not reach here - expecting redirect to be thrown
+          cookies: cookies as never,
+          url: createMockUrl('some-state'),
+        } as never)
         expect.fail('Expected redirect to be thrown')
-      } catch (error: any) {
-        // SvelteKit redirect throws an object with status and location
-        expect(error.status).toBe(302)
-        expect(error.location).toBe('/login?error=server_config')
-      }
-    })
-
-    it('redirects to login with server_config error when SESSION_SECRET is empty', async () => {
-      const { GET } = await import('./+server')
-
-      mockSessionSecret = ''
-
-      const cookies = createMockCookies({
-        coves_session: 'valid-coves-session',
-        kelp_pending_auth: JSON.stringify({
-          instance: 'https://coves.example.com',
-          redirect: '/',
-          state: testState,
-        }),
-      })
-
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            did: 'did:plc:user123',
-            handle: 'user.example.com',
-            sessionId: 'session-123',
-            sealedToken: 'sealed-token-123',
-          }),
-      })
-
-      try {
-        await GET({
-          cookies: cookies as any,
-          url: createMockUrl(testState),
-        } as any)
-        expect.fail('Expected redirect to be thrown')
-      } catch (error: any) {
-        expect(error.status).toBe(302)
-        expect(error.location).toBe('/login?error=server_config')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=no_pending_auth')
       }
     })
   })
 
-  describe('missing coves_session cookie', () => {
-    it('redirects to login with no_session error when coves_session is missing', async () => {
+  describe('invalid JSON in pending auth cookie', () => {
+    it('deletes cookie and redirects to error', async () => {
       const { GET } = await import('./+server')
 
       const cookies = createMockCookies({
-        // No coves_session cookie
+        kelp_pending_auth: '{invalid-json',
+      })
+
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl('some-state'),
+        } as never)
+        expect.fail('Expected redirect to be thrown')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=no_pending_auth')
+      }
+
+      expect(cookies.delete).toHaveBeenCalledWith('kelp_pending_auth', {
+        path: '/',
+      })
+    })
+  })
+
+  describe('cookie with invalid shape (runtime validation)', () => {
+    it('redirects to /login?error=invalid_pending_auth when cookie is "null"', async () => {
+      const { GET } = await import('./+server')
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: 'null',
+      })
+
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl('some-state'),
+        } as never)
+        expect.fail('Expected redirect to be thrown')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=invalid_pending_auth')
+      }
+
+      expect(cookies.delete).toHaveBeenCalledWith('kelp_pending_auth', {
+        path: '/',
+      })
+    })
+
+    it('redirects to /login?error=invalid_pending_auth when cookie is "42"', async () => {
+      const { GET } = await import('./+server')
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: '42',
+      })
+
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl('some-state'),
+        } as never)
+        expect.fail('Expected redirect to be thrown')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=invalid_pending_auth')
+      }
+
+      expect(cookies.delete).toHaveBeenCalledWith('kelp_pending_auth', {
+        path: '/',
+      })
+    })
+
+    it('redirects to /login?error=invalid_pending_auth when cookie is "[]"', async () => {
+      const { GET } = await import('./+server')
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: '[]',
+      })
+
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl('some-state'),
+        } as never)
+        expect.fail('Expected redirect to be thrown')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=invalid_pending_auth')
+      }
+
+      expect(cookies.delete).toHaveBeenCalledWith('kelp_pending_auth', {
+        path: '/',
+      })
+    })
+
+    it('redirects to /login?error=invalid_pending_auth when cookie is "{}" (empty object)', async () => {
+      const { GET } = await import('./+server')
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: '{}',
+      })
+
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl('some-state'),
+        } as never)
+        expect.fail('Expected redirect to be thrown')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=invalid_pending_auth')
+      }
+
+      expect(cookies.delete).toHaveBeenCalledWith('kelp_pending_auth', {
+        path: '/',
+      })
+    })
+
+    it('redirects to /login?error=invalid_pending_auth when state is a number instead of string', async () => {
+      const { GET } = await import('./+server')
+
+      const cookies = createMockCookies({
         kelp_pending_auth: JSON.stringify({
-          instance: 'https://coves.example.com',
           redirect: '/',
+          state: 12345,
         }),
       })
 
       try {
         await GET({
-          cookies: cookies as any,
-        } as any)
+          cookies: cookies as never,
+          url: createMockUrl('some-state'),
+        } as never)
         expect.fail('Expected redirect to be thrown')
-      } catch (error: any) {
-        expect(error.status).toBe(302)
-        expect(error.location).toBe('/login?error=no_session')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=invalid_pending_auth')
+      }
+
+      expect(cookies.delete).toHaveBeenCalledWith('kelp_pending_auth', {
+        path: '/',
+      })
+    })
+  })
+
+  describe('missing state parameter', () => {
+    it('redirects to /login?error=invalid_state when state param is missing from URL', async () => {
+      const { GET } = await import('./+server')
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: JSON.stringify({
+          redirect: '/',
+          state: 'stored-state-value',
+        }),
+      })
+
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl(), // No state parameter
+        } as never)
+        expect.fail('Expected redirect to be thrown')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=invalid_state')
+      }
+    })
+
+    it('redirects to /login?error=invalid_pending_auth when state is missing from pending auth', async () => {
+      const { GET } = await import('./+server')
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: JSON.stringify({
+          redirect: '/',
+          // No state field - runtime validation rejects this shape
+        }),
+      })
+
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl('url-state-value'),
+        } as never)
+        expect.fail('Expected redirect to be thrown')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=invalid_pending_auth')
+      }
+    })
+
+    it('redirects to /login?error=invalid_state when state is empty in pending auth', async () => {
+      const { GET } = await import('./+server')
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: JSON.stringify({
+          redirect: '/',
+          state: '',
+        }),
+      })
+
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl('url-state-value'),
+        } as never)
+        expect.fail('Expected redirect to be thrown')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=invalid_state')
       }
     })
   })
 
-  describe('missing pending auth state', () => {
-    it('redirects to login with no_pending_auth error when pending auth cookie is missing or invalid', async () => {
+  describe('state mismatch', () => {
+    it('redirects to /login?error=invalid_state when states do not match', async () => {
       const { GET } = await import('./+server')
 
-      const cookies = createMockCookies({
-        coves_session: 'valid-coves-session',
-        // No kelp_pending_auth cookie
-      })
-
-      try {
-        await GET({
-          cookies: cookies as any,
-        } as any)
-        expect.fail('Expected redirect to be thrown')
-      } catch (error: any) {
-        expect(error.status).toBe(302)
-        expect(error.location).toBe('/login?error=no_pending_auth')
-      }
-    })
-
-    it('redirects to login with no_pending_auth error when pending auth has no instance', async () => {
-      const { GET } = await import('./+server')
+      mockValidateOAuthState.mockReturnValue(false)
 
       const cookies = createMockCookies({
-        coves_session: 'valid-coves-session',
         kelp_pending_auth: JSON.stringify({
-          instance: '',
           redirect: '/',
+          state: 'stored-state-aaaa',
         }),
       })
 
       try {
         await GET({
-          cookies: cookies as any,
-        } as any)
+          cookies: cookies as never,
+          url: createMockUrl('different-state-bbbb'),
+        } as never)
         expect.fail('Expected redirect to be thrown')
-      } catch (error: any) {
-        expect(error.status).toBe(302)
-        expect(error.location).toBe('/login?error=no_pending_auth')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=invalid_state')
       }
-    })
-  })
 
-  describe('fetch user info failure', () => {
-    const testState = 'test-state-1234567890abcdef1234567890abcdef1234567890abcdef12345678'
-
-    it('redirects to login with fetch_failed error when /api/me request fails', async () => {
-      const { GET } = await import('./+server')
-
-      const cookies = createMockCookies({
-        coves_session: 'valid-coves-session',
-        kelp_pending_auth: JSON.stringify({
-          instance: 'https://coves.example.com',
-          redirect: '/',
-          state: testState,
-        }),
-      })
-
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-        ok: false,
-        status: 500,
-      })
-
-      try {
-        await GET({
-          cookies: cookies as any,
-          url: createMockUrl(testState),
-        } as any)
-        expect.fail('Expected redirect to be thrown')
-      } catch (error: any) {
-        expect(error.status).toBe(302)
-        expect(error.location).toBe('/login?error=fetch_failed')
-      }
-    })
-
-    it('redirects to login with fetch_failed error when network error occurs', async () => {
-      const { GET } = await import('./+server')
-
-      const cookies = createMockCookies({
-        coves_session: 'valid-coves-session',
-        kelp_pending_auth: JSON.stringify({
-          instance: 'https://coves.example.com',
-          redirect: '/',
-          state: testState,
-        }),
-      })
-
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error('Network error')
+      expect(mockValidateOAuthState).toHaveBeenCalledWith(
+        'stored-state-aaaa',
+        'different-state-bbbb',
       )
+    })
+  })
+
+  describe('valid state', () => {
+    it('redirects to stored redirect URL on success', async () => {
+      const { GET } = await import('./+server')
+
+      const testState = 'abc123def456'
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: JSON.stringify({
+          redirect: '/community/test',
+          state: testState,
+        }),
+        coves_session: 'valid-session-cookie',
+      })
 
       try {
         await GET({
-          cookies: cookies as any,
+          cookies: cookies as never,
           url: createMockUrl(testState),
-        } as any)
+        } as never)
         expect.fail('Expected redirect to be thrown')
-      } catch (error: any) {
-        expect(error.status).toBe(302)
-        expect(error.location).toBe('/login?error=fetch_failed')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/community/test')
+      }
+    })
+
+    it('redirects to / when no redirect in pending auth', async () => {
+      const { GET } = await import('./+server')
+
+      const testState = 'abc123def456'
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: JSON.stringify({
+          redirect: '',
+          state: testState,
+        }),
+        coves_session: 'valid-session-cookie',
+      })
+
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl(testState),
+        } as never)
+        expect.fail('Expected redirect to be thrown')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/')
       }
     })
   })
 
-  describe('invalid user info', () => {
-    const testState = 'test-state-1234567890abcdef1234567890abcdef1234567890abcdef12345678'
-
-    it('redirects to login with invalid_user_info error when response is missing required fields', async () => {
+  describe('missing coves_session cookie after OAuth', () => {
+    it('redirects to /login?error=no_session when coves_session is not set', async () => {
       const { GET } = await import('./+server')
 
+      const testState = 'abc123def456'
+
+      // kelp_pending_auth exists but coves_session does NOT
       const cookies = createMockCookies({
-        coves_session: 'valid-coves-session',
         kelp_pending_auth: JSON.stringify({
-          instance: 'https://coves.example.com',
-          redirect: '/',
+          redirect: '/community/test',
           state: testState,
         }),
       })
 
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            // Missing required fields
-            did: 'did:plc:user123',
-            // handle: missing
-            // sessionId: missing
-            // sealedToken: missing
-          }),
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl(testState),
+        } as never)
+        expect.fail('Expected redirect to be thrown')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/login?error=no_session')
+      }
+    })
+
+    it('redirects to stored URL when coves_session exists', async () => {
+      const { GET } = await import('./+server')
+
+      const testState = 'abc123def456'
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: JSON.stringify({
+          redirect: '/community/test',
+          state: testState,
+        }),
+        coves_session: 'valid-session-cookie',
       })
 
       try {
         await GET({
-          cookies: cookies as any,
+          cookies: cookies as never,
           url: createMockUrl(testState),
-        } as any)
+        } as never)
         expect.fail('Expected redirect to be thrown')
-      } catch (error: any) {
-        expect(error.status).toBe(302)
-        expect(error.location).toBe('/login?error=invalid_user_info')
+      } catch (error: unknown) {
+        const redirect = error as { status: number; location: string }
+        expect(redirect.status).toBe(302)
+        expect(redirect.location).toBe('/community/test')
       }
+    })
+  })
+
+  describe('pending auth cookie cleanup', () => {
+    it('deletes kelp_pending_auth cookie after successful use', async () => {
+      const { GET } = await import('./+server')
+
+      const testState = 'abc123def456'
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: JSON.stringify({
+          redirect: '/',
+          state: testState,
+        }),
+        coves_session: 'valid-session-cookie',
+      })
+
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl(testState),
+        } as never)
+      } catch {
+        // Expected redirect
+      }
+
+      expect(cookies.delete).toHaveBeenCalledWith('kelp_pending_auth', {
+        path: '/',
+      })
+    })
+
+    it('deletes kelp_pending_auth cookie even on state validation failure', async () => {
+      const { GET } = await import('./+server')
+
+      mockValidateOAuthState.mockReturnValue(false)
+
+      const cookies = createMockCookies({
+        kelp_pending_auth: JSON.stringify({
+          redirect: '/',
+          state: 'stored-state',
+        }),
+      })
+
+      try {
+        await GET({
+          cookies: cookies as never,
+          url: createMockUrl('different-state'),
+        } as never)
+      } catch {
+        // Expected redirect
+      }
+
+      expect(cookies.delete).toHaveBeenCalledWith('kelp_pending_auth', {
+        path: '/',
+      })
     })
   })
 })

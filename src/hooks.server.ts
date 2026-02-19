@@ -1,93 +1,123 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit'
-import { env } from '$env/dynamic/private'
-import { decryptSession } from '$lib/server/session'
+import { env } from '$env/dynamic/public'
+import {
+  parseApiMeResponse,
+  asInstanceURL,
+  asSealedToken,
+} from '$lib/server/session'
 
-/**
- * Validates that SESSION_SECRET is configured.
- * Throws a fatal error at startup if not set, preventing the app from running
- * in an insecure state where all users appear logged out.
- */
-function requireSessionSecret(): string {
-  const secret = env.SESSION_SECRET
-  if (!secret) {
-    throw new Error(
-      '[FATAL] SESSION_SECRET environment variable is not set. ' +
-        'Authentication cannot function without this. ' +
-        'Please set SESSION_SECRET to a 64-character hex string (32 bytes).'
-    )
-  }
-  return secret
+function getInstanceUrl(): string {
+  return env.PUBLIC_INTERNAL_INSTANCE || env.PUBLIC_INSTANCE_URL || ''
 }
 
 /**
- * Handle hook - runs for every request
- * Loads the user session from the encrypted cookie
+ * Checks whether an error is a network-level failure (DNS, TLS, connection refused, etc.).
+ * `fetch` throws `TypeError` for network failures in most runtimes, but some runtimes
+ * wrap the cause in a generic `Error`. This helper inspects the message as a fallback.
  */
+function isNetworkError(error: unknown): boolean {
+  if (error instanceof TypeError) return true
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase()
+    return (
+      msg.includes('fetch') ||
+      msg.includes('network') ||
+      msg.includes('econnrefused') ||
+      msg.includes('enotfound') ||
+      msg.includes('etimedout') ||
+      msg.includes('tls') ||
+      msg.includes('ssl') ||
+      msg.includes('dns')
+    )
+  }
+  return false
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
-  // Default to unauthenticated state
   event.locals.auth = { authenticated: false }
 
-  const sessionCookie = event.cookies.get('kelp_session')
-
-  if (!sessionCookie) {
-    // No session cookie present - user is not logged in (this is normal)
+  const covesSession = event.cookies.get('coves_session')
+  if (!covesSession) {
     return resolve(event)
   }
 
-  // This will throw a fatal error if SESSION_SECRET is not configured,
-  // preventing the app from silently treating all users as logged out.
-  const sessionSecret = requireSessionSecret()
-
-  const session = decryptSession(sessionCookie, sessionSecret)
-
-  if (!session) {
-    // Session decryption failed - this could be due to:
-    // - Corrupt cookie data
-    // - Key rotation (SESSION_SECRET changed)
-    // - Tampering attempt
-    // Log at ERROR level and clear the bad cookie to prevent repeated failures
-    console.error(
-      '[hooks] Session decryption failed - clearing corrupt cookie and proceeding as unauthenticated'
+  const instanceUrl = getInstanceUrl()
+  if (!instanceUrl) {
+    throw new Error(
+      '[hooks] No instance URL configured. Set PUBLIC_INTERNAL_INSTANCE or PUBLIC_INSTANCE_URL.',
     )
-    event.cookies.set('kelp_session', '', {
-      path: '/',
-      maxAge: 0,
+  }
+
+  // Validate configuration eagerly — these throw on invalid input and must
+  // NOT be caught so that misconfiguration surfaces immediately on the first request.
+  const instance = asInstanceURL(instanceUrl)
+  const sealedToken = asSealedToken(covesSession)
+
+  // TODO: Consider caching /api/me responses or skipping validation for proxy
+  // requests to reduce latency. Currently /api/me is called on every request.
+  try {
+    const response = await fetch(`${instance}/api/me`, {
+      headers: {
+        Cookie: `coves_session=${covesSession}`,
+      },
     })
-    // Set a flash message cookie to inform the user they were logged out
-    // This cookie is NOT httpOnly so the client can read and display it
-    event.cookies.set('kelp_flash', JSON.stringify({
-      type: 'session_expired',
-      message: 'Your session has expired. Please log in again.',
-    }), {
-      path: '/',
-      maxAge: 60, // Short-lived - just needs to survive until the page loads
-      httpOnly: false, // Client needs to read this to display the message
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-    })
-    return resolve(event)
-  }
 
-  if (!session.activeAccountId) {
-    console.warn('[hooks] Session has no active account ID - proceeding as unauthenticated')
-    return resolve(event)
-  }
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Session expired or revoked — clear the stale cookie so we don't
+        // make a wasted /api/me round-trip on every subsequent request.
+        event.cookies.delete('coves_session', { path: '/' })
+        // Flag so the layout can show "Your session has expired" to the user
+        event.locals.sessionExpired = true
+      } else {
+        console.warn(
+          `[hooks] /api/me returned ${response.status} - treating as unauthenticated`,
+        )
+      }
+      return resolve(event)
+    }
 
-  const activeAccount = session.accounts.find((a) => a.id === session.activeAccountId)
+    const data: unknown = await response.json()
+    const account = parseApiMeResponse(data, instance, sealedToken)
 
-  if (!activeAccount) {
-    console.warn(
-      `[hooks] Active account ID "${session.activeAccountId}" not found in session accounts - proceeding as unauthenticated`
-    )
-    return resolve(event)
-  }
+    if (!account) {
+      console.warn(
+        '[hooks] /api/me response failed validation - treating as unauthenticated',
+      )
+      event.locals.authError = 'validation_error'
+      return resolve(event)
+    }
 
-  // Set authenticated state with all required fields
-  event.locals.auth = {
-    authenticated: true,
-    session,
-    activeAccount,
-    authToken: activeAccount.sealedToken,
+    event.locals.auth = {
+      authenticated: true,
+      account,
+      authToken: sealedToken,
+    }
+  } catch (error) {
+    // Distinguish network/infrastructure errors from validation errors.
+    // Network errors (DNS, TLS, timeouts, connection refused) are likely
+    // temporary — preserve the cookie so the user can retry.
+    if (isNetworkError(error)) {
+      console.warn(
+        '[hooks] Network error calling /api/me - backend may be unreachable:',
+        error,
+      )
+      event.locals.authError = 'network_error'
+    } else if (error instanceof SyntaxError) {
+      // JSON parse error from response.json() — the server returned
+      // non-JSON content (e.g. HTML error page, empty body)
+      console.warn(
+        '[hooks] /api/me returned invalid JSON - treating as unauthenticated:',
+        error,
+      )
+      event.locals.authError = 'validation_error'
+    } else {
+      console.warn(
+        '[hooks] Unexpected error calling /api/me - treating as unauthenticated:',
+        error,
+      )
+      event.locals.authError = 'network_error'
+    }
   }
 
   return resolve(event)
@@ -109,6 +139,5 @@ export const handleError: HandleServerError = async ({
   console.error(`Status:`, status)
   console.error(`Message:`, message)
 
-  // Return a generic error message to the client (don't expose internal details)
   return { message: 'An unexpected error occurred' }
 }

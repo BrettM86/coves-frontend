@@ -40,7 +40,10 @@ export const POST: RequestHandler = async ({ request, cookies, url }) => {
   // Normalize and validate instance URL
   // If the instance doesn't have a protocol, prepend https://
   let normalizedInstance = instance.trim()
-  if (!normalizedInstance.startsWith('http://') && !normalizedInstance.startsWith('https://')) {
+  if (
+    !normalizedInstance.startsWith('http://') &&
+    !normalizedInstance.startsWith('https://')
+  ) {
     normalizedInstance = `https://${normalizedInstance}`
   }
 
@@ -68,21 +71,34 @@ export const POST: RequestHandler = async ({ request, cookies, url }) => {
       safeRedirect = trimmedRedirect
     } else if (trimmedRedirect.startsWith('\\')) {
       // Reject backslash-prefixed URLs (potential bypass attempt)
-      console.warn('[auth/login] Rejected redirect URL with backslash prefix:', trimmedRedirect)
+      console.warn(
+        '[auth/login] Rejected redirect URL with backslash prefix:',
+        trimmedRedirect,
+      )
     } else if (trimmedRedirect.startsWith('//')) {
       // Reject protocol-relative URLs
-      console.warn('[auth/login] Rejected protocol-relative redirect URL:', trimmedRedirect)
+      console.warn(
+        '[auth/login] Rejected protocol-relative redirect URL:',
+        trimmedRedirect,
+      )
     } else {
       // Try to parse as URL and check if same-origin
       try {
         const redirectUrl = new URL(trimmedRedirect, url.origin)
         if (redirectUrl.origin === url.origin) {
-          safeRedirect = redirectUrl.pathname + redirectUrl.search + redirectUrl.hash
+          safeRedirect =
+            redirectUrl.pathname + redirectUrl.search + redirectUrl.hash
         } else {
-          console.warn('[auth/login] Rejected external redirect URL:', trimmedRedirect)
+          console.warn(
+            '[auth/login] Rejected external redirect URL:',
+            trimmedRedirect,
+          )
         }
       } catch {
-        console.warn('[auth/login] Rejected invalid redirect URL:', trimmedRedirect)
+        console.warn(
+          '[auth/login] Rejected invalid redirect URL:',
+          trimmedRedirect,
+        )
       }
     }
   }
@@ -92,12 +108,15 @@ export const POST: RequestHandler = async ({ request, cookies, url }) => {
 
   // Store pending auth state in cookie
   const pendingAuth = {
-    instance: instanceUrl.origin,
     redirect: safeRedirect,
     state,
   }
 
-  cookies.set('kelp_pending_auth', JSON.stringify(pendingAuth), PENDING_AUTH_COOKIE_OPTIONS)
+  cookies.set(
+    'kelp_pending_auth',
+    JSON.stringify(pendingAuth),
+    PENDING_AUTH_COOKIE_OPTIONS,
+  )
 
   // Build OAuth redirect URL
   // Coves OAuth endpoint: {instance}/oauth/login?handle={handle}&redirect_uri={callback}&state={state}

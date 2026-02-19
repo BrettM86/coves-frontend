@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { SealedToken, InstanceURL } from '$lib/server/session'
+import { validateProxyPath } from './[...path]/+server'
 
 // Mock SvelteKit types for testing - mirrors App.AuthState
 type MockAuthState =
@@ -7,7 +8,7 @@ type MockAuthState =
   | {
       authenticated: true
       authToken: SealedToken
-      activeAccount: { instance: InstanceURL }
+      account: { instance: InstanceURL }
     }
 
 interface MockLocals {
@@ -19,46 +20,16 @@ interface MockParams {
 }
 
 // Mock fetch type for testing
-type MockFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+type MockFetch = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response>
 
-/**
- * Validates a proxy path for security issues.
- * Returns an error message if the path is invalid, or null if it's safe.
- */
-function validateProxyPath(path: string): string | null {
-  // Check for null bytes (can be used to bypass filters)
-  if (path.includes('\x00')) {
-    return 'Invalid path: null bytes not allowed'
-  }
-
-  // Check for protocol injection attempts
-  if (/^[a-z][a-z0-9+.-]*:/i.test(path)) {
-    return 'Invalid path: protocol schemes not allowed'
-  }
-
-  // Check for path traversal patterns
-  // This catches: ../, ..\, and URL-encoded variants like %2F, %5C
-  const traversalPattern = /(?:^|[\\/])\.\.(?:[\\/]|$)|%2e%2e|%252e|%c0%ae|%c1%9c/i
-  if (traversalPattern.test(path)) {
-    return 'Invalid path: path traversal not allowed'
-  }
-
-  // Check for backslash (Windows path separator that could bypass checks)
-  if (path.includes('\\')) {
-    return 'Invalid path: backslash not allowed'
-  }
-
-  // Check for URL-encoded separators that might bypass validation
-  // %2F = /, %5C = \
-  if (/%2f|%5c/i.test(path)) {
-    return 'Invalid path: encoded path separators not allowed'
-  }
-
-  return null
-}
-
-// Create the handler function we'll test
-// This mirrors the implementation we'll create
+// Create the handler function we'll test.
+// This is duplicated from the source because the real handler function is not
+// exported (it's an internal implementation detail wrapped by the exported
+// RequestHandler functions), and it uses App.Locals which requires the full
+// SvelteKit type context. The tests verify the same logic in isolation.
 async function createHandler(options: {
   params: MockParams
   request: Request
@@ -76,13 +47,13 @@ async function createHandler(options: {
       {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
-      }
+      },
     )
   }
 
   // Determine target instance (from session or default)
   const instance = locals.auth.authenticated
-    ? locals.auth.activeAccount.instance
+    ? locals.auth.account.instance
     : 'coves.social'
   const targetUrl = `https://${instance}/${path}`
 
@@ -122,11 +93,14 @@ async function createHandler(options: {
     // Connection error to upstream
     console.error('Proxy error:', error)
     return new Response(
-      JSON.stringify({ error: 'Bad Gateway', message: 'Failed to connect to upstream server' }),
+      JSON.stringify({
+        error: 'Bad Gateway',
+        message: 'Failed to connect to upstream server',
+      }),
       {
         status: 502,
         headers: { 'Content-Type': 'application/json' },
-      }
+      },
     )
   }
 }
@@ -134,12 +108,15 @@ async function createHandler(options: {
 /**
  * Helper to create authenticated MockLocals
  */
-function createAuthenticatedLocals(token: string, instance: string): MockLocals {
+function createAuthenticatedLocals(
+  token: string,
+  instance: string,
+): MockLocals {
   return {
     auth: {
       authenticated: true,
       authToken: token as SealedToken,
-      activeAccount: { instance: instance as InstanceURL },
+      account: { instance: instance as InstanceURL },
     },
   }
 }
@@ -165,7 +142,10 @@ describe('API Proxy', () => {
     const calls = mockFetch.mock.calls
     expect(calls.length).toBeGreaterThan(0)
     const lastCall = calls[calls.length - 1]!
-    return [lastCall[0] as string, lastCall[1] as RequestInit & { headers: Headers }]
+    return [
+      lastCall[0] as string,
+      lastCall[1] as RequestInit & { headers: Headers },
+    ]
   }
 
   describe('authenticated requests', () => {
@@ -184,7 +164,10 @@ describe('API Proxy', () => {
       const response = await createHandler({
         params: { path: 'api/v1/feed' },
         request,
-        locals: createAuthenticatedLocals('test-jwt-token', 'test.coves.social'),
+        locals: createAuthenticatedLocals(
+          'test-jwt-token',
+          'test.coves.social',
+        ),
         fetch: mockFetch,
       })
 
@@ -213,7 +196,10 @@ describe('API Proxy', () => {
       const response = await createHandler({
         params: { path: 'api/v1/posts' },
         request,
-        locals: createAuthenticatedLocals('test-jwt-token', 'test.coves.social'),
+        locals: createAuthenticatedLocals(
+          'test-jwt-token',
+          'test.coves.social',
+        ),
         fetch: mockFetch,
       })
 
@@ -234,7 +220,7 @@ describe('API Proxy', () => {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'X-Custom-Header': 'custom-value',
           'Accept-Language': 'en-US',
         },
@@ -354,13 +340,16 @@ describe('API Proxy', () => {
         {
           status: 404,
           headers: { 'Content-Type': 'application/json' },
-        }
+        },
       )
       mockFetch.mockResolvedValue(errorResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/posts/999', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/api/v1/posts/999',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: 'api/v1/posts/999' },
@@ -377,13 +366,16 @@ describe('API Proxy', () => {
     it('handles 401 responses from upstream', async () => {
       const errorResponse = new Response(
         JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401 }
+        { status: 401 },
       )
       mockFetch.mockResolvedValue(errorResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/protected', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/api/v1/protected',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: 'api/v1/protected' },
@@ -398,7 +390,7 @@ describe('API Proxy', () => {
     it('handles 500 responses from upstream', async () => {
       const errorResponse = new Response(
         JSON.stringify({ error: 'Internal Server Error' }),
-        { status: 500 }
+        { status: 500 },
       )
       mockFetch.mockResolvedValue(errorResponse)
 
@@ -425,7 +417,7 @@ describe('API Proxy', () => {
       const request = new Request('http://localhost/api/proxy/api/v1/data', {
         method: 'GET',
         headers: {
-          'Host': 'localhost:5173',
+          Host: 'localhost:5173',
         },
       })
 
@@ -578,9 +570,12 @@ describe('API Proxy', () => {
 
   describe('path traversal security', () => {
     it('rejects paths with ../ traversal attempts', async () => {
-      const request = new Request('http://localhost/api/proxy/../../../etc/passwd', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/../../../etc/passwd',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: '../../../etc/passwd' },
@@ -599,9 +594,12 @@ describe('API Proxy', () => {
 
     it('rejects URL-encoded traversal attempts (..%2F)', async () => {
       // Note: SvelteKit typically decodes this, but we test the decoded version
-      const request = new Request('http://localhost/api/proxy/..%2F..%2Fetc%2Fpasswd', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/..%2F..%2Fetc%2Fpasswd',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: '../../etc/passwd' }, // Decoded by SvelteKit
@@ -615,9 +613,12 @@ describe('API Proxy', () => {
     })
 
     it('rejects paths with encoded traversal in the middle', async () => {
-      const request = new Request('http://localhost/api/proxy/api/v1/../../../etc/passwd', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/api/v1/../../../etc/passwd',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: 'api/v1/../../../etc/passwd' },
@@ -631,9 +632,12 @@ describe('API Proxy', () => {
     })
 
     it('rejects paths with backslash traversal (Windows-style)', async () => {
-      const request = new Request('http://localhost/api/proxy/..\\..\\etc\\passwd', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/..\\..\\etc\\passwd',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: '..\\..\\etc\\passwd' },
@@ -647,9 +651,12 @@ describe('API Proxy', () => {
     })
 
     it('rejects paths with mixed traversal techniques', async () => {
-      const request = new Request('http://localhost/api/proxy/api/../v1/../../secret', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/api/../v1/../../secret',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: 'api/../v1/../../secret' },
@@ -665,9 +672,12 @@ describe('API Proxy', () => {
     it('rejects double-encoded traversal attempts (..%252F)', async () => {
       // Double-encoded: %25 = %, so ..%252F = ..%2F when decoded once
       // We need to check if the path contains %2F or similar encoded sequences
-      const request = new Request('http://localhost/api/proxy/..%252F..%252Fetc', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/..%252F..%252Fetc',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: '..%2F..%2Fetc' }, // SvelteKit decodes once
@@ -681,9 +691,12 @@ describe('API Proxy', () => {
     })
 
     it('rejects paths with null bytes', async () => {
-      const request = new Request('http://localhost/api/proxy/api/v1/data%00.json', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/api/v1/data%00.json',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: 'api/v1/data\x00.json' },
@@ -700,9 +713,12 @@ describe('API Proxy', () => {
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/file.json', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/api/v1/file.json',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: 'api/v1/file.json' },
@@ -741,9 +757,12 @@ describe('API Proxy', () => {
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/users/user.name@domain.com', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/api/v1/users/user.name@domain.com',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: 'api/v1/users/user.name@domain.com' },
@@ -757,9 +776,12 @@ describe('API Proxy', () => {
     })
 
     it('rejects paths that would escape the API root after normalization', async () => {
-      const request = new Request('http://localhost/api/proxy/api/v1/../../../../root', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/api/v1/../../../../root',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: 'api/v1/../../../../root' },
@@ -773,9 +795,12 @@ describe('API Proxy', () => {
     })
 
     it('rejects paths with protocol injection attempts', async () => {
-      const request = new Request('http://localhost/api/proxy/http://evil.com/malicious', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/http://evil.com/malicious',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: 'http://evil.com/malicious' },
@@ -789,9 +814,12 @@ describe('API Proxy', () => {
     })
 
     it('rejects paths with javascript protocol', async () => {
-      const request = new Request('http://localhost/api/proxy/javascript:alert(1)', {
-        method: 'GET',
-      })
+      const request = new Request(
+        'http://localhost/api/proxy/javascript:alert(1)',
+        {
+          method: 'GET',
+        },
+      )
 
       const response = await createHandler({
         params: { path: 'javascript:alert(1)' },
@@ -819,7 +847,9 @@ describe('API Proxy', () => {
       const expectedErrorMessage = 'HTTP URLs are not allowed in production'
 
       // This is a documentation test showing what the production behavior should be
-      expect(expectedErrorMessage).toBe('HTTP URLs are not allowed in production')
+      expect(expectedErrorMessage).toBe(
+        'HTTP URLs are not allowed in production',
+      )
 
       // The handler in +server.ts lines 82-93 implements:
       // if (import.meta.env.PROD && baseUrl.startsWith('http://')) {

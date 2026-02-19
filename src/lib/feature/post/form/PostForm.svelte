@@ -41,7 +41,7 @@
     Trash,
     XMark,
   } from 'svelte-hero-icons/dist'
-  import { autofillPost, PostFormState } from './postform.svelte'
+  import { autofillPost, PostFormState } from './post-form.svelte'
 
   interface Props {
     editPost?: number
@@ -58,19 +58,21 @@
 
   // TODO: Re-enable extended community data when Coves API supports it
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let _extendedCommunity: Promise<{
-    community_view: {
-      flair_list?: Array<{
-        id: number
-        flair_title: string
-        background_color: string
-        text_color: string
-        community_id: number
-        blur_images: boolean
-        ap_id: string
-      }>
-    }
-  } | null> | undefined = $derived.by(() => {
+  let _extendedCommunity:
+    | Promise<{
+        community_view: {
+          flair_list?: Array<{
+            id: number
+            flair_title: string
+            background_color: string
+            text_color: string
+            community_id: number
+            blur_images: boolean
+            ap_id: string
+          }>
+        }
+      } | null>
+    | undefined = $derived.by(() => {
     // Legacy PieFed code - disabled for Coves migration
     return undefined
   })
@@ -194,7 +196,7 @@
     form
       .submit(editPost)
       .then(onsubmit)
-      .catch((err) =>
+      .catch((err: unknown) =>
         pushError({ message: errorMessage(err as string), scope: 'post-form' }),
       )
       .then(() => (loading = false))
@@ -316,7 +318,10 @@
             onclick={() =>
               form.poll?.choices.push({
                 choice_text: `Option ${form.poll?.choices.length + 1}`,
-                id: Math.max(...form.poll.choices.map((i) => i.id)) + 1,
+                id:
+                  Math.max(
+                    ...form.poll.choices.map((i: { id: number }) => i.id),
+                  ) + 1,
                 num_votes: 0,
                 sort_order: 2,
               })}

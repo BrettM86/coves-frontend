@@ -15,7 +15,7 @@
     Trash,
     XMark,
   } from 'svelte-hero-icons/dist'
-  import { type PostFormInit } from '../form/postform.svelte'
+  import { type PostFormInit } from '../form/post-form.svelte'
   import { hidePost } from '../helpers'
 
   interface Props {

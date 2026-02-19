@@ -11,7 +11,8 @@ export { default as PostLink } from './PostLink.svelte'
 export { default as PostActions } from './actions/PostActions.svelte'
 
 export {
-  type Tag,
+  type MetaTag as Tag,
+  type MetaTag,
   parseTags,
   textToTag,
   default as PostsMeta,

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PostView } from '$lib/api/types'
+  import type { PostView } from '$lib/api/coves/types'
   import { Post } from '.'
 
   interface Props {

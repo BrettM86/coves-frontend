@@ -1,11 +1,10 @@
 <script lang="ts">
-  import type { PersonView } from '$lib/api/types'
-  import { userLink } from '$lib/app/util.svelte'
+  import type { ProfileViewDetailed } from '$lib/api/coves/types'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import LabelStat from '$lib/ui/info/LabelStat.svelte'
 
   interface Props {
-    user: PersonView
+    user: ProfileViewDetailed
     view?: 'cozy' | 'compact'
     showCounts?: boolean
     class?: string
@@ -28,38 +27,38 @@
       ? 'flex-col gap-2'
       : 'flex-row'} items-center max-w-full w-full"
   >
-    <a href={userLink(user.person)} class="flex-1">
+    <a href="/u/{user.handle ?? user.did}" class="flex-1">
       <div
         class="flex {view == 'cozy'
           ? 'flex-col gap-2'
           : 'flex-row'} gap-2 items-center"
       >
         {#if icon}{@render icon()}{:else}
-          <Avatar url={user.person.avatar} width={32} alt={user.person.name} />
+          <Avatar url={user.avatar} width={32} alt={user.handle ?? user.did} />
         {/if}
         <div class="flex flex-col">
           <div class="font-medium text-base">
-            {user.person.display_name ?? user.person.name}
+            {user.displayName ?? user.handle ?? user.did}
           </div>
           <div class="text-sm text-slate-600 dark:text-zinc-400">
-            {new URL(user.person.actor_id).hostname}
+            {user.handle ?? user.did}
           </div>
         </div>
       </div>
     </a>
   </div>
-  {#if showCounts}
+  {#if showCounts && user.stats}
     <div class="flex flex-row gap-3 items-center justify-center">
-      {#if user.counts.post_count}
+      {#if user.stats.postCount}
         <LabelStat
-          content={user.counts.post_count.toString()}
+          content={user.stats.postCount.toString()}
           formatted
           label="Posts"
         />
       {/if}
-      {#if user.counts.comment_count}
+      {#if user.stats.commentCount}
         <LabelStat
-          content={user.counts.comment_count.toString()}
+          content={user.stats.commentCount.toString()}
           formatted
           label="Comments"
         />

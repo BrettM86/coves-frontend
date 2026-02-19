@@ -21,11 +21,13 @@ import type {
   GetCommentsResponse,
   GetCommunityFeedParams,
   GetCommunityParams,
+  GetPostParams,
   GetDiscoverParams,
   GetProfileParams,
   GetTimelineParams,
   ListCommunitiesParams,
   ListCommunitiesResponse,
+  PostView,
   ProfileViewDetailed,
   SearchCommunitiesParams,
   SubscribeCommunityInput,
@@ -55,6 +57,7 @@ export const NSID = {
   unblockCommunity: 'social.coves.community.unblockCommunity',
   createPost: 'social.coves.community.post.create',
   deletePost: 'social.coves.community.post.delete',
+  getPost: 'social.coves.community.post.get',
 } as const
 
 export class CovesClient {
@@ -166,5 +169,9 @@ export class CovesClient {
 
   deletePost(input: { uri: AtUri }): Promise<void> {
     return this.xrpc.procedure(NSID.deletePost, input)
+  }
+
+  getPost(params: GetPostParams): Promise<PostView> {
+    return this.xrpc.query(NSID.getPost, params)
   }
 }

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment'
-  import { client } from '$lib/api/client.svelte'
-  import type { GetPosts, PostView } from '$lib/api/types'
+  import type { FeedViewPost, FeedPaginationParams } from '$lib/api/coves/types'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import VirtualList from '$lib/app/render/VirtualList.svelte'
@@ -9,7 +8,7 @@
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { Button, Material, Spinner } from 'mono-svelte'
-  import { onDestroy, onMount, untrack } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import {
     ArchiveBox,
     ArrowTopRightOnSquare,
@@ -24,11 +23,14 @@
   import { Post } from '..'
 
   interface Props {
-    posts: PostView[]
-    params: GetPosts
+    posts: FeedViewPost[]
+    params: FeedPaginationParams
     virtualList?: { itemHeights: (number | null)[] }
     lastSeen?: number
     community?: boolean
+    loadFeed?: (
+      params: FeedPaginationParams,
+    ) => Promise<{ feed: FeedViewPost[]; cursor?: string }>
     children?: import('svelte').Snippet
   }
 
@@ -38,6 +40,7 @@
     virtualList = $bindable(),
     lastSeen = $bindable(0),
     community = false,
+    loadFeed,
     children,
   }: Props = $props()
 
@@ -50,40 +53,36 @@
   let loading = $state(false)
   let hasMore = $state(true)
 
-  const abortLoad = new AbortController()
-  let seenIds = new SvelteSet<number>(posts.map((post) => post.post.id))
+  let seenUris = new SvelteSet<string>(posts.map((fp) => fp.post.uri as string))
 
-  async function loadMore() {
-    if (!hasMore || loading) return
+  async function loadMore(): Promise<void> {
+    if (!hasMore || loading || !loadFeed) return
 
     try {
       loading = true
 
-      const newPosts = await client({
-        func: (input, init) =>
-          fetch(input, { ...init, signal: abortLoad.signal }),
-      })
-        .getPosts(params)
-        .catch((e) => {
-          throw new Error(e)
-        })
+      const response = await loadFeed(params)
 
       error = null
 
-      hasMore = newPosts.posts.length != 0
+      hasMore = response.feed.length !== 0
 
-      params.page_cursor = newPosts.next_page
+      if (response.cursor) {
+        params = { ...params, cursor: response.cursor }
+      }
 
       posts.push(
-        ...newPosts.posts.filter((post) => {
-          if (seenIds.has(post.post.id)) return false
-          seenIds.add(post.post.id)
+        ...response.feed.filter((feedPost) => {
+          const uri = feedPost.post.uri as string
+          if (seenUris.has(uri)) return false
+          seenUris.add(uri)
           return true
         }),
       )
 
       loading = false
     } catch (e) {
+      console.error('Failed to load more posts:', e)
       error = e
       loading = false
     }
@@ -149,10 +148,6 @@
   })
 
   let initialOffset = $derived(listEl?.offsetTop)
-
-  onDestroy(() => {
-    abortLoad?.abort()
-  })
 </script>
 
 <ul class="flex flex-col list-none" bind:this={listEl}>
@@ -186,6 +181,9 @@
         bind:this={listComp}
       >
         {#snippet item(row)}
+          {@const feedPost = posts[row]}
+          {@const isPinned =
+            feedPost?.reason?.$type === 'social.coves.feed.defs#reasonPin'}
           <li
             in:fly={row < 7
               ? { duration: 800, easing: expoOut, y: 24, delay: row * 50 }
@@ -194,16 +192,12 @@
             class={['relative post-container', row < 7 && '']}
           >
             <Post
-              bind:post={posts[row]}
+              post={feedPost.post}
+              pinned={isPinned}
               hideCommunity={community}
-              view={(posts[row]?.post.featured_community ||
-                posts[row]?.post.featured_local) &&
-              settings.posts.compactFeatured
+              view={isPinned && settings.posts.compactFeatured
                 ? 'compact'
                 : settings.view}
-              onhide={() => {
-                posts = posts.toSpliced(row, 1)
-              }}
               class="px-3 sm:px-6 hover:bg-slate-100/30 hover:dark:bg-zinc-900/30 transition-colors"
             ></Post>
           </li>
@@ -240,11 +234,7 @@
     {:else}
       <div style="border-top-width: 0">
         <EndPlaceholder>
-          {$t('routes.frontpage.endFeed', {
-            community_name:
-              params.community_name ??
-              'Lemmy. There are no more posts. You saw them all.',
-          })}
+          {$t('routes.frontpage.endFeed')}
           {#snippet action()}
             <Button color="tertiary" icon={ChevronDoubleUp}>
               {$t('routes.post.scrollToTop')}

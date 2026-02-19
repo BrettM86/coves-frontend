@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { Community, Person, SubscribedType } from '$lib/api/types'
+  import type { AuthorView, CommunityRef } from '$lib/api/coves/types'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
@@ -13,30 +13,18 @@
   import {
     type IconSource,
     Bookmark,
-    ExclamationTriangle,
     Icon,
-    LockClosed,
     Megaphone,
     PaperAirplane,
     Pencil,
-    ShieldCheck,
     Tag,
-    Trash,
   } from 'svelte-hero-icons/dist'
   import { SvelteMap } from 'svelte/reactivity'
   import CommunityLink from '../community/CommunityLink.svelte'
   import UserLink from '../user/UserLink.svelte'
 
-  type BadgeType =
-    | 'nsfw'
-    | 'saved'
-    | 'featured'
-    | 'deleted'
-    | 'removed'
-    | 'locked'
-    | 'moderator'
-    | 'admin'
-  export interface Tag {
+  type BadgeType = 'saved' | 'featured'
+  export interface MetaTag {
     content: string
     color?: string
     icon?: IconSource | null
@@ -44,7 +32,10 @@
     type: 'flair' | 'custom'
   }
 
-  export const textToTag: Map<string, Tag> = new Map<string, Tag>([
+  // Re-export as Tag for backward compat
+  export type { MetaTag as Tag }
+
+  export const textToTag: Map<string, MetaTag> = new Map<string, MetaTag>([
     ['OC', { content: 'OC', color: '#03A8F240', type: 'custom' }],
     ['NSFL', { content: 'NSFL', color: '#ff000040', type: 'custom' }],
     ['CW', { content: 'CW', color: '#ff000040', type: 'custom' }],
@@ -52,10 +43,10 @@
 
   export const parseTags = (
     title?: string,
-  ): { tags: Tag[]; title?: string } => {
+  ): { tags: MetaTag[]; title?: string } => {
     if (!title) return { tags: [] }
 
-    let extracted: Tag[] = []
+    let extracted: MetaTag[] = []
 
     const newTitle = title
       .toString()
@@ -84,19 +75,16 @@
 
 <script lang="ts">
   interface Props {
-    community?: Community
+    community?: CommunityRef
     showCommunity?: boolean
-    subscribed?: SubscribedType
-    user?: Person
+    user?: AuthorView
     published?: Date
     title?: string
-    id?: number
-    read?: boolean
+    uri?: string
     edited?: string
     view?: View
-    // Badges
     badges?: Record<BadgeType, boolean>
-    tags?: Tag[]
+    tags?: MetaTag[]
     style?: string
     titleClass?: string
     extraBadges?: import('svelte').Snippet
@@ -106,23 +94,15 @@
   let {
     community = $bindable(undefined),
     showCommunity = true,
-    subscribed = $bindable(undefined),
     user,
     published,
     title,
-    id,
-    read = false,
+    uri,
     edited,
     view = 'cozy',
     badges = {
-      nsfw: false,
       saved: false,
       featured: false,
-      deleted: false,
-      removed: false,
-      locked: false,
-      moderator: false,
-      admin: false,
     },
     tags = [],
     postUrl,
@@ -140,14 +120,6 @@
     }
   > = new SvelteMap([
     [
-      'nsfw',
-      {
-        icon: ExclamationTriangle,
-        color: 'red-subtle',
-        label: $t('post.badges.nsfw'),
-      },
-    ],
-    [
       'saved',
       {
         icon: Bookmark,
@@ -161,30 +133,6 @@
         icon: Megaphone,
         color: 'green-subtle',
         label: $t('post.badges.featured'),
-      },
-    ],
-    [
-      'removed',
-      {
-        icon: Trash,
-        color: 'green-subtle',
-        label: $t('post.badges.removed'),
-      },
-    ],
-    [
-      'deleted',
-      {
-        icon: Trash,
-        color: 'red-subtle',
-        label: $t('post.badges.deleted'),
-      },
-    ],
-    [
-      'locked',
-      {
-        icon: LockClosed,
-        color: 'yellow-subtle',
-        label: $t('post.badges.locked'),
       },
     ],
   ])
@@ -213,37 +161,40 @@
             'bg-slate-200 dark:bg-zinc-800 rounded-lg cursor-pointer',
           ]}
         >
-          {#if community.nsfw && settings.nsfwBlur}
-            <div
-              style="width: {view == 'compact' ? 24 : 32}; height: {view ==
-              'compact'
-                ? 24
-                : 32}"
-              class="bg-red-400 rounded-xl"
-            ></div>
-          {:else}
-            <Avatar
-              url={community?.icon}
-              width={view == 'compact' ? 24 : 32}
-              alt={community?.name}
-              circle={false}
-              class="group-hover/btn:scale-90 group-active/btn:scale-[.85] transition-transform"
-            />
-          {/if}
+          <Avatar
+            url={community?.avatar}
+            width={view == 'compact' ? 24 : 32}
+            alt={community?.name}
+            circle={false}
+            class="group-hover/btn:scale-90 group-active/btn:scale-[.85] transition-transform"
+          />
         </button>
       {/snippet}
       {#snippet popover(open)}
-        {#if open && community && subscribed}
+        {#if open && community}
           <Material
             color="uniform"
             rounding="2xl"
             elevation="high"
-            class="max-w-2xl w-screen max-h-128 overflow-auto"
+            class="max-w-sm p-4"
             data-autoclose="false"
           >
-            {#await import('../community/CommunityHeader.svelte') then { default: CommunityHeader }}
-              <CommunityHeader {community} {subscribed} />
-            {/await}
+            <div class="flex items-center gap-3">
+              <Avatar
+                url={community.avatar}
+                width={48}
+                alt={community.name}
+                circle={false}
+              />
+              <div class="flex flex-col">
+                <span class="font-medium text-base">{community.name}</span>
+                {#if community.handle}
+                  <span class="text-xs text-slate-500 dark:text-zinc-400">
+                    @{community.handle}
+                  </span>
+                {/if}
+              </div>
+            </div>
           </Material>
         {/if}
       {/snippet}
@@ -254,9 +205,6 @@
       {community}
       style="grid-area: community;"
       class="shrink no-list-margin"
-      badges={{
-        nsfw: community.nsfw,
-      }}
     />
   {/if}
   <div
@@ -274,16 +222,8 @@
             class="rotate-180 text-slate-400 dark:text-zinc-600 max-sm:hidden"
           />
         {/if}
-        <UserLink avatarSize={20} {user} avatar={!showCommunity} class="shrink">
-          {#snippet extraBadges()}
-            {#if badges.moderator}
-              <Icon src={ShieldCheck} size="14" mini class="text-green-500" />
-            {/if}
-            {#if badges.admin}
-              <Icon src={ShieldCheck} size="14" mini class="text-red-500" />
-            {/if}
-          {/snippet}
-        </UserLink>
+        <UserLink avatarSize={20} {user} avatar={!showCommunity} class="shrink"
+        ></UserLink>
       </address>
     {/if}
     {#if published}
@@ -317,9 +257,7 @@
     {#if tags}
       {#each tags as tag}
         {@const href =
-          tag.type == 'flair'
-            ? null
-            : `/search?community=${community?.id}&q=[${tag.content}]&type=Posts`}
+          tag.type == 'flair' ? null : `/search?q=[${tag.content}]&type=Posts`}
         <svelte:element
           this={href ? 'a' : 'div'}
           {href}
@@ -356,13 +294,12 @@
     {@render extraBadges?.()}
   </div>
 </header>
-{#if title && id}
+{#if title && uri}
   {@const useAttachedUrl = settings.posts.titleOpensUrl && postUrl}
   <h3
     class={[
       'font-medium max-sm:mt-0! font-display',
       titleClass,
-      settings.markReadPosts && read && 'text-slate-600 dark:text-zinc-400',
       view == 'compact' ? 'text-base' : 'text-lg',
     ]}
     style="grid-area: title;"
@@ -370,7 +307,7 @@
     <a
       href={useAttachedUrl
         ? postUrl
-        : `/post/${encodeURIComponent(profile.current.instance)}/${id}`}
+        : `/post/${encodeURIComponent(profile.current.instance)}/${encodeURIComponent(uri)}`}
       target={useAttachedUrl ? '_blank' : undefined}
       rel={useAttachedUrl ? 'noopener noreferrer' : undefined}
       class="inline-block hover:underline hover:text-primary-900 dark:hover:text-primary-100 transition-colors"

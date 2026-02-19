@@ -1,116 +1,139 @@
 <script lang="ts" module>
-  export const voteColor = (vote: number) =>
-    vote == 1
+  export const voteColor = (vote: 'up' | 'down' | undefined) =>
+    vote === 'up'
       ? `btn-primary border-0!`
-      : vote == -1
+      : vote === 'down'
         ? `bg-red-500 text-slate-50 dark:bg-red-400 dark:text-zinc-900`
         : ''
 
   export const shouldShowVoteColor = (
-    vote: number,
+    vote: 'up' | 'down' | undefined,
     type: 'upvotes' | 'downvotes',
   ): string =>
-    (vote == -1 && type == 'downvotes') || (vote == 1 && type == 'upvotes')
+    (vote === 'down' && type == 'downvotes') ||
+    (vote === 'up' && type == 'upvotes')
       ? voteColor(vote)
       : ''
 </script>
 
 <script lang="ts">
-  import { site } from '$lib/api/client.svelte'
-  import type { Post } from '$lib/api/types'
+  import type {
+    AtUri,
+    CID,
+    PostStats,
+    PostViewerState,
+  } from '$lib/api/coves/types'
+  import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/auth.svelte'
-  import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
+  import { computeVoteState } from './helpers'
   import FormattedNumber from '$lib/ui/util/FormattedNumber.svelte'
   import { buttonColor, toast } from 'mono-svelte'
   import { ChevronDown, ChevronUp, Icon } from 'svelte-hero-icons/dist'
   import { backOut } from 'svelte/easing'
   import { fly } from 'svelte/transition'
-  import { vote as voteItem } from '../legacy/contentview'
 
   interface Props {
-    post: Post
-    vote?: number
-    score: number
-    upvotes: number
-    downvotes: number
+    uri: AtUri
+    cid: CID
+    stats: PostStats | undefined
+    viewer: PostViewerState | undefined
     showCounts?: boolean
-    children?: import('svelte').Snippet<[{ vote?: number; score?: number }]>
+    children?: import('svelte').Snippet<
+      [{ vote?: 'up' | 'down'; score?: number }]
+    >
   }
 
   let {
-    post = $bindable(),
-    vote = $bindable(),
-    score = $bindable(),
-    upvotes = $bindable(),
-    downvotes = $bindable(),
+    uri,
+    cid,
+    stats = $bindable(),
+    viewer = $bindable(),
     showCounts = true,
     children,
   }: Props = $props()
 
-  const castVote = async (newVote: number) => {
+  let upvotes = $derived(stats?.upvotes ?? 0)
+  let downvotes = $derived(stats?.downvotes ?? 0)
+  let vote = $derived(viewer?.vote)
+
+  const castVote = async (direction: 'up' | 'down') => {
     if (navigator.vibrate) navigator.vibrate(1)
     if (!profile.current?.jwt) {
       toast({ content: $t('toast.loginVoteGate'), type: 'warning' })
       return
     }
 
-    switch (vote ?? 0) {
-      case 0:
-        // nothing was removed
-        if (newVote == 1) upvotes++
-        else downvotes++
-        break
-      case 1:
-        // removed an upvote
-        upvotes--
-        if (newVote == -1) downvotes++
-        break
-      case -1:
-        // removed a downvote
-        downvotes--
-        if (newVote == 1) upvotes++
-        break
+    const currentVote = viewer?.vote
+    const isToggleOff = currentVote === direction
+
+    // Save previous state for rollback
+    const prevStats = stats ? { ...stats } : undefined
+    const prevViewer = viewer ? { ...viewer } : undefined
+
+    // Optimistically update local state via pure function
+    const newState = computeVoteState(stats, viewer, direction)
+    const newStats = newState.stats
+    const newViewer = newState.viewer
+
+    stats = newStats
+    viewer = newViewer
+
+    try {
+      if (isToggleOff) {
+        // Removing existing vote
+        await coves().deleteVote({ subject: { uri, cid } })
+        newViewer.voteUri = undefined
+      } else {
+        // Creating or changing vote
+        if (currentVote) {
+          // Remove old vote first
+          await coves().deleteVote({ subject: { uri, cid } })
+        }
+        const result = await coves().createVote({
+          subject: { uri, cid },
+          direction,
+        })
+        newViewer.voteUri = result.uri
+      }
+    } catch (err) {
+      // Rollback on error
+      stats = prevStats
+      viewer = prevViewer
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      toast({ content: errorMsg, type: 'error' })
     }
-
-    vote = newVote
-
-    voteItem(post, newVote)
-      .then((res) => ({ upvotes, downvotes, score } = res))
-      .catch((e) => {
-        toast({ content: errorMessage(e), type: 'error' })
-      })
   }
 </script>
 
 {#snippet voteButton(
   votes: number,
   target: 'upvote' | 'downvote',
-  vote?: number,
+  currentVote?: 'up' | 'down',
 )}
-  {@const targetNum = target == 'upvote' ? 1 : -1}
+  {@const direction = target === 'upvote' ? 'up' : 'down'}
   <button
-    onclick={() => castVote(vote == targetNum ? 0 : targetNum)}
+    onclick={() => castVote(direction)}
     class={[
       'flex items-center gap-0.5 transition-colors relative cursor-pointer h-full p-2',
       'first:rounded-l-[inherit] last:rounded-r-[inherit]',
       'last:flex-row-reverse',
-      vote == targetNum
+      currentVote === direction
         ? shouldShowVoteColor(
-            vote,
-            target == 'upvote' ? 'upvotes' : 'downvotes',
+            currentVote,
+            target === 'upvote' ? 'upvotes' : 'downvotes',
           )
         : 'btn-tertiary',
     ]}
-    aria-pressed={vote == targetNum}
+    aria-pressed={currentVote === direction}
     aria-label={$t(
-      target == 'upvote'
+      target === 'upvote'
         ? 'post.actions.vote.upvote'
         : 'post.actions.vote.downvote',
     )}
   >
-    <Icon src={target == 'upvote' ? ChevronUp : ChevronDown} size="20" micro />
+    <Icon src={target === 'upvote' ? ChevronUp : ChevronDown} size="20" micro />
     {#if showCounts}
       <div class="grid text-sm z-20">
         {#key votes}
@@ -119,7 +142,7 @@
             in:fly={{ duration: 400, y: -10, easing: backOut }}
             out:fly={{ duration: 400, y: 10, easing: backOut }}
             aria-label={$t(
-              target == 'upvote' ? 'aria.vote.upvotes' : 'aria.vote.downvotes',
+              target === 'upvote' ? 'aria.vote.upvotes' : 'aria.vote.downvotes',
               { default: votes },
             )}
           >
@@ -131,10 +154,8 @@
   </button>
 {/snippet}
 
-{#if children}{@render children({ vote, score })}{:else}
-  {@const voteRatio = Math.floor(
-    ((upvotes ?? 0) / ((upvotes ?? 0) + (downvotes ?? 0))) * 100,
-  )}
+{#if children}{@render children({ vote, score: stats?.score })}{:else}
+  {@const voteRatio = Math.floor((upvotes / (upvotes + downvotes || 1)) * 100)}
   <div
     class={[
       buttonColor.secondary,
@@ -148,9 +169,7 @@
     <div
       class="h-full p-0! border-l border-slate-200 dark:border-zinc-800"
     ></div>
-    {#if site.data?.site_view.local_site.enable_downvotes ?? true}
-      {@render voteButton(downvotes, 'downvote', vote)}
-    {/if}
+    {@render voteButton(downvotes, 'downvote', vote)}
   </div>
 {/if}
 

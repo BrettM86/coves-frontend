@@ -1,6 +1,7 @@
 import { browser } from '$app/environment'
 import { goto } from '$app/navigation'
 import { client } from '$lib/api/client.svelte'
+import type { AuthorView, CommunityRef } from '$lib/api/coves/types'
 import type { Community, Person } from '$lib/api/types'
 import { SvelteURL } from 'svelte/reactivity'
 import { t } from './i18n'
@@ -26,8 +27,13 @@ export const searchParam = (
   })
 }
 
-export const fullCommunityName = (name: string, actorId: string) =>
-  `${name}@${new SvelteURL(actorId).hostname}`
+export const fullCommunityName = (name: string, actorId: string): string => {
+  try {
+    return `${name}@${new SvelteURL(actorId).hostname}`
+  } catch {
+    return name
+  }
+}
 
 export const placeholders = {
   get: (type: 'url' | 'post' | 'body' | 'comment') => {
@@ -167,31 +173,69 @@ export function snapshot<T>(item: T) {
   return $state.snapshot(item)
 }
 
-export const isImage = (url: string | undefined) => {
-  try {
-    if (!url) return false
+export const isImage = (url: string | undefined): boolean => {
+  if (!url) return false
+  return /\.(jpeg|jpg|gif|png|svg|bmp|webp|avif)/i.test(url)
+}
 
-    return /\.(jpeg|jpg|gif|png|svg|bmp|webp|avif)/i.test(url)
+export const isVideo = (url: string | undefined): boolean => {
+  if (!url) return false
+  return /\.(mp4|mov|webm|mkv|avi)/i.test(url)
+}
+
+/**
+ * Generate a link path for a community.
+ * Accepts either a Coves CommunityRef or a legacy Lemmy Community.
+ */
+export function communityLink(community: CommunityRef, prefix?: string): string
+/** @deprecated Use CommunityRef overload instead */
+export function communityLink(community: Community, prefix?: string): string
+export function communityLink(
+  community: CommunityRef | Community,
+  prefix: string = '',
+): string {
+  // Coves CommunityRef: has `handle` field, no `actor_id`
+  if ('handle' in community && community.handle) {
+    return `${prefix}/c/${community.handle}`
+  }
+  // Coves CommunityRef without handle: use name
+  if ('did' in community && !('actor_id' in community)) {
+    return `${prefix}/c/${community.name}`
+  }
+  // Legacy Lemmy Community: has `actor_id`
+  try {
+    return `${prefix}/c/${fullCommunityName((community as Community).name, (community as Community).actor_id)}`
   } catch {
-    return false
+    return `${prefix}/c/${(community as Community).name}`
   }
 }
 
-export const isVideo = (url: string | undefined) => {
+/**
+ * Generate a link path for a user profile.
+ * Accepts either a Coves AuthorView or a legacy Lemmy Person.
+ */
+export function userLink(author: AuthorView, prefix?: string): string
+/** @deprecated Use AuthorView overload instead */
+export function userLink(person: Person, prefix?: string): string
+export function userLink(
+  user: AuthorView | Person,
+  prefix: string = '',
+): string {
+  // Coves AuthorView: has `handle` field
+  if ('handle' in user && user.handle) {
+    return `${prefix}/u/${user.handle}`
+  }
+  // Coves AuthorView without handle: use DID as fallback
+  if ('did' in user && !('actor_id' in user)) {
+    return `${prefix}/u/${user.did}`
+  }
+  // Legacy Lemmy Person: has `actor_id` and `name`
   try {
-    if (!url) return false
-
-    return /\.(mp4|mov|webm|mkv|avi)/i.test(url)
+    return `${prefix}/u/${(user as Person).name}@${new SvelteURL((user as Person).actor_id).hostname}`
   } catch {
-    return false
+    return `${prefix}/u/${(user as Person).name}`
   }
 }
-
-export const communityLink = (community: Community, prefix: string = '') =>
-  `${prefix}/c/${fullCommunityName(community.name, community.actor_id)}`
-
-export const userLink = (person: Person, prefix: string = '') =>
-  `${prefix}/u/${person.name}@${new SvelteURL(person.actor_id).hostname}`
 
 /**
  * Basic types only, don't use for anything more than basic equality

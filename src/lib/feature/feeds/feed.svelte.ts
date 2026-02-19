@@ -1,20 +1,24 @@
 import { browser } from '$app/environment'
 import type {
-  CommentView,
-  CommunityView,
   FeedView,
-  GetComments,
-  GetCommunityResponse,
   GetPersonDetails,
   GetPersonDetailsResponse,
-  GetPost,
   GetPosts,
-  ListCommunitiesResponse,
-  ListingType,
   PostView,
-  SortType,
   TopicView,
 } from '$lib/api/types'
+import type {
+  CommunityView as CovesCommunityView,
+  CommunityViewDetailed,
+  FeedPaginationParams,
+  FeedViewPost,
+  GetActorCommentsResponse,
+  GetActorPostsResponse,
+  GetCommentsParams,
+  PostView as CovesPostView,
+  ProfileViewDetailed,
+  ThreadViewComment,
+} from '$lib/api/coves/types'
 import { profile } from '$lib/app/auth.svelte'
 import { recursiveEqual } from '$lib/app/util.svelte'
 import { SvelteMap } from 'svelte/reactivity'
@@ -25,6 +29,7 @@ export class Feed<Params, Response> {
   #data = $state<Response>()
   #fetch: FetchFn<Params, Response>
   #lastParams?: Params
+  error = $state<unknown>()
 
   constructor(fetch: FetchFn<Params, Response>) {
     this.#fetch = fetch
@@ -33,10 +38,18 @@ export class Feed<Params, Response> {
   async load(params: Params) {
     if (!recursiveEqual(params, this.#lastParams)) {
       this.#data = undefined
+      this.error = undefined
     }
     this.#lastParams = params
 
-    if (this.#data == null) this.#data = await this.#fetch(params)
+    if (this.#data == null) {
+      try {
+        this.#data = await this.#fetch(params)
+        this.error = undefined
+      } catch (err) {
+        this.error = err
+      }
+    }
 
     return this.#data
   }
@@ -52,33 +65,38 @@ export class Feed<Params, Response> {
 
 export interface FeedTypes {
   '/': [
-    GetPosts,
+    FeedPaginationParams & { listing?: 'discover' | 'timeline' },
     {
-      posts: PostView[]
-      next_page?: string
-      params: GetPosts & { page_cursor: string }
-      client: {
-        itemHeights?: (number | null)[]
-        lastSeen?: number
+      feed: FeedViewPost[]
+      cursor?: string
+      params: FeedPaginationParams & {
+        listing?: 'discover' | 'timeline'
+        cursor?: string
       }
     },
   ]
   '/c/[name]': [
-    GetPosts,
+    FeedPaginationParams & { community: string },
     {
-      posts: PostView[]
-      community: GetCommunityResponse
-      next_page?: string
-      params: GetPosts & { page_cursor: string }
-      client: { itemHeights?: (number | null)[]; lastSeen?: number }
+      feed: FeedViewPost[]
+      community: CommunityViewDetailed
+      cursor?: string
+      params: FeedPaginationParams & { community: string; cursor?: string }
     },
   ]
-  '/u/[name]': [GetPersonDetails, { data: GetPersonDetailsResponse }]
+  '/u/[name]': [
+    { actor: string; limit?: number; cursor?: string; sort?: string },
+    {
+      profile: ProfileViewDetailed
+      posts: GetActorPostsResponse
+      comments: GetActorCommentsResponse
+    },
+  ]
   '/post/[instance]/[id=integer]': [
     {
-      posts: GetPost
-      comments: GetComments
-      preload?: PostView
+      postUri: string
+      comments: GetCommentsParams
+      preload?: CovesPostView
       thread: {
         showContext?: boolean
         singleThread?: boolean
@@ -86,16 +104,11 @@ export interface FeedTypes {
       }
     },
     {
-      post: PostView
-      comments: Promise<CommentView[]>
-      meta: Promise<{
-        community_view: CommunityView
-        cross_posts: PostView[]
-        post_view: PostView
-      }>
+      post: CovesPostView
+      comments: Promise<ThreadViewComment[]>
       params: {
-        posts: GetPost
-        comments: GetComments
+        postUri: string
+        comments: GetCommentsParams
         thread: {
           showContext?: boolean
           singleThread?: boolean
@@ -106,13 +119,16 @@ export interface FeedTypes {
   ]
   '/explore/communities': [
     {
-      type: ListingType
-      sort: SortType
-      query: string
-      page: number
+      sort?: string
+      query?: string
+      limit?: number
+      offset?: number
     },
-    ListCommunitiesResponse,
+    {
+      communities: CovesCommunityView[]
+    },
   ]
+  // TODO(migration): convert to Coves types — legacy Lemmy feed route
   '/f/[id]': [
     GetPosts,
 
@@ -127,6 +143,7 @@ export interface FeedTypes {
       }
     },
   ]
+  // TODO(migration): convert to Coves types — legacy Lemmy topic route
   '/topic/[id]': [
     GetPosts,
     {
@@ -140,6 +157,7 @@ export interface FeedTypes {
       }
     },
   ]
+  // TODO(migration): convert to Coves types — legacy Lemmy profile route
   '/profile/user': [GetPersonDetails, GetPersonDetailsResponse]
 }
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PostView } from '$lib/api/types'
+  import type { FeedViewPost } from '$lib/api/coves/types'
   import { settings } from '$lib/app/settings.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Button } from 'mono-svelte'
@@ -8,7 +8,7 @@
   import { Post } from '..'
 
   interface Props {
-    posts: PostView[]
+    posts: FeedViewPost[]
     community?: boolean
     children?: Snippet
   }
@@ -32,19 +32,17 @@
       </Placeholder>
     </div>
   {:else}
-    {#each posts as post, index (post.post.id)}
+    {#each posts as feedPost (feedPost.post.uri)}
       <li class="relative post-container">
         <Post
           hideCommunity={community}
-          view={(post.post.featured_community || post.post.featured_local) &&
+          pinned={feedPost.reason?.$type === 'social.coves.feed.defs#reasonPin'}
+          view={feedPost.reason?.$type === 'social.coves.feed.defs#reasonPin' &&
           settings.posts.compactFeatured
             ? 'compact'
             : settings.view}
-          {post}
+          post={feedPost.post}
           class="transition-all duration-250"
-          onhide={() => {
-            posts = posts.toSpliced(index, 1)
-          }}
         />
       </li>
     {/each}

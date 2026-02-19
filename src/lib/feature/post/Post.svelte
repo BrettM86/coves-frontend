@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PostView } from '$lib/api/types'
+  import type { PostView } from '$lib/api/coves/types'
   import { type View, settings } from '$lib/app/settings.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import type { ClassValue } from 'svelte/elements'
@@ -10,79 +10,52 @@
     PostMediaCompact,
     PostMeta,
   } from '.'
-  import { mediaType } from './helpers'
-  import { type Tag, parseTags } from './PostMeta.svelte'
-
-  function getTagRule(tags: Tag[]): 'blur-sm' | 'hide' | undefined {
-    const tagContent = tags.map((t) => t.content.toLowerCase())
-
-    let rule: 'blur-sm' | 'hide' | undefined
-    if (settings.nsfwBlur && (post.post.nsfw || post.community.nsfw))
-      rule = 'blur-sm'
-    tagContent.forEach(() => {
-      if (rule == 'hide') return rule
-    })
-
-    return rule
-  }
+  import { extractEmbedTitle, extractEmbedUrl, mediaType } from './helpers'
+  import { type MetaTag, parseTags } from './PostMeta.svelte'
 
   interface Props {
     post: PostView
     actions?: boolean
     hideCommunity?: boolean
+    pinned?: boolean
     view?: View
     style?: string
     class?: ClassValue
     extraBadges?: import('svelte').Snippet
-    onhide?: (hide: boolean) => void
   }
 
   let {
     post = $bindable(),
     actions = true,
     hideCommunity = false,
+    pinned = false,
     view = settings.view,
     style = '',
     class: clazz = '',
     extraBadges,
-    onhide,
   }: Props = $props()
 
-  let tags = $derived.by<{ title?: string; tags: Tag[] }>(() => {
-    const parsed = parseTags(post.post.name)
+  let tags = $derived.by<{ title?: string; tags: MetaTag[] }>(() => {
+    const parsed = parseTags(post.record?.title)
 
     return {
       title: parsed.title,
-      tags: [
-        ...parsed.tags,
-        ...(post.flair_list?.map((i) => ({
-          content: i.flair_title,
-          color: i.background_color,
-          icon: null,
-          type: 'flair' as 'flair' | 'custom',
-          textColor: i.text_color,
-        })) ?? []),
-      ],
+      tags: parsed.tags,
     }
   })
-  let type = $derived(mediaType(post.post))
-  let rule = $derived(getTagRule(tags.tags))
+  let type = $derived(mediaType(post.embed))
+  let embedUrl = $derived(extractEmbedUrl(post.embed))
+  let embedTitle = $derived(extractEmbedTitle(post.embed))
   let hideTitle = $derived(
     settings.posts.deduplicateEmbed &&
-      post.post.embed_title == post.post.name &&
-      view != 'compact' &&
-      type != 'iframe',
+      embedTitle === post.record?.title &&
+      view !== 'compact' &&
+      type !== 'iframe',
   )
 
   let badges = $derived({
-    deleted: post.post.deleted,
-    removed: post.post.removed,
-    locked: post.post.locked,
-    featured: post.post.featured_local || post.post.featured_community,
-    nsfw: post.post.nsfw || post.community.nsfw,
-    saved: post.saved,
-    admin: post.creator_is_admin,
-    moderator: post.creator_is_moderator,
+    featured: pinned,
+    saved: post.viewer?.saved ?? false,
   })
 </script>
 
@@ -99,58 +72,52 @@
     view == 'cozy' && 'py-5 flex flex-col gap-2',
     clazz,
   ]}
-  id={post.post.id.toString()}
+  id={post.uri}
   {style}
 >
   <PostMeta
     community={post.community}
     showCommunity={!hideCommunity}
-    user={post.creator}
-    published={publishedToDate(post.post.published)}
+    user={post.author}
+    published={publishedToDate(post.createdAt)}
     {badges}
-    subscribed={post.subscribed}
-    id={post.post.id}
-    title={hideTitle ? undefined : tags?.title ? tags.title : post.post.name}
-    read={post.read}
+    uri={post.uri}
+    title={hideTitle
+      ? undefined
+      : tags?.title
+        ? tags.title
+        : post.record?.title}
     style="grid-area: meta;"
-    edited={post.post.updated}
+    edited={post.editedAt}
     tags={tags?.tags}
-    postUrl={post.post.url}
+    postUrl={embedUrl}
     {view}
     {extraBadges}
   />
-  {#key post.post.url}
+  {#key embedUrl}
     <div style="grid-area:embed;" class={{ contents: view == 'cozy' }}>
-      {#if rule != 'hide'}
-        <PostMedia
-          post={post.post}
-          blur={rule == 'blur-sm' ? true : undefined}
-          {view}
-          {type}
-        />
-      {/if}
+      <PostMedia embed={post.embed} {view} {type} />
     </div>
     {#if view == 'compact'}
       <PostMediaCompact
-        post={post.post}
+        embed={post.embed}
         {type}
         class="{settings.leftAlign ? 'mr-3' : 'ml-3'} shrink no-list-margin"
         style="grid-area: media;"
-        blur={rule == 'blur-sm' ? true : undefined}
         {view}
       />
     {/if}
   {/key}
-  {#if post.post.body && !post.post.nsfw && view != 'compact'}
+  {#if post.record?.content && view != 'compact'}
     <PostBody
       element="section"
-      body={post.post.body}
+      body={post.record.content}
       style="grid-area: body"
       class="relative"
     />
   {/if}
   {#if actions}
-    <PostActions {onhide} bind:post style="grid-area: actions;" {view} />
+    <PostActions bind:post style="grid-area: actions;" {view} />
   {/if}
 </article>
 

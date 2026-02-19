@@ -1,13 +1,11 @@
 <script lang="ts" module>
-  import { client, getClient } from '$lib/api/client.svelte'
-  import type { CommunityModeratorView, CommunityView } from '$lib/api/types'
+  import type { DID } from '$lib/types/atproto'
+  import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/auth.svelte'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { settings } from '$lib/app/settings.svelte'
-  import { fullCommunityName, userLink } from '$lib/app/util.svelte'
-  import ItemList from '$lib/ui/generic/ItemList.svelte'
   import LabelStat from '$lib/ui/info/LabelStat.svelte'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import SidebarButton from '$lib/ui/sidebar/SidebarButton.svelte'
@@ -17,7 +15,6 @@
     Expandable,
     Menu,
     MenuButton,
-    Modal,
     modal,
     removeToast,
     Spinner,
@@ -30,125 +27,113 @@
     Fire,
     Icon,
     Newspaper,
-    NoSymbol,
     Plus,
     ShieldCheck,
-    Tag,
   } from 'svelte-hero-icons/dist'
-  import { addSubscription } from '../user'
-  import CommunityFlair from './CommunityFlair.svelte'
 
-  export async function block(id: number, block: boolean) {
+  /**
+   * Block or unblock a community by DID.
+   */
+  export async function block(
+    did: DID,
+    shouldBlock: boolean,
+  ): Promise<boolean> {
     try {
       const loading = toast({
         content: ``,
         loading: true,
       })
 
-      await getClient().blockCommunity({
-        community_id: id,
-        block: block,
-      })
+      if (shouldBlock) {
+        await coves().blockCommunity({ community: did })
+      } else {
+        await coves().unblockCommunity({ community: did })
+      }
 
       removeToast(loading)
 
       toast({
-        content: !block
+        content: !shouldBlock
           ? t.get('toast.unblockedCommunity')
           : t.get('toast.blockedCommunity'),
         type: 'success',
       })
 
-      return block
+      return shouldBlock
     } catch (err) {
-      toast({ content: errorMessage(err as string), type: 'error' })
-      return !block
+      toast({ content: errorMessage(err), type: 'error' })
+      return !shouldBlock
     }
   }
 
-  export async function purgeCommunity(id: number) {
-    const purgeToast = toast({ content: '', loading: true })
-
-    try {
-      await client().purgeCommunity({
-        community_id: id,
-      })
-      removeToast(purgeToast)
-      toast({ content: t.get('toast.purgedCommunity'), type: 'success' })
-    } catch (err) {
-      toast({ content: errorMessage(err as string), type: 'error' })
-    }
-  }
-
-  export async function blockInstance(id: number) {
-    try {
-      const loading = toast({
-        content: ``,
-        loading: true,
-      })
-
-      await getClient().blockInstance({
-        instance_id: id,
-        block: true,
-      })
-
-      removeToast(loading)
-
-      toast({
-        content: `Successfully blocked that instance.`,
-        type: 'success',
-      })
-    } catch (err) {
-      toast({ content: errorMessage(err as string), type: 'error' })
-    }
+  /**
+   * Purge a community by DID.
+   * Not yet available in the Coves API.
+   */
+  export async function purgeCommunity(_did: DID): Promise<void> {
+    toast({
+      content: 'Purging communities is not yet available',
+      type: 'warning',
+    })
   }
 </script>
 
 <script lang="ts">
+  import type {
+    CommunityView as CovesCommunityView,
+    CommunityViewDetailed,
+  } from '$lib/api/coves/types'
   import EntityHeader from '$lib/ui/generic/EntityHeader.svelte'
+  import { communityDisplayName, communityIdentifier } from './helpers'
+
+  type CommunityType = CovesCommunityView | CommunityViewDetailed
 
   let loading = $state({
-    blocking: false,
     subscribing: false,
   })
 
-  async function subscribe(community: CommunityView) {
+  async function subscribe(community: CommunityType): Promise<void> {
     if (!profile.current?.jwt) return
     loading.subscribing = true
-    const subscribed =
-      community.subscribed == 'Subscribed' || community.subscribed == 'Pending'
+    const wasSubscribed = community.viewer?.subscribed === true
 
     try {
-      await getClient().followCommunity({
-        community_id: community.community.id,
-        follow: !subscribed,
-      })
-    } catch (err) {
-      toast({ content: errorMessage(err as string), type: 'error' })
-    }
+      if (wasSubscribed) {
+        await coves().unsubscribe({ community: community.did })
+      } else {
+        await coves().subscribe({ community: community.did })
+      }
 
-    community.subscribed = subscribed ? 'NotSubscribed' : 'Subscribed'
-    addSubscription(community.community, !subscribed)
+      // Toggle state only on success
+      if (community.viewer) {
+        community.viewer.subscribed = !wasSubscribed
+      } else {
+        community.viewer = { subscribed: !wasSubscribed }
+      }
+    } catch (err) {
+      toast({ content: errorMessage(err), type: 'error' })
+    }
 
     loading.subscribing = false
   }
 
-  let setFlair = $state(false)
-
   interface Props {
-    community_view: CommunityView | Promise<CommunityView>
-    moderators?: CommunityModeratorView[]
+    community: CommunityType | Promise<CommunityType>
     class?: string
   }
 
-  let {
-    community_view = $bindable(),
-    moderators = [],
-    class: clazz = '',
-  }: Props = $props()
+  let { community = $bindable(), class: clazz = '' }: Props = $props()
+
+  function hasDescription(c: CommunityType): c is CommunityViewDetailed {
+    return 'description' in c && c.description !== undefined
+  }
+
+  function hasBanner(c: CommunityType): c is CommunityViewDetailed {
+    return 'banner' in c && c.banner !== undefined
+  }
 </script>
 
-{#await community_view}
+{#await community}
   <div
     class="w-full h-full grid place-items-center"
     role="status"
@@ -156,13 +141,7 @@
   >
     <Spinner width={24} />
   </div>
-{:then community_view}
-  <Modal title={$t('cards.community.flair')} bind:open={setFlair}>
-    <CommunityFlair
-      community={community_view.community.id}
-      onsubmit={() => (setFlair = !setFlair)}
-    />
-  </Modal>
+{:then community}
   <aside
     class={[
       'min-w-full pt-0 text-slate-600 dark:text-zinc-400 flex flex-col gap-1',
@@ -170,16 +149,13 @@
     ]}
   >
     <EntityHeader
-      name={community_view.community.title}
-      avatar={community_view.community.icon}
-      banner={community_view.community.banner}
+      name={communityDisplayName(community)}
+      avatar={community.avatar}
+      banner={hasBanner(community) ? community.banner : undefined}
       avatarCircle={false}
     >
       {#snippet nameDetail()}
-        !{fullCommunityName(
-          community_view.community.name,
-          community_view.community.actor_id,
-        )}
+        !{communityIdentifier(community)}
       {/snippet}
     </EntityHeader>
 
@@ -187,13 +163,13 @@
       {$t('form.post.community')}
     </EndPlaceholder>
     {#if profile.current?.jwt}
-      {@const subscribed = community_view.subscribed == 'Subscribed' || community_view.subscribed == 'Pending'}
+      {@const subscribed = community.viewer?.subscribed === true}
       <Button
         disabled={loading.subscribing}
         loading={loading.subscribing}
         size="md"
         color={subscribed ? 'secondary' : 'primary'}
-        onclick={() => subscribe(community_view)}
+        onclick={() => subscribe(community)}
         class="px-4 relative z-[inherit]"
         alignment="left"
         icon={subscribed ? Check : Plus}
@@ -202,20 +178,10 @@
           ? $t('cards.community.subscribed')
           : $t('cards.community.subscribe')}
       </Button>
-      {#if client().setFlair}
-        <SidebarButton
-          onclick={() => (setFlair = !setFlair)}
-          icon={Tag}
-          label={$t('cards.community.flair')}
-        />
-      {/if}
     {/if}
-    {#if profile.isMod(community_view.community)}
+    {#if profile.isMod(community)}
       <SidebarButton
-        href="/c/{fullCommunityName(
-          community_view.community.name,
-          community_view.community.actor_id,
-        )}/settings"
+        href="/c/{communityIdentifier(community)}/settings"
         icon={Cog6Tooth}
         label={$t('routes.profile.edit')}
       />
@@ -228,56 +194,34 @@
           icon={EllipsisHorizontal}
         />
       {/snippet}
-      <MenuButton href="/modlog?community={community_view.community.id}">
+      <MenuButton href="/modlog?community={community.did}">
         <Icon src={Newspaper} size="16" mini />
         {$t('cards.community.modlog')}
       </MenuButton>
       {#if profile.current?.jwt}
-        {#if profile.isMod(community_view.community)}
+        {#if profile.isMod(community)}
           <MenuButton
             color="success-subtle"
-            href="/moderation?community={community_view.community.id}"
+            href="/moderation?community={community.did}"
           >
             <Icon src={ShieldCheck} size="16" micro />
             {$t('routes.moderation.feed')}
           </MenuButton>
         {/if}
-        <MenuButton
-          color="danger-subtle"
-          size="lg"
-          onclick={() =>
-            block(community_view.community.id, !community_view.blocked)}
-          icon={NoSymbol}
-        >
-          {community_view.blocked
-            ? $t('cards.community.unblock')
-            : $t('cards.community.block')}
-        </MenuButton>
-        <!-- TODO: Re-enable when Coves API supports instance blocking -->
-        <!--
-        <MenuButton
-          color="danger-subtle"
-          size="lg"
-          onclick={() => blockInstance(community_view.community.instance_id)}
-          icon={BuildingOffice2}
-        >
-          {$t('cards.community.blockInstance')}
-        </MenuButton>
-        -->
         {#if profile.isAdmin}
           <MenuButton
             color="danger-subtle"
             onclick={() =>
               modal({
                 title: $t('admin.purgeCommunity.title'),
-                body: `${community_view.community.title}: ${$t('admin.purgeCommunity.warning')}`,
+                body: `${communityDisplayName(community)}: ${$t('admin.purgeCommunity.warning')}`,
                 actions: [
                   action({
                     close: true,
                     content: $t('common.cancel'),
                   }),
                   action({
-                    action: () => purgeCommunity(community_view.community.id),
+                    action: () => purgeCommunity(community.did),
                     close: true,
                     content: $t('admin.purge'),
                     type: 'danger',
@@ -301,17 +245,12 @@
     <div class="flex flex-row gap-4 flex-wrap px-3">
       <LabelStat
         label={$t('cards.community.members')}
-        content={community_view.counts.subscribers.toString()}
+        content={community.subscriberCount.toString()}
         formatted
       />
       <LabelStat
         label={$t('content.posts')}
-        content={community_view.counts.posts.toString()}
-        formatted
-      />
-      <LabelStat
-        label={$t('cards.community.activeDay')}
-        content={community_view.counts.users_active_day.toString()}
+        content={community.postCount.toString()}
         formatted
       />
     </div>
@@ -320,31 +259,14 @@
       {$t('common.info')}
     </EndPlaceholder>
     <div class="space-y-3 px-1.5 text-sm">
-      <Expandable bind:open={settings.expand.about}>
-        {#snippet title()}
-          <span class="px-2 py-1 w-full">
-            {$t('cards.site.about')}
-          </span>
-        {/snippet}
-        <Markdown source={community_view.community.description} />
-      </Expandable>
-
-      {#if moderators && moderators.length > 0}
-        <Expandable bind:open={settings.expand.team}>
+      {#if hasDescription(community)}
+        <Expandable bind:open={settings.expand.about}>
           {#snippet title()}
             <span class="px-2 py-1 w-full">
-              {$t('cards.community.moderators')}
+              {$t('cards.site.about')}
             </span>
           {/snippet}
-          <ItemList
-            items={moderators.map((i) => ({
-              id: i.moderator.id,
-              name: i.moderator.display_name || i.moderator.name,
-              url: userLink(i.moderator),
-              avatar: i.moderator.avatar,
-              instance: new URL(i.moderator.actor_id).hostname,
-            }))}
-          />
+          <Markdown source={community.description} />
         </Expandable>
       {/if}
     </div>

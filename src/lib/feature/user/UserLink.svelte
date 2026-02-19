@@ -1,21 +1,15 @@
 <script lang="ts" module>
   import { env } from '$env/dynamic/public'
-  import type { Person } from '$lib/api/types'
+  import type { AuthorView } from '$lib/api/coves/types'
   import { settings } from '$lib/app/settings.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import Logo from '$lib/ui/generic/Logo.svelte'
-  import { Badge } from 'mono-svelte'
-  import {
-    Icon,
-    type IconSource,
-    Language,
-    NoSymbol,
-  } from 'svelte-hero-icons/dist'
+  import { Icon, type IconSource, Language } from 'svelte-hero-icons/dist'
 
-  function parseBadge() {
+  function parseBadge(): Record<string, string[]> {
     try {
       if (env.PUBLIC_BADGES) {
-        return JSON.parse(env.PUBLIC_BADGES)
+        return JSON.parse(env.PUBLIC_BADGES) as Record<string, string[]>
       } else {
         return {}
       }
@@ -27,7 +21,7 @@
   const badges = parseBadge()
 
   const getEnvBadge = (
-    actor_id: string,
+    did: string,
   ):
     | {
         classes: string
@@ -35,7 +29,7 @@
         iconClass?: string
       }
     | false => {
-    if (badges.photon && badges.photon?.includes?.(actor_id)) {
+    if (badges.photon && badges.photon?.includes?.(did)) {
       return {
         classes:
           'bg-linear-to-r bg-clip-text text-transparent from-pink-500 to-fuchsia-500 dark:from-pink-400 dark:to-purple-400',
@@ -43,7 +37,7 @@
       }
     }
 
-    if (badges.translator && badges.translator?.includes?.(actor_id)) {
+    if (badges.translator && badges.translator?.includes?.(did)) {
       return {
         classes:
           'bg-linear-to-r bg-clip-text text-transparent from-sky-500 to-blue-700 dark:from-blue-300 dark:to-indigo-500',
@@ -58,7 +52,7 @@
 
 <script lang="ts">
   interface Props {
-    user: Person
+    user: AuthorView
     avatar?: boolean
     avatarSize?: number
     badges?: boolean
@@ -86,19 +80,19 @@
     extraBadges,
   }: Props = $props()
 
-  let envBadge = $derived(getEnvBadge(user.actor_id))
+  let envBadge = $derived(getEnvBadge(user.did))
 </script>
 
 <a
   class="items-center inline-flex flex-row gap-1 hover:underline max-w-full min-w-0 {clazz}"
-  href="/u/{user.name}@{new URL(user.actor_id).hostname}"
+  href="/u/{user.handle ?? user.did}"
   data-sveltekit-preload-data="tap"
 >
   {@render children?.()}
   {#if avatar}
     <Avatar
       url={user.avatar}
-      alt={user.name}
+      alt={user.handle}
       width={avatarSize}
       class="shrink-0"
     />
@@ -111,26 +105,18 @@
       class:font-medium={showInstance}
       class="username-text {envBadge && envBadge.classes}"
     >
-      {displayName ? user.display_name || user.name : user.name}
+      {displayName ? user.displayName || user.handle : user.handle}
     </span>
     {#if showInstance}
       <span
         class="text-slate-500 dark:text-zinc-500 font-normal instance-text shrink {instanceClass ??
           ''}"
       >
-        @{new URL(user.actor_id).hostname}
+        @{user.handle}
       </span>
     {/if}
   </span>
   {#if badges}
-    {#if user.banned}
-      <div class="text-red-500" title="Banned">
-        <Icon src={NoSymbol} mini size="12" />
-      </div>
-    {/if}
-    {#if user.bot_account}
-      <div class="text-blue-500 font-bold" title="Bot">BOT</div>
-    {/if}
     {#if envBadge}
       {#if envBadge.icon == 'photon'}
         <Logo width={16} />
@@ -142,16 +128,6 @@
           class={envBadge.iconClass ?? envBadge.classes}
         />
       {/if}
-    {/if}
-    {#if user.flair}
-      <Badge color="blue-subtle" class="px-1.5! py-0.5! whitespace-nowrap">
-        {user.flair}
-      </Badge>
-    {/if}
-    {#if user.note}
-      <Badge color="gray-subtle" class="px-1.5! py-0.5! whitespace-nowrap">
-        {user.note}
-      </Badge>
     {/if}
     {@render extraBadges?.()}
   {/if}

@@ -1,17 +1,24 @@
-import { client } from '$lib/api/client.svelte'
-import type { MyUserInfo } from '$lib/api/types'
+import { coves } from '$lib/api/client.svelte'
+import type { ProfileViewDetailed } from '$lib/api/coves/types'
+import type { DID } from '$lib/types/atproto'
 
-// TODO(coves-migration): This file contains legacy Lemmy code that needs to be rewritten for Coves API
-
-export async function blockUser(block: boolean, id: number) {
-  return await client().blockPerson({
-    block: block,
-    person_id: id,
-  })
+/**
+ * Block or unblock a user by DID using the Coves XRPC API.
+ */
+export async function blockUser(block: boolean, did: DID): Promise<void> {
+  if (block) {
+    await coves().blockUser({ did })
+  } else {
+    await coves().unblockUser({ did })
+  }
 }
 
-export function isBlocked(me: MyUserInfo, user: number) {
-  return me.person_blocks.find((b) => b.target.id == user)
+/**
+ * Check whether a profile is blocked by the current viewer.
+ * Returns the blocking AT-URI if blocked, or undefined if not.
+ */
+export function isBlocked(user: ProfileViewDetailed): string | undefined {
+  return user.viewer?.blocking
 }
 
 let _warnedAddSubscription = false
@@ -23,7 +30,9 @@ let _warnedAddSubscription = false
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function addSubscription(_community: unknown, _subscribe = true): void {
   if (!_warnedAddSubscription) {
-    console.warn('addSubscription() is a stub - TODO(coves-migration): implement Coves subscription management')
+    console.warn(
+      'addSubscription() is a stub - TODO(coves-migration): implement Coves subscription management',
+    )
     _warnedAddSubscription = true
   }
 }
@@ -41,7 +50,9 @@ export function hasFavorite(
   _id: number,
 ): boolean {
   if (!_warnedHasFavorite) {
-    console.warn('hasFavorite() is a stub - TODO(coves-migration): implement Coves favorites')
+    console.warn(
+      'hasFavorite() is a stub - TODO(coves-migration): implement Coves favorites',
+    )
     _warnedHasFavorite = true
   }
   return false

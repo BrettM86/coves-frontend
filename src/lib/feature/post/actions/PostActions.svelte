@@ -1,51 +1,29 @@
 <script lang="ts">
-  import { page } from '$app/state'
-  import type { PostView } from '$lib/api/types'
+  import type { PostView } from '$lib/api/coves/types'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
-  import { LINKED_INSTANCE_URL } from '$lib/app/instance.svelte'
   import { settings, type View } from '$lib/app/settings.svelte'
-  import { instanceToURL } from '$lib/app/util.svelte'
-  import { save } from '$lib/feature/legacy/contentview'
-  import { Photon } from '$lib/ui/icon/photon'
-  import { publishedToDate } from '$lib/ui/util/date'
   import FormattedNumber from '$lib/ui/util/FormattedNumber.svelte'
-  import {
-    Button,
-    Menu,
-    MenuButton,
-    MenuDivider,
-    Modal,
-    Spinner,
-    toast,
-  } from 'mono-svelte'
+  import { Button, Menu, Spinner, toast } from 'mono-svelte'
   import {
     Bookmark,
     BookmarkSlash,
     BugAnt,
     ChatBubbleOvalLeft,
-    ChatBubbleOvalLeftEllipsis,
     EllipsisHorizontal,
-    GlobeAlt,
     Icon,
-    MapPin,
     Share,
-    ShieldCheck,
   } from 'svelte-hero-icons/dist'
   import { PostVote } from '..'
-  import { PostFormState } from '../form/post-form.svelte'
   import { postLink } from '../helpers'
 
   let saving = $state(false)
-  let editing = $state(false)
 
   interface Props {
     post: PostView
     view?: View
     debug?: boolean
     style?: string
-    onedit?: (post: PostView) => void
-    onhide?: (hide: boolean) => void
   }
 
   let {
@@ -53,18 +31,12 @@
     view = 'cozy',
     debug = $bindable(false),
     style = '',
-    onedit,
-    onhide,
   }: Props = $props()
   let buttonHeight = $derived(view == 'compact' ? 'h-7.5' : 'h-8')
   let buttonSquare = $derived(view == 'compact' ? 'w-7.5 h-7.5' : 'w-8 h-8')
 
-  function share(global: boolean = true, url?: string) {
-    const link =
-      url ??
-      (global
-        ? post.post.ap_id
-        : `${instanceToURL(profile.current.instance)}/post/${post.post.id}`)
+  function share(): void {
+    const link = post.uri as string
 
     if (navigator.share)
       navigator.share?.({
@@ -77,34 +49,6 @@
   }
 </script>
 
-{#if editing}
-  <Modal bind:open={editing}>
-    {#snippet customTitle()}
-      <h1 class="text-2xl font-bold">{$t('form.edit')}</h1>
-    {/snippet}
-    {#await import('../form/PostForm.svelte')}
-      <div class="mx-auto h-96 flex justify-center items-center">
-        <Spinner width={32} />
-      </div>
-    {:then { default: PostForm }}
-      <PostForm
-        editPost={post.post.id}
-        onsubmit={(e) => {
-          editing = false
-          post = e
-          onedit?.(e)
-        }}
-        init={new PostFormState({
-          type: post.post.poll ? 'poll' : post.post.event ? 'event' : 'normal',
-          ...post.post,
-        })}
-      >
-        {#snippet title()}{/snippet}
-      </PostForm>
-    {/await}
-  </Modal>
-{/if}
-
 <footer
   class={[
     'flex flex-row gap-2 items-center shrink-0 text-slate-600 dark:text-zinc-400',
@@ -114,30 +58,22 @@
   {style}
 >
   <PostVote
-    post={post.post}
-    bind:vote={post.my_vote}
-    bind:score={post.counts.score}
-    bind:upvotes={post.counts.upvotes}
-    bind:downvotes={post.counts.downvotes}
+    uri={post.uri}
+    cid={post.cid}
+    bind:stats={post.stats}
+    bind:viewer={post.viewer}
   />
 
   <Button
     size="custom"
-    href="{postLink(post.post)}#comments"
+    href="{postLink(post)}#comments"
     class="text-inherit! h-full px-3 relative"
     rounding="xl"
     target={settings.openLinksInNewTab ? '_blank' : ''}
     aria-label={$t('post.actions.comments')}
   >
-    {@const newComment =
-      publishedToDate(post.counts.newest_comment_time).getTime() >
-      new Date().getTime() - 5 * 60 * 1000}
-    <Icon
-      src={newComment ? ChatBubbleOvalLeftEllipsis : ChatBubbleOvalLeft}
-      size="16"
-      mini
-    />
-    <FormattedNumber number={post.counts.comments} />
+    <Icon src={ChatBubbleOvalLeft} size="16" mini />
+    <FormattedNumber number={post.stats?.commentCount ?? 0} />
   </Button>
   <div class="flex-1"></div>
 
@@ -156,81 +92,37 @@
       icon={BugAnt}
     ></Button>
   {/if}
-  {#if profile.isMod(post.community) || profile.isAdmin}
-    {#await import('$lib/feature/moderation/ModerationMenu.svelte') then { default: ModerationMenu }}
-      <ModerationMenu bind:item={post}>
-        {#snippet target(attachment, acting)}
-          <Button
-            {@attach attachment}
-            size="custom"
-            rounding="xl"
-            loading={acting}
-            class={buttonSquare}
-          >
-            <Icon src={ShieldCheck} size="18" mini />
-          </Button>
-        {/snippet}
-      </ModerationMenu>
-    {/await}
-  {/if}
+
+  <!-- TODO: Re-enable ModerationMenu once it's migrated to Coves types -->
 
   {#if profile.current?.jwt}
     <Button
       onclick={async () => {
         if (!profile.current?.jwt) return
-        saving = true
-        post.saved = await save(post, !post.saved)
-        saving = false
+        toast({ content: 'Saving posts is not yet available', type: 'warning' })
       }}
       size="custom"
       class={buttonSquare}
       rounding="xl"
       loading={saving}
       disabled={saving}
-      title={post.saved ? $t('post.actions.unsave') : $t('post.actions.save')}
-      icon={post.saved ? BookmarkSlash : Bookmark}
+      title={post.viewer?.saved
+        ? $t('post.actions.unsave')
+        : $t('post.actions.save')}
+      icon={post.viewer?.saved ? BookmarkSlash : Bookmark}
     ></Button>
   {/if}
 
-  <Menu placement="bottom-end">
-    {#snippet target(attachment)}
-      <Button
-        {@attach post.post.local ? () => {} : attachment}
-        rounding="xl"
-        size="custom"
-        class={buttonSquare}
-        onclick={() => {
-          if (post.post.local) share()
-        }}
-        icon={Share}
-        title={$t('post.actions.more.share')}
-      />
-    {/snippet}
-    <MenuDivider showLabel>{$t('post.actions.more.share.from')}</MenuDivider>
-    <MenuButton onclick={() => share(true)} icon={GlobeAlt}>
-      {$t('post.actions.more.share.global')}
-    </MenuButton>
-    <MenuButton onclick={() => share(false)} icon={MapPin}>
-      {$t('post.actions.more.share.local')}
-    </MenuButton>
-    {#if !LINKED_INSTANCE_URL}
-      <MenuDivider>
-        <svelte:fragment></svelte:fragment>
-      </MenuDivider>
-      <MenuButton
-        onclick={() =>
-          share(
-            false,
-            new URL(`/go/${post.post.ap_id}`, page.url.origin).toString(),
-          )}
-        icon={Photon}
-      >
-        {$t('post.actions.more.share.photon')}
-      </MenuButton>
-    {/if}
-  </Menu>
+  <Button
+    rounding="xl"
+    size="custom"
+    class={buttonSquare}
+    onclick={() => share()}
+    icon={Share}
+    title={$t('post.actions.more.share')}
+  />
 
-  {#if profile.current.jwt}
+  {#if profile.current?.jwt}
     <Menu placement="bottom-end">
       {#snippet target(popover)}
         <Button
@@ -249,7 +141,7 @@
               <Spinner width={20} />
             </div>
           {:then { default: PostActionsMenu }}
-            <PostActionsMenu bind:post {onhide} bind:editing />
+            <PostActionsMenu bind:post />
           {/await}
         {/if}
       {/snippet}

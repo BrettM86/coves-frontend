@@ -8,18 +8,11 @@
   interface Props {
     url: string
     thumbnail_url?: string
-    nsfw?: boolean
     embed_title?: string
     view?: View
   }
 
-  let {
-    url,
-    thumbnail_url,
-    nsfw = false,
-    embed_title,
-    view = 'cozy',
-  }: Props = $props()
+  let { url, thumbnail_url, embed_title, view = 'cozy' }: Props = $props()
 
   let richURL = $derived(parseURL(url))
 </script>
@@ -73,7 +66,6 @@
             width={600}
             height={400}
             alt=""
-            class:blur-3xl={nsfw}
           />
         </picture>
         <Material

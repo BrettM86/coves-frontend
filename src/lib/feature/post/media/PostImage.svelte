@@ -1,36 +1,38 @@
 <script lang="ts">
-  import type { Post } from '$lib/api/types'
+  import type { PostEmbed } from '$lib/api/coves/types'
   import { settings } from '$lib/app/settings.svelte'
   import { showImage } from '$lib/ui/generic/ExpandableImage.svelte'
   import { Button, modal } from 'mono-svelte'
   import { onMount } from 'svelte'
-  import { bestImageURL, postLink } from '../helpers'
+  import { bestImageURL, extractEmbedAlt } from '../helpers'
 
   interface Props {
-    post: Post
+    embed: PostEmbed
     blur?: boolean
   }
 
-  let { post, blur = false }: Props = $props()
+  let { embed, blur = false }: Props = $props()
 
   let imageLoaded: boolean | null = $state(null)
   onMount(() => {
     imageLoaded = false
   })
+
+  let altText = $derived(extractEmbedAlt(embed))
+  let fullImageUrl = $derived(bestImageURL(embed, false, -1, null))
 </script>
 
 <!--disabled preloads here since most people will hover over every image while scrolling-->
 <svelte:element
-  this={settings.expandImages ? 'button' : 'a'}
-  href={postLink(post)}
+  this={settings.expandImages ? 'button' : 'div'}
   class={[
     'container/a z-10 rounded-2xl cursor-pointer relative overflow-hidden',
     'bg-slate-100 dark:bg-zinc-900 transition-colors',
     'border border-slate-200 dark:border-zinc-800 group',
   ]}
   data-sveltekit-preload-data="off"
-  aria-label={post.name}
-  onclick={() => showImage(bestImageURL(post, false, -1, null))}
+  aria-label={altText ?? 'Image'}
+  onclick={() => showImage(fullImageUrl)}
   role="button"
   tabindex="0"
 >
@@ -39,7 +41,7 @@
     <img
       loading="lazy"
       fetchpriority="auto"
-      src={bestImageURL(post, false, 64)}
+      src={bestImageURL(embed, false, 64)}
       class=" object-cover w-full h-full opacity-50 blur-lg"
     />
   </div>
@@ -47,17 +49,17 @@
     {#each ['webp'] as format}
       <source
         srcset="{bestImageURL(
-          post,
+          embed,
           false,
           512,
           format as 'avif' | 'webp',
         )} 512w, {bestImageURL(
-          post,
+          embed,
           false,
           768,
           format as 'avif' | 'webp',
         )} 768w, {bestImageURL(
-          post,
+          embed,
           false,
           1024,
           format as 'avif' | 'webp',
@@ -67,7 +69,7 @@
       />
     {/each}
     <img
-      src={blur ? '' : bestImageURL(post, false, -1, null)}
+      src={blur ? '' : fullImageUrl}
       loading="lazy"
       class={[
         'max-w-full rounded-xl z-30 transition-all max-h-[60vh] duration-500 object-contain mx-auto group-hover:scale-98 group-active:scale-95',
@@ -77,7 +79,7 @@
       ]}
       width={512}
       height={300}
-      alt={post.alt_text ?? ''}
+      alt={altText ?? ''}
       onload={() => (imageLoaded = true)}
     />
   </picture>
@@ -89,13 +91,13 @@
         *:bg-white *:border *:border-slate-200 dark:*:border-zinc-800 dark:*:bg-zinc-900"
     onclick={(e) => e.stopPropagation()}
   >
-    {#if post.alt_text}
+    {#if altText}
       <Button
         onclick={(e) => {
           e.stopPropagation()
           modal({
             title: 'Alt',
-            body: post.alt_text ?? '',
+            body: altText ?? '',
           })
         }}
         color="tertiary"

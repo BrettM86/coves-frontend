@@ -49,10 +49,10 @@ describe('Feed methods', () => {
   })
 
   it('getCommunityFeed() calls query with correct NSID', async () => {
-    await client.getCommunityFeed({ community: 'tech' })
+    await client.getCommunityFeed({ community: 'did:plc:tech' as DID })
 
     expect(querySpy).toHaveBeenCalledWith(NSID.getCommunityFeed, {
-      community: 'tech',
+      community: 'did:plc:tech',
     })
   })
 })
@@ -63,7 +63,7 @@ describe('Feed methods', () => {
 
 describe('Comment methods', () => {
   it('getComments() calls query with correct NSID', async () => {
-    await client.getComments({ post: 'at://did:plc:abc/post/1' })
+    await client.getComments({ post: 'at://did:plc:abc/post/1' as AtUri })
 
     expect(querySpy).toHaveBeenCalledWith(NSID.getComments, {
       post: 'at://did:plc:abc/post/1',
@@ -137,7 +137,7 @@ describe('Vote methods', () => {
 
 describe('Actor methods', () => {
   it('getProfile() calls query with correct NSID', async () => {
-    await client.getProfile({ actor: 'did:plc:abc123' })
+    await client.getProfile({ actor: 'did:plc:abc123' as DID })
 
     expect(querySpy).toHaveBeenCalledWith(NSID.getProfile, {
       actor: 'did:plc:abc123',
@@ -145,7 +145,7 @@ describe('Actor methods', () => {
   })
 
   it('getActorPosts() calls query with correct NSID', async () => {
-    await client.getActorPosts({ actor: 'did:plc:abc123', limit: 10 })
+    await client.getActorPosts({ actor: 'did:plc:abc123' as DID, limit: 10 })
 
     expect(querySpy).toHaveBeenCalledWith(NSID.getActorPosts, {
       actor: 'did:plc:abc123',
@@ -154,7 +154,7 @@ describe('Actor methods', () => {
   })
 
   it('getActorComments() calls query with correct NSID', async () => {
-    await client.getActorComments({ actor: 'did:plc:abc123' })
+    await client.getActorComments({ actor: 'did:plc:abc123' as DID })
 
     expect(querySpy).toHaveBeenCalledWith(NSID.getActorComments, {
       actor: 'did:plc:abc123',
@@ -184,10 +184,10 @@ describe('Actor methods', () => {
 
 describe('Community methods', () => {
   it('getCommunity() calls query with correct NSID', async () => {
-    await client.getCommunity({ community: 'tech' })
+    await client.getCommunity({ community: 'did:plc:tech' as DID })
 
     expect(querySpy).toHaveBeenCalledWith(NSID.getCommunity, {
-      community: 'tech',
+      community: 'did:plc:tech',
     })
   })
 
@@ -219,34 +219,34 @@ describe('Community methods', () => {
   })
 
   it('subscribe() calls procedure with correct NSID', async () => {
-    await client.subscribe({ community: 'tech' })
+    await client.subscribe({ community: 'did:plc:tech' as DID })
 
     expect(procedureSpy).toHaveBeenCalledWith(NSID.subscribe, {
-      community: 'tech',
+      community: 'did:plc:tech',
     })
   })
 
   it('unsubscribe() calls procedure with correct NSID', async () => {
-    await client.unsubscribe({ community: 'tech' })
+    await client.unsubscribe({ community: 'did:plc:tech' as DID })
 
     expect(procedureSpy).toHaveBeenCalledWith(NSID.unsubscribe, {
-      community: 'tech',
+      community: 'did:plc:tech',
     })
   })
 
   it('blockCommunity() calls procedure with correct NSID', async () => {
-    await client.blockCommunity({ community: 'spam' })
+    await client.blockCommunity({ community: 'did:plc:spam' as DID })
 
     expect(procedureSpy).toHaveBeenCalledWith(NSID.blockCommunity, {
-      community: 'spam',
+      community: 'did:plc:spam',
     })
   })
 
   it('unblockCommunity() calls procedure with correct NSID', async () => {
-    await client.unblockCommunity({ community: 'spam' })
+    await client.unblockCommunity({ community: 'did:plc:spam' as DID })
 
     expect(procedureSpy).toHaveBeenCalledWith(NSID.unblockCommunity, {
-      community: 'spam',
+      community: 'did:plc:spam',
     })
   })
 })
@@ -258,7 +258,7 @@ describe('Community methods', () => {
 describe('Post methods', () => {
   it('createPost() calls procedure with correct NSID', async () => {
     const input = {
-      community: 'tech',
+      community: 'did:plc:tech' as DID,
       title: 'Hello World',
       content: 'My first post',
     }
@@ -271,6 +271,14 @@ describe('Post methods', () => {
     await client.deletePost({ uri: 'at://did:plc:abc/post/1' as AtUri })
 
     expect(procedureSpy).toHaveBeenCalledWith(NSID.deletePost, {
+      uri: 'at://did:plc:abc/post/1',
+    })
+  })
+
+  it('getPost() calls query with correct NSID', async () => {
+    await client.getPost({ uri: 'at://did:plc:abc/post/1' as AtUri })
+
+    expect(querySpy).toHaveBeenCalledWith(NSID.getPost, {
       uri: 'at://did:plc:abc/post/1',
     })
   })

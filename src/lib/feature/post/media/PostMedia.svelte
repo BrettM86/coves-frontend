@@ -1,57 +1,60 @@
 <script lang="ts">
-  import type { Post } from '$lib/api/types'
-  import { settings, type View } from '$lib/app/settings.svelte'
+  import type { PostEmbed } from '$lib/api/coves/types'
+  import { type View } from '$lib/app/settings.svelte'
   import { PostIframe, PostImage, PostLink } from '..'
-  import { iframeType, type MediaType } from '../helpers'
-  import PostEvent from './PostEvent.svelte'
-  import PostPoll from './PostPoll.svelte'
+  import {
+    extractEmbedThumbnail,
+    extractEmbedTitle,
+    extractEmbedUrl,
+    iframeType,
+    type MediaType,
+  } from '../helpers'
 
   interface Props {
     view?: View
-    post: Post
+    embed?: PostEmbed
     type?: MediaType
     opened?: boolean | undefined
     blur?: boolean
-    [key: string]: any
+    [key: string]: unknown
   }
 
   let {
     view = 'cozy',
-    post,
+    embed,
     type = 'none',
     opened = undefined,
-    blur = post.nsfw && settings.nsfwBlur,
+    blur = false,
     ...rest
   }: Props = $props()
+
+  let embedUrl = $derived(extractEmbedUrl(embed))
+  let thumbnailUrl = $derived(extractEmbedThumbnail(embed))
+  let embedTitle = $derived(extractEmbedTitle(embed))
 </script>
 
-<!-- 
+<!--
   @component
   This component will show either
   - A media item (pictures, videos) (large form factor posts only)
   - Embed link/card.
 -->
-{#if type == 'image' && view == 'cozy'}
-  <PostImage {post} {blur} {...rest} />
-{:else if (type == 'iframe' || type == 'video') && view == 'cozy' && post.url}
+{#if type === 'image' && view === 'cozy' && embed}
+  <PostImage {embed} {blur} {...rest} />
+{:else if (type === 'iframe' || type === 'video') && view === 'cozy' && embedUrl}
   <PostIframe
-    thumbnail={post.thumbnail_url}
-    type={iframeType(post.url)}
-    url={post.url}
+    thumbnail={thumbnailUrl}
+    type={iframeType(embedUrl)}
+    url={embedUrl}
     {opened}
-    title={post.name}
+    title={embedTitle}
     {...rest}
   />
-{:else if type == 'poll' && post.poll && view == 'cozy'}
-  <PostPoll post={{ ...post, poll: post.poll! }} />
-{:else if type == 'event' && post.event && view == 'cozy'}
-  <PostEvent post={{ ...post, event: post.event! }} />
-{:else if type == 'embed' && post.url}
+{:else if type === 'embed' && embedUrl}
   <PostLink
-    url={post.url}
-    thumbnail_url={post.thumbnail_url}
-    nsfw={post.nsfw}
-    embed_title={post.embed_title}
+    url={embedUrl}
+    thumbnail_url={thumbnailUrl}
+    embed_title={embedTitle}
     {view}
     {...rest}
   />

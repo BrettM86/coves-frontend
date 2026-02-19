@@ -28,7 +28,8 @@ export function tryAsAtUri(value: string): AtUri | null {
 export function isValidCID(value: string): value is CID {
   // Permissive check: CIDs can be multibase-encoded (base32, base58btc, base64, etc.)
   // Full validation would require decoding; this just rejects obviously invalid strings.
-  return value.length > 0 && /^[a-zA-Z0-9+/=]+$/.test(value)
+  // Real CIDs are at least 8 characters (multicodec prefix + hash digest).
+  return value.length >= 8 && /^[a-zA-Z0-9+/=]+$/.test(value)
 }
 
 export function asCID(value: string): CID {
@@ -45,7 +46,7 @@ export function tryAsCID(value: string): CID | null {
 // ---------------------------------------------------------------------------
 
 export interface PostRecord {
-  $type: string
+  $type: 'social.coves.community.post'
   community: string
   author: string
   createdAt: string
@@ -98,6 +99,10 @@ export interface PostStats {
   tagCounts?: Record<string, number>
 }
 
+// TODO: Refactor to a discriminated union to enforce vote/voteUri correlation:
+//   { vote: 'up' | 'down'; voteUri: AtUri } | { vote?: undefined; voteUri?: undefined }
+// Blocked by PostVote.svelte castVote() which independently mutates vote and voteUri
+// on a spread copy, which is incompatible with discriminated union assignment rules.
 export interface PostViewerState {
   saved: boolean
   vote?: 'up' | 'down'
@@ -289,7 +294,7 @@ export interface EmbedImage {
 
 export interface ImageEmbed {
   $type: 'social.coves.embed.images#view'
-  images: EmbedImage[]
+  images: [EmbedImage, ...EmbedImage[]]
 }
 
 export interface ExternalEmbedSource {
@@ -349,7 +354,7 @@ export type GetDiscoverParams = FeedPaginationParams
 export type GetTimelineParams = FeedPaginationParams
 
 export interface GetCommunityFeedParams extends FeedPaginationParams {
-  community: string
+  community: DID
 }
 
 export interface FeedResponse {
@@ -362,7 +367,7 @@ export interface FeedResponse {
 // ---------------------------------------------------------------------------
 
 export interface GetCommentsParams {
-  post: string
+  post: AtUri
   sort?: string
   depth?: number
   limit?: number
@@ -380,13 +385,13 @@ export interface GetCommentsResponse {
 // ---------------------------------------------------------------------------
 
 export interface GetProfileParams {
-  actor: string
+  actor: DID | Handle
 }
 
 export interface GetActorPostsParams {
-  actor: string
+  actor: DID | Handle
   filter?: string
-  community?: string
+  community?: DID
   limit?: number
   cursor?: string
 }
@@ -397,8 +402,8 @@ export interface GetActorPostsResponse {
 }
 
 export interface GetActorCommentsParams {
-  actor: string
-  community?: string
+  actor: DID | Handle
+  community?: DID
   limit?: number
   cursor?: string
 }
@@ -413,7 +418,7 @@ export interface GetActorCommentsResponse {
 // ---------------------------------------------------------------------------
 
 export interface GetCommunityParams {
-  community: string
+  community: DID
 }
 
 export interface ListCommunitiesParams {
@@ -453,11 +458,19 @@ export interface DeleteVoteInput {
 }
 
 // ---------------------------------------------------------------------------
+// Request / response types — post retrieval
+// ---------------------------------------------------------------------------
+
+export interface GetPostParams {
+  uri: AtUri
+}
+
+// ---------------------------------------------------------------------------
 // Request / response types — post creation
 // ---------------------------------------------------------------------------
 
 export interface CreatePostInput {
-  community: string
+  community: DID
   title?: string
   content?: string
   embed?: unknown
@@ -505,11 +518,11 @@ export interface CreateCommunityInput {
 }
 
 export interface SubscribeCommunityInput {
-  community: string
+  community: DID
 }
 
 export interface BlockCommunityInput {
-  community: string
+  community: DID
 }
 
 // ---------------------------------------------------------------------------

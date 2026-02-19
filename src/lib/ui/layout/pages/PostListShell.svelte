@@ -1,14 +1,9 @@
 <script lang="ts">
   import { browser } from '$app/environment'
   import { page } from '$app/state'
-  import type {
-    GetPosts,
-    ListingType,
-    PostView,
-    SortType,
-  } from '$lib/api/types'
+  import type { FeedPaginationParams, FeedViewPost } from '$lib/api/coves/types'
+  import type { SortType } from '$lib/api/types'
   import { settings } from '$lib/app/settings.svelte'
-  import Location from '$lib/feature/filter/Location.svelte'
   import Sort from '$lib/feature/filter/Sort.svelte'
   import ViewSelect from '$lib/feature/filter/ViewSelect.svelte'
   import PostFeed from '$lib/feature/post/feed/PostFeed.svelte'
@@ -19,19 +14,14 @@
   import { Header, Pageination } from '..'
 
   interface Props {
-    posts: PostView[]
+    posts: FeedViewPost[]
     cursor?: string
     params: {
-      location?: ListingType
-      sort?: SortType
+      sort?: string
     }
     title?: string
     extended?: Snippet
-    getParams: GetPosts
-    client: {
-      lastSeen?: number
-      itemHeights?: (number | null)[]
-    }
+    getParams: FeedPaginationParams | Record<string, unknown>
     header?: boolean
   }
 
@@ -42,16 +32,14 @@
     title,
     extended: passedExtended,
     getParams,
-    client = $bindable(),
     header = true,
   }: Props = $props()
 
   $effect(() => {
-    if (filters.sort) settings.defaultSort.sort = filters.sort
+    if (filters.sort) settings.defaultSort.sort = filters.sort as SortType
   })
 
   let filters = $state({
-    location: params.location,
     sort: params.sort,
   })
 
@@ -72,9 +60,6 @@
         {@render passedExtended?.()}
         <form class="" method="get" action={page.url.pathname}>
           <div class="flex flex-row gap-2">
-            {#if filters.location}
-              <Location name="type" navigate bind:selected={filters.location} />
-            {/if}
             {#if filters.sort}
               <Sort
                 placement="bottom"
@@ -100,12 +85,7 @@
     </Header>
   {/if}
 
-  <FeedComponent
-    bind:posts
-    bind:lastSeen={() => client.lastSeen ?? 0, (v) => (client.lastSeen = v)}
-    bind:params={getParams}
-    virtualList={{ itemHeights: client?.itemHeights ?? [] }}
-  />
+  <FeedComponent bind:posts bind:params={getParams} />
   <svelte:element
     this={settings.infiniteScroll && !settings.posts.noVirtualize
       ? 'noscript'

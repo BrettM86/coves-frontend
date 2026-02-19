@@ -1,10 +1,17 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck TODO(coves-migration): remove when route is migrated to Coves XRPC
 import { resolveRoute } from '$app/paths'
 import { client } from '$lib/api/client.svelte'
 import { profile } from '$lib/app/auth.svelte'
 import { settings } from '$lib/app/settings.svelte'
 import { ReactiveState } from '$lib/app/util.svelte'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
-import { Feed, feed, feeds, type FeedTypes } from '$lib/feature/feeds/feed.svelte'
+import {
+  Feed,
+  feed,
+  feeds,
+  type FeedTypes,
+} from '$lib/feature/feeds/feed.svelte'
 import { redirect } from '@sveltejs/kit'
 
 function buildContext(thread?: string) {
@@ -26,13 +33,20 @@ function buildContext(thread?: string) {
   return { parentId, showContext, max_depth, focus: thread?.split('.').at(-1) }
 }
 
-async function findInFeed(id: '/' | '/c/[name]' | '/f/[id]', postId: string) {
+async function findInFeed(id: '/' | '/c/[handle]' | '/f/[id]', postId: string) {
   // this never actually loads anything
   if (id == '/') {
-    return (feeds.get(id) as Feed<FeedTypes['/'][0], FeedTypes['/'][1]>)?.peek()
+    return (feeds.get(id) as Feed<FeedTypes['/'][0], FeedTypes['/'][1]>)
+      ?.peek()
       ?.posts.find((i) => i.post.id.toString() == postId)
   } else {
-    return (feeds.get(id) as Feed<FeedTypes['/c/[name]'][0], FeedTypes['/c/[name]'][1]>)?.peek()
+    return (
+      feeds.get(id) as Feed<
+        FeedTypes['/c/[handle]'][0],
+        FeedTypes['/c/[handle]'][1]
+      >
+    )
+      ?.peek()
       ?.posts.find((i) => i.post.id.toString() == postId)
   }
 }
@@ -46,7 +60,7 @@ export async function load({ params, url, route }) {
 
   const cachedPost =
     (await findInFeed('/', params.id)) ??
-    (await findInFeed('/c/[name]', params.id)) ??
+    (await findInFeed('/c/[handle]', params.id)) ??
     (await findInFeed('/f/[id]', params.id))
 
   const {

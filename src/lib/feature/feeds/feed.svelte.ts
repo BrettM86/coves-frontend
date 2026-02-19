@@ -47,6 +47,7 @@ export class Feed<Params, Response> {
         this.#data = await this.#fetch(params)
         this.error = undefined
       } catch (err) {
+        console.error('[Feed] fetch failed:', err)
         this.error = err
       }
     }
@@ -75,7 +76,7 @@ export interface FeedTypes {
       }
     },
   ]
-  '/c/[name]': [
+  '/c/[handle]': [
     FeedPaginationParams & { community: string },
     {
       feed: FeedViewPost[]
@@ -84,7 +85,7 @@ export interface FeedTypes {
       params: FeedPaginationParams & { community: string; cursor?: string }
     },
   ]
-  '/u/[name]': [
+  '/u/[handle]': [
     { actor: string; limit?: number; cursor?: string; sort?: string },
     {
       profile: ProfileViewDetailed
@@ -92,7 +93,7 @@ export interface FeedTypes {
       comments: GetActorCommentsResponse
     },
   ]
-  '/post/[instance]/[id=integer]': [
+  '/c/[handle]/post/[rkey]': [
     {
       postUri: string
       comments: GetCommentsParams
@@ -161,17 +162,22 @@ export interface FeedTypes {
   '/profile/user': [GetPersonDetails, GetPersonDetailsResponse]
 }
 
-export const feeds = new SvelteMap<keyof FeedTypes, Feed<any, any>>()
+export const feeds = new SvelteMap<keyof FeedTypes, Feed<unknown, unknown>>()
 
 export function feed<Type extends keyof FeedTypes>(
   id: Type,
   init: (params: FeedTypes[Type][0]) => Promise<FeedTypes[Type][1]>,
 ): Feed<FeedTypes[Type][0], FeedTypes[Type][1]> {
-  const feed = feeds.get(id)
-  if (browser && feed) return feed
+  type P = FeedTypes[Type][0]
+  type R = FeedTypes[Type][1]
 
-  const feedData = new Feed<any, any>(init)
-  feeds.set(id, feedData)
+  const existing = feeds.get(id)
+  // The map erases per-route type info; the cast is safe because each route ID
+  // is only ever written with its matching Feed<P, R>.
+  if (browser && existing) return existing as Feed<P, R>
+
+  const feedData = new Feed<P, R>(init as unknown as FetchFn<P, R>)
+  feeds.set(id, feedData as Feed<unknown, unknown>)
 
   return feedData
 }

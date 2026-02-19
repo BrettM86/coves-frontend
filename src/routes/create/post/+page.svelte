@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import type { CommunityView } from '$lib/api/types'

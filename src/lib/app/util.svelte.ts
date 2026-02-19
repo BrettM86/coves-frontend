@@ -1,7 +1,11 @@
 import { browser } from '$app/environment'
 import { goto } from '$app/navigation'
 import { client } from '$lib/api/client.svelte'
-import type { AuthorView, CommunityRef } from '$lib/api/coves/types'
+import type {
+  AuthorView,
+  CommunityRef,
+  CommunityView as CovesCommunityView,
+} from '$lib/api/coves/types'
 import type { Community, Person } from '$lib/api/types'
 import { SvelteURL } from 'svelte/reactivity'
 import { t } from './i18n'
@@ -33,6 +37,28 @@ export const fullCommunityName = (name: string, actorId: string): string => {
   } catch {
     return name
   }
+}
+
+/**
+ * Strips the "c-" prefix from a community handle to produce a URL-friendly slug.
+ *
+ * Coves community handles use a "c-" prefix convention (e.g. "c-mycommunity")
+ * to distinguish community actors from user actors in the ATProto namespace.
+ * Route params and URLs use the bare slug without the prefix.
+ */
+export function communitySlug(handle: string): string {
+  return handle.startsWith('c-') ? handle.slice(2) : handle
+}
+
+/**
+ * Prepends the "c-" prefix to a URL slug to reconstruct the community handle.
+ *
+ * Coves community handles use a "c-" prefix convention (e.g. "c-mycommunity")
+ * to distinguish community actors from user actors in the ATProto namespace.
+ * This reverses {@link communitySlug} for API calls that expect the full handle.
+ */
+export function communityHandleFromSlug(slug: string): string {
+  return slug.startsWith('c-') ? slug : `c-${slug}`
 }
 
 export const placeholders = {
@@ -188,19 +214,23 @@ export const isVideo = (url: string | undefined): boolean => {
  * Accepts either a Coves CommunityRef or a legacy Lemmy Community.
  */
 export function communityLink(community: CommunityRef, prefix?: string): string
-/** @deprecated Use CommunityRef overload instead */
+export function communityLink(
+  community: CovesCommunityView,
+  prefix?: string,
+): string
+/** @deprecated Use CommunityRef or CovesCommunityView overload instead */
 export function communityLink(community: Community, prefix?: string): string
 export function communityLink(
-  community: CommunityRef | Community,
+  community: CommunityRef | CovesCommunityView | Community,
   prefix: string = '',
 ): string {
   // Coves CommunityRef: has `handle` field, no `actor_id`
   if ('handle' in community && community.handle) {
-    return `${prefix}/c/${community.handle}`
+    return `${prefix}/c/${encodeURIComponent(communitySlug(community.handle))}`
   }
   // Coves CommunityRef without handle: use name
   if ('did' in community && !('actor_id' in community)) {
-    return `${prefix}/c/${community.name}`
+    return `${prefix}/c/${encodeURIComponent(community.name)}`
   }
   // Legacy Lemmy Community: has `actor_id`
   try {
@@ -223,11 +253,11 @@ export function userLink(
 ): string {
   // Coves AuthorView: has `handle` field
   if ('handle' in user && user.handle) {
-    return `${prefix}/u/${user.handle}`
+    return `${prefix}/u/${encodeURIComponent(user.handle)}`
   }
   // Coves AuthorView without handle: use DID as fallback
   if ('did' in user && !('actor_id' in user)) {
-    return `${prefix}/u/${user.did}`
+    return `${prefix}/u/${encodeURIComponent(user.did)}`
   }
   // Legacy Lemmy Person: has `actor_id` and `name`
   try {

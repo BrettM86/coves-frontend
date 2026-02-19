@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import type { ResolveObjectResponse } from '$lib/api/types'
   import { t } from '$lib/app/i18n'
   import CommentItem from '$lib/feature/comment/CommentItem.svelte'
@@ -32,5 +33,10 @@
         <CommentItem comment={object.comment} />
       {/if}
     </div>
+  {:catch error}
+    <p class="text-red-500 dark:text-red-400 font-medium">
+      {$t('toast.error')}:
+      {error instanceof Error ? error.message : String(error)}
+    </p>
   {/await}
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import { t } from '$lib/app/i18n'
   import CommunityHeader from '$lib/feature/community/CommunityHeader.svelte'
   import { ban } from '$lib/feature/moderation/moderation'

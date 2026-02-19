@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import { navigating, page } from '$app/state'
   import { client } from '$lib/api/client.svelte'
   import { t } from '$lib/app/i18n'

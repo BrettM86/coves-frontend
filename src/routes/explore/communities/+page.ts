@@ -1,41 +1,33 @@
-import { client } from '$lib/api/client.svelte'
+import { coves } from '$lib/api/client.svelte'
+import { mapSort } from '$lib/app/sort'
 import { feed } from '$lib/feature/feeds/feed.svelte.js'
 
 export async function load({ fetch, parent }) {
-  const { page, query, sort, type, typeInstance } = await parent()
+  const { query, sort } = await parent()
 
-  const feedData = await feed('/explore/communities', async (params) =>
-    params.query != ''
-      ? await client({ func: fetch, instanceURL: typeInstance }).search({
+  const feedInstance = feed('/explore/communities', async (params) =>
+    params.query
+      ? await coves({ func: fetch }).searchCommunities({
+          query: params.query,
           limit: 40,
-          page: params.page,
-          sort: params.sort,
-          type_: 'Communities',
-          listing_type: params.type,
-          q: params.query,
+          offset: params.offset,
         })
-      : await client({
-          func: fetch,
-          instanceURL: typeInstance,
-        }).listCommunities({
+      : await coves({ func: fetch }).listCommunities({
           limit: 40,
-          page: params.page,
-          sort: params.sort,
-          type_: params.type,
-          show_nsfw: true,
+          sort: params.sort ? mapSort(params.sort).sort : undefined,
+          offset: params.offset,
         }),
-  ).load({
-    page,
+  )
+
+  const feedData = await feedInstance.load({
     query,
     sort,
-    type,
   })
 
   return {
-    communities: feedData.communities,
-    type: type,
+    communities: feedData?.communities ?? [],
+    error: feedInstance.error,
     sort: sort,
     query: query,
-    page: page,
   }
 }

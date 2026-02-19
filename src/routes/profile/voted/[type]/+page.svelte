@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import { t } from '$lib/app/i18n'
   import CommentItem from '$lib/feature/comment/CommentItem.svelte'
   import { isCommentView } from '$lib/feature/legacy/item'

@@ -25,6 +25,24 @@ export function tryAsAtUri(value: string): AtUri | null {
   return isValidAtUri(value) ? value : null
 }
 
+export interface ParsedAtUri {
+  did: DID
+  collection: string
+  rkey: string
+}
+
+export function parseAtUri(uri: AtUri): ParsedAtUri {
+  const str = (uri as string).replace('at://', '')
+  const segments = str.split('/')
+  if (segments.length < 3) {
+    throw new Error(
+      `Malformed AT-URI: expected at least 3 path segments (did/collection/rkey), got ${segments.length} in "${uri}"`,
+    )
+  }
+  const [did, collection, rkey] = segments
+  return { did: did as DID, collection, rkey }
+}
+
 export function isValidCID(value: string): value is CID {
   // Permissive check: CIDs can be multibase-encoded (base32, base58btc, base64, etc.)
   // Full validation would require decoding; this just rejects obviously invalid strings.
@@ -61,7 +79,7 @@ export interface PostRecord {
 }
 
 export interface CommentRecord {
-  $type: string
+  $type: 'social.coves.community.comment'
   content: string
   reply: { root: StrongRef; parent: StrongRef }
   createdAt: string
@@ -212,6 +230,10 @@ export interface CommentStats {
   replyCount: number
 }
 
+// TODO: Refactor to a discriminated union to enforce vote/voteUri correlation:
+//   { vote: 'up' | 'down'; voteUri: AtUri } | { vote?: undefined; voteUri?: undefined }
+// Blocked by CommentVote.svelte castVote() which independently mutates vote and voteUri
+// on a spread copy, which is incompatible with discriminated union assignment rules.
 export interface CommentViewerState {
   vote?: 'up' | 'down'
   voteUri?: AtUri
@@ -354,7 +376,7 @@ export type GetDiscoverParams = FeedPaginationParams
 export type GetTimelineParams = FeedPaginationParams
 
 export interface GetCommunityFeedParams extends FeedPaginationParams {
-  community: DID
+  community: DID | Handle
 }
 
 export interface FeedResponse {
@@ -418,7 +440,7 @@ export interface GetActorCommentsResponse {
 // ---------------------------------------------------------------------------
 
 export interface GetCommunityParams {
-  community: DID
+  community: DID | Handle
 }
 
 export interface ListCommunitiesParams {
@@ -518,11 +540,11 @@ export interface CreateCommunityInput {
 }
 
 export interface SubscribeCommunityInput {
-  community: DID
+  community: DID | Handle
 }
 
 export interface BlockCommunityInput {
-  community: DID
+  community: DID | Handle
 }
 
 // ---------------------------------------------------------------------------

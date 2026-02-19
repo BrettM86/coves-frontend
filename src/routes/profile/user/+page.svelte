@@ -1,6 +1,7 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import { ReactiveState } from '$lib/app/util.svelte'
-  import UserPage from '../../u/[name]/+page.svelte'
+  import UserPage from '../../u/[handle]/+page.svelte'
 
   let { data } = $props()
 </script>

@@ -4,9 +4,10 @@ import type {
   PostView,
   PostViewerState,
 } from '$lib/api/coves/types'
-import { profile } from '$lib/app/auth.svelte'
+import { parseAtUri } from '$lib/api/coves/types'
 import {
   canParseUrl,
+  communitySlug,
   findClosestNumber,
   isImage,
   isVideo,
@@ -84,8 +85,11 @@ export const isYoutubeLink = (url?: string): RegExpMatchArray | null => {
 }
 
 export function postLink(post: PostView): string {
-  const instance = profile.current?.instance ?? ''
-  return `/post/${encodeURIComponent(instance)}/${encodeURIComponent(post.uri)}`
+  const { rkey } = parseAtUri(post.uri)
+  const slug = post.community.handle
+    ? communitySlug(post.community.handle)
+    : post.community.name
+  return `/c/${encodeURIComponent(slug)}/post/${encodeURIComponent(rkey)}`
 }
 
 export type MediaType = 'video' | 'image' | 'iframe' | 'embed' | 'none'
@@ -237,6 +241,7 @@ export function computeVoteState(
     if (currentVote === 'up') stats.upvotes--
     else if (currentVote === 'down') stats.downvotes--
     viewer.vote = undefined
+    viewer.voteUri = undefined
   } else {
     // Removing old vote if any
     if (currentVote === 'up') stats.upvotes--

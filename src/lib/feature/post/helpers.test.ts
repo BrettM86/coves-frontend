@@ -1,14 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import type {
+  CommunityRef,
   ExternalEmbed,
   ImageEmbed,
-  PostEmbed,
   PostStats,
+  PostView,
   PostViewerState,
   RecordEmbed,
   VideoEmbed,
 } from '$lib/api/coves/types'
 import type { AtUri, CID } from '$lib/api/coves/types'
+import type { DID, Handle } from '$lib/types/atproto'
 import {
   bestImageURL,
   computeVoteState,
@@ -20,6 +22,7 @@ import {
   isYoutubeLink,
   mediaType,
   optimizeImageURL,
+  postLink,
 } from './helpers'
 
 // ---------------------------------------------------------------------------
@@ -457,5 +460,124 @@ describe('computeVoteState', () => {
     const savedViewer: PostViewerState = { saved: true }
     const result = computeVoteState(baseStats, savedViewer, 'up')
     expect(result.viewer.saved).toBe(true)
+  })
+
+  it('clears voteUri when toggling off a vote', () => {
+    const upViewer: PostViewerState = {
+      saved: false,
+      vote: 'up',
+      voteUri:
+        'at://did:plc:abc/social.coves.community.vote/rkey1' as import('$lib/api/coves/types').AtUri,
+    }
+    const result = computeVoteState(baseStats, upViewer, 'up')
+    expect(result.viewer.vote).toBeUndefined()
+    expect(result.viewer.voteUri).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// postLink()
+// ---------------------------------------------------------------------------
+
+describe('postLink', () => {
+  /**
+   * Helper to build a minimal PostView fixture.
+   * Only `uri`, `community.handle`, and `community.name` matter for postLink().
+   */
+  function makePostView(overrides: {
+    uri: string
+    communityHandle?: string
+    communityName?: string
+  }): PostView {
+    const community: CommunityRef = {
+      did: 'did:plc:community1' as DID,
+      handle: (overrides.communityHandle ?? '') as Handle,
+      name: overrides.communityName ?? 'fallback',
+    }
+    return {
+      uri: overrides.uri as AtUri,
+      cid: 'bafyreig1' as CID,
+      rkey: '', // postLink derives rkey from the AT-URI, not this field
+      indexedAt: '2024-01-01T00:00:00Z',
+      createdAt: '2024-01-01T00:00:00Z',
+      author: {
+        did: 'did:plc:author1' as DID,
+        handle: 'alice.coves.social' as Handle,
+      },
+      community,
+    }
+  }
+
+  it('strips c- prefix from community handle for the URL slug', () => {
+    const post = makePostView({
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkey123',
+      communityHandle: 'c-gaming.coves.social',
+    })
+    expect(postLink(post)).toBe('/c/gaming.coves.social/post/rkey123')
+  })
+
+  it('passes through community handle without c- prefix unchanged', () => {
+    const post = makePostView({
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkey456',
+      communityHandle: 'tech.coves.social',
+    })
+    expect(postLink(post)).toBe('/c/tech.coves.social/post/rkey456')
+  })
+
+  it('falls back to community.name when handle is empty', () => {
+    const post = makePostView({
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkey789',
+      communityHandle: '',
+      communityName: 'general',
+    })
+    expect(postLink(post)).toBe('/c/general/post/rkey789')
+  })
+
+  it('falls back to community.name when handle is undefined', () => {
+    const community: CommunityRef = {
+      did: 'did:plc:community1' as DID,
+      handle: undefined as unknown as Handle,
+      name: 'announcements',
+    }
+    const post: PostView = {
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkeyabc' as AtUri,
+      cid: 'bafyreig1' as CID,
+      rkey: '',
+      indexedAt: '2024-01-01T00:00:00Z',
+      createdAt: '2024-01-01T00:00:00Z',
+      author: {
+        did: 'did:plc:author1' as DID,
+        handle: 'alice.coves.social' as Handle,
+      },
+      community,
+    }
+    expect(postLink(post)).toBe('/c/announcements/post/rkeyabc')
+  })
+
+  it('correctly parses the rkey from the AT-URI', () => {
+    const post = makePostView({
+      uri: 'at://did:plc:xyz/social.coves.community.post/3jui7kd2xs',
+      communityHandle: 'tech.coves.social',
+    })
+    expect(postLink(post)).toBe('/c/tech.coves.social/post/3jui7kd2xs')
+  })
+
+  it('encodes special characters in the community slug', () => {
+    const post = makePostView({
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkey1',
+      communityHandle: 'c-my community.coves.social',
+    })
+    // communitySlug strips "c-" prefix -> "my community.coves.social"
+    // encodeURIComponent encodes the space -> "my%20community.coves.social"
+    expect(postLink(post)).toBe('/c/my%20community.coves.social/post/rkey1')
+  })
+
+  it('encodes special characters in the rkey', () => {
+    const post = makePostView({
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkey+special',
+      communityHandle: 'tech.coves.social',
+    })
+    // encodeURIComponent encodes "+" -> "%2B"
+    expect(postLink(post)).toBe('/c/tech.coves.social/post/rkey%2Bspecial')
   })
 })

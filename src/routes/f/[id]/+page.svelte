@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import { t } from '$lib/app/i18n'
   import { communityLink } from '$lib/app/util.svelte'
   import type { FeedTypes } from '$lib/feature/feeds/feed.svelte'

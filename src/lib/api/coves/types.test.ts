@@ -3,10 +3,12 @@ import {
   isValidAtUri,
   asAtUri,
   tryAsAtUri,
+  parseAtUri,
   isValidCID,
   asCID,
   tryAsCID,
 } from './types'
+import type { AtUri } from './types'
 
 // ---------------------------------------------------------------------------
 // isValidAtUri
@@ -79,6 +81,47 @@ describe('tryAsAtUri', () => {
 
   it('returns null for an invalid AT-URI', () => {
     expect(tryAsAtUri('not-valid')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// parseAtUri
+// ---------------------------------------------------------------------------
+
+describe('parseAtUri', () => {
+  it('parses a standard 3-segment AT-URI into did, collection, and rkey', () => {
+    const uri = 'at://did:plc:abc123/social.coves.community.post/abc' as AtUri
+    const result = parseAtUri(uri)
+    expect(result.did).toBe('did:plc:abc123')
+    expect(result.collection).toBe('social.coves.community.post')
+    expect(result.rkey).toBe('abc')
+  })
+
+  it('parses an AT-URI with a web DID method', () => {
+    const uri = 'at://did:web:example.com/app.bsky.feed.post/3jui7kd' as AtUri
+    const result = parseAtUri(uri)
+    expect(result.did).toBe('did:web:example.com')
+    expect(result.collection).toBe('app.bsky.feed.post')
+    expect(result.rkey).toBe('3jui7kd')
+  })
+
+  it('parses an AT-URI with a longer rkey', () => {
+    const uri =
+      'at://did:plc:xyz789/social.coves.community.post/3jui7kd2xsabcdef' as AtUri
+    const result = parseAtUri(uri)
+    expect(result.did).toBe('did:plc:xyz789')
+    expect(result.collection).toBe('social.coves.community.post')
+    expect(result.rkey).toBe('3jui7kd2xsabcdef')
+  })
+
+  it('throws on AT-URI with only did and collection (2 segments)', () => {
+    const uri = 'at://did:plc:abc123/social.coves.community.post' as AtUri
+    expect(() => parseAtUri(uri)).toThrow('Malformed AT-URI')
+  })
+
+  it('throws on AT-URI with only did (1 segment)', () => {
+    const uri = 'at://did:plc:abc123' as AtUri
+    expect(() => parseAtUri(uri)).toThrow('Malformed AT-URI')
   })
 })
 

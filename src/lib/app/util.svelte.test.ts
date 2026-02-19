@@ -3,7 +3,9 @@ import type { AuthorView, CommunityRef } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import {
   canParseUrl,
+  communityHandleFromSlug,
   communityLink,
+  communitySlug,
   escapeHtml,
   findClosestNumber,
   isImage,
@@ -40,6 +42,105 @@ describe('communityLink', () => {
       '/prefix/c/tech.coves.social',
     )
   })
+
+  it('strips c- prefix from handle in the URL slug', () => {
+    const cPrefixCommunity: CommunityRef = {
+      did: 'did:plc:abc123' as DID,
+      handle: 'c-gaming.coves.social' as Handle,
+      name: 'gaming',
+    }
+    expect(communityLink(cPrefixCommunity)).toBe('/c/gaming.coves.social')
+  })
+
+  it('strips c- prefix from handle when prefix is provided', () => {
+    const cPrefixCommunity: CommunityRef = {
+      did: 'did:plc:abc123' as DID,
+      handle: 'c-science.coves.social' as Handle,
+      name: 'science',
+    }
+    expect(communityLink(cPrefixCommunity, '/app')).toBe(
+      '/app/c/science.coves.social',
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// communitySlug()
+// ---------------------------------------------------------------------------
+
+describe('communitySlug', () => {
+  it('strips c- prefix from handle', () => {
+    expect(communitySlug('c-gaming.coves.social')).toBe('gaming.coves.social')
+  })
+
+  it('passes through handle without c- prefix unchanged', () => {
+    expect(communitySlug('nocprefix.social')).toBe('nocprefix.social')
+  })
+
+  it('only strips "c-" at the very beginning', () => {
+    expect(communitySlug('myc-handle.social')).toBe('myc-handle.social')
+  })
+
+  it('handles a handle that is exactly "c-"', () => {
+    expect(communitySlug('c-')).toBe('')
+  })
+
+  it('handles an empty string', () => {
+    expect(communitySlug('')).toBe('')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// communityHandleFromSlug()
+// ---------------------------------------------------------------------------
+
+describe('communityHandleFromSlug', () => {
+  it('prepends c- to a plain slug', () => {
+    expect(communityHandleFromSlug('gaming.coves.social')).toBe(
+      'c-gaming.coves.social',
+    )
+  })
+
+  it('does not double-prefix a slug that already starts with c-', () => {
+    expect(communityHandleFromSlug('c-gaming.coves.social')).toBe(
+      'c-gaming.coves.social',
+    )
+  })
+
+  it('prepends c- to a slug without dots', () => {
+    expect(communityHandleFromSlug('gaming')).toBe('c-gaming')
+  })
+
+  it('handles an empty string by prepending c-', () => {
+    expect(communityHandleFromSlug('')).toBe('c-')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// communitySlug / communityHandleFromSlug round-trip
+// ---------------------------------------------------------------------------
+
+describe('communitySlug <-> communityHandleFromSlug round-trip', () => {
+  it('round-trip: communityHandleFromSlug(communitySlug(handle)) === handle for c- prefixed handle', () => {
+    const handle = 'c-gaming.coves.social'
+    expect(communityHandleFromSlug(communitySlug(handle))).toBe(handle)
+  })
+
+  it('round-trip: communitySlug(communityHandleFromSlug(slug)) === slug for plain slug', () => {
+    const slug = 'gaming.coves.social'
+    expect(communitySlug(communityHandleFromSlug(slug))).toBe(slug)
+  })
+
+  it('round-trip preserves identity for handle without c- prefix', () => {
+    const handle = 'tech.coves.social'
+    // communitySlug('tech.coves.social') -> 'tech.coves.social' (no c- to strip)
+    // communityHandleFromSlug('tech.coves.social') -> 'c-tech.coves.social'
+    // This is NOT a round-trip identity for non-c- handles, which is expected
+    // since the canonical handle form uses c- prefix
+    expect(communityHandleFromSlug(communitySlug(handle))).toBe(
+      'c-tech.coves.social',
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -61,7 +162,7 @@ describe('userLink', () => {
       did: 'did:plc:user1' as DID,
       handle: '' as Handle,
     }
-    expect(userLink(noHandle)).toBe('/u/did:plc:user1')
+    expect(userLink(noHandle)).toBe('/u/did%3Aplc%3Auser1')
   })
 
   it('prepends prefix when provided', () => {

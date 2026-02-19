@@ -1,5 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment'
+  import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import { site } from '$lib/api/client.svelte'
   import { t } from '$lib/app/i18n'
@@ -80,24 +81,31 @@
     {/each}
   </div>
 {:then feed}
-  <FeedComponent
-    bind:posts={feed.posts}
-    bind:lastSeen={
-      () => feed.client.lastSeen ?? 0, (v) => (feed.client.lastSeen = v)
-    }
-    bind:params={feed.params}
-    virtualList={{ itemHeights: feed.client?.itemHeights ?? [] }}
-  />
-  <svelte:element
-    this={settings.infiniteScroll && !settings.posts.noVirtualize
-      ? 'noscript'
-      : 'div'}
-  >
-    <Pageination
-      cursor={{ next: feed.next_page }}
-      href={(page) =>
-        typeof page == 'number' ? `?page=${page}` : `?cursor=${page}`}
-      back={false}
-    />
-  </svelte:element>
+  {#if feed}
+    <FeedComponent bind:posts={feed.feed} bind:params={feed.params} />
+    <svelte:element
+      this={settings.infiniteScroll && !settings.posts.noVirtualize
+        ? 'noscript'
+        : 'div'}
+    >
+      <Pageination
+        cursor={{ next: feed.cursor }}
+        href={(page) =>
+          typeof page == 'number' ? `?page=${page}` : `?cursor=${page}`}
+        back={false}
+      />
+    </svelte:element>
+  {/if}
+{:catch error}
+  <div class="flex flex-col items-center gap-4 py-8 text-center">
+    <p class="text-lg font-medium text-red-500 dark:text-red-400">
+      {$t('message.error')}
+    </p>
+    <p class="text-sm text-slate-500 dark:text-zinc-400">
+      {error?.message ?? String(error)}
+    </p>
+    <Button onclick={() => goto(page.url, { invalidateAll: true })}>
+      {$t('message.retry')}
+    </Button>
+  </div>
 {/await}

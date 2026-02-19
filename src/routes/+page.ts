@@ -1,7 +1,9 @@
-import { client } from '$lib/api/client.svelte'
+import { coves } from '$lib/api/client.svelte'
 import type { ListingType, SortType } from '$lib/api/types'
+import { profile } from '$lib/app/auth.svelte'
 import { t } from '$lib/app/i18n'
 import { settings } from '$lib/app/settings.svelte'
+import { mapListing, mapSort } from '$lib/app/sort'
 import { ReactiveState, awaitIfServer } from '$lib/app/util.svelte'
 import { feed } from '$lib/feature/feeds/feed.svelte'
 import { ChevronDoubleUp } from '@xylightdev/svelte-hero-icons'
@@ -14,19 +16,36 @@ export async function load({ url, fetch, route }) {
   const listingType: ListingType =
     (url.searchParams.get('type') as ListingType) || settings.defaultSort.feed
 
+  const mapped = mapSort(sort)
+  const listing = mapListing(listingType, profile.isAuthenticated)
+
   const feedData = feed(route.id, async (params) => {
-    const posts = await client({ func: fetch }).getPosts(params)
+    const isTimeline = params.listing === 'timeline'
+    const response = isTimeline
+      ? await coves({ func: fetch }).getTimeline({
+          sort: params.sort,
+          timeframe: params.timeframe,
+          limit: params.limit,
+          cursor: params.cursor,
+        })
+      : await coves({ func: fetch }).getDiscover({
+          sort: params.sort,
+          timeframe: params.timeframe,
+          limit: params.limit,
+          cursor: params.cursor,
+        })
+
     return {
-      ...posts,
-      params: { ...params, page_cursor: posts.next_page },
-      client: {},
+      feed: response.feed,
+      cursor: response.cursor,
+      params: { ...params, cursor: response.cursor },
     }
   }).load({
-    page_cursor: cursor,
-    sort: sort,
-    type_: listingType,
+    cursor: cursor,
+    sort: mapped.sort,
+    timeframe: mapped.timeframe,
+    listing: listing,
     limit: 20,
-    show_hidden: settings.posts.showHidden,
   })
 
   return {

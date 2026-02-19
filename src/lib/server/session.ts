@@ -102,7 +102,7 @@ export type ClientSession =
  * Response from Go backend's /api/me endpoint.
  * Returns profile data from the database after validating the session.
  */
-interface ApiMeResponse {
+export interface ApiMeResponse {
   did: string
   handle: string
   avatar?: string

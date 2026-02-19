@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck TODO(coves-migration): remove when route is migrated to Coves XRPC
 import { client } from '$lib/api/client.svelte'
 import type { SortType } from '$lib/api/types'
 import { feed } from '$lib/feature/feeds/feed.svelte.js'

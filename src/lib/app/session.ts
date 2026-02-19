@@ -1,10 +1,21 @@
 import { browser } from '$app/environment'
-import type { CommunityView } from '$lib/api/types'
+import type {
+  CommunityView as CovesCommunityView,
+  CommunityViewDetailed,
+} from '$lib/api/coves/types'
+import type { CommunityView as LemmyCommunityView } from '$lib/api/types'
 
 interface SessionStorage {
-  lastSeenCommunity?: CommunityView
+  lastSeenCommunity?:
+    | CovesCommunityView
+    | CommunityViewDetailed
+    | LemmyCommunityView
   postDraft?: {
-    community: CommunityView | null
+    community:
+      | CovesCommunityView
+      | CommunityViewDetailed
+      | LemmyCommunityView
+      | null
     title: string
     body?: string
     image: FileList | null
@@ -30,5 +41,15 @@ export const getSessionStorage = (
   key: keyof SessionStorage,
 ): SessionStorage[typeof key] => {
   if (!browser) return
-  return JSON.parse(sessionStorage.getItem(key)!)
+  const raw = sessionStorage.getItem(key)
+  if (raw == null) return undefined
+  try {
+    return JSON.parse(raw)
+  } catch {
+    console.warn(
+      `[session] Failed to parse sessionStorage key "${key}", removing corrupted data`,
+    )
+    sessionStorage.removeItem(key)
+    return undefined
+  }
 }

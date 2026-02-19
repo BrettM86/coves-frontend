@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { navigating, page } from '$app/state'
+  import { navigating } from '$app/state'
   import { t } from '$lib/app/i18n'
   import CommunityItem from '$lib/feature/community/CommunityItem.svelte'
   import CommunityItemBig from '$lib/feature/community/CommunityItemBig.svelte'
-  import Fixate from '$lib/ui/generic/Fixate.svelte'
   import Skeleton from '$lib/ui/generic/Skeleton.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
-  import { CommonList, Pageination } from '$lib/ui/layout'
+  import { CommonList } from '$lib/ui/layout'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { Material } from 'mono-svelte'
   import { QuestionMarkCircle } from 'svelte-hero-icons/dist'
@@ -16,7 +15,7 @@
   let { data } = $props()
 
   let showTop = $derived(
-    (data.query ?? '' != '') && data.communities.length > 0 && data.page == 1,
+    (data.query ?? '') !== '' && data.communities.length > 0,
   )
 </script>
 
@@ -54,7 +53,7 @@
       <div
         class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 items-center border-0!"
       >
-        {#each data.communities.slice(0, 3) as community, index (community.community.id)}
+        {#each data.communities.slice(0, 3) as community, index (community.did)}
           <div
             class="h-full"
             in:fly|global={{
@@ -81,20 +80,9 @@
       {@const sliced = data.communities.slice(showTop ? 3 : 0)}
       <CommonList items={sliced}>
         {#snippet item(community)}
-          <CommunityItem
-            {community}
-            resolveObject={data.type.startsWith('instance-')}
-            showCounts={false}
-          />
+          <CommunityItem {community} showCounts={false} />
         {/snippet}
       </CommonList>
     {/if}
   </ul>
 {/if}
-<Fixate placement="bottom">
-  <Pageination
-    page={Number(page.url.searchParams.get('page')) || 1}
-    href={(c) => `?page=${c}`}
-    hasMore={data.communities.length >= 40}
-  />
-</Fixate>

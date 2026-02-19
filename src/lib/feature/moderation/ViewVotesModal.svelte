@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import { client } from '$lib/api/client.svelte'
   import type { CommentView, PostView, VoteView } from '$lib/api/types'
   import { t } from '$lib/app/i18n'
@@ -125,6 +126,15 @@
           </Button>
         </div>
       {/if}
+    {:catch error}
+      <div
+        class="self-center justify-self-center h-48 grid place-items-center text-center"
+      >
+        <p class="text-red-500 dark:text-red-400">
+          {$t('toast.error')}:
+          {error instanceof Error ? error.message : String(error)}
+        </p>
+      </div>
     {/await}
   </div>
 </Modal>

@@ -27,7 +27,7 @@ export const site = new SiteData()
  * Converts an API URL to use the proxy path for client-side requests.
  * Server-side requests continue to use direct URLs.
  *
- * @param input - The original API URL (e.g., https://coves.social/api/v3/posts)
+ * @param input - The original API URL (e.g., https://coves.social/xrpc/social.coves.feed.getPosts)
  * @returns The proxied URL for client-side, or original URL for server-side
  */
 function toProxyUrl(input: RequestInfo | URL): RequestInfo | URL {
@@ -59,7 +59,8 @@ function toProxyUrl(input: RequestInfo | URL): RequestInfo | URL {
  * - Client-side: Routes through /api/proxy for auth injection
  * - Server-side: Direct calls with auth header (when func is SvelteKit's fetch)
  * - User-Agent header addition
- * - Error handling
+ *
+ * @throws Calls SvelteKit's `error()` with the status code and response body on non-ok responses.
  */
 async function customFetch(
   func:
@@ -74,11 +75,8 @@ async function customFetch(
 ): Promise<Response> {
   const f = func ?? fetch
 
-  // Initialize headers
-  const headers: Record<string, string> = {
-    ...(init?.headers as Record<string, string>),
-    'User-Agent': `Photon/${__VERSION__}`,
-  }
+  const headers = new Headers(init?.headers)
+  headers.set('User-Agent', `Coves/${__VERSION__}`)
 
   if (browser) {
     // Client-side: Route through proxy, which injects auth from session cookie
@@ -95,12 +93,15 @@ async function customFetch(
     }
 
     const res = await f(proxyInput, proxyInit)
-    if (!res.ok) error(res.status, await res.text())
+    if (!res.ok) {
+      const body = await res.text().catch(() => res.statusText)
+      error(res.status, body)
+    }
     return res
   } else {
     // Server-side: Direct call with auth header (token from locals)
     if (auth) {
-      headers['Authorization'] = `Bearer ${auth}`
+      headers.set('Authorization', `Bearer ${auth}`)
     }
 
     const serverInit: RequestInit = {
@@ -113,7 +114,10 @@ async function customFetch(
     }
 
     const res = await f(input, serverInit)
-    if (!res.ok) error(res.status, await res.text())
+    if (!res.ok) {
+      const body = await res.text().catch(() => res.statusText)
+      error(res.status, body)
+    }
     return res
   }
 }
@@ -146,10 +150,9 @@ export function client({
   //
   // NOTE: profile.current?.jwt is now just the literal 'authenticated' marker (not a real token).
   // Server-side requests that need auth MUST pass the auth parameter explicitly.
-  // We use nullish coalescing so that auth = '' can explicitly disable auth.
-  const authToken = auth ?? (browser ? undefined : undefined)
+  const authToken = auth
 
-  // TODO(coves-migration): Replace with CovesClient when implemented
+  // TODO(coves-migration): Use CovesClient (see `coves()`) once Lemmy/PieFed adapters are removed
   return new (clientType?.name == 'piefed' ? PiefedClient : LemmyClient)(
     instanceToURL(instanceURL),
     {
@@ -180,10 +183,8 @@ async function covesCustomFetch(
 ): Promise<Response> {
   const f = func ?? fetch
 
-  const headers: Record<string, string> = {
-    ...(init?.headers as Record<string, string>),
-    'User-Agent': `Photon/${__VERSION__}`,
-  }
+  const headers = new Headers(init?.headers)
+  headers.set('User-Agent', `Coves/${__VERSION__}`)
 
   if (browser) {
     const proxyInput = toProxyUrl(input)
@@ -200,7 +201,7 @@ async function covesCustomFetch(
     return f(proxyInput, proxyInit)
   } else {
     if (auth) {
-      headers['Authorization'] = `Bearer ${auth}`
+      headers.set('Authorization', `Bearer ${auth}`)
     }
 
     const serverInit: RequestInit = {
@@ -236,7 +237,7 @@ export function coves({
   })
 }
 
-// here for parts where i forgor to switch
+/** @deprecated Use {@link client} instead. */
 export function getClient(
   instanceURL?: string,
   func?: (

@@ -1,17 +1,13 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
-  import type { CommentView } from '$lib/api/types'
+  import type { CommentView } from '$lib/api/coves/types'
   import { t } from '$lib/app/i18n'
-  import { publishedToDate } from '$lib/ui/util/date'
   import { Button } from 'mono-svelte'
   import { ArrowUturnUp, Icon } from 'svelte-hero-icons/dist'
   import type { ClassValue } from 'svelte/elements'
-  import { PostMeta } from '../post'
   import Comment from './Comment.svelte'
 
   interface Props {
     comment: CommentView
-    community?: boolean
     meta?: boolean
     class?: string
     commentClass?: ClassValue
@@ -20,7 +16,6 @@
 
   let {
     comment,
-    community = false,
     meta = true,
     class: clazz = '',
     commentClass = '',
@@ -33,30 +28,15 @@
   {#if meta}
     <div class="flex flex-row justify-between items-center gap-2">
       <div class="flex flex-col gap-2">
-        <PostMeta
-          badges={{
-            nsfw: comment.post.nsfw,
-            removed: comment.post.removed,
-            admin: false,
-            moderator: false,
-            saved: false,
-            deleted: comment.post.deleted,
-            featured:
-              comment.post.featured_community || comment.post.featured_local,
-            locked: comment.post.locked,
-          }}
-          published={publishedToDate(comment.comment.published)}
-          community={community ? comment.community : undefined}
-          title={comment.post.name}
-          id={comment.post.id}
-          titleClass="text-sm text-slate-500 dark:text-zinc-400"
-        />
+        <span class="text-sm text-slate-500 dark:text-zinc-400">
+          {$t('comment.reply')}
+        </span>
       </div>
       <Button
         color="primary"
         rounding="pill"
         size="sm"
-        href="/comment/{comment.comment.id}"
+        href="/comment/{encodeURIComponent(comment.uri as string)}"
         class="self-start"
       >
         {$t('common.jump')}
@@ -65,7 +45,8 @@
     </div>
   {/if}
   <Comment
-    node={{ children: [], comment_view: comment, depth: 1, expanded: true }}
+    node={{ children: [], comment, depth: 1, expanded: true }}
+    postRef={comment.post}
     replying={false}
     {meta}
     {actions}

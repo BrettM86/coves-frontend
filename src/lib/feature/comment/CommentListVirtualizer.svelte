@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { Post } from '$lib/api/types'
+  import type { StrongRef } from '$lib/api/coves/types'
+  import type { DID } from '$lib/types/atproto'
   import VirtualList from '$lib/app/render/VirtualList.svelte'
   import { onMount } from 'svelte'
   import { expoOut } from 'svelte/easing'
@@ -9,7 +10,8 @@
 
   interface Props {
     nodes: CommentNodeI[]
-    post: Post
+    postRef: StrongRef
+    postAuthorDid?: DID
     scrollTo?: string
   }
 
@@ -34,10 +36,16 @@
     return () => observer.disconnect()
   })
 
-  let { nodes, post, scrollTo }: Props = $props()
+  let { nodes, postRef, postAuthorDid, scrollTo }: Props = $props()
 
   let offsetEl = $state<HTMLElement>()
-  let initialOffset = $derived(offsetEl?.offsetTop)
+  let initialOffset = $state<number | undefined>(undefined)
+
+  $effect(() => {
+    if (offsetEl) {
+      initialOffset = offsetEl.offsetTop
+    }
+  })
 </script>
 
 <div bind:this={offsetEl}>
@@ -58,7 +66,8 @@
         >
           <CommentTree
             bind:nodes={() => [nodes[row]], (v) => (nodes[row] = v[0])}
-            {post}
+            {postRef}
+            {postAuthorDid}
           />
         </div>
       {/snippet}

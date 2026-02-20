@@ -1,9 +1,12 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
-  import { site } from '$lib/api/client.svelte'
-  import type { Comment } from '$lib/api/types'
+  import type {
+    AtUri,
+    CID,
+    CommentStats,
+    CommentViewerState,
+  } from '$lib/api/coves/types'
+  import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/auth.svelte'
-  import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
   import FormattedNumber from '$lib/ui/util/FormattedNumber.svelte'
@@ -11,89 +14,118 @@
   import { ChevronDown, ChevronUp, Icon } from 'svelte-hero-icons/dist'
   import { backOut } from 'svelte/easing'
   import { fly } from 'svelte/transition'
-  import { vote as voteItem } from '../legacy/contentview'
   import { shouldShowVoteColor } from '../post/PostVote.svelte'
 
   interface Props {
-    vote?: number
-    upvotes: number
-    downvotes: number
-    comment: Comment
+    uri: AtUri
+    cid: CID
+    stats: CommentStats | undefined
+    viewer: CommentViewerState | undefined
   }
 
-  let {
-    vote = $bindable(0),
-    upvotes = $bindable(),
-    downvotes = $bindable(),
-    comment,
-  }: Props = $props()
+  let { uri, cid, stats = $bindable(), viewer = $bindable() }: Props = $props()
 
-  const castVote = async (newVote: number) => {
+  let upvotes = $derived(stats?.upvotes ?? 0)
+  let downvotes = $derived(stats?.downvotes ?? 0)
+  let vote = $derived(viewer?.vote)
+  let voteRatio = $derived(
+    Math.floor((upvotes / (upvotes + downvotes || 1)) * 100),
+  )
+
+  let voting = $state(false)
+
+  const castVote = async (direction: 'up' | 'down') => {
     if (navigator.vibrate) navigator.vibrate(1)
     if (!profile.current?.jwt) {
       toast({ content: $t('toast.loginVoteGate'), type: 'warning' })
       return
     }
+    if (voting) return
+    voting = true
 
-    switch (vote ?? 0) {
-      case 0:
-        // nothing was removed
-        if (newVote == 1) upvotes++
-        else downvotes++
-        break
-      case 1:
-        // removed an upvote
-        upvotes--
-        if (newVote == -1) downvotes++
-        break
-      case -1:
-        // removed a downvote
-        downvotes--
-        if (newVote == 1) upvotes++
-        break
+    const currentVote = viewer?.vote
+    const isToggleOff = currentVote === direction
+
+    // Save previous state for rollback
+    const prevStats = stats ? { ...stats } : undefined
+    const prevViewer = viewer ? { ...viewer } : undefined
+
+    // Optimistically update local state
+    const newStats = {
+      ...(stats ?? { upvotes: 0, downvotes: 0, score: 0, replyCount: 0 }),
     }
+    const newViewer = { ...(viewer ?? {}) }
 
-    vote = newVote
+    if (isToggleOff) {
+      if (currentVote === 'up') newStats.upvotes--
+      else if (currentVote === 'down') newStats.downvotes--
+      newViewer.vote = undefined
+      newViewer.voteUri = undefined
+    } else {
+      if (currentVote === 'up') newStats.upvotes--
+      else if (currentVote === 'down') newStats.downvotes--
+      if (direction === 'up') newStats.upvotes++
+      else newStats.downvotes++
+      newViewer.vote = direction
+    }
+    newStats.score = newStats.upvotes - newStats.downvotes
 
-    voteItem(comment, newVote)
-      .then((res) => ({ upvotes, downvotes } = res))
-      .catch((e) => {
-        toast({ content: errorMessage(e), type: 'error' })
-      })
+    stats = newStats
+    viewer = newViewer
+
+    try {
+      if (isToggleOff) {
+        await coves().deleteVote({ subject: { uri, cid } })
+        newViewer.voteUri = undefined
+      } else {
+        if (currentVote) {
+          await coves().deleteVote({ subject: { uri, cid } })
+        }
+        const result = await coves().createVote({
+          subject: { uri, cid },
+          direction,
+        })
+        newViewer.voteUri = result.uri
+      }
+    } catch (err) {
+      // Rollback on error
+      stats = prevStats
+      viewer = prevViewer
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      toast({ content: errorMsg, type: 'error' })
+    } finally {
+      voting = false
+    }
   }
-
-  let voteRatio = $derived(
-    Math.floor(((upvotes ?? 0) / ((upvotes ?? 0) + (downvotes ?? 0))) * 100),
-  )
 </script>
 
 {#snippet voteButton(
   votes: number,
   target: 'upvote' | 'downvote',
-  vote?: number,
+  currentVote?: 'up' | 'down',
 )}
-  {@const targetNum = target == 'upvote' ? 1 : -1}
+  {@const direction = target === 'upvote' ? 'up' : 'down'}
   <button
-    onclick={() => castVote(vote == targetNum ? 0 : targetNum)}
+    onclick={() => castVote(direction)}
     class={[
       'flex items-center gap-0.5 transition-colors relative cursor-pointer px-1.5 py-1',
       'first:rounded-l-3xl last:rounded-r-3xl',
       'last:flex-row-reverse',
-      vote == targetNum
+      currentVote === direction
         ? shouldShowVoteColor(
-            vote,
-            target == 'upvote' ? 'upvotes' : 'downvotes',
+            currentVote,
+            target === 'upvote' ? 'upvotes' : 'downvotes',
           )
         : 'btn-tertiary',
     ]}
-    aria-pressed={vote == targetNum}
+    aria-pressed={currentVote === direction}
     aria-label={$t(
-      target == 'upvote'
+      target === 'upvote'
         ? 'post.actions.vote.upvote'
         : 'post.actions.vote.downvote',
     )}
   >
-    <Icon src={target == 'upvote' ? ChevronUp : ChevronDown} size="18" micro />
+    <Icon src={target === 'upvote' ? ChevronUp : ChevronDown} size="18" micro />
     <div class="grid text-sm z-20">
       {#key votes}
         <span
@@ -101,7 +133,7 @@
           in:fly={{ duration: 400, y: -10, easing: backOut }}
           out:fly={{ duration: 400, y: 10, easing: backOut }}
           aria-label={$t(
-            target == 'upvote' ? 'aria.vote.upvotes' : 'aria.vote.downvotes',
+            target === 'upvote' ? 'aria.vote.upvotes' : 'aria.vote.downvotes',
             { default: votes },
           )}
         >
@@ -121,9 +153,7 @@
   style="--vote-ratio: {voteRatio}%;"
 >
   {@render voteButton(upvotes, 'upvote', vote)}
-  {#if site.data?.site_view.local_site.enable_downvotes ?? true}
-    {@render voteButton(downvotes, 'downvote', vote)}
-  {/if}
+  {@render voteButton(downvotes, 'downvote', vote)}
 </div>
 
 <style>

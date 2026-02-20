@@ -1,23 +1,19 @@
 <script lang="ts">
-  import type { CommentView } from '$lib/api/types'
+  import type { CommentView } from '$lib/api/coves/types'
+  import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/auth.svelte'
+  import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
-  import { Button, Menu, MenuButton } from 'mono-svelte'
+  import { Button, Menu, MenuButton, toast } from 'mono-svelte'
   import {
-    Bookmark,
-    BookmarkSlash,
     ChatBubbleOvalLeft,
     EllipsisHorizontal,
     Flag,
     PencilSquare,
     Share,
-    ShieldCheck,
     Trash,
   } from 'svelte-hero-icons/dist'
-  import { deleteItem, save } from '../legacy/contentview'
-  import CommentModerationMenu from '../moderation/CommentModerationMenu.svelte'
-  import { report } from '../moderation/moderation'
   import CommentVote from './CommentVote.svelte'
 
   interface Props {
@@ -42,10 +38,10 @@
   ]}
 >
   <CommentVote
-    upvotes={comment.counts.upvotes}
-    downvotes={comment.counts.downvotes}
-    vote={comment.my_vote}
-    comment={comment.comment}
+    uri={comment.uri}
+    cid={comment.cid}
+    bind:stats={comment.stats}
+    bind:viewer={comment.viewer}
   />
   <Button
     color="tertiary"
@@ -53,26 +49,11 @@
     size="sm"
     class="text-slate-500 dark:text-zinc-400 gap-1!"
     onclick={() => (replying = !replying)}
-    disabled={comment.post.locked || disabled || !profile.current.jwt}
+    disabled={disabled || !profile.current?.jwt}
     icon={ChatBubbleOvalLeft}
   >
     {$t('comment.reply')}
   </Button>
-  {#if profile.current?.jwt && (profile.isMod(comment.community) || profile.isAdmin)}
-    <CommentModerationMenu bind:item={comment}>
-      {#snippet target(attachment)}
-        <Button
-          {@attach attachment}
-          class="dark:text-zinc-400 text-slate-600"
-          color="tertiary"
-          size="square-md"
-          rounding="pill"
-          icon={ShieldCheck}
-          aria-label={$t('moderation.label')}
-        />
-      {/snippet}
-    </CommentModerationMenu>
-  {/if}
   <Menu placement="bottom">
     {#snippet target(attachment)}
       <Button
@@ -86,54 +67,56 @@
       ></Button>
     {/snippet}
     <MenuButton
-      onclick={() => {
-        if (navigator.share)
-          navigator.share?.({
-            url: comment.comment.ap_id,
+      onclick={async () => {
+        try {
+          if (navigator.share) {
+            await navigator.share({ url: comment.uri as string })
+          } else {
+            await navigator.clipboard.writeText(comment.uri as string)
+            toast({ content: $t('toast.copied'), type: 'success' })
+          }
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') return
+          toast({
+            content: err instanceof Error ? err.message : String(err),
+            type: 'error',
           })
-        else navigator.clipboard.writeText(comment.comment.ap_id)
+        }
       }}
       icon={Share}
     >
       {$t('post.actions.more.share')}
     </MenuButton>
     {#if profile.current?.jwt}
-      {#if profile.current?.did && profile.current.did === comment.creator.actor_id}
+      {#if profile.current?.did && profile.current.did === comment.author.did}
         <MenuButton onclick={() => onedit?.(comment)} icon={PencilSquare}>
           {$t('post.actions.more.edit')}
         </MenuButton>
       {/if}
-      <MenuButton
-        onclick={async () => {
-          if (profile.current?.jwt)
-            comment.saved = await save(comment, !comment.saved)
-        }}
-        icon={comment.saved ? BookmarkSlash : Bookmark}
-      >
-        {comment.saved ? $t('post.actions.unsave') : $t('post.actions.save')}
-      </MenuButton>
-      {#if profile.current?.did && profile.current.did === comment.creator.actor_id}
+      {#if profile.current?.did && profile.current.did === comment.author.did}
         <MenuButton
+          disabled={comment.isDeleted}
           color="danger-subtle"
           onclick={async () => {
-            if (profile.current?.jwt)
-              comment.comment.deleted = await deleteItem(
-                comment,
-                !comment.comment.deleted,
-              )
+            if (!profile.current?.jwt) return
+            try {
+              await coves().deleteComment({ uri: comment.uri })
+              comment.isDeleted = true
+            } catch (err) {
+              toast({
+                content: errorMessage(err),
+                type: 'error',
+              })
+            }
           }}
           icon={Trash}
         >
-          {comment.comment.deleted
-            ? $t('post.actions.more.restore')
-            : $t('post.actions.more.delete')}
+          {$t('post.actions.more.delete')}
         </MenuButton>
       {/if}
-      <MenuButton
-        onclick={() => report(comment)}
-        color="danger-subtle"
-        icon={Flag}
-      >
+      <!-- TODO(coves-migration): Re-enable save when backend API is available -->
+      <!-- TODO(coves-migration): Re-enable report when backend API is available -->
+      <MenuButton disabled color="danger-subtle" icon={Flag}>
         {$t('moderation.report')}
       </MenuButton>
     {/if}

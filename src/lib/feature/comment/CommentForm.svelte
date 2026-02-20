@@ -1,19 +1,19 @@
 <script lang="ts">
-  import { client, site } from '$lib/api/client.svelte'
-  import type { CommentResponse } from '$lib/api/types'
+  import { coves } from '$lib/api/client.svelte'
+  import type { CreateCommentOutput, StrongRef } from '$lib/api/coves/types'
   import { profile } from '$lib/app/auth.svelte'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
   import { placeholders } from '$lib/app/util.svelte'
-  import { Button, Menu, MenuButton, toast } from 'mono-svelte'
-  import { Icon, Language, XMark } from 'svelte-hero-icons/dist'
+  import { Button, toast } from 'mono-svelte'
+  import { Icon, XMark } from 'svelte-hero-icons/dist'
   import type { ClassValue, HTMLTextareaAttributes } from 'svelte/elements'
 
   interface Props extends Omit<HTMLTextareaAttributes, 'oncancel'> {
-    postId: number
-    parentId?: number | undefined
+    postRef: StrongRef
+    parentRef?: StrongRef | undefined
     locked?: boolean
     banned?: boolean
     rows?: number
@@ -27,14 +27,14 @@
     id?: string
     label?: string
     editing?: boolean
-    oncomment?: (comment: CommentResponse) => void
+    oncomment?: (output: CreateCommentOutput, content: string) => void
     onconfirm?: (value: string) => void
     oncancel?: (cancel: boolean) => void
   }
 
   let {
-    postId,
-    parentId = undefined,
+    postRef,
+    parentRef = undefined,
     locked = false,
     banned = false,
     rows = 7,
@@ -50,31 +50,32 @@
 
   let loading = $state(false)
   let preview = false
-  let language: number | undefined = $state()
 
   async function submit() {
-    if (
-      !profile.current?.jwt ||
-      value == '' ||
-      editing
-    )
+    if (!profile.current?.jwt) {
+      toast({ content: $t('toast.loginVoteGate'), type: 'warning' })
       return
+    }
+    if (value.trim() === '') return
+    if (editing) return
 
     loading = true
 
     try {
-      const response = await client().createComment({
+      const response = await coves().createComment({
+        reply: {
+          root: postRef,
+          parent: parentRef ?? postRef,
+        },
         content: value,
-        post_id: postId,
-        parent_id: parentId,
       })
-      oncomment?.(response)
+      oncomment?.(response, value)
 
       value = ''
     } catch (err) {
       console.error(err)
       toast({
-        content: errorMessage(err as string),
+        content: errorMessage(err),
         type: 'error',
       })
     }
@@ -110,40 +111,6 @@
       disabled={locked || loading || banned}
       previewButton={previewAction}
     >
-      <Menu>
-        {#snippet target(attachment)}
-          <Button
-            {@attach attachment}
-            size="custom"
-            rounding="xl"
-            class="w-7.5 h-7.5"
-            color={language != undefined ? 'primary' : 'ghost'}
-            title={$t('form.profile.languages.title')}
-          >
-            <Icon src={Language} size="14" micro />
-          </Button>
-        {/snippet}
-
-        {#if site.data}
-          <MenuButton
-            class="min-h-[16px] py-0"
-            onclick={() => (language = undefined)}
-          >
-            <Icon src={XMark} size="16" micro />
-            {$t('form.post.unset')}
-          </MenuButton>
-          {#each site.data?.all_languages as languageOption}
-            <MenuButton
-              class="min-h-[16px] py-0"
-              onclick={() => {
-                language = languageOption.id
-              }}
-            >
-              {languageOption.name}
-            </MenuButton>
-          {/each}
-        {/if}
-      </Menu>
       <div class="flex-1"></div>
       {#if actions}
         <Button

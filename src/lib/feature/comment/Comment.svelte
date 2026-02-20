@@ -1,37 +1,30 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import { page } from '$app/state'
-  import { getClient } from '$lib/api/client.svelte'
+  import type { StrongRef } from '$lib/api/coves/types'
+  import type { DID } from '$lib/types/atproto'
   import { profile } from '$lib/app/auth.svelte'
-  import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { settings } from '$lib/app/settings.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import { Button, Modal, toast } from 'mono-svelte'
-  import RelativeDate, {
-    formatRelativeDate,
-  } from 'mono-svelte/util/RelativeDate.svelte'
-  import {
-    Bookmark,
-    Icon,
-    Microphone,
-    Minus,
-    Pencil,
-    Plus,
-    ShieldCheck,
-    Trash,
-  } from 'svelte-hero-icons/dist'
+  import RelativeDate from 'mono-svelte/util/RelativeDate.svelte'
+  import { Icon, Microphone, Minus, Plus, Trash } from 'svelte-hero-icons/dist'
   import { expoOut } from 'svelte/easing'
   import type { ClassValue } from 'svelte/elements'
   import { slide } from 'svelte/transition'
   import UserLink from '../user/UserLink.svelte'
   import CommentActions from './CommentActions.svelte'
   import CommentForm from './CommentForm.svelte'
-  import type { CommentNodeI } from './comments.svelte'
+  import {
+    type CommentNodeI,
+    createOptimisticCommentView,
+  } from './comments.svelte'
 
   interface Props {
     node: CommentNodeI
+    postRef: StrongRef
+    postAuthorDid?: DID
     actions?: boolean
     meta?: boolean
     open?: boolean
@@ -44,6 +37,8 @@
 
   let {
     node = $bindable(),
+    postRef,
+    postAuthorDid,
     actions = true,
     meta = true,
     replying = $bindable(false),
@@ -55,28 +50,24 @@
   }: Props = $props()
 
   let editing = $state(false)
-  let newComment = $state(node.comment_view.comment.content)
+  let newComment = $state(node.comment.record.content)
   let editingLoad = $state(false)
 
-  async function save(type: 'reply' | 'edit') {
+  async function save() {
     if (!profile.current?.jwt || newComment.length <= 0) return
 
     editingLoad = true
 
     try {
-      if (type == 'edit') {
-        await getClient().editComment({
-          comment_id: node.comment_view.comment.id,
-          content: newComment,
-        })
-
-        node.comment_view.comment.content = newComment
-
-        editing = false
-      }
+      // TODO(coves-migration): Implement edit comment when backend API is available
+      toast({
+        content: 'Editing comments is not yet supported.',
+        type: 'warning',
+      })
+      editing = false
     } catch (err) {
       toast({
-        content: errorMessage(err as string),
+        content: err instanceof Error ? err.message : String(err),
         type: 'error',
       })
     }
@@ -93,13 +84,13 @@
     <form
       onsubmit={(e) => {
         e.preventDefault()
-        save(replying ? 'reply' : 'edit')
+        save()
       }}
       class="contents"
     >
       <CommentForm
         bind:value={newComment}
-        postId={node.comment_view.comment.id}
+        {postRef}
         actions={false}
         preview={true}
       />
@@ -117,15 +108,12 @@
   </Modal>
 {/if}
 
-<li
-  class={['py-3 relative', clazz]}
-  id={node.comment_view.comment.id.toString()}
->
+<li class={['py-3 relative', clazz]} id={node.comment.uri as string}>
   {#if meta}
     {@const creatorIsOp =
-      node.comment_view.creator.id == node.comment_view.post.creator_id}
+      postAuthorDid !== undefined && node.comment.author.did === postAuthorDid}
     <label
-      for="comment-expand-{node.comment_view.comment.id}"
+      for="comment-expand-{node.comment.uri}"
       class="flex flex-row cursor-pointer gap-2 items-center group text-sm flex-wrap w-full z-0 group relative"
     >
       <div
@@ -134,13 +122,15 @@
           'bg-slate-100 dark:bg-zinc-900 -z-10 rounded-full inline-flex items-center justify-end',
         ]}
       >
-        {#if node.comment_view.counts.child_count > 0}
-          {@const children = node.comment_view.counts.child_count}
+        {#if node.comment.stats.replyCount > 0}
+          {@const replyCount = node.comment.stats.replyCount}
           <div
-            aria-label={$t('aria.comments.children', { childCount: children })}
+            aria-label={$t('aria.comments.children', {
+              childCount: replyCount,
+            })}
             class="font-medium"
           >
-            {children}
+            {replyCount}
           </div>
         {/if}
         <div
@@ -159,63 +149,22 @@
           creatorIsOp && 'text-blue-600 dark:text-blue-400 font-bold',
         ]}
       >
-        <UserLink
-          inComment
-          avatarSize={20}
-          avatar
-          user={node.comment_view.creator}
-        >
-          {#snippet extraBadges()}
-            {#if node.comment_view.creator_is_moderator}
-              <Icon
-                src={ShieldCheck}
-                size="16"
-                micro
-                class="text-green-500"
-                aria-label={$t('class.moderator')}
-              />
-            {/if}
-            {#if node.comment_view.creator_is_admin}
-              <Icon
-                src={ShieldCheck}
-                size="16"
-                micro
-                class="text-red-500"
-                aria-label={$t('class.admin')}
-              />
-            {/if}
-          {/snippet}
-        </UserLink>
-        {#if creatorIsOp}
-          <Icon
-            mini
-            size="16"
-            src={Microphone}
-            class="text-blue-500 dark:text-blue-400"
-          />
-        {/if}
+        <UserLink inComment avatarSize={20} avatar user={node.comment.author} />
       </span>
+      {#if creatorIsOp}
+        <Icon
+          mini
+          size="16"
+          src={Microphone}
+          class="text-blue-500 dark:text-blue-400"
+        />
+      {/if}
       <RelativeDate
         class="text-slate-600 dark:text-zinc-400"
-        date={publishedToDate(node.comment_view.comment.published)}
+        date={publishedToDate(node.comment.createdAt)}
       />
       <span class="text-slate-600 dark:text-zinc-400 flex flex-row gap-2 ml-1">
-        {#if node.comment_view.comment.updated}{@const edited = $t(
-            'post.meta.lastEdited',
-            {
-              default: formatRelativeDate(
-                publishedToDate(node.comment_view.comment.updated),
-                {
-                  style: 'long',
-                },
-              ),
-            },
-          )}
-          <div title={edited}>
-            <Icon src={Pencil} micro size="14" />
-          </div>
-        {/if}
-        {#if node.comment_view.comment.deleted}
+        {#if node.comment.isDeleted}
           <Icon
             src={Trash}
             solid
@@ -224,7 +173,7 @@
             class="text-red-600 dark:text-red-500"
           />
         {/if}
-        {#if node.comment_view.comment.removed}
+        {#if node.comment.deletionReason}
           <Icon
             src={Trash}
             solid
@@ -233,19 +182,10 @@
             class="text-green-600 dark:text-green-500"
           />
         {/if}
-        {#if node.comment_view.saved}
-          <Icon
-            src={Bookmark}
-            solid
-            size="12"
-            aria-label={$t('post.badges.saved')}
-            class="text-yellow-600 dark:text-yellow-500"
-          />
-        {/if}
       </span>
       {#if settings.debugInfo}
         <span class="text-slate-600 dark:text-zinc-400 font-mono ml-auto">
-          #{node.comment_view.comment.id}
+          {node.comment.uri}
         </span>
       {/if}
     </label>
@@ -253,7 +193,7 @@
   <input
     class="appearance-none absolute top-0 left-0 h-8 w-full pointer-events-none comment-expand"
     type="checkbox"
-    id="comment-expand-{node.comment_view.comment.id}"
+    id="comment-expand-{node.comment.uri}"
     bind:checked={open}
   />
   <div class={['expand max-w-full', contentClass]} inert={!open}>
@@ -264,24 +204,21 @@
         ]}
       >
         <Markdown
-          source={node.comment_view.comment.content}
+          source={node.comment.record.content}
           noStyle
           class={[
             'text-[15px] sm:text-base text-slate-700 dark:text-zinc-300 *:leading-[1.6] break-words space-y-3',
-            node.comment_view.comment.distinguished
-              ? 'material-success px-3 py-1.5 rounded-xl max-w-max'
-              : page.url.hash.slice(1) ==
-                  node.comment_view.comment.id.toString() &&
-                'material-info px-3 py-1.5 rounded-xl max-w-max',
+            page.url.hash.slice(1) === (node.comment.uri as string) &&
+              'material-info px-3 py-1.5 rounded-xl max-w-max',
           ]}
         />
         {#if actions}
+          <!-- TODO(coves-migration): Re-enable ban/lock checking when API provides banned_from_community and post.locked fields -->
           <CommentActions
-            comment={node.comment_view}
+            comment={node.comment}
             bind:replying
             onedit={() => (editing = true)}
-            disabled={node.comment_view.banned_from_community ||
-              node.comment_view.post.locked}
+            disabled={false}
           />
         {/if}
       </div>
@@ -290,13 +227,29 @@
         <div transition:slide={{ duration: 600, easing: expoOut }}>
           <CommentForm
             label={$t('comment.reply')}
-            postId={node.comment_view.post.id}
-            parentId={node.comment_view.comment.id}
-            oncomment={(e) => {
+            {postRef}
+            parentRef={{ uri: node.comment.uri, cid: node.comment.cid }}
+            oncomment={(output, content) => {
+              const currentProfile = profile.current
+              if (!currentProfile || currentProfile.type !== 'authenticated') {
+                replying = false
+                return
+              }
+              const comment = createOptimisticCommentView(
+                output,
+                content,
+                postRef,
+                { uri: node.comment.uri, cid: node.comment.cid },
+                {
+                  did: currentProfile.did,
+                  handle: currentProfile.handle,
+                  avatar: currentProfile.avatar,
+                },
+              )
               node.children = [
                 {
                   children: [],
-                  comment_view: e.comment_view,
+                  comment,
                   depth: node.depth + 1,
                   expanded: true,
                 },

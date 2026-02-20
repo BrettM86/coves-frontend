@@ -1,31 +1,39 @@
 <script lang="ts">
   import { browser } from '$app/environment'
   import { goto } from '$app/navigation'
-  import { client } from '$lib/api/client.svelte'
-  import type { Post } from '$lib/api/types'
+  import { coves } from '$lib/api/client.svelte'
+  import type { StrongRef } from '$lib/api/coves/types'
+  import type { DID } from '$lib/types/atproto'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import { Button, toast } from 'mono-svelte'
   import { ArrowDownCircle } from 'svelte-hero-icons/dist'
   import Comment from './Comment.svelte'
-  import { type CommentNodeI, buildCommentsTree } from './comments.svelte'
+  import {
+    type CommentNodeI,
+    buildCommentsTree,
+    searchCommentTree,
+  } from './comments.svelte'
   import CommentTree from './CommentTree.svelte'
 
   interface Props {
     nodes: CommentNodeI[]
-    post: Post
+    postRef: StrongRef
+    postAuthorDid?: DID
   }
 
-  let { nodes = $bindable(), post }: Props = $props()
+  let { nodes = $bindable(), postRef, postAuthorDid }: Props = $props()
 
-  let childrenPage = 0
+  function adjustDepths(nodes: CommentNodeI[], depth: number): void {
+    for (const n of nodes) {
+      n.depth = depth
+      adjustDepths(n.children, depth + 1)
+    }
+  }
 
   async function fetchChildren(parent: CommentNodeI) {
     if (
-      !(
-        parent.comment_view.counts.child_count > 0 &&
-        parent.children.length == 0
-      )
+      !(parent.comment.stats.replyCount > 0 && parent.children.length === 0)
     ) {
       return
     }
@@ -33,14 +41,15 @@
     try {
       parent.loading = true
 
-      const newComments = await client().getComments({
-        max_depth: 5,
-        parent_id: parent.comment_view.comment.id,
-        type_: 'All',
-        page: childrenPage,
+      // TODO: The API does not yet support a `parent` param to scope to a subtree.
+      // Once supported, pass `parent: parent.comment.uri` to avoid fetching all comments.
+      const response = await coves().getComments({
+        post: postRef.uri,
       })
 
-      if (newComments.comments.length == 0) {
+      // TODO: response.cursor is currently ignored — use it for pagination support.
+
+      if (response.comments.length === 0) {
         toast({
           content: $t('toast.noComments'),
           type: 'error',
@@ -48,28 +57,43 @@
         return
       }
 
-      parent.children = buildCommentsTree(
-        newComments.comments,
-        parent.depth,
-      )[0].children
-      childrenPage++
+      // The server returns ThreadViewComment[] for the full post tree.
+      // Build with baseDepth=0 since the server returns the complete tree from root.
+      const fullTree = buildCommentsTree(response.comments, 0)
+      const matchedNode = searchCommentTree(fullTree, parent.comment.uri)
+      if (matchedNode) {
+        parent.children = matchedNode.children
+        adjustDepths(parent.children, parent.depth + 1)
+      } else {
+        console.warn(
+          `[comments] Could not find parent node ${parent.comment.uri as string} in fetched comment tree. Children not loaded.`,
+        )
+        toast({
+          content: $t('toast.failedToLoadComments'),
+          type: 'error',
+        })
+        parent.children = []
+      }
     } catch (err) {
       console.error(err)
       toast({
-        content: errorMessage(err as string),
+        content: errorMessage(err),
         type: 'error',
       })
+    } finally {
+      parent.loading = false
     }
   }
 </script>
 
 <ul>
-  {#each nodes as node, index (node.comment_view.comment.id)}
+  {#each nodes as node, index (node.comment.uri)}
     <Comment
       bind:node={nodes[index]}
+      {postRef}
+      {postAuthorDid}
       contentClass={[
-        (node.children.length > 0 ||
-          node.comment_view.counts.child_count > 0) &&
+        (node.children.length > 0 || node.comment.stats.replyCount > 0) &&
           'border-l',
         'ml-2.5 pl-3 sm:pl-4 lg:pl-5',
         'comment-border',
@@ -83,14 +107,18 @@
       ></button>
       <div class={['comment-corner', node.depth == 0 && 'hidden']}></div>
       {#if node.children?.length > 0}
-        <CommentTree {post} bind:nodes={nodes[index].children} />
+        <CommentTree
+          {postRef}
+          {postAuthorDid}
+          bind:nodes={nodes[index].children}
+        />
       {/if}
     </Comment>
-    {#if node.comment_view.counts.child_count > 0 && node.children.length == 0}
+    {#if node.comment.stats.replyCount > 0 && node.children.length == 0}
       <svelte:element
         this={browser ? 'div' : 'a'}
         class="w-full h-10 -mt-2 -ml-2.5"
-        href="/comment/{node.comment_view.comment.id}"
+        href="/comment/{encodeURIComponent(node.comment.uri as string)}"
       >
         <Button
           loading={nodes[index].loading}
@@ -102,18 +130,17 @@
           loaderWidth={16}
           onclick={() => {
             if (nodes[index].depth > 4) {
-              goto(`/comment/${nodes[index].comment_view.comment.id}#comments`)
-            } else {
-              nodes[index].loading = true
-              fetchChildren(nodes[index]).then(
-                () => (nodes[index].loading = false),
+              goto(
+                `/comment/${encodeURIComponent(nodes[index].comment.uri as string)}#comments`,
               )
+            } else {
+              fetchChildren(nodes[index])
             }
           }}
           icon={ArrowDownCircle}
         >
           {$t('comment.more', {
-            comments: node.comment_view.counts.child_count,
+            comments: node.comment.stats.replyCount,
           })}
         </Button>
       </svelte:element>

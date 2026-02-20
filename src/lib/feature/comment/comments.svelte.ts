@@ -1,123 +1,157 @@
-import type { Comment, CommentView } from "$lib/api/types"
-import { t } from "$lib/app/i18n"
-import { SvelteMap } from "svelte/reactivity"
+import type {
+  AtUri,
+  CID,
+  CommentView,
+  StrongRef,
+  ThreadViewComment,
+} from '$lib/api/coves/types'
+import type { DID, Handle } from '$lib/types/atproto'
+import { t } from '$lib/app/i18n'
 
 export interface CommentNodeI {
-  comment_view: CommentView
+  comment: CommentView
   children: Array<CommentNodeI>
   depth: number
   loading?: boolean
   expanded?: boolean
 }
 
-function getCommentParentId(comment?: Comment): number | undefined {
-  const split = comment?.path.split('.')
-  // remove the 0
-  split?.shift()
-
-  return split && split.length > 1
-    ? Number(split.at(split.length - 2))
-    : undefined
-}
-
-function getDepthFromComment(comment?: Comment): number | undefined {
-  const len = comment?.path.split('.').length
-  return len ? len - 2 : undefined
-}
-
+/**
+ * Converts a server-provided comment tree (ThreadViewComment[]) into
+ * the flat-depth CommentNodeI[] structure used by the UI.
+ *
+ * The server already computes the tree hierarchy via `replies`, so we
+ * walk the tree recursively, assigning depth as we go.
+ */
 export function buildCommentsTree(
-  comments: CommentView[],
+  threadComments: ThreadViewComment[],
   baseDepth: number = 0,
-  filter: (c: CommentView) => boolean = () => true,
 ): CommentNodeI[] {
-  const map = new SvelteMap<number, CommentNodeI>()
+  function walk(thread: ThreadViewComment, depth: number): CommentNodeI {
+    let cv = thread.comment
 
-  let min_depth = Number.MAX_VALUE
-  for (const comment_view of comments) {
-    const depthI = getDepthFromComment(comment_view.comment) ?? 0
-    const depth = depthI + baseDepth
-    if (comment_view.comment.content == '' && comment_view.comment.removed) {
-      comment_view.comment.content = `*Removed by Moderator — [${t.get('routes.modlog.title')}](/modlog?comment=${comment_view.comment.id})*`
-    }
-    const node: CommentNodeI = {
-      comment_view,
-      children: [],
-      depth: depth,
-      expanded: true,
-    }
-    min_depth = Math.min(min_depth, depth)
-    if (filter(comment_view)) {
-      map.set(comment_view.comment.id, { ...node })
-    }
-  }
-
-  const tree: CommentNodeI[] = []
-
-  // push all nodes at the minimum depth to the top of the tree
-  for (const comment_view of comments) {
-    const cNode = map.get(comment_view.comment.id)
-    if (cNode && cNode.depth == min_depth) {
-      tree.push(cNode)
-    }
-  }
-
-  for (const comment_view of comments) {
-    const child = map.get(comment_view.comment.id)
-    if (child) {
-      const parent_id = getCommentParentId(comment_view.comment)
-      if (parent_id) {
-        const parent = map.get(parent_id)
-        // Necessary because blocked comment might not exist
-        if (parent) {
-          parent.children.push(child)
-        }
+    // Annotate deleted comments with a placeholder message
+    if (cv.isDeleted && cv.record.content === '') {
+      cv = {
+        ...cv,
+        record: {
+          ...cv.record,
+          content: `*${t.get('post.badges.deleted')}*`,
+        },
       }
     }
+
+    const children: CommentNodeI[] = (thread.replies ?? []).map((reply) =>
+      walk(reply, depth + 1),
+    )
+
+    return {
+      comment: cv,
+      children,
+      depth,
+      expanded: true,
+    }
   }
 
-  return tree
+  return threadComments.map((thread) => walk(thread, baseDepth))
 }
 
+/**
+ * Searches a CommentNodeI tree for a node matching the given AT-URI.
+ * Returns the first match (depth-first), or undefined if not found.
+ */
 export function searchCommentTree(
   tree: CommentNodeI[],
-  id: number,
+  uri: AtUri,
 ): CommentNodeI | undefined {
   for (const node of tree) {
-    if (node.comment_view.comment.id === id) {
+    if (node.comment.uri === uri) {
       return node
     }
 
-    for (const child of node.children) {
-      const res = searchCommentTree([child], id)
-
-      if (res) {
-        return res
-      }
+    const found = searchCommentTree(node.children, uri)
+    if (found) {
+      return found
     }
   }
   return undefined
 }
 
+/**
+ * Inserts a newly created CommentView into the tree at the correct
+ * position. If the comment has a parent, it is prepended to the
+ * parent's children. If it is a top-level comment (no parent) and
+ * `parentComment` is false, it is prepended to the root of the tree.
+ */
 export function insertCommentIntoTree(
   tree: CommentNodeI[],
   cv: CommentView,
   parentComment: boolean,
-) {
-  // Building a fake node to be used for later
+): boolean {
   const node: CommentNodeI = {
-    comment_view: cv,
+    comment: cv,
     children: [],
     depth: 0,
   }
 
-  const parentId = getCommentParentId(cv.comment)
-  if (parentId) {
-    const parent_comment = searchCommentTree(tree, parentId)
-    if (parent_comment) {
-      node.depth = parent_comment.depth + 1
-      parent_comment.children.unshift(node)
+  if (cv.parent) {
+    const parentNode = searchCommentTree(tree, cv.parent.uri)
+    if (parentNode) {
+      node.depth = parentNode.depth + 1
+      parentNode.children.unshift(node)
+      return true
+    } else {
+      console.warn(
+        `[comments] Parent node not found in tree for comment ${cv.uri as string}, parent: ${cv.parent.uri as string}. Comment was dropped.`,
+      )
+      return false
     }
   } else if (!parentComment) {
     tree.unshift(node)
+    return true
+  }
+  return false
+}
+
+/**
+ * Creates a CommentView for a newly posted comment, suitable for
+ * optimistic insertion into the UI tree before server confirmation.
+ */
+export function createOptimisticCommentView(
+  output: { uri: AtUri; cid: CID },
+  content: string,
+  postRef: StrongRef,
+  parentRef: StrongRef,
+  author: { did: string; handle: string; avatar?: string },
+): CommentView {
+  const now = new Date().toISOString()
+  return {
+    uri: output.uri,
+    cid: output.cid,
+    createdAt: now,
+    indexedAt: now,
+    record: {
+      $type: 'social.coves.community.comment',
+      content,
+      reply: {
+        root: postRef,
+        parent: parentRef,
+      },
+      createdAt: now,
+    },
+    author: {
+      did: author.did as DID,
+      handle: author.handle as Handle,
+      avatar: author.avatar,
+    },
+    post: postRef,
+    stats: {
+      upvotes: 0,
+      downvotes: 0,
+      score: 0,
+      replyCount: 0,
+    },
+    viewer: undefined,
+    parent: parentRef,
   }
 }

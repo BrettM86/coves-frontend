@@ -1,9 +1,9 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import { getClient } from '$lib/api/client.svelte'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { escapeHtml } from '$lib/app/util.svelte'
-  import CommentItem from '$lib/feature/comment/CommentItem.svelte'
   import type { InboxItem } from '$lib/feature/inbox'
   import PrivateMessage from '$lib/feature/inbox/PrivateMessage.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
@@ -163,13 +163,10 @@
   {/snippet}
   {#snippet content()}
     {#if item.type == 'comment_reply' || item.type == 'person_mention'}
-      <CommentItem
-        comment={item.item}
-        community={false}
-        meta={false}
-        class="py-0!"
-        commentClass="py-0!"
-      />
+      <!-- TODO(coves-migration): Replace with CommentItem once InboxItem is migrated to Coves XRPC -->
+      <div class="text-sm text-slate-700 dark:text-zinc-300 py-2">
+        <Markdown source={item.item.comment.content} noStyle />
+      </div>
     {:else}
       <PrivateMessage message={item.item} meta={false} />
     {/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): Needs Coves topic discovery API
   import type { TopicView } from '$lib/api/types'
   import CommonItem from '$lib/ui/layout/CommonItem.svelte'
 

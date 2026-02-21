@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): Needs Coves comment moderation API (distinguish, lock)
   import type { CommentView } from '$lib/api/types'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
@@ -14,8 +15,8 @@
     Trash,
   } from 'svelte-hero-icons/dist'
   import type { Attachment } from 'svelte/attachments'
-  import { isCommentView } from '../legacy/item'
-  import { ban, feature, remove, viewVotes } from './moderation'
+  import { isCommentView } from '../legacy/item.svelte'
+  import { ban, feature, remove, viewVotes } from './moderation.svelte'
 
   interface Props {
     item: CommentView

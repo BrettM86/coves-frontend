@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck TODO(coves-migration): Needs Coves topics API
 import { client } from '$lib/api/client.svelte'
 import type { SortType } from '$lib/api/types'
 import { settings } from '$lib/app/settings.svelte'

@@ -9,7 +9,6 @@
   import {
     ChatBubbleOvalLeft,
     EllipsisHorizontal,
-    Flag,
     PencilSquare,
     Share,
     Trash,
@@ -115,9 +114,13 @@
         </MenuButton>
       {/if}
       <!-- TODO(coves-migration): Re-enable save when backend API is available -->
-      <!-- TODO(coves-migration): Re-enable report when backend API is available -->
-      <MenuButton disabled color="danger-subtle" icon={Flag}>
-        {$t('moderation.report')}
+      <MenuButton
+        onclick={() => {
+          toast({ content: 'Reporting is not yet available', type: 'warning' })
+        }}
+        color="danger-subtle"
+      >
+        Report
       </MenuButton>
     {/if}
   </Menu>

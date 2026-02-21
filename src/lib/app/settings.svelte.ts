@@ -1,7 +1,51 @@
 import { browser } from '$app/environment'
 import { env } from '$env/dynamic/public'
-import type { CommentSortType, ListingType, SortType } from '$lib/api/types'
 import { locale } from './i18n'
+
+/**
+ * Legacy PascalCase sort type strings used by the Photon-era UI components.
+ * These values are stored in user settings and mapped to Coves API sort
+ * parameters via `mapSort()` in `$lib/app/sort.ts` before API calls.
+ *
+ * The `| string` fallback allows values from env vars and localStorage
+ * that may not match these known literals (backward compatibility).
+ */
+type SortType =
+  | 'Active'
+  | 'Hot'
+  | 'New'
+  | 'Old'
+  | 'Scaled'
+  | 'TopDay'
+  | 'TopWeek'
+  | 'TopMonth'
+  | 'TopYear'
+  | 'TopAll'
+  | 'TopHour'
+  | 'TopSixHour'
+  | 'TopTwelveHour'
+  | 'TopThreeMonths'
+  | 'TopSixMonths'
+  | 'TopNineMonths'
+  | 'MostComments'
+  | 'NewComments'
+  | 'Controversial'
+  | (string & {})
+
+type ListingType =
+  | 'All'
+  | 'Local'
+  | 'Subscribed'
+  | 'ModeratorView'
+  | (string & {})
+
+type CommentSortType =
+  | 'Hot'
+  | 'Top'
+  | 'New'
+  | 'Old'
+  | 'Controversial'
+  | (string & {})
 
 export type View = 'cozy' | 'compact'
 
@@ -23,7 +67,7 @@ interface Preset {
 interface Settings {
   settingsVer: number
   expandableImages: boolean
-  // should have been named "fade" read posts
+  /** When true, read posts are visually faded in the feed. */
   markReadPosts: boolean
   showInstances: {
     user: boolean
@@ -88,9 +132,6 @@ interface Settings {
     noVirtualize: boolean
     reverseActions: boolean
     titleOpensUrl: boolean
-  }
-  forms: {
-    autosubmitAutofill: boolean
   }
   infiniteScroll: boolean
   language: string | null
@@ -172,9 +213,6 @@ export const defaultSettings: Settings = {
     reverseActions: toBool(env.PUBLIC_REVERSE_ACTIONS) ?? false,
     titleOpensUrl: toBool(env.PUBLIC_TITLE_OPENS_URL) ?? false,
   },
-  forms: {
-    autosubmitAutofill: false,
-  },
   infiniteScroll: true,
   language: env.PUBLIC_LANGUAGE ?? null,
   useRtl: false,
@@ -192,13 +230,18 @@ function getInitialSettings(defaultValue: Settings): Settings {
     return defaultValue
   }
   try {
-    const localSettings = JSON.parse(localStorage.getItem('settings') ?? '{}') as unknown
-    const cloned = structuredClone(defaultValue) as unknown as Record<string, unknown>
+    const localSettings = JSON.parse(
+      localStorage.getItem('settings') ?? '{}',
+    ) as unknown
+    const cloned = structuredClone(defaultValue) as unknown as Record<
+      string,
+      unknown
+    >
     return mergeDeep(cloned, localSettings) as unknown as Settings
   } catch (err) {
     console.error(
       '[settings] Failed to parse settings from localStorage:',
-      err instanceof Error ? err.message : String(err)
+      err instanceof Error ? err.message : String(err),
     )
     return defaultValue
   }

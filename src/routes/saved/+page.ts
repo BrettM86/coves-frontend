@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck TODO(coves-migration): Needs Coves saved items API
 import { client } from '$lib/api/client.svelte'
 import type { CommentView, PostView } from '$lib/api/types'
 import { profile } from '$lib/app/auth.svelte'

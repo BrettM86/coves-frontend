@@ -1,7 +1,9 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck TODO(coves-migration): Needs Coves moderation reports API
 import { getClient } from '$lib/api/client.svelte'
 import { profile } from '$lib/app/auth.svelte'
 import { ReactiveState } from '$lib/app/util.svelte'
-import { isCommentView, isPostView } from '$lib/feature/legacy/item'
+import { isCommentView, isPostView } from '$lib/feature/legacy/item.svelte'
 import {
   generalizeCommentReport,
   generalizePostReport,
@@ -47,7 +49,9 @@ export async function load({ url, fetch }) {
     ...(messages?.private_message_reports ?? []).map(
       generalizePrivateMessageReport,
     ),
-  ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+  ]
+    .filter((r): r is ReportView => r != null)
+    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
 
   const grouped = everything.reduce(
     (groups, item) => {

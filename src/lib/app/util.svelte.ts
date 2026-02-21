@@ -6,13 +6,11 @@ import type {
   CommunityRef,
   CommunityView as CovesCommunityView,
 } from '$lib/api/coves/types'
-import type { Community, Person } from '$lib/api/types'
 import { SvelteURL } from 'svelte/reactivity'
 import { t } from './i18n'
 
-// Despite the name, this will round up
-// This is because I do not care
-// Example: findClosestNumber([8, 16, 32, 64, 128], 76) will return 128
+// Finds the smallest number in `numbers` that is >= target.
+// Falls back to the closest number below target if none are >=.
 export const findClosestNumber = (numbers: number[], target: number): number =>
   numbers.reduce((prev, curr) =>
     curr >= target && (prev < target || curr < prev) ? curr : prev,
@@ -211,60 +209,27 @@ export const isVideo = (url: string | undefined): boolean => {
 
 /**
  * Generate a link path for a community.
- * Accepts either a Coves CommunityRef or a legacy Lemmy Community.
+ * Accepts a Coves CommunityRef or CommunityView.
  */
-export function communityLink(community: CommunityRef, prefix?: string): string
 export function communityLink(
-  community: CovesCommunityView,
-  prefix?: string,
-): string
-/** @deprecated Use CommunityRef or CovesCommunityView overload instead */
-export function communityLink(community: Community, prefix?: string): string
-export function communityLink(
-  community: CommunityRef | CovesCommunityView | Community,
+  community: CommunityRef | CovesCommunityView,
   prefix: string = '',
 ): string {
-  // Coves CommunityRef: has `handle` field, no `actor_id`
   if ('handle' in community && community.handle) {
     return `${prefix}/c/${encodeURIComponent(communitySlug(community.handle))}`
   }
-  // Coves CommunityRef without handle: use name
-  if ('did' in community && !('actor_id' in community)) {
-    return `${prefix}/c/${encodeURIComponent(community.name)}`
-  }
-  // Legacy Lemmy Community: has `actor_id`
-  try {
-    return `${prefix}/c/${fullCommunityName((community as Community).name, (community as Community).actor_id)}`
-  } catch {
-    return `${prefix}/c/${(community as Community).name}`
-  }
+  return `${prefix}/c/${encodeURIComponent(community.name)}`
 }
 
 /**
  * Generate a link path for a user profile.
- * Accepts either a Coves AuthorView or a legacy Lemmy Person.
+ * Accepts a Coves AuthorView.
  */
-export function userLink(author: AuthorView, prefix?: string): string
-/** @deprecated Use AuthorView overload instead */
-export function userLink(person: Person, prefix?: string): string
-export function userLink(
-  user: AuthorView | Person,
-  prefix: string = '',
-): string {
-  // Coves AuthorView: has `handle` field
-  if ('handle' in user && user.handle) {
+export function userLink(user: AuthorView, prefix: string = ''): string {
+  if (user.handle) {
     return `${prefix}/u/${encodeURIComponent(user.handle)}`
   }
-  // Coves AuthorView without handle: use DID as fallback
-  if ('did' in user && !('actor_id' in user)) {
-    return `${prefix}/u/${encodeURIComponent(user.did)}`
-  }
-  // Legacy Lemmy Person: has `actor_id` and `name`
-  try {
-    return `${prefix}/u/${(user as Person).name}@${new SvelteURL((user as Person).actor_id).hostname}`
-  } catch {
-    return `${prefix}/u/${(user as Person).name}`
-  }
+  return `${prefix}/u/${encodeURIComponent(user.did)}`
 }
 
 /**

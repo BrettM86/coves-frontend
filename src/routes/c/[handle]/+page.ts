@@ -1,5 +1,4 @@
 import { coves } from '$lib/api/client.svelte'
-import type { SortType } from '$lib/api/types'
 import { settings } from '$lib/app/settings.svelte'
 import { mapSort } from '$lib/app/sort'
 import { communityHandleFromSlug } from '$lib/app/util.svelte'
@@ -10,8 +9,7 @@ import { feed } from '$lib/feature/feeds/feed.svelte'
 export async function load({ params, fetch, url, route }) {
   const cursor = url.searchParams.get('cursor') as string | undefined
 
-  const sort: SortType =
-    (url.searchParams.get('sort') as SortType) || settings.defaultSort.sort
+  const sort = url.searchParams.get('sort') ?? settings.defaultSort.sort
 
   const communityHandle = communityHandleFromSlug(params.handle) as Handle
   const mapped = mapSort(sort)

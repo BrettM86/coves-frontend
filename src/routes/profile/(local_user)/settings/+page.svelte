@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): Needs Coves user settings API
   import { getClient, site } from '$lib/api/client.svelte'
   import type { SaveUserSettings } from '$lib/api/types'
   import { profile } from '$lib/app/auth.svelte'

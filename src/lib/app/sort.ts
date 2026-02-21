@@ -40,6 +40,7 @@ export function mapSort(legacySort: string): {
     case 'TopSixMonths':
       return { sort: 'top', timeframe: 'all' }
     case 'TopNineMonths':
+    case 'TopYear':
       return { sort: 'top', timeframe: 'all' }
     case 'TopHour':
     case 'TopSixHour':

@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck TODO(coves-migration): Needs Coves explore/discovery API
 import type { ListingType, SortType } from '$lib/api/types'
 import { LINKED_INSTANCE_URL } from '$lib/app/instance.svelte'
 

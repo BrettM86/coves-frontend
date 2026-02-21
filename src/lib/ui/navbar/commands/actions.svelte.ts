@@ -7,7 +7,7 @@ import {
 import { t } from '$lib/app/i18n'
 import { settings } from '$lib/app/settings.svelte'
 import { theme, type ThemeData } from '$lib/app/theme/theme.svelte'
-import type { ResumableItem } from '$lib/feature/legacy/item'
+import type { ResumableItem } from '$lib/feature/legacy/item.svelte'
 import {
   ArrowRightOnRectangle,
   ArrowTrendingDown,
@@ -63,7 +63,7 @@ export interface Action {
 }
 
 export function getGroups(
-  resumables: ResumableItem[],
+  resumables: readonly ResumableItem[],
   profile: ProfileInfo,
   profiles: ProfileInfo[],
   td: ThemeData,

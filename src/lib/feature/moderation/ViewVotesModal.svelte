@@ -1,5 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves vote listing API
   import { client } from '$lib/api/client.svelte'
   import type { CommentView, PostView, VoteView } from '$lib/api/types'
   import { t } from '$lib/app/i18n'
@@ -12,7 +12,7 @@
     Icon,
     Newspaper,
   } from 'svelte-hero-icons/dist'
-  import { isCommentView, isPostView } from '../legacy/item'
+  import { isCommentView, isPostView } from '../legacy/item.svelte'
   import UserLink from '../user/UserLink.svelte'
 
   interface Props {

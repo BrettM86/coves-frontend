@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck TODO(coves-migration): Needs Coves notification/inbox API
 import type {
   CommentReplyView,
   CommentView,

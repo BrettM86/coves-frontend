@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): Needs Coves direct messaging API
   import { goto } from '$app/navigation'
   import type { Person, PrivateMessageView } from '$lib/api/types'
   import { profile } from '$lib/app/auth.svelte'
@@ -70,7 +71,10 @@
       .map((i) => {
         // Get the other party (the person we're chatting with, not ourselves)
         // Compare by handle since profile.id is a session ID, not a Lemmy user ID
-        const otherParty = (currentHandle && i.creator.name === currentHandle) ? i.recipient : i.creator
+        const otherParty =
+          currentHandle && i.creator.name === currentHandle
+            ? i.recipient
+            : i.creator
         return {
           user: otherParty,
           message: {

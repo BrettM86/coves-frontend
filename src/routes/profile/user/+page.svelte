@@ -1,5 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves user profile API
   import { ReactiveState } from '$lib/app/util.svelte'
   import UserPage from '../../u/[handle]/+page.svelte'
 

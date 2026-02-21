@@ -1,5 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves admin team management API
   import { client } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/auth.svelte'
   import { errorMessage } from '$lib/app/error'

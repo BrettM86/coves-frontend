@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): Needs Coves admin site configuration API
   import { client, site } from '$lib/api/client.svelte'
   import type { EditSite } from '$lib/api/types'
   import { profile } from '$lib/app/auth.svelte'

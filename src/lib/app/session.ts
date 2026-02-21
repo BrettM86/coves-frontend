@@ -3,19 +3,11 @@ import type {
   CommunityView as CovesCommunityView,
   CommunityViewDetailed,
 } from '$lib/api/coves/types'
-import type { CommunityView as LemmyCommunityView } from '$lib/api/types'
 
 interface SessionStorage {
-  lastSeenCommunity?:
-    | CovesCommunityView
-    | CommunityViewDetailed
-    | LemmyCommunityView
+  lastSeenCommunity?: CovesCommunityView | CommunityViewDetailed
   postDraft?: {
-    community:
-      | CovesCommunityView
-      | CommunityViewDetailed
-      | LemmyCommunityView
-      | null
+    community: CovesCommunityView | CommunityViewDetailed | null
     title: string
     body?: string
     image: FileList | null

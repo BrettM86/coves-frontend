@@ -1,5 +1,4 @@
 import { coves } from '$lib/api/client.svelte'
-import type { ListingType, SortType } from '$lib/api/types'
 import { profile } from '$lib/app/auth.svelte'
 import { t } from '$lib/app/i18n'
 import { settings } from '$lib/app/settings.svelte'
@@ -11,10 +10,8 @@ import { ChevronDoubleUp } from '@xylightdev/svelte-hero-icons'
 export async function load({ url, fetch, route }) {
   const cursor = url.searchParams.get('cursor') as string | undefined
 
-  const sort: SortType =
-    (url.searchParams.get('sort') as SortType) || settings.defaultSort.sort
-  const listingType: ListingType =
-    (url.searchParams.get('type') as ListingType) || settings.defaultSort.feed
+  const sort = url.searchParams.get('sort') ?? settings.defaultSort.sort
+  const listingType = url.searchParams.get('type') ?? settings.defaultSort.feed
 
   const mapped = mapSort(sort)
   const listing = mapListing(listingType, profile.isAuthenticated)

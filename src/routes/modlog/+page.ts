@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck TODO(coves-migration): Needs Coves modlog API
 import { client } from '$lib/api/client.svelte'
 import type {
   AdminPurgeCommentView,

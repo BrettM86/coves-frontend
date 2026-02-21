@@ -1,17 +1,17 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): Needs Coves direct messaging API
   import type { PrivateMessageView } from '$lib/api/types'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import { Button, Menu, MenuButton } from 'mono-svelte'
   import RelativeDate from 'mono-svelte/util/RelativeDate.svelte'
-  import { EllipsisVertical, Flag, Icon, Trash } from 'svelte-hero-icons/dist'
+  import { EllipsisVertical, Icon, Trash } from 'svelte-hero-icons/dist'
 
   interface Props {
     message: PrivateMessageView
     primary?: boolean
     ondelete?: (shouldDelete: boolean) => void
-    onreport?: (report: boolean) => void
     showTimestamp?: boolean
   }
 
@@ -19,7 +19,6 @@
     message,
     primary = false,
     ondelete,
-    onreport,
     showTimestamp = true,
   }: Props = $props()
 </script>
@@ -71,14 +70,7 @@
       >
         {$t('post.actions.more.delete')}
       </MenuButton>
-    {:else}
-      <MenuButton
-        color="danger-subtle"
-        onclick={() => onreport?.(true)}
-        icon={Flag}
-      >
-        {$t('moderation.report')}
-      </MenuButton>
     {/if}
+    <!-- TODO(coves-migration): Add report button for non-primary messages when DM moderation API is available -->
   </Menu>
 </div>

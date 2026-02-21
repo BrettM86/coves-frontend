@@ -13,7 +13,8 @@
     theme,
   } from '$lib/app/theme/theme.svelte'
   import InstanceCard from '$lib/feature/instance/InstanceCard.svelte'
-  import Moderation from '$lib/feature/moderation/Moderation.svelte'
+  import ModerationModals from '$lib/feature/moderation/ModerationModals.svelte'
+
   import ExpandableImage from '$lib/ui/generic/ExpandableImage.svelte'
   import { Shell } from '$lib/ui/layout'
   import Navbar from '$lib/ui/navbar/Navbar.svelte'
@@ -156,7 +157,10 @@
         content={site.data?.site_view?.site.description}
       />
     {:else}
-      <meta name="description" content="A sleek client for Lemmy" />
+      <meta
+        name="description"
+        content="Coves — community forums on the ATmosphere"
+      />
     {/if}
   {/if}
 </svelte:head>
@@ -170,10 +174,10 @@
 </Button>
 
 <Shell>
-  <Moderation />
   <ToastContainer />
   <ExpandableImage />
   <ModalContainer />
+  <ModerationModals />
 
   {#snippet sidebar({ style: s, class: c })}
     <Sidebar class={[c, 'p-3 sm:p-6 w-full']} style={s} />

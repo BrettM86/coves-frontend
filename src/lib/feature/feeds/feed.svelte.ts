@@ -1,13 +1,5 @@
 import { browser } from '$app/environment'
 import type {
-  FeedView,
-  GetPersonDetails,
-  GetPersonDetailsResponse,
-  GetPosts,
-  PostView,
-  TopicView,
-} from '$lib/api/types'
-import type {
   CommunityView as CovesCommunityView,
   CommunityViewDetailed,
   FeedPaginationParams,
@@ -22,6 +14,11 @@ import type {
 import { profile } from '$lib/app/auth.svelte'
 import { recursiveEqual } from '$lib/app/util.svelte'
 import { SvelteMap } from 'svelte/reactivity'
+
+// TODO(coves-migration): Remove this stub once legacy routes (/f/[id], /topic/[id], /profile/user)
+// are migrated to Coves API. It exists only to keep FeedTypes typings for unmigrated routes.
+/** Placeholder for legacy Lemmy types in unmigrated routes. */
+type LegacyRecord = Record<string, unknown>
 
 type FetchFn<P, R> = (params: P) => R
 
@@ -129,37 +126,36 @@ export interface FeedTypes {
       communities: CovesCommunityView[]
     },
   ]
-  // TODO(migration): convert to Coves types — legacy Lemmy feed route
+  // TODO(coves-migration): convert to Coves types — legacy Lemmy feed route
   '/f/[id]': [
-    GetPosts,
-
+    LegacyRecord,
     {
-      posts: PostView[]
+      posts: LegacyRecord[]
       next_page?: string
-      params: GetPosts & { page_cursor: string }
-      feed: Promise<FeedView | undefined>
+      params: LegacyRecord & { page_cursor: string }
+      feed: Promise<LegacyRecord | undefined>
       client: {
         itemHeights?: (number | null)[]
         lastSeen?: number
       }
     },
   ]
-  // TODO(migration): convert to Coves types — legacy Lemmy topic route
+  // TODO(coves-migration): convert to Coves types — legacy Lemmy topic route
   '/topic/[id]': [
-    GetPosts,
+    LegacyRecord,
     {
-      posts: PostView[]
+      posts: LegacyRecord[]
       next_page?: string
-      params: GetPosts & { page_cursor: string }
-      topic: Promise<TopicView | undefined>
+      params: LegacyRecord & { page_cursor: string }
+      topic: Promise<LegacyRecord | undefined>
       client: {
         itemHeights?: (number | null)[]
         lastSeen?: number
       }
     },
   ]
-  // TODO(migration): convert to Coves types — legacy Lemmy profile route
-  '/profile/user': [GetPersonDetails, GetPersonDetailsResponse]
+  // TODO(coves-migration): convert to Coves types — legacy Lemmy profile route
+  '/profile/user': [LegacyRecord, LegacyRecord]
 }
 
 export const feeds = new SvelteMap<keyof FeedTypes, Feed<unknown, unknown>>()

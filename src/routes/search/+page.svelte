@@ -1,5 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves search API
   import { navigating, page } from '$app/state'
   import { client } from '$lib/api/client.svelte'
   import { t } from '$lib/app/i18n'
@@ -12,7 +12,7 @@
     isCommunityView,
     isPostView,
     isUser,
-  } from '$lib/feature/legacy/item'
+  } from '$lib/feature/legacy/item.svelte'
   import { PostItem } from '$lib/feature/post'
   import UserItem from '$lib/feature/user/UserItem.svelte'
   import ObjectAutocomplete from '$lib/ui/form/ObjectAutocomplete.svelte'

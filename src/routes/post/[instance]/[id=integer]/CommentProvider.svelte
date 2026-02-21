@@ -1,14 +1,21 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import { browser } from '$app/environment'
   import { page } from '$app/state'
-  import type { CommentSortType, CommentView, PostView } from '$lib/api/types'
+  import type {
+    PostView,
+    StrongRef,
+    ThreadViewComment,
+  } from '$lib/api/coves/types'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
   import CommentForm from '$lib/feature/comment/CommentForm.svelte'
   import CommentListVirtualizer from '$lib/feature/comment/CommentListVirtualizer.svelte'
-  import { buildCommentsTree } from '$lib/feature/comment/comments.svelte'
+  import {
+    buildCommentsTree,
+    insertCommentIntoTree,
+    createOptimisticCommentView,
+  } from '$lib/feature/comment/comments.svelte'
   import CommentTree from '$lib/feature/comment/CommentTree.svelte'
   import { postLink } from '$lib/feature/post'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
@@ -28,8 +35,8 @@
 
   interface Props {
     post: PostView
-    comments: CommentView[]
-    sort?: CommentSortType
+    comments: ThreadViewComment[]
+    sort?: string
     onupdate?: () => void
     focus?: string
     virtualize?: boolean
@@ -48,6 +55,8 @@
     singleThread,
   }: Props = $props()
   let commenting = $state(false)
+
+  const postRef: StrongRef = $derived({ uri: post.uri, cid: post.cid })
 
   let tree = $state(buildCommentsTree(comments))
   $effect(() => {
@@ -68,13 +77,7 @@
 {#if profile.current?.jwt}
   {#if !commenting}
     <EndPlaceholder border={false}>
-      <Button
-        color="primary"
-        rounding="xl"
-        disabled={(post.post.locked || post.banned_from_community) &&
-          !(profile.isAdmin || profile.isMod(post.community))}
-        onclick={() => (commenting = true)}
-      >
+      <Button color="primary" rounding="xl" onclick={() => (commenting = true)}>
         <Icon src={ChatBubbleOvalLeft} size="16" micro />
         {$t('routes.post.addComment')}
       </Button>
@@ -110,14 +113,20 @@
     </EndPlaceholder>
   {:else}
     <CommentForm
-      postId={post.post.id}
-      oncomment={(comment) => {
-        tree.unshift({
-          children: [],
-          depth: 1,
-          expanded: true,
-          comment_view: comment.comment_view,
-        })
+      {postRef}
+      oncomment={(output, content) => {
+        const cv = createOptimisticCommentView(
+          output,
+          content,
+          postRef,
+          postRef,
+          {
+            did: profile.current?.did ?? '',
+            handle: profile.current?.handle ?? '',
+            avatar: undefined,
+          },
+        )
+        insertCommentIntoTree(tree, cv, false)
       }}
       onfocus={() => (commenting = true)}
       tools={commenting}
@@ -161,7 +170,7 @@
 {#snippet allCommentsPlaceholder()}
   <EndPlaceholder alignment="center">
     {#snippet action()}
-      <Button href={postLink(post.post)} icon={PlusCircle} rounding="pill">
+      <Button href={postLink(post)} icon={PlusCircle} rounding="pill">
         {$t('routes.post.thread.allComments')}
       </Button>
     {/snippet}
@@ -177,27 +186,27 @@
     color="secondary"
     alignment="left"
     rounding="pill"
-    href={`/comment/${
-      // split first comment path to get 5 before
-      comments[0].comment.path.split('.').slice(-5)[1]
-    }`}
+    href={postLink(post)}
     class="mt-2 -mb-2 -mx-2.5 w-max"
   >
     <Icon src={PlusCircle} size="16" micro />
-    {$t('comment.more', {
-      comments: tree[0].comment_view.comment.path.split('.').length - 2,
-    })}
+    {$t('routes.post.thread.allComments')}
   </Button>
   <div
     class="border-l h-4 -mb-5 ml-2.5 border-slate-200 dark:border-zinc-800"
   ></div>
 {/if}
 {#if virtualize}
-  <CommentListVirtualizer post={post.post} nodes={tree} scrollTo={focus} />
+  <CommentListVirtualizer
+    {postRef}
+    postAuthorDid={post.author.did}
+    nodes={tree}
+    scrollTo={focus}
+  />
 {:else}
   <div class="divide-y divide-slate-200 dark:divide-zinc-800">
     <div class="-mx-3 sm:-mx-6 px-3 sm:px-6">
-      <CommentTree nodes={tree} post={post.post} />
+      <CommentTree nodes={tree} {postRef} postAuthorDid={post.author.did} />
     </div>
   </div>
 {/if}

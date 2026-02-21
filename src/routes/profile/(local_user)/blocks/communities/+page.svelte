@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): Needs Coves community block API
   import { client } from '$lib/api/client.svelte'
   import { t } from '$lib/app/i18n'
   import { communityLink } from '$lib/app/util.svelte.js'

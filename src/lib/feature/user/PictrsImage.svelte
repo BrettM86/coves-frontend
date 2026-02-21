@@ -1,7 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
-  import { client } from '$lib/api/client.svelte'
-  import type { LocalImage, Person } from '$lib/api/types'
+  import type { AuthorView } from '$lib/api/coves/types'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { instanceToURL } from '$lib/app/util.svelte'
@@ -12,28 +10,30 @@
   import { ArrowDownTray, Trash } from 'svelte-hero-icons/dist'
   import UserLink from './UserLink.svelte'
 
-  let loading = $state(false)
+  /**
+   * Local image data from the pictrs image hosting service.
+   * Defined locally since Coves does not use pictrs; this supports
+   * legacy admin/profile media pages until a Coves media API exists.
+   */
+  interface PictrsLocalImage {
+    pictrs_alias: string
+    pictrs_delete_token: string
+    published: string
+  }
 
-  async function deleteImage(image: LocalImage) {
+  // TODO(coves-migration): Replace with Coves media deletion API when available
+  async function deleteImage(_image: PictrsLocalImage) {
     if (!profile.current?.jwt) return
 
-    try {
-      loading = true
-      const res = await client().deleteImage({
-        token: image.pictrs_delete_token,
-        filename: image.pictrs_alias,
-      })
-
-      ondelete?.(res)
-    } catch (e) {
-      toast({ content: e as string, type: 'error' })
-    }
-    loading = false
+    toast({
+      content: 'Image deletion is not yet supported in Coves',
+      type: 'warning',
+    })
   }
 
   interface Props {
-    image: LocalImage
-    user?: Person
+    image: PictrsLocalImage
+    user?: AuthorView
     ondelete?: (res: boolean) => void
   }
 
@@ -43,14 +43,16 @@
 <div class="flex flex-col gap-1">
   {#snippet img()}
     <button
-      onclick={
-        () =>
-          showImage(`${instanceToURL(profile.current.instance)}/pictrs/image/${image.pictrs_alias}`)
-      }
-      class="cursor-pointer"  
+      onclick={() =>
+        showImage(
+          `${instanceToURL(profile.current.instance)}/pictrs/image/${image.pictrs_alias}`,
+        )}
+      class="cursor-pointer"
     >
       <img
-        src="{instanceToURL(profile.current.instance)}/pictrs/image/{image.pictrs_alias}"
+        src="{instanceToURL(
+          profile.current.instance,
+        )}/pictrs/image/{image.pictrs_alias}"
         width="500"
         height="500"
         class="aspect-square w-full h-full object-cover rounded-xl"
@@ -71,7 +73,9 @@
     />
     <Button
       title={$t('routes.profile.media.download')}
-      href="{instanceToURL(profile.current.instance)}/pictrs/image/{image.pictrs_alias}"
+      href="{instanceToURL(
+        profile.current.instance,
+      )}/pictrs/image/{image.pictrs_alias}"
       size="square-md"
       class="ml-auto"
       icon={ArrowDownTray}
@@ -98,8 +102,6 @@
         })
       }}
       size="square-md"
-      {loading}
-      disabled={loading}
       icon={Trash}
     />
   </div>

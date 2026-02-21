@@ -4,7 +4,7 @@
   import { setSessionStorage } from '$lib/app/session'
   import { communityDisplayName } from '$lib/feature/community/helpers'
   import CommunityHeader from '$lib/feature/community/CommunityHeader.svelte'
-  import { resumables } from '$lib/feature/legacy/item'
+  import { resumables } from '$lib/feature/legacy/item.svelte'
   import { PostListShell } from '$lib/ui/layout'
   import { onDestroy, onMount } from 'svelte'
 

@@ -93,8 +93,6 @@
     ></Button>
   {/if}
 
-  <!-- TODO: Re-enable ModerationMenu once it's migrated to Coves types -->
-
   {#if profile.current?.jwt}
     <Button
       onclick={async () => {

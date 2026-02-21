@@ -1,5 +1,6 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves registration application API
+  import { browser } from '$app/environment'
   import { client } from '$lib/api/client.svelte'
   import type {
     ApproveRegistrationApplication,
@@ -8,7 +9,7 @@
   import { profile } from '$lib/app/auth.svelte'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
-  import ApplicationDenyModal from '$lib/feature/moderation/ApplicationDenyModal.svelte'
+
   import UserLink from '$lib/feature/user/UserLink.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import { Button, ButtonGroup, Label, Material, toast } from 'mono-svelte'
@@ -29,13 +30,11 @@
 
   let approving = $state(false)
   let denying = $state(false)
-  let denyReason = $state('')
-  let reviewing = $state(false)
 
   async function review(approve: boolean) {
     if (!profile.current?.jwt) return
 
-    let registrationApplicationAnswer: ApproveRegistrationApplication = {
+    const registrationApplicationAnswer: ApproveRegistrationApplication = {
       approve: approve,
       id: application.registration_application.id,
     }
@@ -43,17 +42,12 @@
     if (approve) {
       approving = true
     } else {
-      reviewing = true
-      while (reviewing) {
-        await new Promise((res) => setTimeout(res, 1000))
-      }
-      if (!denying) {
-        denyReason = ''
-        return
-      }
-      if (denyReason != '') {
-        registrationApplicationAnswer.deny_reason = denyReason
-      }
+      // TODO(coves-migration): Replace confirm() with ApplicationDenyModal to restore deny reason functionality.
+      // The original code used ApplicationDenyModal which collected a deny_reason string.
+      // When the Coves registration API is available, re-implement with a proper modal.
+      if (!browser) return
+      if (!confirm($t('routes.admin.applications.deny') + '?')) return
+      denying = true
     }
 
     try {
@@ -68,7 +62,6 @@
       })
       application.creator_local_user.accepted_application = approve
       // TODO: Set admin from Coves user data
-      application.registration_application.deny_reason = denyReason
 
       // TODO: Re-enable notification tracking when Coves API provides it
     } catch (err) {
@@ -80,18 +73,9 @@
 
     approving = false
     denying = false
-    denyReason = ''
   }
 </script>
 
-{#if reviewing}
-  <ApplicationDenyModal
-    bind:open={reviewing}
-    bind:denying
-    bind:denyReason
-    user={application.creator}
-  />
-{/if}
 <div class="flex flex-col gap-2">
   <div class="flex flex-col gap-2">
     <span class="text-slate-600 dark:text-zinc-400 text-xs">
@@ -167,8 +151,8 @@
           : ''}"
         aria-label={$t('routes.admin.applications.deny')}
         onclick={() => review(false)}
-        loading={denying || reviewing}
-        disabled={approving || denying || reviewing}
+        loading={denying}
+        disabled={approving || denying}
         icon={XMark}
       ></Button>
       <Button
@@ -180,7 +164,7 @@
         title={$t('routes.admin.applications.approve')}
         onclick={() => review(true)}
         loading={approving}
-        disabled={approving || denying || reviewing}
+        disabled={approving || denying}
         icon={Check}
       ></Button>
     </ButtonGroup>

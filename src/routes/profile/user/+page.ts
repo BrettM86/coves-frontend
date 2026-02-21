@@ -1,9 +1,9 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck TODO(coves-migration): remove when route is migrated to Coves XRPC
+// @ts-nocheck TODO(coves-migration): Needs Coves user profile API
 import { client } from '$lib/api/client.svelte'
 import type { SortType } from '$lib/api/types'
 import { feed } from '$lib/feature/feeds/feed.svelte.js'
-import { getItemPublished } from '$lib/feature/legacy/item'
+import { getItemPublished } from '$lib/feature/legacy/item.svelte'
 
 export async function load({ url, fetch, parent, route }) {
   const page = Number(url.searchParams.get('page')) || 1

@@ -5,7 +5,7 @@
   import { t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
   import { MenuButton, toast } from 'mono-svelte'
-  import { ArrowTopRightOnSquare, Flag, Trash } from 'svelte-hero-icons/dist'
+  import { ArrowTopRightOnSquare, Trash } from 'svelte-hero-icons/dist'
 
   interface Props {
     post: PostView
@@ -63,8 +63,7 @@
       toast({ content: 'Reporting is not yet available', type: 'warning' })
     }}
     color="danger-subtle"
-    icon={Flag}
   >
-    {$t('moderation.report')}
+    Report
   </MenuButton>
 {/if}

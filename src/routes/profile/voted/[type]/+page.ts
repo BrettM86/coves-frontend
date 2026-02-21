@@ -1,6 +1,8 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck TODO(coves-migration): Needs Coves vote history API
 import { client } from '$lib/api/client.svelte'
 import { ReactiveState } from '$lib/app/util.svelte'
-import { getItemPublished } from '$lib/feature/legacy/item'
+import { getItemPublished } from '$lib/feature/legacy/item.svelte'
 import { error } from '@sveltejs/kit'
 
 export async function load({ url, params }) {

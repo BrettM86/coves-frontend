@@ -1,34 +1,45 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
   import { goto } from '$app/navigation'
-  import { page } from '$app/state'
-  import type { CommunityView } from '$lib/api/types'
+  import type {
+    CommunityView,
+    CommunityViewDetailed,
+  } from '$lib/api/coves/types'
+  import { parseAtUri } from '$lib/api/coves/types'
   import { t } from '$lib/app/i18n'
   import { getSessionStorage, setSessionStorage } from '$lib/app/session'
+  import { communitySlug } from '$lib/app/util.svelte'
   import PostForm from '$lib/feature/post/form/PostForm.svelte'
   import {
     PostFormState,
-    type PostFormInit,
+    type PostSubmitResult,
   } from '$lib/feature/post/form/post-form.svelte'
-  import { postLink } from '$lib/feature/post/helpers.js'
   import { onDestroy } from 'svelte'
 
   let community = getSessionStorage('lastSeenCommunity') as
     | CommunityView
+    | CommunityViewDetailed
     | undefined
 
   onDestroy(() => {
     setSessionStorage('lastSeenCommunity', undefined)
   })
 
-  let crosspost = $derived.by<PostFormInit>(() => {
-    const crosspostParam = page.url.searchParams.get('crosspost')
+  function navigateToPost(result: PostSubmitResult): void {
+    const slug = result.community.handle
+      ? communitySlug(result.community.handle)
+      : result.community.name
+
     try {
-      return crosspostParam ? JSON.parse(crosspostParam || '{}') : undefined
-    } catch {
-      return undefined
+      const { rkey } = parseAtUri(result.uri)
+      goto(`/c/${encodeURIComponent(slug)}/post/${encodeURIComponent(rkey)}`)
+    } catch (err) {
+      console.warn(
+        '[create/post] Failed to parse post URI, falling back to community page:',
+        err,
+      )
+      goto(`/c/${encodeURIComponent(slug)}`)
     }
-  })
+  }
 </script>
 
 <svelte:head>
@@ -36,12 +47,8 @@
 </svelte:head>
 
 <PostForm
-  init={crosspost
-    ? new PostFormState(crosspost)
-    : community
-      ? new PostFormState({ community: community?.community })
-      : undefined}
-  onsubmit={(post) => goto(postLink(post.post))}
+  init={community ? new PostFormState({ community }) : undefined}
+  onsubmit={navigateToPost}
 >
   {#snippet title()}{/snippet}
 </PostForm>

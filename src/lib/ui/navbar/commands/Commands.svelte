@@ -6,7 +6,7 @@
   import { t } from '$lib/app/i18n'
   import { theme } from '$lib/app/theme/theme.svelte'
   import { fuzzySearch } from '$lib/app/util.svelte'
-  import { resumables } from '$lib/feature/legacy/item'
+  import { resumables } from '$lib/feature/legacy/item.svelte'
   import { CommonList } from '$lib/ui/layout'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { TextInput } from 'mono-svelte'
@@ -29,7 +29,7 @@
 
   $effect(() => {
     groups = getGroups(
-      $resumables,
+      resumables.items,
       profile.current,
       profile.meta.profiles,
       theme.data,

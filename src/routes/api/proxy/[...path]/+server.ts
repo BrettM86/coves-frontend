@@ -54,7 +54,7 @@ import { DEFAULT_INSTANCE_URL } from '$lib/app/instance.svelte'
  * 4. Backslash - Windows separator that could bypass Unix-style checks
  * 5. Encoded separators - %2F (/), %5C (\) that could bypass validation
  */
-export function validateProxyPath(path: string): string | null {
+function validateProxyPath(path: string): string | null {
   // Check for null bytes (can be used to bypass filters)
   if (path.includes('\x00')) {
     return 'Invalid path: null bytes not allowed'
@@ -144,7 +144,10 @@ async function handler({
     )
   }
   // Remove trailing slash from baseUrl if present to avoid double slashes
-  const targetUrl = `${baseUrl.replace(/\/$/, '')}/${path}`
+  // Preserve query parameters from the original request
+  const requestUrl = new URL(request.url)
+  const queryString = requestUrl.search
+  const targetUrl = `${baseUrl.replace(/\/$/, '')}/${path}${queryString}`
 
   // Build headers for upstream request
   const headers = new Headers(request.headers)

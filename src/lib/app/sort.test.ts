@@ -56,6 +56,13 @@ describe('mapSort', () => {
       })
     })
 
+    it('maps "TopYear" to top with timeframe all', () => {
+      expect(mapSort('TopYear')).toEqual({
+        sort: 'top',
+        timeframe: 'all',
+      })
+    })
+
     it.each(['TopHour', 'TopSixHour', 'TopTwelveHour'])(
       'maps "%s" to top with timeframe day',
       (input) => {

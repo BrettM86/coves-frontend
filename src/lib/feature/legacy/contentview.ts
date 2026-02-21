@@ -1,149 +1,110 @@
-import { getClient } from '$lib/api/client.svelte'
 import type {
-  Comment,
+  AtUri,
+  AuthorView,
   CommentView,
-  Person,
-  Post,
   PostView,
-} from '$lib/api/types'
-import { isCommentView } from './item'
+} from '$lib/api/coves/types'
+import { coves } from '$lib/api/client.svelte'
+import { toast } from 'mono-svelte'
+import { isCommentView } from './item.svelte'
 
 export type SubmissionView = PostView | CommentView
-export type Submission = Post | Comment
 
 export interface ContentView {
   type: 'post' | 'comment'
   title?: string
   body: string
-  creator?: Person
-  id: number
+  creator?: AuthorView
+  uri: AtUri
 }
 
 const isSubmissionView = (
   item: SubmissionView | ContentView,
 ): item is SubmissionView => !('type' in item)
 
-const isSubmission = (item: Submission | ContentView): item is Submission =>
-  !('type' in item)
-
 export const contentView = (item: SubmissionView): ContentView => {
   if (isCommentView(item))
     return {
       type: 'comment',
-      body: item.comment.content,
-      creator: item.creator,
-      id: item.comment.id,
+      body: item.record.content,
+      creator: item.author,
+      uri: item.uri,
     }
   else
     return {
       type: 'post',
-      body: item.post.body ?? item.post.name,
-      title: item.post.name,
-      creator: item.creator,
-      id: item.post.id,
+      body: item.record?.content ?? item.record?.title ?? '',
+      title: item.record?.title,
+      creator: item.author,
+      uri: item.uri,
     }
 }
 
-export const contentItem = (item: Submission): ContentView => {
-  if ('content' in item)
-    return {
-      type: 'comment',
-      body: item.content,
-      id: item.id,
-    }
-  else
-    return {
-      type: 'post',
-      body: item.body ?? item.name,
-      title: item.name,
-      id: item.id,
-    }
-}
-
+/**
+ * @deprecated No Coves API for saving items yet.
+ * Returns false to indicate the save did not occur, not the item's saved state.
+ */
 export async function save(
-  item: ContentView | SubmissionView,
-  save: boolean,
+  _item: ContentView | SubmissionView,
+  _save: boolean,
 ): Promise<boolean> {
-  if (isSubmissionView(item)) item = contentView(item)
-
-  if (item.type == 'post') {
-    return (
-      await getClient().savePost({
-        post_id: item.id,
-        save: save,
-      })
-    ).post_view.saved
-  } else if (item.type == 'comment') {
-    return (
-      await getClient().saveComment({
-        comment_id: item.id,
-        save: save,
-      })
-    ).comment_view.saved
-  }
-  return save
+  toast({
+    content: 'Saving items is not yet available',
+    type: 'warning',
+  })
+  return false
 }
 
 export async function deleteItem(
   item: ContentView | SubmissionView,
-  deleted: boolean,
+  deleted: boolean = true,
 ): Promise<boolean> {
-  if (isSubmissionView(item)) item = contentView(item)
-
-  if (item.type == 'post') {
-    return (
-      await getClient().deletePost({
-        post_id: item.id,
-        deleted: deleted,
-      })
-    ).post_view.post.deleted
-  } else if (item.type == 'comment') {
-    return (
-      await getClient().deleteComment({
-        comment_id: item.id,
-        deleted: deleted,
-      })
-    ).comment_view.comment.deleted
-  }
-  return deleted
-}
-
-export async function vote(
-  item: ContentView | Submission,
-  vote: number,
-): Promise<{ upvotes: number; downvotes: number; score: number }> {
-  if (isSubmission(item)) item = contentItem(item)
-
-  if (item.type == 'post') {
-    return (
-      await getClient().likePost({
-        post_id: item.id,
-        score: vote,
-      })
-    ).post_view.counts
-  } else if (item.type == 'comment') {
-    return (
-      await getClient().likeComment({
-        comment_id: item.id,
-        score: vote,
-      })
-    ).comment_view.counts
-  }
-  return { upvotes: 0, downvotes: 0, score: 0 }
-}
-
-export async function markAsRead(
-  item: ContentView | Submission,
-  read: boolean,
-): Promise<boolean> {
-  if (isSubmission(item)) item = contentItem(item)
-
-  if (item.type == 'post') {
-    getClient().markPostAsRead({
-      post_ids: [item.id],
-      read: read,
+  if (!deleted) {
+    console.warn('[contentview] Un-delete is not supported in the Coves API')
+    toast({
+      content: 'Restoring deleted items is not yet supported',
+      type: 'warning',
     })
-    return read
+    return false
   }
+
+  try {
+    const resolved = isSubmissionView(item) ? contentView(item) : item
+
+    if (resolved.type === 'post') {
+      await coves().deletePost({ uri: resolved.uri })
+      return true
+    } else if (resolved.type === 'comment') {
+      await coves().deleteComment({ uri: resolved.uri })
+      return true
+    }
+    console.warn(
+      '[contentview] deleteItem: unrecognized content type',
+      resolved.type,
+    )
+    toast({ content: 'Cannot delete this type of content', type: 'warning' })
+    return false
+  } catch (err) {
+    console.error('[contentview] deleteItem failed:', err)
+    toast({
+      content: 'Failed to delete item',
+      type: 'error',
+    })
+    return false
+  }
+}
+
+/**
+ * @deprecated No Coves API for marking posts as read.
+ * Returns false to indicate the operation did not occur, not the item's read state.
+ */
+export async function markAsRead(
+  _item: ContentView | SubmissionView,
+  _read: boolean,
+): Promise<boolean> {
+  toast({
+    content: 'Marking as read is not yet available',
+    type: 'warning',
+  })
   return false
 }

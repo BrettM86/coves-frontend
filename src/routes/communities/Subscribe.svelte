@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): Needs Coves community subscription API
   import { getClient } from '$lib/api/client.svelte'
   import type {
     CommunityResponse,

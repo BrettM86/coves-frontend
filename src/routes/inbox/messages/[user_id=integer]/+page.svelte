@@ -1,5 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves direct messaging API
   import { browser } from '$app/environment'
   import { client } from '$lib/api/client.svelte'
   import type { PrivateMessageResponse } from '$lib/api/types'
@@ -7,7 +7,7 @@
   import { t } from '$lib/app/i18n'
   import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
   import { settings } from '$lib/app/settings.svelte'
-  import { report } from '$lib/feature/moderation/moderation'
+
   import UserLink from '$lib/feature/user/UserLink.svelte'
   import { Header } from '$lib/ui/layout'
   import { publishedToDate } from '$lib/ui/util/date'
@@ -215,7 +215,6 @@
         >
           <Message
             ondelete={() => deleteMessage(private_message.private_message.id)}
-            onreport={() => report(private_message)}
             message={private_message}
             primary={private_message.creator.id !=
               data.creator.value.person_view.person.id}

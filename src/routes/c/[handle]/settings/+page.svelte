@@ -1,5 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves community settings API
   import CommunityForm from '$lib/feature/community/CommunityForm.svelte'
   import CommunityTitle from '$lib/feature/community/CommunityTitle.svelte'
   import { Header } from '$lib/ui/layout'

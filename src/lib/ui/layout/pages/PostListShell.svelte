@@ -2,7 +2,6 @@
   import { browser } from '$app/environment'
   import { page } from '$app/state'
   import type { FeedPaginationParams, FeedViewPost } from '$lib/api/coves/types'
-  import type { SortType } from '$lib/api/types'
   import { settings } from '$lib/app/settings.svelte'
   import Sort from '$lib/feature/filter/Sort.svelte'
   import ViewSelect from '$lib/feature/filter/ViewSelect.svelte'
@@ -36,7 +35,7 @@
   }: Props = $props()
 
   $effect(() => {
-    if (filters.sort) settings.defaultSort.sort = filters.sort as SortType
+    if (filters.sort) settings.defaultSort.sort = filters.sort
   })
 
   let filters = $state({

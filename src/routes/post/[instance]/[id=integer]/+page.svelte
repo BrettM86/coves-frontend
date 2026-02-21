@@ -1,12 +1,12 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves post detail API (legacy route format)
   import { page } from '$app/state'
   import { client } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { settings } from '$lib/app/settings.svelte'
-  import { resumables } from '$lib/feature/legacy/item'
+  import { resumables } from '$lib/feature/legacy/item.svelte'
   import {
     mediaType,
     parseTags,

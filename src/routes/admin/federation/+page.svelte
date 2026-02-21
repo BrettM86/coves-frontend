@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): Needs Coves admin federation API
   import { client, getClient } from '$lib/api/client.svelte'
   import type { Instance } from '$lib/api/types'
   import { profile } from '$lib/app/auth.svelte'

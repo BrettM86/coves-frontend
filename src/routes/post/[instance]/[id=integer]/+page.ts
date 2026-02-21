@@ -1,5 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck TODO(coves-migration): remove when route is migrated to Coves XRPC
+// @ts-nocheck TODO(coves-migration): Needs Coves post detail API (legacy route format)
 import { resolveRoute } from '$app/paths'
 import { client } from '$lib/api/client.svelte'
 import { profile } from '$lib/app/auth.svelte'

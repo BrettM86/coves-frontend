@@ -1,15 +1,10 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves community moderation API
   import { t } from '$lib/app/i18n'
   import CommunityHeader from '$lib/feature/community/CommunityHeader.svelte'
-  import { ban } from '$lib/feature/moderation/moderation'
-  import UserAutocomplete from '$lib/feature/user/UserAutocomplete.svelte'
-  import Switch from '$lib/ui/form/Switch.svelte'
   import { Header } from '$lib/ui/layout'
   import { Button, Expandable, Material, Spinner } from 'mono-svelte'
   import ModlogItemCard from '../../../modlog/item/ModlogItemCard.svelte'
-
-  let banFromCommunity = $state(false)
 
   let { data } = $props()
 </script>
@@ -60,26 +55,5 @@
       {/await}
     </Material>
   </Expandable>
-  <Expandable>
-    {#snippet title()}
-      <div>
-        {$t('moderation.ban.banFromCommunity')}
-      </div>
-    {/snippet}
-    <div class="flex flex-col gap-4">
-      <Switch
-        options={[false, true]}
-        optionNames={[
-          $t('routes.moderation.manage.ban'),
-          $t('routes.moderation.manage.unban'),
-        ]}
-        bind:selected={banFromCommunity}
-      />
-      <UserAutocomplete
-        onselect={(p) =>
-          p && ban(banFromCommunity, p, data.community.community_view.community)}
-        listing_type="All"
-      />
-    </div>
-  </Expandable>
+  <!-- TODO(coves-migration): Re-enable ban from community when moderation API is available -->
 </div>

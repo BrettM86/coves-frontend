@@ -1,8 +1,9 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck TODO(coves-migration): Needs Coves search API
 import { client, getClient } from '$lib/api/client.svelte'
-import type { ListingType, SearchType, SortType } from '$lib/api/types'
 import { profile } from '$lib/app/auth.svelte'
 import { ReactiveState } from '$lib/app/util.svelte'
-import { getItemPublished } from '$lib/feature/legacy/item'
+import { getItemPublished } from '$lib/feature/legacy/item.svelte'
 
 export async function load({ url, fetch }) {
   const query = url.searchParams.get('q')

@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): Needs Coves registration/signup API
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import type { ClientType } from '$lib/api/base.js'

@@ -1,4 +1,5 @@
 <script lang="ts">
+  // @ts-nocheck TODO(coves-migration): Needs Coves admin taglines API
   import { getClient } from '$lib/api/client.svelte'
   import type { Tagline } from '$lib/api/types'
   import { profile } from '$lib/app/auth.svelte'

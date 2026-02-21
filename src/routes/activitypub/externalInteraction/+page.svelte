@@ -1,5 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves remote object resolution API
   import type { ResolveObjectResponse } from '$lib/api/types'
   import { t } from '$lib/app/i18n'
   import CommentItem from '$lib/feature/comment/CommentItem.svelte'

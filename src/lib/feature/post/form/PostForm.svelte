@@ -1,131 +1,48 @@
 <script lang="ts">
-  import { site } from '$lib/api/client.svelte'
-  import type { PostView } from '$lib/api/types'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
-  import { settings } from '$lib/app/settings.svelte'
   import { placeholders } from '$lib/app/util.svelte'
-  import Duration from '$lib/ui/form/Duration.svelte'
   import FreeTextInput from '$lib/ui/form/FreeTextInput.svelte'
   import ImageInputModal from '$lib/ui/form/ImageInputModal.svelte'
   import ObjectAutocomplete from '$lib/ui/form/ObjectAutocomplete.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import ErrorContainer, { pushError } from '$lib/ui/info/ErrorContainer.svelte'
-  import { CommonList, Header } from '$lib/ui/layout'
-  import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
-  import { publishedToDate } from '$lib/ui/util/date'
+  import { Header } from '$lib/ui/layout'
   import {
     Button,
     ButtonGroup,
     Label,
-    Material,
     modal,
-    Option,
-    Select,
-    Spinner,
     Switch,
     TextArea,
     TextInput,
-    TextLoader,
   } from 'mono-svelte'
   import type { Snippet } from 'svelte'
   import {
     ChatBubbleBottomCenterText,
-    Icon,
-    Language,
     Photo,
-    Plus,
     QrCode,
-    Sparkles,
-    Trash,
-    XMark,
   } from 'svelte-hero-icons/dist'
-  import { autofillPost, PostFormState } from './post-form.svelte'
+  import { PostFormState, type PostSubmitResult } from './post-form.svelte'
 
   interface Props {
-    editPost?: number
     init?: PostFormState
     title?: Snippet
-    onsubmit?: (post: PostView) => void
+    onsubmit?: (result: PostSubmitResult) => void
   }
 
-  let { editPost, init, title, onsubmit }: Props = $props()
+  let { init, title, onsubmit }: Props = $props()
 
-  let form = $state<PostFormState>(
-    init ?? new PostFormState({ type: 'normal' }),
-  )
-
-  // TODO: Re-enable extended community data when Coves API supports it
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let _extendedCommunity:
-    | Promise<{
-        community_view: {
-          flair_list?: Array<{
-            id: number
-            flair_title: string
-            background_color: string
-            text_color: string
-            community_id: number
-            blur_images: boolean
-            ap_id: string
-          }>
-        }
-      } | null>
-    | undefined = $derived.by(() => {
-    // Legacy PieFed code - disabled for Coves migration
-    return undefined
-  })
+  let form = $state<PostFormState>(init ?? new PostFormState())
 
   let loading = $state<boolean>(false)
   let uploadImage = $state(false)
   let customThumbnail = $state(false)
 
-  async function autofill(
-    data: URL | { title?: string; body?: string },
-  ): Promise<{ title?: string; body?: string }> {
-    if (data instanceof URL) {
-      const res = await autofillPost(data)
-
-      if (settings.forms.autosubmitAutofill) {
-        autofill({
-          title: res.title,
-          body: res.body,
-        })
-        history?.back?.()
-      }
-
-      return res
-    } else {
-      form.title = data.title || form.title
-      form.body =
-        data.body
-          ?.split('\n')
-          .map((i) => `> ${i}`)
-          .join('\n') || form.body
-
-      return {
-        title: form.title,
-        body: form.body,
-      }
-    }
-  }
+  // autofillPost was removed as it depends on the Lemmy getSiteMetadata API.
+  // TODO(coves-migration): re-enable when a Coves equivalent is available.
 </script>
-
-<!-- TODO: Re-enable post type selection when Coves API supports polls/events -->
-<!--
-<div class="mb-3">
-  <MultiSelect
-    options={['normal', 'poll']}
-    optionNames={[
-      $t('form.post.types.normal'),
-      $t('form.post.types.poll'),
-      $t('form.post.types.event'),
-    ]}
-    bind:selected={form.type}
-  />
-</div>
--->
 
 {#if uploadImage}
   <ImageInputModal
@@ -145,61 +62,25 @@
   <TextArea bind:value={form.altText} />
 {/snippet}
 
-<!-- TODO: Re-enable flairs snippet when Coves API supports it -->
-
-{#snippet autofillPostModal()}
-  <svelte:boundary>
-    {#if form.url}
-      {#await autofill(new URL(form.url))}
-        <div class="w-full h-48 grid place-items-center">
-          <TextLoader>
-            {$t('form.post.fetching')}
-          </TextLoader>
-        </div>
-        <Button size="lg" color="secondary" onclick={history.back}>
-          {$t('common.cancel')}
-        </Button>
-      {:then url}
-        {#if !url}
-          <!--cursed svelte template abuse. don't do this lads-->
-          {history.back()}
-        {/if}
-        <Material color="info" class="space-y-2 h-48">
-          <h2 class="text-xl font-display font-medium">{url.title}</h2>
-          <p class="overflow-hidden text-ellipsis">{url.body ?? '...'}</p>
-        </Material>
-        <Button
-          size="lg"
-          color="primary"
-          onclick={() => {
-            autofill({ title: url.title, body: url.body })
-            history.back()
-          }}
-        >
-          {$t('form.submit')}
-        </Button>
-      {:catch err}
-        <ErrorContainer scope="-1" message={err} />
-      {/await}
-      <Switch class="mt-4" bind:checked={settings.forms.autosubmitAutofill}>
-        {$t('form.post.autosubmit')}
-      </Switch>
-    {/if}
-  </svelte:boundary>
-{/snippet}
-
 <form
   onsubmit={(e) => {
     e.preventDefault()
     loading = true
 
     form
-      .submit(editPost)
-      .then(onsubmit)
+      .submit()
+      .then((result) => {
+        onsubmit?.(result)
+      })
       .catch((err: unknown) =>
-        pushError({ message: errorMessage(err as string), scope: 'post-form' }),
+        pushError({
+          message: errorMessage(
+            err instanceof Error ? err.message : String(err),
+          ),
+          scope: 'post-form',
+        }),
       )
-      .then(() => (loading = false))
+      .finally(() => (loading = false))
   }}
   class="flex flex-col gap-4 h-full"
 >
@@ -207,46 +88,43 @@
     {@render title()}
   {:else}
     <Header class="font-bold text-xl">
-      {editPost ? $t('form.post.edit') : $t('form.post.create')}
+      {$t('form.post.create')}
     </Header>
   {/if}
   <ErrorContainer scope="post-form" />
-  {#if !editPost}
-    {#if !form.community}
-      <ObjectAutocomplete
-        listing_type="All"
-        label={$t('form.post.community')}
-        onselect={(i) => {
-          form.community = i.community
-        }}
-        required
-      />
-    {:else}
-      <div class="flex flex-col gap-1">
-        <Label>{$t('form.post.community')}</Label>
-        <Button
-          class="w-full"
-          onclick={() => (form.community = undefined)}
-          alignment="left"
-          size="sm"
-          rounding="xl"
-        >
-          {#snippet prefix()}
-            <Avatar
-              url={form.community?.icon}
-              alt={form.community?.name}
-              width={24}
-            />
-          {/snippet}
-          <div class="flex flex-col gap-0">
-            <span class="text-sm">{form.community.name}</span>
-            <span class="text-[10px] leading-3">
-              {new URL(form.community?.actor_id).hostname}
-            </span>
-          </div>
-        </Button>
-      </div>
-    {/if}
+  {#if !form.community}
+    <ObjectAutocomplete
+      label={$t('form.post.community')}
+      onselect={(c) => {
+        form.community = c
+      }}
+      required
+    />
+  {:else}
+    <div class="flex flex-col gap-1">
+      <Label>{$t('form.post.community')}</Label>
+      <Button
+        class="w-full"
+        onclick={() => (form.community = undefined)}
+        alignment="left"
+        size="sm"
+        rounding="xl"
+      >
+        {#snippet prefix()}
+          <Avatar
+            url={form.community?.avatar}
+            alt={form.community?.name}
+            width={24}
+          />
+        {/snippet}
+        <div class="flex flex-col gap-0">
+          <span class="text-sm">{form.community.name}</span>
+          <span class="text-[10px] leading-3">
+            {form.community.handle ?? form.community.did}
+          </span>
+        </div>
+      </Button>
+    </div>
   {/if}
 
   <FreeTextInput
@@ -263,116 +141,11 @@
     previewButton
   />
 
-  {#if form.type == 'normal'}
-    <TextInput
-      label={$t('form.post.url')}
-      bind:value={form.url}
-      placeholder={placeholders.get('url')}
-    >
-      {#snippet suffix()}
-        <Button
-          color="none"
-          rounding="none"
-          class="h-full border-l border-slate-200 dark:border-zinc-800 aspect-square hover:bg-slate-50 hover:dark:bg-zinc-900 rounded-[inherit]"
-          size="custom"
-          disabled={!form.url || !URL.canParse(form.url)}
-          icon={Sparkles}
-          aria-label={$t('form.post.generateTitle')}
-          onclick={() =>
-            modal({
-              title: $t('form.post.generateTitle'),
-              snippet: autofillPostModal,
-              actions: [],
-            })}
-        />
-      {/snippet}
-    </TextInput>
-  {/if}
-
-  {#if form.type == 'poll' && form.poll}
-    <div>
-      <Label>{$t('post.poll.choices')}</Label>
-      <CommonList>
-        <!--eslint-disable-next-line @typescript-eslint/no-unused-vars-->
-        {#each form.poll.choices as _, index}
-          <li class="px-4 py-1 flex flex-row items-center xs">
-            <div class="p-0! font-medium flex-1">
-              <FreeTextInput
-                bind:value={form.poll.choices[index].choice_text}
-                class="w-full"
-              />
-            </div>
-            <div>
-              <Button
-                onclick={() => form.poll?.choices.splice(index, 1)}
-                size="square-md"
-                aria-label={$t('post.actions.more.delete')}
-              >
-                <Icon src={Trash} size="16" mini />
-              </Button>
-            </div>
-          </li>
-        {/each}
-        <li class="xs">
-          <button
-            onclick={() =>
-              form.poll?.choices.push({
-                choice_text: `Option ${form.poll?.choices.length + 1}`,
-                id:
-                  Math.max(
-                    ...form.poll.choices.map((i: { id: number }) => i.id),
-                  ) + 1,
-                num_votes: 0,
-                sort_order: 2,
-              })}
-            type="button"
-            class="font-medium w-full px-4 py-2! flex flex-row items-center gap-1 justify-center cursor-pointer"
-          >
-            <Icon src={Plus} size="16" micro />
-            {$t('common.add')}
-          </button>
-        </li>
-      </CommonList>
-    </div>
-
-    <EndPlaceholder margin="bottom-lg">
-      <Select label={$t('post.poll.mode')} bind:value={form.poll!.mode}>
-        <Option value="single">
-          {$t('post.poll.single')}
-        </Option>
-        <Option value="multiple">
-          {$t('post.poll.multiple')}
-        </Option>
-      </Select>
-      {#snippet action()}
-        {#if !editPost}
-          <Duration
-            bind:value={
-              () => {
-                return form.poll?.end_poll
-                  ? Math.floor(
-                      Date.now() -
-                        publishedToDate(form.poll?.end_poll).getTime(),
-                    )
-                  : Date.now() + 24 * 60 * 60
-              },
-              (v) => {
-                if (v <= 0) form.poll!.end_poll = undefined
-                else
-                  form.poll!.end_poll = new Date(
-                    Date.now() + v * 1000,
-                  ).toISOString()
-              }
-            }
-          />
-        {/if}
-      {/snippet}
-    </EndPlaceholder>
-
-    {#if settings.debugInfo}
-      {form.poll?.end_poll}
-    {/if}
-  {/if}
+  <TextInput
+    label={$t('form.post.url')}
+    bind:value={form.url}
+    placeholder={placeholders.get('url')}
+  />
 
   <div class="flex flex-row overflow-auto gap-2 -mx-3 px-3 relative">
     <div
@@ -385,90 +158,39 @@
       orientation="horizontal"
       class="flex flex-row *:flex-shrink-0 w-full"
     >
-      {#if form.type == 'normal'}
+      <Button
+        onclick={() => {
+          uploadImage = !uploadImage
+        }}
+        icon={Photo}
+      >
+        {$t('form.post.uploadImage')}
+      </Button>
+      {#if form.url && URL.canParse(form.url)}
         <Button
-          onclick={() => {
-            uploadImage = !uploadImage
-          }}
-          icon={Photo}
+          class="animate-pop-in"
+          color={(form.altText ?? '') != '' ? 'primary' : 'secondary'}
+          onclick={() =>
+            modal({ title: $t('form.post.altText'), snippet: altText })}
+          icon={ChatBubbleBottomCenterText}
         >
-          {$t('form.post.uploadImage')}
-        </Button>
-        {#if form.url && URL.canParse(form.url)}
-          <Button
-            class="animate-pop-in"
-            color={(form.altText ?? '') != '' ? 'primary' : 'secondary'}
-            onclick={() =>
-              modal({ title: $t('form.post.altText'), snippet: altText })}
-            icon={ChatBubbleBottomCenterText}
-          >
-            {$t('form.post.altText')}
-          </Button>
-        {/if}
-        {#if form.url}
-          <Button
-            class="animate-pop-in"
-            onclick={() => {
-              customThumbnail = !customThumbnail
-            }}
-            color={form.thumbnail ? 'primary' : 'secondary'}
-            icon={QrCode}
-          >
-            {$t('form.post.customThumbnail')}
-          </Button>
-        {/if}
-      {/if}
-      {#if form.language === undefined}
-        <Button onclick={() => (form.language = '')} icon={Language}>
-          {$t('form.post.setLanguage')}
+          {$t('form.post.altText')}
         </Button>
       {/if}
-      <!-- TODO: Re-enable flair button when Coves API supports community flairs -->
-      <!--
-      {#await extendedCommunity then communityView}
-        {#if (communityView?.community_view.flair_list?.length || 0) > 0}
-          <Button
-            color={form.flairList.length > 0 ? 'primary' : 'secondary'}
-            class="animate-pop-in"
-            onclick={() =>
-              modal({ title: $t('form.post.flair'), snippet: flairs })}
-            icon={Tag}
-          >
-            {$t('form.post.flair')}
-          </Button>
-        {/if}
-      {/await}
-      -->
+      {#if form.url}
+        <Button
+          class="animate-pop-in"
+          onclick={() => {
+            customThumbnail = !customThumbnail
+          }}
+          color={form.thumbnail ? 'primary' : 'secondary'}
+          icon={QrCode}
+        >
+          {$t('form.post.customThumbnail')}
+        </Button>
+      {/if}
     </ButtonGroup>
   </div>
-
-  {#if form.language !== undefined}
-    {#if site.data}
-      <Select
-        class="w-max"
-        label={$t('settings.app.lang.title')}
-        bind:value={
-          () => form.language,
-          (v) => {
-            if (v == '') form.language = undefined
-            else form.language = v
-          }
-        }
-      >
-        <Option value="">
-          <Icon src={XMark} size="16" micro />
-          {$t('form.post.unset')}
-        </Option>
-        {#each site.data?.all_languages as language}
-          <Option value={language.id.toString()}>{language.name}</Option>
-        {/each}
-      </Select>
-    {:else}
-      <div style="height: 58px;">
-        <Spinner width={24} />
-      </div>
-    {/if}
-  {/if}
 
   <Switch bind:checked={form.nsfw}>{$t('form.post.nsfw')}</Switch>
 

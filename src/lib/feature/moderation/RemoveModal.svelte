@@ -1,5 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves content removal API
   import { getClient } from '$lib/api/client.svelte'
   import type { CommentView, PostView } from '$lib/api/types'
   import { profile } from '$lib/app/auth.svelte'
@@ -13,9 +13,9 @@
   import { Fire, Trash } from 'svelte-hero-icons/dist'
   import { preventDefault, run } from 'svelte/legacy'
   import Comment from '../comment/Comment.svelte'
-  import { isCommentView, isPostView } from '../legacy/item'
+  import { isCommentView, isPostView } from '../legacy/item.svelte'
   import { Post } from '../post'
-  import { removalTemplate } from './moderation'
+  import { removalTemplate } from './moderation.svelte'
 
   interface Props {
     open: boolean

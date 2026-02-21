@@ -1,5 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves modlog API
   import CommunityLink from '$lib/feature/community/CommunityLink.svelte'
   import UserLink from '$lib/feature/user/UserLink.svelte'
   import Link from '$lib/ui/form/Link.svelte'

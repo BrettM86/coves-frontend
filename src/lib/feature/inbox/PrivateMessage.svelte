@@ -1,5 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when file is migrated to Coves XRPC
+  // @ts-nocheck TODO(coves-migration): Needs Coves direct messaging API
   import type { PrivateMessageView } from '$lib/api/types'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import UserLink from '../user/UserLink.svelte'

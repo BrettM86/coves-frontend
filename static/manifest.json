@@ -47,7 +47,7 @@
     },
     {
       "name": "Profile",
-      "url": "/profile/user"
+      "url": "/profile"
     }
   ],
   "share_target": {

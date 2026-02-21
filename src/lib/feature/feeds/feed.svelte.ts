@@ -15,7 +15,7 @@ import { profile } from '$lib/app/auth.svelte'
 import { recursiveEqual } from '$lib/app/util.svelte'
 import { SvelteMap } from 'svelte/reactivity'
 
-// TODO(coves-migration): Remove this stub once legacy routes (/f/[id], /topic/[id], /profile/user)
+// TODO(coves-migration): Remove this stub once legacy routes (/f/[id], /topic/[id])
 // are migrated to Coves API. It exists only to keep FeedTypes typings for unmigrated routes.
 /** Placeholder for legacy Lemmy types in unmigrated routes. */
 type LegacyRecord = Record<string, unknown>
@@ -82,7 +82,7 @@ export interface FeedTypes {
       params: FeedPaginationParams & { community: string; cursor?: string }
     },
   ]
-  '/u/[handle]': [
+  '/profile/[handle=handle]': [
     { actor: string; limit?: number; cursor?: string; sort?: string },
     {
       profile: ProfileViewDetailed
@@ -154,8 +154,6 @@ export interface FeedTypes {
       }
     },
   ]
-  // TODO(coves-migration): convert to Coves types — legacy Lemmy profile route
-  '/profile/user': [LegacyRecord, LegacyRecord]
 }
 
 export const feeds = new SvelteMap<keyof FeedTypes, Feed<unknown, unknown>>()

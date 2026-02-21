@@ -52,7 +52,9 @@
     <!-- TODO: Re-enable inbox notifications when Coves API provides them -->
     <SidebarButton
       icon={UserCircle}
-      href="/profile"
+      href={profile.current.type === 'authenticated'
+        ? `/profile/${encodeURIComponent(profile.current.handle)}`
+        : '/login'}
       label={$t('profile.profile')}
     />
     <SidebarButton icon={Inbox} href="/inbox" label={$t('profile.inbox')} />

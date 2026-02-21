@@ -8,10 +8,20 @@
 
   let { data } = $props()
 
+  // TODO(coves-migration): Needs Coves instance block API — my_user is undefined during migration
+  // Cast required because my_user is typed as undefined until Coves API provides instance blocks
+  type InstanceBlock = {
+    instance: { id: number; domain: string }
+    site?: { name?: string; icon?: string }
+  }
+  type MyUser = { instance_blocks?: InstanceBlock[] }
+  const myUser = $derived(data.my_user as unknown as MyUser | undefined)
+  const instanceBlocks = $derived(myUser?.instance_blocks)
+
   async function unblock(id: number) {
-    if (!data.my_user?.instance_blocks) return
-    data.my_user?.instance_blocks.splice(
-      data.my_user?.instance_blocks.findIndex((i) => i.instance.id == id),
+    if (!instanceBlocks) return
+    instanceBlocks.splice(
+      instanceBlocks.findIndex((i) => i.instance.id == id),
       1,
     )
 
@@ -22,9 +32,9 @@
   }
 </script>
 
-{#if data.my_user?.instance_blocks && data.my_user?.instance_blocks?.length > 0}
+{#if instanceBlocks && instanceBlocks.length > 0}
   <ItemList
-    items={data.my_user?.instance_blocks.map((i) => ({
+    items={instanceBlocks.map((i) => ({
       id: i.instance.id,
       name: i.site?.name ?? i.instance.domain,
       avatar: i.site?.icon,

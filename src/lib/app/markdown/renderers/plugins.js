@@ -82,7 +82,7 @@ export const linkify = markedLinkifyIt(
         let prefix = match.url
         prefix = prefix.startsWith('u/') ? prefix.slice(2) : prefix.slice(1)
 
-        match.url = `/u/${prefix}`
+        match.url = `/profile/${prefix}`
       },
     },
   },
@@ -102,7 +102,7 @@ const regexes = {
 export { regexes as CONTENT_REGEXES }
 
 /**
- * Convert links to photon links
+ * Convert links to local app links
  */
 export const photonify = (link) => {
   if (regexes.community.test(link)) {
@@ -128,15 +128,15 @@ export const photonify = (link) => {
     if (!match) return
 
     // Same as above for the community.
-    if (match?.[3].includes('@')) return `/u/${match?.[3]}`
-    else return `/u/${match?.[3]}@${match?.[1]}`
+    if (match?.[3].includes('@')) return `/profile/${match?.[3]}`
+    else return `/profile/${match?.[3]}@${match?.[1]}`
   }
   // Support implicit user syntax (no preceding @), by messing with mailto links.
   if (regexes.implicitUser.test(link)) {
     const exec = regexes.implicitUser.exec(link)
 
     if (!exec?.[1] || !exec?.[2]) return
-    return `/u/${exec[1]}@${exec[2]}`
+    return `/profile/${exec[1]}@${exec[2]}`
   }
 }
 

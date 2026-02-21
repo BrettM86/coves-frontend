@@ -194,7 +194,7 @@ export const _toModLog = (item: ModAction): ModLog => {
         item.mod_ban.reason +
         ' ' +
         (item.mod_ban.banned === true ? `(banned ${expires})` : ''),
-      link: `/u/${fullUserName(item.banned_person)}`,
+      link: `/profile/${encodeURIComponent(fullUserName(item.banned_person))}`,
     }
   } else if ('mod_add' in item) {
     return {

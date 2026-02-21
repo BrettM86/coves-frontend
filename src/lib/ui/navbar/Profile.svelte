@@ -70,7 +70,12 @@
     </MenuButton>
   {/if}
   <MenuDivider>{$t('profile.profile')}</MenuDivider>
-  <MenuButton href="/profile" icon={UserCircle}>
+  <MenuButton
+    href={profile.current.type === 'authenticated'
+      ? `/profile/${encodeURIComponent(profile.current.handle)}`
+      : '/login'}
+    icon={UserCircle}
+  >
     {$t('profile.profile')}
   </MenuButton>
   <MenuButton href="/saved" icon={Bookmark}>

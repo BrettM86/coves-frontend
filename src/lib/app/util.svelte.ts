@@ -227,9 +227,9 @@ export function communityLink(
  */
 export function userLink(user: AuthorView, prefix: string = ''): string {
   if (user.handle) {
-    return `${prefix}/u/${encodeURIComponent(user.handle)}`
+    return `${prefix}/profile/${encodeURIComponent(user.handle)}`
   }
-  return `${prefix}/u/${encodeURIComponent(user.did)}`
+  return `${prefix}/profile/${encodeURIComponent(user.did)}`
 }
 
 /**

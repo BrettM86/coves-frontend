@@ -2,6 +2,7 @@
   import { env } from '$env/dynamic/public'
   import type { AuthorView } from '$lib/api/coves/types'
   import { settings } from '$lib/app/settings.svelte'
+  import { userLink } from '$lib/app/util.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import Logo from '$lib/ui/generic/Logo.svelte'
   import { Icon, type IconSource, Language } from 'svelte-hero-icons/dist'
@@ -85,7 +86,7 @@
 
 <a
   class="items-center inline-flex flex-row gap-1 hover:underline max-w-full min-w-0 {clazz}"
-  href="/u/{user.handle ?? user.did}"
+  href={userLink(user)}
   data-sveltekit-preload-data="tap"
 >
   {@render children?.()}

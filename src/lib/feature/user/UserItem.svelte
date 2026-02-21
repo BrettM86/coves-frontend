@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { ProfileViewDetailed } from '$lib/api/coves/types'
+  import type { AuthorView, ProfileViewDetailed } from '$lib/api/coves/types'
+  import { userLink } from '$lib/app/util.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import LabelStat from '$lib/ui/info/LabelStat.svelte'
 
@@ -27,7 +28,7 @@
       ? 'flex-col gap-2'
       : 'flex-row'} items-center max-w-full w-full"
   >
-    <a href="/u/{user.handle ?? user.did}" class="flex-1">
+    <a href={userLink(user as AuthorView)} class="flex-1">
       <div
         class="flex {view == 'cozy'
           ? 'flex-col gap-2'

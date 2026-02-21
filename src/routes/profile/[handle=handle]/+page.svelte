@@ -168,5 +168,11 @@
         description="This user has no submissions."
       />
     {/if}
+  {:else}
+    <Placeholder
+      icon={PencilSquare}
+      title="Failed to load profile"
+      description="This profile could not be loaded. It may not exist or there was an error."
+    />
   {/if}
 </div>

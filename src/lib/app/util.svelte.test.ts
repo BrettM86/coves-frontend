@@ -153,20 +153,20 @@ describe('userLink', () => {
     handle: 'alice.coves.social' as Handle,
   }
 
-  it('returns /u/{handle} for AuthorView with handle', () => {
-    expect(userLink(author)).toBe('/u/alice.coves.social')
+  it('returns /profile/{handle} for AuthorView with handle', () => {
+    expect(userLink(author)).toBe('/profile/alice.coves.social')
   })
 
-  it('returns /u/{did} for AuthorView without handle', () => {
+  it('returns /profile/{did} for AuthorView without handle', () => {
     const noHandle: AuthorView = {
       did: 'did:plc:user1' as DID,
       handle: '' as Handle,
     }
-    expect(userLink(noHandle)).toBe('/u/did%3Aplc%3Auser1')
+    expect(userLink(noHandle)).toBe('/profile/did%3Aplc%3Auser1')
   })
 
   it('prepends prefix when provided', () => {
-    expect(userLink(author, '/app')).toBe('/app/u/alice.coves.social')
+    expect(userLink(author, '/app')).toBe('/app/profile/alice.coves.social')
   })
 })
 

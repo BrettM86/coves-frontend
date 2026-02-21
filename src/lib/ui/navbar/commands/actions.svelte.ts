@@ -236,72 +236,73 @@ export function getGroups(
     },
     {
       name: t.get('profile.profile'),
-      actions: profile.jwt
-        ? [
-            {
-              href: '/profile/user',
-              name: t.get('profile.profile'),
-              icon: UserCircle,
-            },
-            {
-              href: '/inbox',
-              name: t.get('profile.inbox'),
-              icon: Inbox,
-              shortcut: 'i',
-            },
-            {
-              href: '/saved',
-              name: t.get('profile.saved'),
-              icon: Bookmark,
-            },
-            {
-              href: '/accounts',
-              name: t.get('account.accounts'),
-              icon: UserGroup,
-            },
-            {
-              href: '/login',
-              name: t.get('account.login'),
-              icon: ArrowRightOnRectangle,
-            },
-            {
-              href: '/signup',
-              name: t.get('account.signup'),
-              icon: Identification,
-            },
-            {
-              href: '/login/guest',
-              name: t.get('account.addGuest'),
-              icon: Plus,
-            },
-            {
-              href: '/inbox/messages',
-              name: t.get('filter.inbox.messages'),
-              icon: Envelope,
-            },
-          ]
-        : [
-            {
-              href: '/login',
-              name: t.get('account.login'),
-              icon: ArrowRightOnRectangle,
-            },
-            {
-              href: '/signup',
-              name: t.get('account.signup'),
-              icon: Identification,
-            },
-            {
-              href: '/login/guest',
-              name: t.get('account.addGuest'),
-              icon: Plus,
-            },
-            {
-              href: '/accounts',
-              name: t.get('account.accounts'),
-              icon: UserGroup,
-            },
-          ],
+      actions:
+        profile.type === 'authenticated'
+          ? [
+              {
+                href: `/profile/${encodeURIComponent(profile.handle)}`,
+                name: t.get('profile.profile'),
+                icon: UserCircle,
+              },
+              {
+                href: '/inbox',
+                name: t.get('profile.inbox'),
+                icon: Inbox,
+                shortcut: 'i',
+              },
+              {
+                href: '/saved',
+                name: t.get('profile.saved'),
+                icon: Bookmark,
+              },
+              {
+                href: '/accounts',
+                name: t.get('account.accounts'),
+                icon: UserGroup,
+              },
+              {
+                href: '/login',
+                name: t.get('account.login'),
+                icon: ArrowRightOnRectangle,
+              },
+              {
+                href: '/signup',
+                name: t.get('account.signup'),
+                icon: Identification,
+              },
+              {
+                href: '/login/guest',
+                name: t.get('account.addGuest'),
+                icon: Plus,
+              },
+              {
+                href: '/inbox/messages',
+                name: t.get('filter.inbox.messages'),
+                icon: Envelope,
+              },
+            ]
+          : [
+              {
+                href: '/login',
+                name: t.get('account.login'),
+                icon: ArrowRightOnRectangle,
+              },
+              {
+                href: '/signup',
+                name: t.get('account.signup'),
+                icon: Identification,
+              },
+              {
+                href: '/login/guest',
+                name: t.get('account.addGuest'),
+                icon: Plus,
+              },
+              {
+                href: '/accounts',
+                name: t.get('account.accounts'),
+                icon: UserGroup,
+              },
+            ],
     },
     {
       name: t.get('account.accounts'),

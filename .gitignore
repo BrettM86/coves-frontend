@@ -16,5 +16,12 @@ yarn.lock
 
 playwright-report
 .playwright-mcp
+.playwright-output
 test-results
 .vscode
+
+# Playwright debug outputs
+*.png
+console-*.txt
+network-*.txt
+*-snapshot.md

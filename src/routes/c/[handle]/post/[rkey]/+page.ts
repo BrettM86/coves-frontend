@@ -1,6 +1,7 @@
 import { coves } from '$lib/api/client.svelte'
 import type { AtUri, PostView as CovesPostView } from '$lib/api/coves/types'
 import { settings } from '$lib/app/settings.svelte'
+import { mapSort } from '$lib/app/sort'
 import { communityHandleFromSlug, ReactiveState } from '$lib/app/util.svelte'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
 import {
@@ -42,8 +43,9 @@ function findInFeed(
 
 export async function load({ params, url, fetch, route }) {
   const communityHandle = communityHandleFromSlug(params.handle)
-  const sort =
+  const legacySort =
     url.searchParams.get('sort') ?? settings?.defaultSort?.comments ?? 'Hot'
+  const { sort } = mapSort(legacySort)
   const thread = url.searchParams.get('thread')
 
   // Parse thread context for comment navigation

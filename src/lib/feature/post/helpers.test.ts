@@ -137,15 +137,63 @@ describe('bestImageURL', () => {
     expect(bestImageURL(undefined)).toBe('')
   })
 
-  it('returns optimized URL for image embed', () => {
+  it('returns image URL for image embed', () => {
     const result = bestImageURL(imageEmbed)
-    expect(result).toContain('cdn.example.com/pic.jpg')
-    expect(result).toContain('format=webp')
+    expect(result).toBe('https://cdn.example.com/pic.jpg')
+  })
+
+  it('returns thumb by default when thumb field is present', () => {
+    const embedWithThumb = {
+      $type: 'social.coves.embed.images#view' as const,
+      images: [
+        {
+          image: 'https://cdn.example.com/pic.jpg',
+          thumb: 'https://cdn.example.com/pic-thumb.jpg',
+          alt: 'A photo',
+        },
+      ],
+    } satisfies import('$lib/api/coves/types').ImageEmbed
+    // default variant (no 3rd arg) should use 'thumb'
+    expect(bestImageURL(embedWithThumb)).toBe(
+      'https://cdn.example.com/pic-thumb.jpg',
+    )
+  })
+
+  it('returns thumb field when available for image embed', () => {
+    const embedWithThumb: ImageEmbed = {
+      $type: 'social.coves.embed.images#view',
+      images: [
+        {
+          image: 'https://cdn.example.com/pic.jpg',
+          thumb: 'https://cdn.example.com/pic-thumb.jpg',
+          alt: 'A photo',
+        },
+      ],
+    }
+    expect(bestImageURL(embedWithThumb, true, 'thumb')).toBe(
+      'https://cdn.example.com/pic-thumb.jpg',
+    )
+  })
+
+  it('returns fullsize field when variant is fullsize', () => {
+    const embedWithFullsize: ImageEmbed = {
+      $type: 'social.coves.embed.images#view',
+      images: [
+        {
+          image: 'https://cdn.example.com/pic.jpg',
+          fullsize: 'https://cdn.example.com/pic-full.jpg',
+          alt: 'A photo',
+        },
+      ],
+    }
+    expect(bestImageURL(embedWithFullsize, true, 'fullsize')).toBe(
+      'https://cdn.example.com/pic-full.jpg',
+    )
   })
 
   it('returns thumbnail for external embed when thumbnail=true', () => {
     const result = bestImageURL(externalEmbed, true)
-    expect(result).toContain('cdn.example.com/thumb.jpg')
+    expect(result).toBe('https://cdn.example.com/thumb.jpg')
   })
 
   it('returns external URI when no thumb and thumbnail=false', () => {
@@ -159,7 +207,7 @@ describe('bestImageURL', () => {
 
   it('returns thumbnail for video embed', () => {
     const result = bestImageURL(videoEmbed)
-    expect(result).toContain('cdn.example.com/video-thumb.jpg')
+    expect(result).toBe('https://cdn.example.com/video-thumb.jpg')
   })
 
   it('returns empty string for video embed with no thumbnail', () => {
@@ -173,6 +221,22 @@ describe('bestImageURL', () => {
   it('returns empty string for record embed', () => {
     expect(bestImageURL(recordEmbed)).toBe('')
   })
+
+  it('returns empty string for image embed with empty images (type-cast edge case)', () => {
+    const emptyImages = {
+      $type: 'social.coves.embed.images#view' as const,
+      images: [] as unknown as [
+        import('$lib/api/coves/types').EmbedImage,
+        ...import('$lib/api/coves/types').EmbedImage[],
+      ],
+    }
+    expect(bestImageURL(emptyImages)).toBe('')
+  })
+
+  it('returns external URI (not thumb) when thumbnail=false', () => {
+    const result = bestImageURL(externalEmbed, false)
+    expect(result).toBe('https://example.com/article')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -180,36 +244,33 @@ describe('bestImageURL', () => {
 // ---------------------------------------------------------------------------
 
 describe('optimizeImageURL', () => {
-  it('adds format and thumbnail params', () => {
+  it('swaps preset in proxy URLs', () => {
     const result = optimizeImageURL(
-      'https://cdn.example.com/pic.jpg',
-      512,
-      'webp',
+      'https://cdn.example.com/img/content_preview/plain/did:plc:abc/bafyreig1',
+      'content_full',
     )
-    expect(result).toContain('format=webp')
-    expect(result).toContain('thumbnail=512')
+    expect(result).toBe(
+      'https://cdn.example.com/img/content_full/plain/did:plc:abc/bafyreig1',
+    )
   })
 
-  it('returns original string for invalid URLs', () => {
+  it('returns non-proxy URLs unchanged', () => {
+    expect(optimizeImageURL('https://cdn.example.com/pic.jpg')).toBe(
+      'https://cdn.example.com/pic.jpg',
+    )
+  })
+
+  it('returns non-URL strings unchanged', () => {
     expect(optimizeImageURL('not-a-url')).toBe('not-a-url')
   })
 
-  it('respects null format param', () => {
-    const result = optimizeImageURL(
-      'https://cdn.example.com/pic.jpg',
-      256,
-      null,
+  it('uses content_preview as default preset', () => {
+    const proxyUrl =
+      'https://cdn.example.com/img/avatar/plain/did:plc:abc/bafyreig1'
+    const result = optimizeImageURL(proxyUrl)
+    expect(result).toBe(
+      'https://cdn.example.com/img/content_preview/plain/did:plc:abc/bafyreig1',
     )
-    expect(result).not.toContain('format=')
-  })
-
-  it('does not overwrite existing thumbnail param', () => {
-    const result = optimizeImageURL(
-      'https://cdn.example.com/pic.jpg?thumbnail=128',
-      1024,
-    )
-    expect(result).toContain('thumbnail=128')
-    expect(result).not.toContain('thumbnail=1024')
   })
 })
 

@@ -3,7 +3,7 @@
   import { parseURL } from '$lib/ui/form/Link.svelte'
   import { Material } from 'mono-svelte'
   import { ArrowTopRightOnSquare, Icon, Link } from 'svelte-hero-icons/dist'
-  import { optimizeImageURL } from './helpers'
+  import { withPreset } from './image-proxy'
 
   interface Props {
     url: string
@@ -14,6 +14,7 @@
 
   let { url, thumbnail_url, embed_title, view = 'cozy' }: Props = $props()
 
+  let imgError = $state(false)
   let richURL = $derived(parseURL(url))
 </script>
 
@@ -21,7 +22,7 @@
   @component
   For embed-type posts. Displays embed card or a compact link.
 -->
-{#if embed_title && view == 'cozy'}
+{#if (embed_title || thumbnail_url) && view == 'cozy'}
   <Material
     color="default"
     class={[
@@ -40,34 +41,20 @@
           {richURL.hostname}
         </div>
       {/if}
-      <p class="post-link-title">{embed_title}</p>
+      {#if embed_title}
+        <p class="post-link-title">{embed_title}</p>
+      {/if}
     </div>
-    {#if thumbnail_url}
+    {#if thumbnail_url && !imgError}
       <div class="post-link-image">
-        <picture class="contents">
-          {#each ['webp'] as format}
-            <source
-              srcset="{optimizeImageURL(
-                thumbnail_url,
-                256,
-                format as 'avif' | 'webp',
-              )} 256w, {optimizeImageURL(
-                thumbnail_url,
-                512,
-                format as 'avif' | 'webp',
-              )} 512w"
-              media="(min-width: 0px)"
-              type="image/{format}"
-            />
-          {/each}
-          <img
-            src={optimizeImageURL(thumbnail_url, -1)}
-            class=""
-            width={600}
-            height={400}
-            alt=""
-          />
-        </picture>
+        <img
+          src={withPreset(thumbnail_url, 'embed_thumbnail')}
+          onerror={() => (imgError = true)}
+          class=""
+          width={600}
+          height={400}
+          alt=""
+        />
         <Material
           padding="xs"
           color="uniform"

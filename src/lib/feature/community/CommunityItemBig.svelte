@@ -11,9 +11,9 @@
   import { Button, modal, toast } from 'mono-svelte'
   import type { Snippet } from 'svelte'
   import { Check, Icon, InformationCircle, Plus } from 'svelte-hero-icons/dist'
-  import { optimizeImageURL } from '../post'
   import CommunityCard from './CommunityCard.svelte'
   import { communityDisplayName, communityIdentifier } from './helpers'
+  import { withPreset } from '$lib/feature/post/image-proxy'
 
   interface Props {
     community: CommunityView
@@ -27,6 +27,7 @@
   }
 
   let banner = $derived(getBanner(community))
+  let bannerError = $state(false)
 </script>
 
 {#snippet communityInfo()}
@@ -48,9 +49,10 @@
     class="-m-4 mask-b-from-25% relative h-24"
     style="min-width: calc(100% + calc(var(--spacing) * 8));"
   >
-    {#if banner}
+    {#if banner && !bannerError}
       <img
-        src={optimizeImageURL(banner, 512)}
+        src={withPreset(banner, 'banner')}
+        onerror={() => (bannerError = true)}
         alt=""
         class="object-cover min-h-full min-w-full"
       />

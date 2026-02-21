@@ -1,32 +1,8 @@
 <script lang="ts">
-  import { findClosestNumber } from '$lib/app/util.svelte'
+  import { withPreset } from '$lib/feature/post/image-proxy'
   import { createAvatar } from '@dicebear/core'
   import * as initials from '@dicebear/initials'
   import type { ClassValue } from 'svelte/elements'
-
-  const sizes = [16, 24, 32, 48, 64, 96, 128, 256, 512]
-
-  const optimizeUrl = (
-    url: string | undefined,
-    res: number,
-  ): string | undefined => {
-    if (url === undefined) return
-
-    try {
-      const urlObj = new URL(url)
-      urlObj.searchParams.append('format', 'webp')
-      if (res > -1) {
-        urlObj.searchParams.append(
-          'thumbnail',
-          findClosestNumber(sizes, res).toString(),
-        )
-      }
-
-      return urlObj.toString()
-    } catch {
-      return undefined
-    }
-  }
 
   interface Props {
     url: string | undefined
@@ -34,7 +10,6 @@
     title?: string
     circle?: boolean | null
     width: number
-    res?: number | undefined
     style?: string
     class?: ClassValue
   }
@@ -45,23 +20,32 @@
     title = '',
     circle = true,
     width,
-    res = undefined,
     style = '',
     class: clazz = '',
     ...rest
   }: Props = $props()
 
-  let optimizedURLs = $derived(
-    [1.5, 3].map((n) => optimizeUrl(url, (res || width) * n)),
-  )
+  let optimizedURLs = $derived([
+    withPreset(url ?? '', 'avatar_small'),
+    withPreset(url ?? '', 'avatar'),
+  ])
+
+  let imgError = $state(false)
+
+  $effect(() => {
+    // Reset error state when url changes
+    void url
+    imgError = false
+  })
 </script>
 
-{#if url && optimizedURLs[0] != undefined}
+{#if url && !imgError}
   <img
     {...rest}
     loading="lazy"
     srcset="{optimizedURLs[0]} 1x, {optimizedURLs[1]} 2x"
     src={optimizedURLs[0]}
+    onerror={() => (imgError = true)}
     alt=""
     {width}
     {title}

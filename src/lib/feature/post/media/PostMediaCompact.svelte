@@ -57,7 +57,8 @@
       ? $t('aria.postDecor.openImage', { default: altText ?? 'Image' })
       : $t('aria.postDecor.openPost', { default: 'Post' })}
     onclick={() => {
-      if (type === 'image' && embed) showImage(bestImageURL(embed, false, -1))
+      if (type === 'image' && embed)
+        showImage(bestImageURL(embed, false, 'fullsize'))
     }}
     role={type === 'image' ? 'button' : 'presentation'}
     tabindex={type === 'image' ? 0 : -1}
@@ -71,40 +72,16 @@
     >
       {#if hasThumbnail}
         {@const useThumbnail = !!thumbnailUrl && type !== 'image'}
-        <picture>
-          {#each ['webp'] as format}
-            <source
-              srcset="{bestImageURL(
-                embed,
-                useThumbnail,
-                128,
-                format as 'avif' | 'webp',
-              )} 1x, {bestImageURL(
-                embed,
-                useThumbnail,
-                256,
-                format as 'avif' | 'webp',
-              )} 2x, {bestImageURL(
-                embed,
-                useThumbnail,
-                512,
-                format as 'avif' | 'webp',
-              )} 3x"
-              media="(min-width: 0px)"
-              type="image/{format}"
-            />
-          {/each}
-          <img
-            src={blur ? '' : bestImageURL(embed, useThumbnail, -1, null)}
-            loading="lazy"
-            class={[
-              'object-cover relative overflow-hidden rounded-xl h-full',
-              size,
-            ]}
-            alt={altText ?? ' '}
-            class:blur-xl={blur}
-          />
-        </picture>
+        <img
+          src={blur ? '' : bestImageURL(embed, useThumbnail, 'thumb')}
+          loading="lazy"
+          class={[
+            'object-cover relative overflow-hidden rounded-xl h-full',
+            size,
+          ]}
+          alt={altText ?? ' '}
+          class:blur-xl={blur}
+        />
         {#if type !== 'image'}
           <div
             class={[
@@ -156,16 +133,13 @@
 </div>
 
 <style>
-  .hover-scale-effect > *,
-  .hover-scale-effect > picture > img {
+  .hover-scale-effect > * {
     transition: transform 200ms var(--ease-cubic);
   }
-  .hover-scale-effect:hover > *,
-  .hover-scale-effect:hover > picture > img {
+  .hover-scale-effect:hover > * {
     transform: scale(95%);
   }
-  .hover-scale-effect:active > *,
-  .hover-scale-effect:active > picture > img {
+  .hover-scale-effect:active > * {
     transform: scale(90%);
   }
 </style>

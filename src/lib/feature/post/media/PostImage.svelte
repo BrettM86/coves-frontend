@@ -19,7 +19,7 @@
   })
 
   let altText = $derived(extractEmbedAlt(embed))
-  let fullImageUrl = $derived(bestImageURL(embed, false, -1, null))
+  let fullImageUrl = $derived(bestImageURL(embed, false, 'fullsize'))
 </script>
 
 <!--disabled preloads here since most people will hover over every image while scrolling-->
@@ -41,33 +41,19 @@
     <img
       loading="lazy"
       fetchpriority="auto"
-      src={bestImageURL(embed, false, 64)}
+      src={bestImageURL(embed, false, 'thumb')}
       class=" object-cover w-full h-full opacity-50 blur-lg"
     />
   </div>
   <picture class="max-h-[60vh]">
-    {#each ['webp'] as format}
-      <source
-        srcset="{bestImageURL(
-          embed,
-          false,
-          512,
-          format as 'avif' | 'webp',
-        )} 512w, {bestImageURL(
-          embed,
-          false,
-          768,
-          format as 'avif' | 'webp',
-        )} 768w, {bestImageURL(
-          embed,
-          false,
-          1024,
-          format as 'avif' | 'webp',
-        )} 1024w"
-        media="(min-width: 0px)"
-        type="image/{format}"
-      />
-    {/each}
+    <source
+      srcset={bestImageURL(embed, false, 'thumb')}
+      media="(max-width: 800px)"
+    />
+    <source
+      srcset={bestImageURL(embed, false, 'fullsize')}
+      media="(min-width: 801px)"
+    />
     <img
       src={blur ? '' : fullImageUrl}
       loading="lazy"
@@ -81,6 +67,7 @@
       height={300}
       alt={altText ?? ''}
       onload={() => (imageLoaded = true)}
+      onerror={() => (imageLoaded = true)}
     />
   </picture>
   <!-- svelte-ignore a11y_click_events_have_key_events -->

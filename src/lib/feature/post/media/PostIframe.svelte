@@ -8,7 +8,8 @@
     PuzzlePiece,
     VideoCamera,
   } from 'svelte-hero-icons/dist'
-  import { type IframeType, optimizeImageURL } from '../helpers'
+  import { type IframeType } from '../helpers'
+  import { withPreset } from '../image-proxy'
 
   const youtubeDomain = (place: 'youtube' | 'invidious' | 'piped') => {
     switch (place) {
@@ -116,6 +117,7 @@
     class: clazz,
   }: Props = $props()
 
+  let thumbError = $state(false)
   let data = $derived(typeData(type))
   let embedUrl = $derived(urlToEmbed(url))
 </script>
@@ -146,9 +148,10 @@
           <Icon src={Play} size="32" mini />
         </div>
       </div>
-      {#if thumbnail}
+      {#if thumbnail && !thumbError}
         <img
-          src={optimizeImageURL(thumbnail, 512)}
+          src={withPreset(thumbnail, 'embed_thumbnail')}
+          onerror={() => (thumbError = true)}
           class="absolute top-0 left-0 -z-10 w-full object-cover h-full mask-b-from-0 brightness-75"
           alt=""
         />

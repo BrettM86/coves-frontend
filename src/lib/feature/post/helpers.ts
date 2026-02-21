@@ -8,71 +8,67 @@ import { parseAtUri } from '$lib/api/coves/types'
 import {
   canParseUrl,
   communitySlug,
-  findClosestNumber,
   isImage,
   isVideo,
 } from '$lib/app/util.svelte'
+import {
+  type ImagePreset,
+  type ImageVariant,
+  imageUrl,
+  withPreset,
+} from './image-proxy'
 
-// Algorithm to determine the best image URL to use from a Coves PostView's embed
+/**
+ * Returns the best image URL for a post embed.
+ *
+ * @param embed - The post embed to extract an image URL from.
+ * @param thumbnail - For external embeds only: when true, prefer the external
+ *   embed's dedicated thumbnail over its URI. Has no effect on other embed types.
+ * @param variant - For image embeds only: selects the 'thumb' (smaller) or
+ *   'fullsize' proxy variant. Has no effect on other embed types.
+ */
 export const bestImageURL = (
   embed: PostEmbed | undefined,
   thumbnail: boolean = true,
-  width: number = 1024,
-  format: 'avif' | 'webp' | null = 'webp',
+  variant: ImageVariant = 'thumb',
 ): string => {
   if (!embed) return ''
 
   switch (embed.$type) {
     case 'social.coves.embed.images#view': {
       const img = embed.images[0]
-      if (img?.image) return optimizeImageURL(img.image, width, format)
+      if (img) return imageUrl(img, variant)
       return ''
     }
+    case 'social.coves.embed.external':
     case 'social.coves.embed.external#view': {
-      if (embed.external.thumb && thumbnail)
-        return optimizeImageURL(embed.external.thumb, width, format)
+      if (embed.external.thumb && thumbnail) return embed.external.thumb
       return embed.external.uri ?? ''
     }
+    case 'social.coves.embed.video':
     case 'social.coves.embed.video#view': {
-      if (embed.thumbnail)
-        return optimizeImageURL(embed.thumbnail, width, format)
+      if (embed.thumbnail) return embed.thumbnail
       return ''
     }
-    default:
+    case 'social.coves.embed.post':
+    case 'social.coves.embed.record':
+    case 'social.coves.embed.record#view':
       return ''
+    default: {
+      const _exhaustive: never = embed
+      return ''
+    }
   }
 }
 
+/**
+ * @deprecated Use `withPreset` from `./image-proxy` directly.
+ */
 export const optimizeImageURL = (
-  urlStr: string,
-  width: number = 1024,
-  format: 'avif' | 'webp' | null = 'webp',
+  url: string,
+  preset: ImagePreset = 'content_preview',
 ): string => {
-  try {
-    let url: URL
-    try {
-      url = new URL(urlStr)
-    } catch {
-      return urlStr
-    }
-
-    if (format) url.searchParams.set('format', format)
-
-    if (width > 0 && !url.searchParams.has('thumbnail')) {
-      url.searchParams.set(
-        'thumbnail',
-        findClosestNumber(
-          [128, 196, 256, 512, 728, 1024, 1536],
-          width,
-        ).toString(),
-      )
-    }
-
-    return url.toString()
-  } catch (e) {
-    console.error(e)
-    return urlStr
-  }
+  return withPreset(url, preset)
 }
 
 const YOUTUBE_REGEX =
@@ -104,8 +100,10 @@ export function mediaType(embed?: PostEmbed): MediaType {
   switch (embed.$type) {
     case 'social.coves.embed.images#view':
       return 'image'
+    case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
       return 'iframe'
+    case 'social.coves.embed.external':
     case 'social.coves.embed.external#view': {
       const uri = embed.external.uri
       if (!uri) return 'none'
@@ -122,10 +120,14 @@ export function mediaType(embed?: PostEmbed): MediaType {
       if (canParseUrl(uri)) return 'embed'
       return 'none'
     }
+    case 'social.coves.embed.post':
+    case 'social.coves.embed.record':
     case 'social.coves.embed.record#view':
       return 'embed'
-    default:
+    default: {
+      const _exhaustive: never = embed
       return 'none'
+    }
   }
 }
 
@@ -144,14 +146,20 @@ export function extractEmbedUrl(embed?: PostEmbed): string | undefined {
   switch (embed.$type) {
     case 'social.coves.embed.images#view':
       return embed.images[0]?.image
+    case 'social.coves.embed.external':
     case 'social.coves.embed.external#view':
       return embed.external.uri
+    case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
       return embed.video
+    case 'social.coves.embed.post':
+    case 'social.coves.embed.record':
     case 'social.coves.embed.record#view':
       return undefined
-    default:
+    default: {
+      const _exhaustive: never = embed
       return undefined
+    }
   }
 }
 
@@ -162,14 +170,24 @@ export function extractEmbedThumbnail(embed?: PostEmbed): string | undefined {
   if (!embed) return undefined
 
   switch (embed.$type) {
-    case 'social.coves.embed.images#view':
-      return embed.images[0]?.image
+    case 'social.coves.embed.images#view': {
+      const img = embed.images[0]
+      return img ? imageUrl(img, 'thumb') : undefined
+    }
+    case 'social.coves.embed.external':
     case 'social.coves.embed.external#view':
       return embed.external.thumb
+    case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
       return embed.thumbnail
-    default:
+    case 'social.coves.embed.post':
+    case 'social.coves.embed.record':
+    case 'social.coves.embed.record#view':
       return undefined
+    default: {
+      const _exhaustive: never = embed
+      return undefined
+    }
   }
 }
 
@@ -180,10 +198,20 @@ export function extractEmbedTitle(embed?: PostEmbed): string | undefined {
   if (!embed) return undefined
 
   switch (embed.$type) {
+    case 'social.coves.embed.external':
     case 'social.coves.embed.external#view':
       return embed.external.title
-    default:
+    case 'social.coves.embed.images#view':
+    case 'social.coves.embed.video':
+    case 'social.coves.embed.video#view':
+    case 'social.coves.embed.post':
+    case 'social.coves.embed.record':
+    case 'social.coves.embed.record#view':
       return undefined
+    default: {
+      const _exhaustive: never = embed
+      return undefined
+    }
   }
 }
 
@@ -196,10 +224,19 @@ export function extractEmbedAlt(embed?: PostEmbed): string | undefined {
   switch (embed.$type) {
     case 'social.coves.embed.images#view':
       return embed.images[0]?.alt
+    case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
       return embed.alt
-    default:
+    case 'social.coves.embed.external':
+    case 'social.coves.embed.external#view':
+    case 'social.coves.embed.post':
+    case 'social.coves.embed.record':
+    case 'social.coves.embed.record#view':
       return undefined
+    default: {
+      const _exhaustive: never = embed
+      return undefined
+    }
   }
 }
 

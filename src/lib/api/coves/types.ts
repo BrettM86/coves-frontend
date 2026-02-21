@@ -310,6 +310,8 @@ export interface EmbedImageAspectRatio {
 
 export interface EmbedImage {
   image: string
+  thumb?: string
+  fullsize?: string
   alt?: string
   aspectRatio?: EmbedImageAspectRatio
 }
@@ -340,12 +342,12 @@ export interface ExternalEmbedExternal {
 }
 
 export interface ExternalEmbed {
-  $type: 'social.coves.embed.external#view'
+  $type: 'social.coves.embed.external' | 'social.coves.embed.external#view'
   external: ExternalEmbedExternal
 }
 
 export interface VideoEmbed {
-  $type: 'social.coves.embed.video#view'
+  $type: 'social.coves.embed.video' | 'social.coves.embed.video#view'
   video: string
   thumbnail?: string
   alt?: string
@@ -353,7 +355,10 @@ export interface VideoEmbed {
 }
 
 export interface RecordEmbed {
-  $type: 'social.coves.embed.record#view'
+  $type:
+    | 'social.coves.embed.post'
+    | 'social.coves.embed.record'
+    | 'social.coves.embed.record#view'
   post: StrongRef
   resolved?: unknown
 }

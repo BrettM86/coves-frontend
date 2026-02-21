@@ -42,7 +42,7 @@ export const NSID = {
   deleteComment: 'social.coves.community.comment.delete',
   createVote: 'social.coves.feed.vote.create',
   deleteVote: 'social.coves.feed.vote.delete',
-  getProfile: 'social.coves.actor.getprofile',
+  getProfile: 'social.coves.actor.getProfile',
   getActorPosts: 'social.coves.actor.getPosts',
   getActorComments: 'social.coves.actor.getComments',
   blockUser: 'social.coves.actor.blockUser',

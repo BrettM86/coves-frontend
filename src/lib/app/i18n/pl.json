@@ -480,7 +480,7 @@
         "moveUp": "Przesuń w górę",
         "moveDown": "Przesuń w dół",
         "guest": "Gość",
-        "versionGate": "Ta wersja Photon obsługuje instancje działające na {{version}} lub nowszej."
+        "versionGate": "Ta wersja Kelp obsługuje instancje działające na {{version}} lub nowszej."
     },
     "filter": {
         "location": {
@@ -732,7 +732,7 @@
                     "description": "Użyj układu RTL dla języków RTL."
                 }
             },
-            "title": "Photon",
+            "title": "Kelp",
             "theming": {
                 "title": "Motywy",
                 "description": "Dostosuj kolory interfejsu.",
@@ -747,7 +747,7 @@
                 "list": "Pokaż posty w liście, z treścią postów i kompaktowymi multimediami.",
                 "cozy": "Pokaż posty z dużymi obrazami, bogatymi osadzonymi treściami i dłuższymi treściami postów.",
                 "compact": "Pokaż posty w liście, bez treści postów i z ciasnym odstępem.",
-                "legacy": "Stary wygląd Photon."
+                "legacy": "Stary wygląd Kelp."
             },
             "sort": {
                 "title": "Domyślne sortowanie",

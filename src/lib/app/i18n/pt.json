@@ -50,7 +50,7 @@
     "account": {
         "login": "Iniciar sessão",
         "moveDown": "Mover para baixo",
-        "versionGate": "Esta versão do Photon suporta instâncias na versão {{version}} ou superior.",
+        "versionGate": "Esta versão do Kelp suporta instâncias na versão {{version}} ou superior.",
         "logout": "Terminar sessão",
         "signup": "Registar",
         "accounts": "Contas",
@@ -634,7 +634,7 @@
                 "instance": "Domínio"
             },
             "lang": {
-                "description": "O idioma a usar na interface do Photon.",
+                "description": "O idioma a usar na interface do Kelp.",
                 "note": "Os idiomas além do Inglês e do Hebraico são traduzidos pela comunidade, e podem estar incompletos.",
                 "en": "Inglês",
                 "en-US": "Inglês",
@@ -664,7 +664,7 @@
                 "list": "Mostrar publicações numa lista, com texto e imagens compactos.",
                 "cozy": "Mostrar publicações com imagens grandes, pré-visualizações ricas e mais texto.",
                 "compact": "Mostrar publicações numa lista, sem texto e com espaçamento mais apertado.",
-                "legacy": "O estilo antigo do Photon."
+                "legacy": "O estilo antigo do Kelp."
             },
             "sort": {
                 "title": "Ordem padrão",
@@ -682,10 +682,10 @@
                 "title": "Limitar largura do conteúdo",
                 "description": "Facilitar leitura limitando a largura do conteúdo principal."
             },
-            "title": "Photon",
+            "title": "Kelp",
             "theming": {
                 "title": "Temas",
-                "description": "Personaliza as cores do Photon.",
+                "description": "Personaliza as cores do Kelp.",
                 "link": "Ver os temas"
             },
             "duplicateTitles": {
@@ -700,7 +700,7 @@
             },
             "font": {
                 "title": "Tipo de letra",
-                "description": "Que tipo de letra o Photon usa na sua interface."
+                "description": "Que tipo de letra o Kelp usa na sua interface."
             },
             "colorscheme": {
                 "title": "Esquema de cores",

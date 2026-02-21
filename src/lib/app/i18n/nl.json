@@ -419,10 +419,10 @@
         "import": "Importeren",
         "reset": "Resetten",
         "app": {
-            "title": "Photon",
+            "title": "Kelp",
             "theming": {
                 "title": "Thema's",
-                "description": "Pas de kleuren van Photon aan.",
+                "description": "Pas de kleuren van Kelp aan.",
                 "link": "Ga naar thema's"
             },
             "colorscheme": {
@@ -431,7 +431,7 @@
             },
             "lang": {
                 "title": "Taal",
-                "description": "De taal die wordt gebruikt voor de gebruikersinterface van Photon.",
+                "description": "De taal die wordt gebruikt voor de gebruikersinterface van Kelp.",
                 "note": "Talen anders dan Engels en Hebreeuws zijn door de gemeenschap vertaald en kunnen incompleet zijn.",
                 "en": "Engels",
                 "en-US": "Engels",
@@ -456,7 +456,7 @@
                 "list": "Toon berichten in een lijst, met berichtinhoud en compacte media.",
                 "cozy": "Toon berichten met grote afbeeldingen, rijke embeds en langere berichtinhoud.",
                 "compact": "Toon berichten in een lijst, zonder berichtinhoud en met strakkere spacing.",
-                "legacy": "De oude look van Photon."
+                "legacy": "De oude look van Kelp."
             },
             "sort": {
                 "title": "Standaard sortering",
@@ -498,7 +498,7 @@
             },
             "font": {
                 "title": "Lettertype",
-                "description": "Welk lettertype Photon gebruikt in de gebruikersinterface."
+                "description": "Welk lettertype Kelp gebruikt in de gebruikersinterface."
             },
             "translation": {
                 "title": "Vertaling",
@@ -605,7 +605,7 @@
         "moveUp": "Omhoog verplaatsen",
         "moveDown": "Omlaag verplaatsen",
         "guest": "Gast",
-        "versionGate": "Deze versie van Photon ondersteunt instanties die draaien op {{version}} of hoger."
+        "versionGate": "Deze versie van Kelp ondersteunt instanties die draaien op {{version}} of hoger."
     },
     "filter": {
         "location": {

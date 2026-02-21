@@ -29,7 +29,7 @@
                     "title": "右横読みレイアウトを使う（RTL)"
                 },
                 "title": "言語",
-                "description": "PhotonのUIが使う言語。",
+                "description": "KelpのUIが使う言語。",
                 "en": "英語",
                 "en-US": "英語（US)",
                 "he": "ヘブライ語",
@@ -53,16 +53,16 @@
                 "title": "投稿スタイル",
                 "list": "投稿を本文と縮小したメディアにリストで表示する。",
                 "cozy": "投稿を拡大イメージ、エンベッド文字、長い本文を表示する。",
-                "legacy": "Photonの昔の雰囲気。"
+                "legacy": "Kelpの昔の雰囲気。"
             },
             "limitLayoutWidth": {
                 "description": "読みやすいように主要内容の幅を制限する。",
                 "title": "レイアウトの幅を制限する"
             },
-            "title": "Photon",
+            "title": "Kelp",
             "theming": {
                 "title": "テーマ設定",
-                "description": "Photonの色合いを変える。",
+                "description": "Kelpの色合いを変える。",
                 "link": "テーマに行く"
             },
             "colorscheme": {
@@ -101,7 +101,7 @@
             },
             "font": {
                 "title": "フォント",
-                "description": "PhotonのUIが使用する書体。"
+                "description": "KelpのUIが使用する書体。"
             },
             "translation": {
                 "title": "翻訳",
@@ -355,7 +355,7 @@
         "guest": "ゲスト",
         "addGuest": "ゲストを作成",
         "changeinstance": "インスタンスを変える",
-        "versionGate": "このPhotonバージョンは{{version}}以上のインスタンスバージョンに対応しています。"
+        "versionGate": "このKelpバージョンは{{version}}以上のインスタンスバージョンに対応しています。"
     },
     "filter": {
         "location": {

@@ -386,7 +386,7 @@
         "resetColor": "o weka e kule",
         "guest": "sijelo ilo sin",
         "addGuest": "o pali e sijelo ilo sin",
-        "versionGate": "ilo Photon ken jo e tomo pi nanpa {{version}} anu sewi"
+        "versionGate": "ilo Kelp ken jo e tomo pi nanpa {{version}} anu sewi"
     },
     "cards": {
         "site": {
@@ -551,6 +551,6 @@
         "body": "sina wile toki e seme?"
     },
     "toast": {
-        "lemmyDonate": "tomo sina kepeken e ilo Lemmy. jan pali ona wile e mani tan jan. jan mute pana la ona ken pali e ilo Lemmy li weka e toki mani jaki tan ni.\n\ntenpo sike ale la ona wile e mani tan sina.\n\n[o pana e mani](https://join-lemmy.org/donate)\n\n*a: sina pana e mani tawa Lemmy. sina ala pana e mani tawa Photon.*"
+        "lemmyDonate": "tomo sina kepeken e ilo Lemmy. jan pali ona wile e mani tan jan. jan mute pana la ona ken pali e ilo Lemmy li weka e toki mani jaki tan ni.\n\ntenpo sike ale la ona wile e mani tan sina.\n\n[o pana e mani](https://join-lemmy.org/donate)\n\n*a: sina pana e mani tawa Lemmy. sina ala pana e mani tawa Kelp.*"
     }
 }

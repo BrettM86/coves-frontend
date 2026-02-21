@@ -61,7 +61,7 @@
         "moveUp": "Yukarı Taşı",
         "moveDown": "Aşağı Taşı",
         "guest": "Misafir",
-        "versionGate": "Photon'un bu sürümü {{version}} veya daha üstü versiyonda çalışan sunucuları destekler."
+        "versionGate": "Kelp'un bu sürümü {{version}} veya daha üstü versiyonda çalışan sunucuları destekler."
     },
     "filter": {
         "location": {
@@ -674,14 +674,14 @@
             },
             "commands": {
                 "title": "Komut paleti",
-                "description": "Arama yaparak uygulamada gezinmek için eğik çizgiye basın veya Photon logosuna sağ tıklayın."
+                "description": "Arama yaparak uygulamada gezinmek için eğik çizgiye basın veya Kelp logosuna sağ tıklayın."
             }
         },
         "app": {
-            "title": "Photon",
+            "title": "Kelp",
             "theming": {
                 "title": "Tema",
-                "description": "Photon'un renklerini özelleştirin.",
+                "description": "Kelp'un renklerini özelleştirin.",
                 "link": "Temalara git"
             },
             "colorscheme": {
@@ -690,7 +690,7 @@
             },
             "lang": {
                 "title": "Dil",
-                "description": "Photon'un kullanıcı arayüzü için kullanılan dil.",
+                "description": "Kelp'un kullanıcı arayüzü için kullanılan dil.",
                 "note": "İngilizce ve İbranice dışındaki diller topluluk çevirisidir ve eksik olabilir.",
                 "en": "İngilizce",
                 "en-US": "İngilizce",
@@ -716,7 +716,7 @@
                 "list": "Gönderileri, gönderi gövdeleri ve kompakt medyayla birlikte bir listede gösterin.",
                 "cozy": "Büyük görsellere, zengin yerleştirmelere ve daha uzun gönderi gövdelerine sahip gönderileri gösterin.",
                 "compact": "Gönderileri, gönderi gövdeleri olmadan ve daha dar aralıklarla bir listede gösterin.",
-                "legacy": "Photon'un eski görünümü."
+                "legacy": "Kelp'un eski görünümü."
             },
             "sort": {
                 "title": "Varsayılan sıralama",
@@ -758,7 +758,7 @@
             },
             "font": {
                 "title": "Yazı tipi",
-                "description": "Photon'un kullanıcı arayüzünde kullandığı yazı tipi."
+                "description": "Kelp'un kullanıcı arayüzünde kullandığı yazı tipi."
             },
             "translation": {
                 "title": "Çeviri",

@@ -436,7 +436,7 @@
         "moveUp": "Siirrä ylös",
         "moveDown": "Siirrä alas",
         "guest": "Vieras",
-        "versionGate": "Tämä Photon-versio tukee instansseja versiosta {{version}} eteenpäin."
+        "versionGate": "Tämä Kelp-versio tukee instansseja versiosta {{version}} eteenpäin."
     },
     "filter": {
         "sort": {
@@ -723,7 +723,7 @@
         "settingsImport": "Asetusten tuonti onnistui.",
         "settingsImportWarning": "Tuodut asetukset eivät vaikuta kelvollisilta. Haluatko yrittää siitä huolimatta?",
         "userLoading": "Ladataan käyttäjätietoja...",
-        "lemmyDonate": "Instanssisi käyttää avoimen lähdekoodin Lemmy-ohjelmistoa. Lemmyn kehittäjät ottavat vastaan lahjoituksia. Kiitos käyttäjien tuen, Lemmy on vapaa mainoksista ja jäljityksestä.\n\nVuosittain he pyytävät harkitsemaan lahjoitusta, jotta Lemmyn ylläpito ja parantaminen jatkuisi.\n\n[Lahjoita](https://join-lemmy.org/donate)\n\n*Huomaa: tämä on lahjoitus Lemmylle, ei Photonille.*"
+        "lemmyDonate": "Instanssisi käyttää avoimen lähdekoodin Lemmy-ohjelmistoa. Lemmyn kehittäjät ottavat vastaan lahjoituksia. Kiitos käyttäjien tuen, Lemmy on vapaa mainoksista ja jäljityksestä.\n\nVuosittain he pyytävät harkitsemaan lahjoitusta, jotta Lemmyn ylläpito ja parantaminen jatkuisi.\n\n[Lahjoita](https://join-lemmy.org/donate)\n\n*Huomaa: tämä on lahjoitus Lemmylle, ei Kelpille.*"
     },
     "settings": {
         "app": {
@@ -733,7 +733,7 @@
             },
             "view": {
                 "title": "Näkymän tyyli",
-                "legacy": "Photonin vanha ulkoasu.",
+                "legacy": "Kelpin vanha ulkoasu.",
                 "cozy": "Näytä kuvat, sisältö ja upotukset suurina.",
                 "compact": "Näytä julkaisut tiiviinä listana, ilman sisältöä.",
                 "list": "Näytä julkaisut listana, lyhennetyn sisällön kanssa."

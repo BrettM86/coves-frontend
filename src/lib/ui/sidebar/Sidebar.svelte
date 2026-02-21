@@ -124,7 +124,7 @@
     {#if env.PUBLIC_XYLIGHT_MODE?.toLowerCase() == 'true'}
       <a
         class="text-blue-600 dark:text-blue-400"
-        href="https://github.com/xyphyn/photon"
+        href="https://tangled.org/bretton.dev/coves-frontend"
       >
         {$t('nav.menu.source')}
       </a>

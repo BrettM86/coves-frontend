@@ -104,7 +104,7 @@ export { regexes as CONTENT_REGEXES }
 /**
  * Convert links to local app links
  */
-export const photonify = (link) => {
+export const localizeLink = (link) => {
   if (regexes.community.test(link)) {
     const match = link.match(regexes.community)
     if (!match) return

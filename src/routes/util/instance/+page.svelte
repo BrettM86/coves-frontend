@@ -7,9 +7,9 @@
   import { Header } from '$lib/ui/layout'
 </script>
 
-<Header pageHeader>Photon instance</Header>
+<Header pageHeader>Kelp instance</Header>
 <pre>
-  photon version: {__VERSION__}
+  kelp version: {__VERSION__}
   
   linked instance: {LINKED_INSTANCE_URL ?? 'none'}
   default instance: {DEFAULT_INSTANCE_URL}

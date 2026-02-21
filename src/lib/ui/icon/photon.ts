@@ -30,7 +30,7 @@ const outline = {
   ],
 }
 
-export const Photon: IconVariants = {
+export const Kelp: IconVariants = {
   micro: photon,
   mini: photon,
   solid: photon,

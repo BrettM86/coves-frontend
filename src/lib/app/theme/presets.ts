@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/public'
 import type { Theme, ThemeColors } from './theme.svelte'
 
-const PHOTON_DEFAULT = {
+const KELP_DEFAULT = {
   slate: {
     25: '252 253 254',
     50: '248 250 252',
@@ -41,7 +41,7 @@ const PHOTON_DEFAULT = {
 }
 
 export function getDefaultColors(): ThemeColors {
-  return env.PUBLIC_THEME ? JSON.parse(env.PUBLIC_THEME) : PHOTON_DEFAULT
+  return env.PUBLIC_THEME ? JSON.parse(env.PUBLIC_THEME) : KELP_DEFAULT
 }
 
 export function getDefaultTheme(): Theme {
@@ -55,7 +55,7 @@ export function getDefaultTheme(): Theme {
 export const presets: Theme[] = [
   getDefaultTheme(),
   ...(env.PUBLIC_THEME
-    ? [{ colors: PHOTON_DEFAULT, id: -10, name: 'Mono' }]
+    ? [{ colors: KELP_DEFAULT, id: -10, name: 'Mono' }]
     : []),
   {
     colors: {

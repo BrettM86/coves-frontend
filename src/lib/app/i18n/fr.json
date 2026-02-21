@@ -60,7 +60,7 @@
         "moveUp": "Monter",
         "moveDown": "Descendre",
         "guest": "invité",
-        "versionGate": "Cette version de Photon prend en charge des instances en version {{version}} ou supérieure.",
+        "versionGate": "Cette version de Kelp prend en charge des instances en version {{version}} ou supérieure.",
         "resetColor": "Réinitialiser les couleurs"
     },
     "filter": {
@@ -503,7 +503,7 @@
             },
             "view": {
                 "cozy": "Afficher les publications avec de grandes images, des embeds riches, et des corps de publication plus longues.",
-                "legacy": "Le vieux look de Photon, similaire en aspect au theme \"confortable\".",
+                "legacy": "Le vieux look de Kelp, similaire en aspect au theme \"confortable\".",
                 "title": "Style de publication",
                 "list": "Afficher les publications dans une liste, avec le corps des publications et les medias compact.",
                 "compact": "Afficher les publications dans une liste, sans corps de publications et moins d'espacement."
@@ -512,7 +512,7 @@
                 "description": "Le tri a utiliser par defaut pour la page d'acceuil.",
                 "title": "Tri par défaut"
             },
-            "title": "Photon",
+            "title": "Kelp",
             "colorscheme": {
                 "title": "Couleurs",
                 "description": "La palette de couleurs à utiliser."
@@ -541,7 +541,7 @@
             },
             "font": {
                 "title": "Police de caractères",
-                "description": "Police de caractère utilisée par Photon dans l'interface."
+                "description": "Police de caractère utilisée par Kelp dans l'interface."
             },
             "translation": {
                 "title": "Traduction",

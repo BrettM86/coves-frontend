@@ -55,7 +55,7 @@
         "resetColor": "Restarti värv",
         "moveUp": "Liigu ülesse",
         "moveDown": "Liigu alla",
-        "versionGate": "See versioon Photonist Toetab servereid millel on {{version}} Või üles.",
+        "versionGate": "See versioon Kelpist Toetab servereid millel on {{version}} Või üles.",
         "guest": "Külaline",
         "addGuest": "Pane külalise kontot"
     },

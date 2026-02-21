@@ -1,6 +1,6 @@
 <script lang="ts">
   // @ts-nocheck
-  import { photonify } from './plugins'
+  import { localizeLink } from './plugins'
 
   interface Props {
     href?: string
@@ -18,11 +18,11 @@
     }
   }
 
-  let photonified = $derived(photonify(href))
+  let localized = $derived(localizeLink(href))
 </script>
 
 <a
-  href={photonified ?? href}
+  href={localized ?? href}
   {title}
   class="hover:underline text-blue-600 dark:text-blue-400"
 >

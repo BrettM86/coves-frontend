@@ -26,15 +26,15 @@
   ):
     | {
         classes: string
-        icon: 'photon' | IconSource
+        icon: 'kelp' | IconSource
         iconClass?: string
       }
     | false => {
-    if (badges.photon && badges.photon?.includes?.(did)) {
+    if (badges.kelp && badges.kelp?.includes?.(did)) {
       return {
         classes:
           'bg-linear-to-r bg-clip-text text-transparent from-pink-500 to-fuchsia-500 dark:from-pink-400 dark:to-purple-400',
-        icon: 'photon',
+        icon: 'kelp',
       }
     }
 
@@ -119,7 +119,7 @@
   </span>
   {#if badges}
     {#if envBadge}
-      {#if envBadge.icon == 'photon'}
+      {#if envBadge.icon == 'kelp'}
         <Logo width={16} />
       {:else}
         <Icon

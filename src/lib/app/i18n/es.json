@@ -59,7 +59,7 @@
         "moveUp": "Mover hacia arriba",
         "moveDown": "Mover hacia abajo",
         "guest": "Invitado",
-        "versionGate": "Esta versión de Photon soporta instancias ejecutando {{version}} o posterior.",
+        "versionGate": "Esta versión de Kelp soporta instancias ejecutando {{version}} o posterior.",
         "addGuest": "Agregar invitado"
     },
     "filter": {
@@ -629,7 +629,7 @@
         "app": {
             "theming": {
                 "title": "Tema",
-                "description": "Personalizar los colores de Photon.",
+                "description": "Personalizar los colores de Kelp.",
                 "link": "Ir a temas"
             },
             "colorscheme": {
@@ -655,14 +655,14 @@
                     "title": "Usar disposición de derecha a izquierda",
                     "description": "Usar disposición de derecha a izquierda para los idiomas que se leen de derecha a izquierda."
                 },
-                "description": "El idioma utilizado por la interfaz Photon.",
+                "description": "El idioma utilizado por la interfaz Kelp.",
                 "note": "Los textos de los idiomas (aparte del inglés y el hebreo) son traducidos por la comunidad, y pueden estar incompletos."
             },
             "view": {
                 "title": "Estilo de las publicaciones",
                 "cozy": "Mostrar las publicaciones con imágenes grandes, contenido embebido y área de contenido más extensa.",
                 "compact": "Mostrar las pubicaciones en una lista, sin su contenido y espaciado más ajustado.",
-                "legacy": "La vieja apariencia de Photon.",
+                "legacy": "La vieja apariencia de Kelp.",
                 "list": "Muestra las publicaciones en una lista, con su contenido y multimedia en tamaño compacto."
             },
             "sort": {
@@ -705,7 +705,7 @@
             },
             "font": {
                 "title": "Fuente tipográfica",
-                "description": "La fuente tipográfica que Photon utiliza para su interfaz."
+                "description": "La fuente tipográfica que Kelp utiliza para su interfaz."
             },
             "translation": {
                 "title": "Traducción",

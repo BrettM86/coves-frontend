@@ -62,7 +62,7 @@
         "moveDown": "Nach unten",
         "guest": "Gast",
         "addGuest": "Gast hinzufügen",
-        "versionGate": "Diese Version von Photon unterstützt Instanzen mit {{version}} oder höher."
+        "versionGate": "Diese Version von Kelp unterstützt Instanzen mit {{version}} oder höher."
     },
     "filter": {
         "location": {
@@ -688,7 +688,7 @@
                 "title": "Layout Breite begrenzen"
             },
             "lang": {
-                "description": "Die verwendete Sprache für Photons UI.",
+                "description": "Die verwendete Sprache für Kelps UI.",
                 "note": "Sprachen außer Englisch und Hebräisch wurden von der Community übersetzt und könnten unvollständig sein.",
                 "de": "Deutsch",
                 "fi": "Finnisch",
@@ -704,7 +704,7 @@
             },
             "view": {
                 "title": "Beitragsstil",
-                "legacy": "Der alte Photon-Look."
+                "legacy": "Der alte Kelp-Look."
             },
             "sort": {
                 "title": "Standard-Sortierung"
@@ -717,9 +717,9 @@
                 "left": "Links",
                 "right": "Rechts"
             },
-            "title": "Photon",
+            "title": "Kelp",
             "theming": {
-                "description": "Photons Farben anpassen.",
+                "description": "Kelps Farben anpassen.",
                 "link": "Gehe zu Themen"
             },
             "displayName": {
@@ -736,7 +736,7 @@
             },
             "font": {
                 "title": "Schriftart",
-                "description": "Welche Schriftart Photon in der UI verwendet."
+                "description": "Welche Schriftart Kelp in der UI verwendet."
             },
             "infiniteScroll": {
                 "title": "Unendliches Scrollen"

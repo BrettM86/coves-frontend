@@ -17,11 +17,11 @@
       },
       {
         href: '/util/instance',
-        name: 'Photon instance',
+        name: 'Kelp instance',
       },
       {
         href: '/util/photonify',
-        name: 'Photonify Links',
+        name: 'Localize Links',
       },
       {
         href: '/util/placeholder',

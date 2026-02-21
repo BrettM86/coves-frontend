@@ -63,7 +63,7 @@
         "moveDown": "Mou avall",
         "login": "Inicia sessió",
         "changeinstance": "Canvia d'instància",
-        "versionGate": "Aquesta versió de Photon suporta instàncies que funcionin amb {{version}} o superior."
+        "versionGate": "Aquesta versió de Kelp suporta instàncies que funcionin amb {{version}} o superior."
     },
     "filter": {
         "location": {

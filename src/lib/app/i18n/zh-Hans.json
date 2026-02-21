@@ -386,7 +386,7 @@
         "moveUp": "上移",
         "moveDown": "下移",
         "guest": "游客",
-        "versionGate": "当前版本的 Photon 支持 {{version}} 或更高版本的实例。"
+        "versionGate": "当前版本的 Kelp 支持 {{version}} 或更高版本的实例。"
     },
     "filter": {
         "location": {
@@ -578,7 +578,7 @@
                     "title": "使用RTL布局",
                     "description": "对RTL语言使用RTL布局。"
                 },
-                "description": "Photon的用户界面所使用的语言。",
+                "description": "Kelp的用户界面所使用的语言。",
                 "note": "英语和希伯来语以外的语言均由社区翻译，可能不完整。",
                 "en": "英语",
                 "en-US": "英语（美国）",
@@ -599,7 +599,7 @@
                 "list": "按列表展示帖子，显示帖子内容和紧凑格式的媒体。",
                 "cozy": "显示大图像、富文本嵌入内容与长帖子正文。",
                 "compact": "按列表显示帖子，不显示帖子正文，间隔更紧凑。",
-                "legacy": "旧版 Photon 外观。",
+                "legacy": "旧版 Kelp 外观。",
                 "title": "帖子风格"
             },
             "infiniteScroll": {
@@ -618,7 +618,7 @@
             },
             "font": {
                 "title": "字体",
-                "description": "Photon 在用户界面中使用什么字体。"
+                "description": "Kelp 在用户界面中使用什么字体。"
             },
             "translation": {
                 "title": "翻译",
@@ -633,10 +633,10 @@
                 "description": "通过限制主要内容的宽度来提高可读性。",
                 "title": "限制布局宽度"
             },
-            "title": "Photon",
+            "title": "Kelp",
             "theming": {
                 "title": "主题",
-                "description": "自定义 Photon 的颜色。",
+                "description": "自定义 Kelp 的颜色。",
                 "link": "转到主题"
             },
             "colorscheme": {
@@ -729,7 +729,7 @@
             "title": "导航",
             "commands": {
                 "title": "指令面板",
-                "description": "按下斜杠键或右键单击Photon标志，即可通过搜索在应用各部分间跳转。"
+                "description": "按下斜杠键或右键单击Kelp标志，即可通过搜索在应用各部分间跳转。"
             }
         },
         "embeds": {

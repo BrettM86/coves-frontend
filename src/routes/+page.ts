@@ -1,3 +1,4 @@
+import type { FeedPaginationParams } from '$lib/api/coves/types'
 import { coves } from '$lib/api/client.svelte'
 import { profile } from '$lib/app/auth.svelte'
 import { t } from '$lib/app/i18n'
@@ -18,23 +19,14 @@ export async function load({ url, fetch, route }) {
   const listing = mapListing(listingType, profile.isAuthenticated)
 
   const feedData = feed(route.id, async (params) => {
-    const isTimeline = params.listing === 'timeline'
+    const { listing, ...rest } = params
+    const isTimeline = listing === 'timeline'
     const response = isTimeline
-      ? await coves({ func: fetch }).getTimeline({
-          sort: params.sort,
-          timeframe: params.timeframe,
-          limit: params.limit,
-          cursor: params.cursor,
-        })
-      : await coves({ func: fetch }).getDiscover({
-          sort: params.sort,
-          timeframe: params.timeframe,
-          limit: params.limit,
-          cursor: params.cursor,
-        })
+      ? await coves({ func: fetch }).getTimeline(rest)
+      : await coves({ func: fetch }).getDiscover(rest)
 
     return {
-      feed: response.feed,
+      feed: response.feed ?? [],
       cursor: response.cursor,
       params: { ...params, cursor: response.cursor },
     }
@@ -46,13 +38,22 @@ export async function load({ url, fetch, route }) {
     limit: 20,
   })
 
+  const filters = new ReactiveState({
+    sort: mapped.sort,
+    timeframe: mapped.timeframe,
+    type_: listing,
+  })
+
   return {
     feed: new ReactiveState((await awaitIfServer(feedData)).data),
-    filters: new ReactiveState({
-      sort: mapped.sort,
-      timeframe: mapped.timeframe,
-      type_: listing,
-    }),
+    filters,
+    loadFeed: async (params: FeedPaginationParams) => {
+      const isTimeline = filters.value.type_ === 'timeline'
+      const response = isTimeline
+        ? await coves({ func: fetch }).getTimeline(params)
+        : await coves({ func: fetch }).getDiscover(params)
+      return { feed: response.feed ?? [], cursor: response.cursor }
+    },
     contextual: {
       actions: [
         {

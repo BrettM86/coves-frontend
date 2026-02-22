@@ -10,9 +10,11 @@
   import ViewSelect from '$lib/feature/filter/ViewSelect.svelte'
   import PostFeed from '$lib/feature/post/feed/PostFeed.svelte'
   import VirtualFeed from '$lib/feature/post/feed/VirtualFeed.svelte'
+  import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import Skeleton from '$lib/ui/generic/Skeleton.svelte'
   import { Header, Pageination } from '$lib/ui/layout'
   import { Button } from 'mono-svelte'
+  import { ArchiveBox, ArrowTopRightOnSquare } from 'svelte-hero-icons/dist'
 
   let { data = $bindable() } = $props()
 
@@ -55,7 +57,7 @@
 
 {#await data.feed.value}
   <div class="space-y-4">
-    {#each new Array(5) as _, index}{_}
+    {#each new Array(5) as _, index}
       <div
         class="animate-pop-in"
         style="animation-delay: {index * 50}ms; opacity: 0; width: {(1 /
@@ -68,7 +70,11 @@
   </div>
 {:then feed}
   {#if feed}
-    <FeedComponent bind:posts={feed.feed} bind:params={feed.params} />
+    <FeedComponent
+      bind:posts={feed.feed}
+      bind:params={feed.params}
+      loadFeed={data.loadFeed}
+    />
     <svelte:element
       this={settings.infiniteScroll && !settings.posts.noVirtualize
         ? 'noscript'
@@ -81,6 +87,23 @@
         back={false}
       />
     </svelte:element>
+  {:else}
+    <div class="h-full grid place-items-center my-8">
+      <Placeholder
+        icon={ArchiveBox}
+        title={$t('routes.frontpage.empty.title')}
+        description={$t('routes.frontpage.empty.description')}
+      >
+        <Button
+          href="/explore/communities"
+          rounding="pill"
+          color="primary"
+          icon={ArrowTopRightOnSquare}
+        >
+          {$t('nav.communities')}
+        </Button>
+      </Placeholder>
+    </div>
   {/if}
 {:catch error}
   <div class="flex flex-col items-center gap-4 py-8 text-center">

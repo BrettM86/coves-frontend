@@ -46,6 +46,7 @@ export class Feed<Params, Response> {
       } catch (err) {
         console.error('[Feed] fetch failed:', err)
         this.error = err
+        throw err
       }
     }
 

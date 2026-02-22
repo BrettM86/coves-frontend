@@ -1,3 +1,4 @@
+import type { FeedPaginationParams } from '$lib/api/coves/types'
 import { coves } from '$lib/api/client.svelte'
 import { settings } from '$lib/app/settings.svelte'
 import { mapSort } from '$lib/app/sort'
@@ -30,7 +31,7 @@ export async function load({ params, fetch, url, route }) {
     ])
 
     return {
-      feed: feedResponse.feed,
+      feed: feedResponse.feed ?? [],
       community: communityData,
       cursor: feedResponse.cursor,
       params: { ...p, cursor: feedResponse.cursor },
@@ -45,6 +46,13 @@ export async function load({ params, fetch, url, route }) {
 
   return {
     ...feedData,
+    loadFeed: async (params: FeedPaginationParams) => {
+      const response = await coves({ func: fetch }).getCommunityFeed({
+        ...params,
+        community: communityHandle,
+      })
+      return { feed: response.feed ?? [], cursor: response.cursor }
+    },
     slots: {
       sidebar: {
         component: CommunityCard,

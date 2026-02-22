@@ -53,6 +53,7 @@
     params={{
       sort: data.params.sort,
     }}
+    loadFeed={data.loadFeed}
   >
     {#snippet extended()}
       {#if data.community}

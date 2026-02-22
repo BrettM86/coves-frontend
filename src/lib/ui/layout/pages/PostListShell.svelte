@@ -22,6 +22,9 @@
     extended?: Snippet
     getParams: FeedPaginationParams | Record<string, unknown>
     header?: boolean
+    loadFeed?: (
+      params: FeedPaginationParams,
+    ) => Promise<{ feed: FeedViewPost[]; cursor?: string }>
   }
 
   let {
@@ -32,6 +35,7 @@
     extended: passedExtended,
     getParams,
     header = true,
+    loadFeed,
   }: Props = $props()
 
   $effect(() => {
@@ -84,7 +88,7 @@
     </Header>
   {/if}
 
-  <FeedComponent bind:posts bind:params={getParams} />
+  <FeedComponent bind:posts bind:params={getParams} {loadFeed} />
   <svelte:element
     this={settings.infiniteScroll && !settings.posts.noVirtualize
       ? 'noscript'

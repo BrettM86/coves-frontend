@@ -1,5 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment'
+  import { XrpcError } from '$lib/api/coves/xrpc'
   import type { FeedViewPost, FeedPaginationParams } from '$lib/api/coves/types'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
@@ -49,11 +50,17 @@
     scrollToIndex: (index: number, window?: boolean) => void
   }>()
 
-  let error = $state()
+  let error = $state<unknown>()
+  let isAuthError = $derived(
+    error instanceof XrpcError &&
+      (error.status === 401 || error.status === 403),
+  )
   let loading = $state(false)
-  let hasMore = $state(true)
+  let hasMore = $state(!!loadFeed)
 
-  let seenUris = new SvelteSet<string>(posts.map((fp) => fp.post.uri as string))
+  let seenUris = new SvelteSet<string>(
+    (posts ?? []).map((fp) => fp.post.uri as string),
+  )
 
   async function loadMore(): Promise<void> {
     if (!hasMore || loading || !loadFeed) return
@@ -65,7 +72,7 @@
 
       error = null
 
-      hasMore = response.feed.length !== 0
+      hasMore = response.feed.length !== 0 && !!response.cursor
 
       if (response.cursor) {
         params = { ...params, cursor: response.cursor }
@@ -79,11 +86,10 @@
           return true
         }),
       )
-
-      loading = false
     } catch (e) {
       console.error('Failed to load more posts:', e)
       error = e
+    } finally {
       loading = false
     }
   }
@@ -160,7 +166,7 @@
           description={$t('routes.frontpage.empty.description')}
         >
           <Button
-            href="/communities"
+            href="/explore/communities"
             rounding="pill"
             color="primary"
             icon={ArrowTopRightOnSquare}
@@ -216,16 +222,26 @@
             micro
             class="inline-block rounded-lg clear-both float-left mr-2"
           />
-          {errorMessage(error)}
+          {#if isAuthError}
+            {$t('toast.sessionExpired')}
+          {:else}
+            {errorMessage(error)}
+          {/if}
         </div>
-        <Button
-          color="primary"
-          {loading}
-          disabled={loading}
-          onclick={() => loadMore()}
-        >
-          {$t('message.retry')}
-        </Button>
+        {#if isAuthError}
+          <Button color="primary" href="/login">
+            {$t('account.login')}
+          </Button>
+        {:else}
+          <Button
+            color="primary"
+            {loading}
+            disabled={loading}
+            onclick={() => loadMore()}
+          >
+            {$t('message.retry')}
+          </Button>
+        {/if}
       </Material>
     {:else if hasMore}
       <div class="w-full h-32 grid place-items-center">

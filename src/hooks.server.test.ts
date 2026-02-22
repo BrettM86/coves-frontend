@@ -1,9 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { Cookies, RequestEvent } from '@sveltejs/kit'
+import type { Cookies, Redirect, RequestEvent } from '@sveltejs/kit'
 
 // Variable to control the mocked instance URL
 let mockPublicInternalInstance: string | undefined = 'http://localhost:4000'
 let mockPublicInstanceUrl: string | undefined = undefined
+
+// Variable to control dev mode (default false to avoid hostname redirects in most tests)
+let mockDev = false
+
+// Mock $app/environment
+vi.mock('$app/environment', () => ({
+  get dev() {
+    return mockDev
+  },
+  browser: false,
+  building: false,
+  version: 'test',
+}))
 
 // Mock environment variables
 vi.mock('$env/dynamic/public', () => ({
@@ -50,8 +63,9 @@ function createMockCookies(
 function createMockEvent(options: {
   cookies?: Cookies
   locals?: App.Locals
+  url?: string
 }): RequestEvent {
-  const url = new URL('http://localhost:5173/')
+  const url = new URL(options.url ?? 'http://localhost:5173/')
   const defaultLocals: App.Locals = { auth: { authenticated: false } }
   return {
     request: new Request(url),
@@ -70,6 +84,19 @@ function createMockEvent(options: {
 }
 
 /**
+ * Checks if a thrown value is a SvelteKit Redirect.
+ * SvelteKit's `redirect()` throws an object with `status` and `location` properties.
+ */
+function isRedirect(err: unknown): err is Redirect {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'status' in err &&
+    'location' in err
+  )
+}
+
+/**
  * Creates a mock resolve function that returns a Response
  */
 function createMockResolve() {
@@ -81,6 +108,7 @@ describe('hooks.server handle', () => {
     vi.clearAllMocks()
     mockPublicInternalInstance = 'http://localhost:4000'
     mockPublicInstanceUrl = undefined
+    mockDev = false
   })
 
   describe('no coves_session cookie', () => {
@@ -490,6 +518,82 @@ describe('hooks.server handle', () => {
         },
       )
       expect(event.locals.auth.authenticated).toBe(true)
+    })
+  })
+
+  describe('dev mode hostname normalization', () => {
+    it('redirects localhost to 127.0.0.1 when dev=true and PUBLIC_INSTANCE_URL uses 127.0.0.1', async () => {
+      mockDev = true
+      mockPublicInstanceUrl = 'http://127.0.0.1:8080'
+
+      const cookies = createMockCookies({})
+      const event = createMockEvent({
+        cookies,
+        url: 'http://localhost:8080/some/page?q=test',
+      })
+      const resolve = createMockResolve()
+
+      try {
+        await handle({ event, resolve })
+        // Should have thrown a redirect
+        expect.fail('Expected a redirect to be thrown')
+      } catch (err) {
+        expect(isRedirect(err)).toBe(true)
+        if (isRedirect(err)) {
+          expect(err.status).toBe(302)
+          expect(err.location).toBe('http://127.0.0.1:8080/some/page?q=test')
+        }
+      }
+    })
+
+    it('does not redirect when hostname already matches canonical host', async () => {
+      mockDev = true
+      mockPublicInstanceUrl = 'http://127.0.0.1:8080'
+
+      const cookies = createMockCookies({})
+      const event = createMockEvent({
+        cookies,
+        url: 'http://127.0.0.1:8080/some/page',
+      })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      // Should proceed normally without redirect
+      expect(resolve).toHaveBeenCalledWith(event)
+    })
+
+    it('does not redirect when dev=false even if hostname mismatches', async () => {
+      mockDev = false
+      mockPublicInstanceUrl = 'http://127.0.0.1:8080'
+
+      const cookies = createMockCookies({})
+      const event = createMockEvent({
+        cookies,
+        url: 'http://localhost:8080/',
+      })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      // Should proceed normally without redirect
+      expect(resolve).toHaveBeenCalledWith(event)
+    })
+
+    it('does not redirect when PUBLIC_INSTANCE_URL is not set', async () => {
+      mockDev = true
+      mockPublicInstanceUrl = undefined
+
+      const cookies = createMockCookies({})
+      const event = createMockEvent({
+        cookies,
+        url: 'http://localhost:8080/',
+      })
+      const resolve = createMockResolve()
+
+      await handle({ event, resolve })
+
+      expect(resolve).toHaveBeenCalledWith(event)
     })
   })
 })

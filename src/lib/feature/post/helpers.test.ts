@@ -449,56 +449,19 @@ describe('computeVoteState', () => {
   }
   const noVoteViewer: PostViewerState = { saved: false }
 
-  it('upvote from no vote increments upvotes', () => {
+  it('like from no vote increments upvotes and sets score to upvotes', () => {
     const result = computeVoteState(baseStats, noVoteViewer, 'up')
     expect(result.stats.upvotes).toBe(11)
-    expect(result.stats.downvotes).toBe(2)
-    expect(result.stats.score).toBe(9)
+    expect(result.stats.score).toBe(11)
     expect(result.viewer.vote).toBe('up')
   })
 
-  it('downvote from no vote increments downvotes', () => {
-    const result = computeVoteState(baseStats, noVoteViewer, 'down')
-    expect(result.stats.upvotes).toBe(10)
-    expect(result.stats.downvotes).toBe(3)
-    expect(result.stats.score).toBe(7)
-    expect(result.viewer.vote).toBe('down')
-  })
-
-  it('toggling off upvote decrements upvotes', () => {
+  it('toggling off like decrements upvotes and sets score to upvotes', () => {
     const upViewer: PostViewerState = { saved: false, vote: 'up' }
     const result = computeVoteState(baseStats, upViewer, 'up')
     expect(result.stats.upvotes).toBe(9)
-    expect(result.stats.downvotes).toBe(2)
-    expect(result.stats.score).toBe(7)
-    expect(result.viewer.vote).toBeUndefined()
-  })
-
-  it('toggling off downvote decrements downvotes', () => {
-    const downViewer: PostViewerState = { saved: false, vote: 'down' }
-    const result = computeVoteState(baseStats, downViewer, 'down')
-    expect(result.stats.upvotes).toBe(10)
-    expect(result.stats.downvotes).toBe(1)
     expect(result.stats.score).toBe(9)
     expect(result.viewer.vote).toBeUndefined()
-  })
-
-  it('switching from upvote to downvote', () => {
-    const upViewer: PostViewerState = { saved: false, vote: 'up' }
-    const result = computeVoteState(baseStats, upViewer, 'down')
-    expect(result.stats.upvotes).toBe(9)
-    expect(result.stats.downvotes).toBe(3)
-    expect(result.stats.score).toBe(6)
-    expect(result.viewer.vote).toBe('down')
-  })
-
-  it('switching from downvote to upvote', () => {
-    const downViewer: PostViewerState = { saved: false, vote: 'down' }
-    const result = computeVoteState(baseStats, downViewer, 'up')
-    expect(result.stats.upvotes).toBe(11)
-    expect(result.stats.downvotes).toBe(1)
-    expect(result.stats.score).toBe(10)
-    expect(result.viewer.vote).toBe('up')
   })
 
   it('handles undefined stats gracefully', () => {

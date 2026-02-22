@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { SealedToken, InstanceURL } from '$lib/server/session'
-import { validateProxyPath } from './[...path]/+server'
+import { validateProxyPath } from './validate'
 
 // Mock SvelteKit types for testing - mirrors App.AuthState
 type MockAuthState =
@@ -68,15 +68,17 @@ async function createHandler(options: {
 
   try {
     // Forward request
-    const fetchOptions: RequestInit & { duplex?: 'half' } = {
+    const fetchOptions: RequestInit = {
       method: request.method,
       headers,
     }
 
-    // Only include body for methods that support it
+    // Only include body for methods that support it.
+    // We consume the body as a Blob rather than streaming request.body
+    // (ReadableStream) because Node.js undici has issues with ReadableStream
+    // bodies in fetch(), causing "expected non-null body source" errors.
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      fetchOptions.body = request.body
-      fetchOptions.duplex = 'half' // Required for streaming body
+      fetchOptions.body = await request.blob()
     }
 
     const response = await fetchFn(targetUrl, fetchOptions)

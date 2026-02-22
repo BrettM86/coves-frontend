@@ -250,15 +250,16 @@ export interface VoteState {
 }
 
 /**
- * Computes the new vote state after a user votes in a given direction.
+ * Computes the new vote state after a user likes or unlikes.
  *
  * Pure function: takes the current stats + viewer state and a vote direction,
  * returns the new stats + viewer state without mutating the inputs.
+ * Only handles direction 'up' (like/unlike toggle).
  */
 export function computeVoteState(
   currentStats: PostStats | undefined,
   currentViewer: PostViewerState | undefined,
-  direction: 'up' | 'down',
+  direction: 'up',
 ): VoteState {
   const stats = {
     ...(currentStats ?? {
@@ -271,24 +272,18 @@ export function computeVoteState(
   const viewer = { ...(currentViewer ?? { saved: false }) }
 
   const currentVote = currentViewer?.vote
-  const isToggleOff = currentVote === direction
 
-  if (isToggleOff) {
-    // Toggling off current vote
-    if (currentVote === 'up') stats.upvotes--
-    else if (currentVote === 'down') stats.downvotes--
+  if (currentVote === 'up') {
+    // Unlike: toggle off existing like
+    stats.upvotes--
     viewer.vote = undefined
     viewer.voteUri = undefined
   } else {
-    // Removing old vote if any
-    if (currentVote === 'up') stats.upvotes--
-    else if (currentVote === 'down') stats.downvotes--
-    // Applying new vote
-    if (direction === 'up') stats.upvotes++
-    else stats.downvotes++
+    // Like: add upvote
+    stats.upvotes++
     viewer.vote = direction
   }
-  stats.score = stats.upvotes - stats.downvotes
+  stats.score = stats.upvotes
 
   return { stats, viewer }
 }

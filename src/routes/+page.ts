@@ -11,9 +11,10 @@ export async function load({ url, fetch, route }) {
   const cursor = url.searchParams.get('cursor') as string | undefined
 
   const sort = url.searchParams.get('sort') ?? settings.defaultSort.sort
+  const timeframe = url.searchParams.get('timeframe') ?? undefined
   const listingType = url.searchParams.get('type') ?? settings.defaultSort.feed
 
-  const mapped = mapSort(sort)
+  const mapped = mapSort(sort, timeframe)
   const listing = mapListing(listingType, profile.isAuthenticated)
 
   const feedData = feed(route.id, async (params) => {
@@ -48,8 +49,9 @@ export async function load({ url, fetch, route }) {
   return {
     feed: new ReactiveState((await awaitIfServer(feedData)).data),
     filters: new ReactiveState({
-      sort: sort,
-      type_: listingType,
+      sort: mapped.sort,
+      timeframe: mapped.timeframe,
+      type_: listing,
     }),
     contextual: {
       actions: [

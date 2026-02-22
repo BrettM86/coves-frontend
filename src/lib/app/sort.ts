@@ -1,79 +1,72 @@
 // ---------------------------------------------------------------------------
-// Sort and listing type mapping
+// Sort and listing type validation
 // ---------------------------------------------------------------------------
 
 export type CovesSortType = 'hot' | 'new' | 'top'
 export type CovesTimeframe = 'day' | 'week' | 'month' | 'all'
 export type CovesListingType = 'discover' | 'timeline'
 
-/**
- * Maps legacy PascalCase sort names from the Photon fork (e.g. 'Hot', 'TopDay')
- * to Coves API sort + timeframe parameters.
- *
- * The Photon-era Sort filter component still emits PascalCase values like 'Hot',
- * 'New', 'TopDay', etc. This function translates them into the lowercase sort
- * and optional timeframe values the Coves XRPC API expects.
- */
-export function mapSort(legacySort: string): {
-  sort: CovesSortType
-  timeframe?: CovesTimeframe
-} {
-  switch (legacySort) {
-    case 'Hot':
-    case 'Active':
-    case 'Scaled':
-      return { sort: 'hot' }
-    case 'New':
-      return { sort: 'new' }
-    case 'Old':
-      return { sort: 'new' } // Coves has no 'old'; fall back to 'new'
-    case 'TopAll':
-      return { sort: 'top', timeframe: 'all' }
-    case 'TopDay':
-      return { sort: 'top', timeframe: 'day' }
-    case 'TopWeek':
-      return { sort: 'top', timeframe: 'week' }
-    case 'TopMonth':
-      return { sort: 'top', timeframe: 'month' }
-    case 'TopThreeMonths':
-      return { sort: 'top', timeframe: 'all' }
-    case 'TopSixMonths':
-      return { sort: 'top', timeframe: 'all' }
-    case 'TopNineMonths':
-    case 'TopYear':
-      return { sort: 'top', timeframe: 'all' }
-    case 'TopHour':
-    case 'TopSixHour':
-    case 'TopTwelveHour':
-      return { sort: 'top', timeframe: 'day' }
-    case 'Controversial':
-      return { sort: 'hot' } // Coves has no 'controversial'; fall back
-    case 'MostComments':
-    case 'NewComments':
-      return { sort: 'hot' } // Coves has no comment-based sorts; fall back
-    default:
-      return { sort: 'hot' }
-  }
+export type CovesSortParams =
+  | { sort: 'hot'; timeframe?: undefined }
+  | { sort: 'new'; timeframe?: undefined }
+  | { sort: 'top'; timeframe: CovesTimeframe }
+
+const VALID_SORTS: ReadonlySet<CovesSortType> = new Set<CovesSortType>([
+  'hot',
+  'new',
+  'top',
+])
+const VALID_TIMEFRAMES: ReadonlySet<CovesTimeframe> = new Set<CovesTimeframe>([
+  'day',
+  'week',
+  'month',
+  'all',
+])
+
+function isValidSort(s: string): s is CovesSortType {
+  return (VALID_SORTS as ReadonlySet<string>).has(s)
+}
+
+function isValidTimeframe(t: string): t is CovesTimeframe {
+  return (VALID_TIMEFRAMES as ReadonlySet<string>).has(t)
 }
 
 /**
- * Maps legacy PascalCase listing type names from the Photon fork
- * (e.g. 'Subscribed', 'All', 'Local') to Coves listing identifiers.
- *
- * Used by the home feed page to choose between the authenticated user's
- * timeline and the public discover feed.
+ * Validates and returns Coves API sort + timeframe parameters.
+ * Falls back to `{ sort: 'hot' }` for invalid input.
+ */
+export function mapSort(sort: string, timeframe?: string): CovesSortParams {
+  if (!isValidSort(sort)) {
+    console.warn(`[sort] Invalid sort value "${sort}", falling back to "hot"`)
+    return { sort: 'hot' }
+  }
+  if (sort === 'top') {
+    if (timeframe && isValidTimeframe(timeframe)) {
+      return { sort: 'top', timeframe }
+    }
+    if (timeframe) {
+      console.warn(
+        `[sort] Invalid timeframe "${timeframe}", falling back to "all"`,
+      )
+    }
+    return { sort: 'top', timeframe: 'all' }
+  }
+  return { sort }
+}
+
+/**
+ * Validates and returns Coves listing type.
+ * Falls back to `'discover'` for invalid input or unauthenticated timeline requests.
  */
 export function mapListing(
-  legacyListing: string,
+  listing: string,
   isAuthenticated: boolean,
 ): CovesListingType {
-  switch (legacyListing) {
-    case 'Subscribed':
-      return isAuthenticated ? 'timeline' : 'discover'
-    case 'All':
-    case 'Local':
-    case 'ModeratorView':
-    default:
-      return 'discover'
+  if (listing === 'timeline') return isAuthenticated ? 'timeline' : 'discover'
+  if (listing !== 'discover') {
+    console.warn(
+      `[sort] Invalid listing type "${listing}", falling back to "discover"`,
+    )
   }
+  return 'discover'
 }

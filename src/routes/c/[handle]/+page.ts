@@ -10,9 +10,10 @@ export async function load({ params, fetch, url, route }) {
   const cursor = url.searchParams.get('cursor') as string | undefined
 
   const sort = url.searchParams.get('sort') ?? settings.defaultSort.sort
+  const timeframe = url.searchParams.get('timeframe') ?? undefined
 
   const communityHandle = communityHandleFromSlug(params.handle) as Handle
-  const mapped = mapSort(sort)
+  const mapped = mapSort(sort, timeframe)
 
   const feedData = await feed(route.id, async (p) => {
     const api = coves({ func: fetch })

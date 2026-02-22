@@ -3,49 +3,16 @@ import { env } from '$env/dynamic/public'
 import { locale } from './i18n'
 
 /**
- * Legacy PascalCase sort type strings used by the Photon-era UI components.
- * These values are stored in user settings and mapped to Coves API sort
- * parameters via `mapSort()` in `$lib/app/sort.ts` before API calls.
+ * Sort type values for the Coves API.
  *
- * The `| string` fallback allows values from env vars and localStorage
- * that may not match these known literals (backward compatibility).
+ * The `| (string & {})` fallback allows values from env vars and localStorage
+ * that may not match these known literals.
  */
-type SortType =
-  | 'Active'
-  | 'Hot'
-  | 'New'
-  | 'Old'
-  | 'Scaled'
-  | 'TopDay'
-  | 'TopWeek'
-  | 'TopMonth'
-  | 'TopYear'
-  | 'TopAll'
-  | 'TopHour'
-  | 'TopSixHour'
-  | 'TopTwelveHour'
-  | 'TopThreeMonths'
-  | 'TopSixMonths'
-  | 'TopNineMonths'
-  | 'MostComments'
-  | 'NewComments'
-  | 'Controversial'
-  | (string & {})
+type SortType = 'hot' | 'new' | 'top' | (string & {})
 
-type ListingType =
-  | 'All'
-  | 'Local'
-  | 'Subscribed'
-  | 'ModeratorView'
-  | (string & {})
+type ListingType = 'discover' | 'timeline' | (string & {})
 
-type CommentSortType =
-  | 'Hot'
-  | 'Top'
-  | 'New'
-  | 'Old'
-  | 'Controversial'
-  | (string & {})
+type CommentSortType = 'hot' | 'top' | 'new' | (string & {})
 
 export type View = 'cozy' | 'compact'
 
@@ -81,6 +48,7 @@ interface Settings {
     sort: SortType
     feed: ListingType
     comments: CommentSortType
+    timeframe: string
   }
   hidePosts: {
     deleted: boolean
@@ -156,9 +124,10 @@ export const defaultSettings: Settings = {
     comments: toBool(env.PUBLIC_SHOW_INSTANCES_COMMENTS) ?? true,
   },
   defaultSort: {
-    sort: (env.PUBLIC_DEFAULT_FEED_SORT ?? 'Active') as SortType,
-    feed: (env.PUBLIC_DEFAULT_FEED ?? 'Local') as ListingType,
-    comments: (env.PUBLIC_DEFAULT_COMMENT_SORT ?? 'Hot') as CommentSortType,
+    sort: (env.PUBLIC_DEFAULT_FEED_SORT ?? 'hot') as SortType,
+    feed: (env.PUBLIC_DEFAULT_FEED ?? 'discover') as ListingType,
+    comments: (env.PUBLIC_DEFAULT_COMMENT_SORT ?? 'hot') as CommentSortType,
+    timeframe: env.PUBLIC_DEFAULT_FEED_TIMEFRAME ?? 'all',
   },
   hidePosts: {
     deleted: toBool(env.PUBLIC_HIDE_DELETED) ?? false,

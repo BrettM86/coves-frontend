@@ -102,6 +102,10 @@
             "mostcomments": "Most Comments",
             "newcomments": "New Replies"
         },
+        "feed": {
+            "discover": "Discover",
+            "forYou": "For You"
+        },
         "view": {
             "label": "View",
             "cozy": "Cozy",

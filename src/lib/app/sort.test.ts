@@ -2,139 +2,114 @@ import { describe, expect, it } from 'vitest'
 import { mapListing, mapSort } from './sort'
 
 describe('mapSort', () => {
-  describe('hot sort mappings', () => {
-    it.each(['Hot', 'Active', 'Scaled'])('maps "%s" to hot', (input) => {
-      expect(mapSort(input)).toEqual({ sort: 'hot' })
-    })
-  })
-
-  describe('new sort mappings', () => {
-    it('maps "New" to new', () => {
-      expect(mapSort('New')).toEqual({ sort: 'new' })
-    })
-
-    it('maps "Old" to new (fallback)', () => {
-      expect(mapSort('Old')).toEqual({ sort: 'new' })
-    })
-  })
-
-  describe('top sort mappings', () => {
-    it('maps "TopAll" to top with timeframe all', () => {
-      expect(mapSort('TopAll')).toEqual({ sort: 'top', timeframe: 'all' })
-    })
-
-    it('maps "TopDay" to top with timeframe day', () => {
-      expect(mapSort('TopDay')).toEqual({ sort: 'top', timeframe: 'day' })
-    })
-
-    it('maps "TopWeek" to top with timeframe week', () => {
-      expect(mapSort('TopWeek')).toEqual({ sort: 'top', timeframe: 'week' })
-    })
-
-    it('maps "TopMonth" to top with timeframe month', () => {
-      expect(mapSort('TopMonth')).toEqual({ sort: 'top', timeframe: 'month' })
-    })
-
-    it('maps "TopThreeMonths" to top with timeframe all', () => {
-      expect(mapSort('TopThreeMonths')).toEqual({
-        sort: 'top',
-        timeframe: 'all',
-      })
-    })
-
-    it('maps "TopSixMonths" to top with timeframe all', () => {
-      expect(mapSort('TopSixMonths')).toEqual({
-        sort: 'top',
-        timeframe: 'all',
-      })
-    })
-
-    it('maps "TopNineMonths" to top with timeframe all', () => {
-      expect(mapSort('TopNineMonths')).toEqual({
-        sort: 'top',
-        timeframe: 'all',
-      })
-    })
-
-    it('maps "TopYear" to top with timeframe all', () => {
-      expect(mapSort('TopYear')).toEqual({
-        sort: 'top',
-        timeframe: 'all',
-      })
-    })
-
-    it.each(['TopHour', 'TopSixHour', 'TopTwelveHour'])(
-      'maps "%s" to top with timeframe day',
-      (input) => {
-        expect(mapSort(input)).toEqual({ sort: 'top', timeframe: 'day' })
-      },
-    )
-  })
-
-  describe('fallback mappings', () => {
-    it('maps "Controversial" to hot (fallback)', () => {
-      expect(mapSort('Controversial')).toEqual({ sort: 'hot' })
-    })
-
-    it.each(['MostComments', 'NewComments'])(
-      'maps "%s" to hot (fallback)',
-      (input) => {
-        expect(mapSort(input)).toEqual({ sort: 'hot' })
-      },
-    )
-  })
-
-  describe('default case', () => {
-    it('maps unknown sort string to hot', () => {
-      expect(mapSort('UnknownSort')).toEqual({ sort: 'hot' })
-    })
-
-    it('maps empty string to hot', () => {
-      expect(mapSort('')).toEqual({ sort: 'hot' })
-    })
-
-    it('maps lowercase "hot" to hot (default, not case-matched)', () => {
+  describe('valid sort values', () => {
+    it('maps "hot" to { sort: "hot" }', () => {
       expect(mapSort('hot')).toEqual({ sort: 'hot' })
+    })
+
+    it('maps "new" to { sort: "new" }', () => {
+      expect(mapSort('new')).toEqual({ sort: 'new' })
+    })
+
+    it('maps "top" to { sort: "top", timeframe: "all" } (default timeframe)', () => {
+      expect(mapSort('top')).toEqual({ sort: 'top', timeframe: 'all' })
+    })
+  })
+
+  describe('top sort with timeframes', () => {
+    it('maps "top" with timeframe "day"', () => {
+      expect(mapSort('top', 'day')).toEqual({ sort: 'top', timeframe: 'day' })
+    })
+
+    it('maps "top" with timeframe "week"', () => {
+      expect(mapSort('top', 'week')).toEqual({ sort: 'top', timeframe: 'week' })
+    })
+
+    it('maps "top" with timeframe "month"', () => {
+      expect(mapSort('top', 'month')).toEqual({
+        sort: 'top',
+        timeframe: 'month',
+      })
+    })
+
+    it('maps "top" with timeframe "all"', () => {
+      expect(mapSort('top', 'all')).toEqual({ sort: 'top', timeframe: 'all' })
+    })
+
+    it('falls back to timeframe "all" for invalid timeframe', () => {
+      expect(mapSort('top', 'invalid')).toEqual({
+        sort: 'top',
+        timeframe: 'all',
+      })
+    })
+  })
+
+  describe('non-top sorts exclude timeframe property', () => {
+    it('mapSort("hot", "day") returns { sort: "hot" } without timeframe', () => {
+      const result = mapSort('hot', 'day')
+      expect(result).toEqual({ sort: 'hot' })
+      expect(result).not.toHaveProperty('timeframe')
+    })
+
+    it('mapSort("new", "week") returns { sort: "new" } without timeframe', () => {
+      const result = mapSort('new', 'week')
+      expect(result).toEqual({ sort: 'new' })
+      expect(result).not.toHaveProperty('timeframe')
+    })
+  })
+
+  describe('top sort with empty string timeframe', () => {
+    it('mapSort("top", "") falls back to timeframe "all"', () => {
+      expect(mapSort('top', '')).toEqual({ sort: 'top', timeframe: 'all' })
+    })
+  })
+
+  describe('fallback for invalid sort values', () => {
+    it('maps "invalid" to { sort: "hot" }', () => {
+      expect(mapSort('invalid')).toEqual({ sort: 'hot' })
+    })
+
+    it('maps empty string to { sort: "hot" }', () => {
+      expect(mapSort('')).toEqual({ sort: 'hot' })
     })
   })
 })
 
 describe('mapListing', () => {
-  describe('Subscribed listing', () => {
-    it('returns "timeline" when authenticated', () => {
-      expect(mapListing('Subscribed', true)).toBe('timeline')
+  describe('discover listing', () => {
+    it('returns "discover" when authenticated', () => {
+      expect(mapListing('discover', true)).toBe('discover')
     })
 
     it('returns "discover" when not authenticated', () => {
-      expect(mapListing('Subscribed', false)).toBe('discover')
+      expect(mapListing('discover', false)).toBe('discover')
     })
   })
 
-  describe('public listings', () => {
-    it('maps "All" to discover', () => {
-      expect(mapListing('All', true)).toBe('discover')
-      expect(mapListing('All', false)).toBe('discover')
+  describe('timeline listing', () => {
+    it('returns "timeline" when authenticated', () => {
+      expect(mapListing('timeline', true)).toBe('timeline')
     })
 
-    it('maps "Local" to discover', () => {
-      expect(mapListing('Local', true)).toBe('discover')
-      expect(mapListing('Local', false)).toBe('discover')
-    })
-
-    it('maps "ModeratorView" to discover', () => {
-      expect(mapListing('ModeratorView', true)).toBe('discover')
-      expect(mapListing('ModeratorView', false)).toBe('discover')
+    it('returns "discover" when not authenticated (timeline requires auth)', () => {
+      expect(mapListing('timeline', false)).toBe('discover')
     })
   })
 
-  describe('default case', () => {
-    it('maps unknown listing string to discover', () => {
-      expect(mapListing('UnknownListing', true)).toBe('discover')
-      expect(mapListing('UnknownListing', false)).toBe('discover')
+  describe('fallback for invalid listing values', () => {
+    it('maps "invalid" to "discover" when authenticated', () => {
+      expect(mapListing('invalid', true)).toBe('discover')
     })
 
-    it('maps empty string to discover', () => {
+    it('maps "invalid" to "discover" when not authenticated', () => {
+      expect(mapListing('invalid', false)).toBe('discover')
+    })
+
+    it('maps empty string to "discover" when authenticated', () => {
       expect(mapListing('', true)).toBe('discover')
+    })
+
+    it('maps empty string to "discover" when not authenticated', () => {
       expect(mapListing('', false)).toBe('discover')
     })
   })

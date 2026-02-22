@@ -43,9 +43,9 @@ function findInFeed(
 
 export async function load({ params, url, fetch, route }) {
   const communityHandle = communityHandleFromSlug(params.handle)
-  const legacySort =
-    url.searchParams.get('sort') ?? settings?.defaultSort?.comments ?? 'Hot'
-  const { sort } = mapSort(legacySort)
+  const commentSort =
+    url.searchParams.get('sort') ?? settings?.defaultSort?.comments ?? 'hot'
+  const { sort } = mapSort(commentSort)
   const thread = url.searchParams.get('thread')
 
   // Parse thread context for comment navigation

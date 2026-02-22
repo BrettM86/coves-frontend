@@ -5,15 +5,14 @@
   import { site } from '$lib/api/client.svelte'
   import { t } from '$lib/app/i18n'
   import { settings, SSR_ENABLED } from '$lib/app/settings.svelte'
-  import Location from '$lib/feature/filter/Location.svelte'
-  import Sort from '$lib/feature/filter/Sort.svelte'
+  import FeedTabs from '$lib/feature/filter/FeedTabs.svelte'
+  import SortMenu from '$lib/feature/filter/SortMenu.svelte'
   import ViewSelect from '$lib/feature/filter/ViewSelect.svelte'
   import PostFeed from '$lib/feature/post/feed/PostFeed.svelte'
   import VirtualFeed from '$lib/feature/post/feed/VirtualFeed.svelte'
   import Skeleton from '$lib/ui/generic/Skeleton.svelte'
   import { Header, Pageination } from '$lib/ui/layout'
   import { Button } from 'mono-svelte'
-  import { ArrowRight, Icon } from 'svelte-hero-icons/dist'
 
   let { data = $bindable() } = $props()
 
@@ -40,30 +39,17 @@
 </svelte:head>
 
 <Header pageHeader>
-  {$t('routes.frontpage.title')}
+  {#snippet children()}
+    <FeedTabs bind:selected={data.filters.value.type_} />
+  {/snippet}
   {#snippet extended()}
-    <form class="contents" method="get" action={page.url.pathname}>
-      <div class="flex flex-row gap-2 max-w-full">
-        <Location
-          name="type"
-          navigate
-          bind:selected={data.filters.value.type_!}
-        />
-        <Sort
-          placement="bottom"
-          name="sort"
-          navigate
-          bind:selected={data.filters.value.sort!}
-        />
-        <ViewSelect placement="bottom" />
-
-        <noscript>
-          <Button class="self-end h-[34px] aspect-square" size="custom" submit>
-            <Icon src={ArrowRight} size="16" micro />
-          </Button>
-        </noscript>
-      </div>
-    </form>
+    <div class="flex flex-row gap-2 items-center">
+      <SortMenu
+        bind:sort={data.filters.value.sort}
+        bind:timeframe={data.filters.value.timeframe}
+      />
+      <ViewSelect placement="bottom" showLabel={false} />
+    </div>
   {/snippet}
 </Header>
 

@@ -16,17 +16,21 @@ export const findClosestNumber = (numbers: number[], target: number): number =>
     curr >= target && (prev < target || curr < prev) ? curr : prev,
   )
 
-export const searchParam = (
+export const searchParam = async (
   url: URL,
   key: string,
   value: string,
   ...deleteKeys: string[]
-) => {
+): Promise<void> => {
   url.searchParams.set(key, value)
   deleteKeys.forEach((k) => url.searchParams.delete(k))
-  goto(url, {
-    invalidateAll: true,
-  })
+  try {
+    await goto(url, {
+      invalidateAll: true,
+    })
+  } catch (err) {
+    console.error('[searchParam] Navigation failed:', err)
+  }
 }
 
 export const fullCommunityName = (name: string, actorId: string): string => {

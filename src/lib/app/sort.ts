@@ -54,6 +54,31 @@ export function mapSort(sort: string, timeframe?: string): CovesSortParams {
   return { sort }
 }
 
+// ---------------------------------------------------------------------------
+// Community sort validation
+// ---------------------------------------------------------------------------
+
+export type CommunitySortType = 'popular' | 'active' | 'new' | 'alphabetical'
+
+const VALID_COMMUNITY_SORTS: ReadonlySet<CommunitySortType> =
+  new Set<CommunitySortType>(['popular', 'active', 'new', 'alphabetical'])
+
+export function isValidCommunitySort(s: string): s is CommunitySortType {
+  return (VALID_COMMUNITY_SORTS as ReadonlySet<string>).has(s)
+}
+
+/**
+ * Validates a community sort value.
+ * Falls back to `'popular'` for invalid input.
+ */
+export function mapCommunitySort(sort: string): CommunitySortType {
+  if (isValidCommunitySort(sort)) return sort
+  console.warn(
+    `[sort] Invalid community sort value "${sort}", falling back to "popular"`,
+  )
+  return 'popular'
+}
+
 /**
  * Validates and returns Coves listing type.
  * Falls back to `'discover'` for invalid input or unauthenticated timeline requests.

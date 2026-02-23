@@ -15,11 +15,11 @@
   let { data } = $props()
 
   let showTop = $derived(
-    (data.query ?? '') !== '' && data.communities.length > 0,
+    (data.query ?? '') === '' && data.communities.length > 0,
   )
 </script>
 
-{#if navigating.to?.route.id == '/communities'}
+{#if navigating.to?.route.id == '/explore/communities'}
   <div class="flex flex-col gap-3">
     {#each new Array(5) as _, index}
       {_}

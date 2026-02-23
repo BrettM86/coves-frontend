@@ -11,6 +11,7 @@ import type {
   ProfileViewDetailed,
   ThreadViewComment,
 } from '$lib/api/coves/types'
+import type { CommunitySortType } from '$lib/app/sort'
 import { profile } from '$lib/app/auth.svelte'
 import { recursiveEqual } from '$lib/app/util.svelte'
 import { SvelteMap } from 'svelte/reactivity'
@@ -118,13 +119,14 @@ export interface FeedTypes {
   ]
   '/explore/communities': [
     {
-      sort?: string
+      sort?: CommunitySortType
       query?: string
       limit?: number
-      offset?: number
+      cursor?: string
     },
     {
       communities: CovesCommunityView[]
+      cursor?: string
     },
   ]
   // TODO(coves-migration): convert to Coves types — legacy Lemmy feed route

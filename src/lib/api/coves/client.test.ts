@@ -200,10 +200,10 @@ describe('Community methods', () => {
   })
 
   it('searchCommunities() calls query with correct NSID', async () => {
-    await client.searchCommunities({ query: 'rust' })
+    await client.searchCommunities({ q: 'rust' })
 
     expect(querySpy).toHaveBeenCalledWith(NSID.searchCommunities, {
-      query: 'rust',
+      q: 'rust',
     })
   })
 

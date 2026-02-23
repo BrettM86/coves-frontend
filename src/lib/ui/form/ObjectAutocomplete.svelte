@@ -34,7 +34,7 @@
 
       if (q.trim()) {
         const results = await api.searchCommunities({
-          query: q,
+          q,
           limit: 20,
         })
         return results.communities

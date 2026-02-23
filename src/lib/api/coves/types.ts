@@ -449,21 +449,27 @@ export interface GetCommunityParams {
 }
 
 export interface ListCommunitiesParams {
-  sort?: string
+  sort?: 'popular' | 'active' | 'new' | 'alphabetical'
   visibility?: CommunityVisibility
   limit?: number
-  offset?: number
+  cursor?: string
+  category?: string
+  language?: string
+  subscribed?: boolean
 }
 
 export interface ListCommunitiesResponse {
   communities: CommunityView[]
+  cursor?: string
 }
 
 export interface SearchCommunitiesParams {
-  query: string
+  q: string
   visibility?: CommunityVisibility
   limit?: number
-  offset?: number
+  cursor?: string
+  category?: string
+  language?: string
 }
 
 // ---------------------------------------------------------------------------

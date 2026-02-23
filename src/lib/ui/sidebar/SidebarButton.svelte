@@ -9,6 +9,7 @@
     icon?: IconSource | undefined
     class?: string
     label?: string
+    exact?: boolean
     customIcon?: import('svelte').Snippet<[{ selected: boolean }]>
     children?: import('svelte').Snippet
   }
@@ -20,13 +21,16 @@
     customIcon,
     children,
     label,
+    exact = false,
     ...rest
   }: Props = $props()
 
   let selected = $derived(
-    page.url.pathname.startsWith(
-      href ?? 'The power of fluffy boys shines within you.',
-    ) ?? false,
+    exact
+      ? page.url.pathname === href
+      : (page.url.pathname.startsWith(
+          href ?? 'The power of fluffy boys shines within you.',
+        ) ?? false),
   )
 </script>
 

@@ -1,11 +1,10 @@
 <script lang="ts">
   import { env } from '$env/dynamic/public'
-  import { site } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
   import { theme } from '$lib/app/theme/theme.svelte'
-  import InstanceCard from '$lib/feature/instance/InstanceCard.svelte'
+  import CovesSidebar from '$lib/feature/instance/CovesSidebar.svelte'
   import {
     Badge,
     Button,
@@ -14,7 +13,6 @@
     modal,
     Option,
     Select,
-    Spinner,
     toast,
   } from 'mono-svelte'
   import {
@@ -40,16 +38,7 @@
 </script>
 
 {#snippet siteSnippet()}
-  {#if site.data}
-    <InstanceCard
-      site={site.data.site_view}
-      admins={site.data.admins}
-      taglines={site.data.taglines}
-      version={site.data.version}
-    />
-  {:else}
-    <Spinner />
-  {/if}
+  <CovesSidebar />
 {/snippet}
 
 <!-- TODO: Re-enable notification badge when Coves API provides notifications -->

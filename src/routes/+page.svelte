@@ -2,9 +2,8 @@
   import { browser } from '$app/environment'
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
-  import { site } from '$lib/api/client.svelte'
   import { t } from '$lib/app/i18n'
-  import { settings, SSR_ENABLED } from '$lib/app/settings.svelte'
+  import { settings } from '$lib/app/settings.svelte'
   import FeedTabs from '$lib/feature/filter/FeedTabs.svelte'
   import SortMenu from '$lib/feature/filter/SortMenu.svelte'
   import ViewSelect from '$lib/feature/filter/ViewSelect.svelte'
@@ -33,11 +32,7 @@
 </script>
 
 <svelte:head>
-  <title>
-    {SSR_ENABLED && site.data
-      ? site.data.site_view.site.name
-      : $t('routes.frontpage.title')}
-  </title>
+  <title>Coves</title>
 </svelte:head>
 
 <Header pageHeader>

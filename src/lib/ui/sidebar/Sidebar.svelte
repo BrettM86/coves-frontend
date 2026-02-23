@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { env } from '$env/dynamic/public'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { LINKED_INSTANCE_URL } from '$lib/app/instance.svelte'
@@ -12,6 +11,7 @@
     ChevronUpDown,
     Cog6Tooth,
     ComputerDesktop,
+    Home,
     Icon,
     Identification,
     Inbox,
@@ -22,7 +22,6 @@
     UserGroup,
   } from 'svelte-hero-icons/dist'
   import type { ClassValue } from 'svelte/elements'
-  import Logo from '../generic/Logo.svelte'
   import EndPlaceholder from '../layout/EndPlaceholder.svelte'
   import SidebarButton from './SidebarButton.svelte'
 
@@ -39,6 +38,7 @@
   class={['flex flex-col overflow-auto gap-1', clazz]}
   {style}
 >
+  <SidebarButton href="/" label={$t('nav.home')} icon={Home} exact />
   <ProfileSelection
     selectable={!(
       LINKED_INSTANCE_URL &&
@@ -111,29 +111,4 @@
   <!-- TODO: Re-enable communities/moderates lists when Coves API provides user data -->
 
   <div class="flex-1 h-full mt-auto"></div>
-
-  <footer
-    class="flex gap-6 flex-col xl:flex-row text-sm text-slate-600 dark:text-zinc-300 flex-wrap"
-  >
-    <div class="flex items-center gap-2">
-      <Logo width={16} />
-      <span class="font-medium">
-        {__VERSION__}
-      </span>
-    </div>
-    {#if env.PUBLIC_XYLIGHT_MODE?.toLowerCase() == 'true'}
-      <a
-        class="text-blue-600 dark:text-blue-400"
-        href="https://tangled.org/bretton.dev/coves-frontend"
-      >
-        {$t('nav.menu.source')}
-      </a>
-      <a
-        class="text-blue-600 dark:text-blue-400"
-        href="https://buymeacoffee.com/xylight"
-      >
-        {$t('nav.menu.donate')}
-      </a>
-    {/if}
-  </footer>
 </nav>

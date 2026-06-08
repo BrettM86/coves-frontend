@@ -1,7 +1,7 @@
 import type {
+  AtUri,
   PostEmbed,
   PostStats,
-  PostView,
   PostViewerState,
 } from '$lib/api/coves/types'
 import { parseAtUri } from '$lib/api/coves/types'
@@ -80,12 +80,30 @@ export const isYoutubeLink = (url?: string): RegExpMatchArray | null => {
   return url?.match?.(YOUTUBE_REGEX)
 }
 
-export function postLink(post: PostView): string {
-  const { rkey } = parseAtUri(post.uri)
+/**
+ * Builds the canonical Coves permalink for a post: `/c/<slug>/post/<rkey>`.
+ *
+ * Single source of truth for post URL generation — route every post link
+ * through here instead of hand-rolling the path, so the URL scheme only ever
+ * lives in one place. Accepts any object carrying the post's AT-URI and a
+ * community ref (a full `PostView`, or just the `{ uri, community }` pieces).
+ *
+ * @param includeUri - When true, appends `?uri=<canonical AT-URI>` to the path.
+ *   The post page reads this param to load the post immediately, without a
+ *   feed-cache hit or a backend handle→DID resolution — use it right after
+ *   creating a post, when the new record is not yet in any feed cache.
+ */
+export function postLink(
+  post: { uri: string; community: { handle?: string; name: string } },
+  includeUri = false,
+): string {
+  const { rkey } = parseAtUri(post.uri as AtUri)
   const slug = post.community.handle
     ? communitySlug(post.community.handle)
     : post.community.name
-  return `/c/${encodeURIComponent(slug)}/post/${encodeURIComponent(rkey)}`
+  const path = `/c/${encodeURIComponent(slug)}/post/${encodeURIComponent(rkey)}`
+  if (!includeUri) return path
+  return `${path}?${new URLSearchParams({ uri: post.uri })}`
 }
 
 export type MediaType = 'video' | 'image' | 'iframe' | 'embed' | 'none'

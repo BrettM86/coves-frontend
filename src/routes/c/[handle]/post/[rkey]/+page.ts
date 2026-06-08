@@ -88,11 +88,12 @@ export async function load({ params, url, fetch, route }) {
     }
   })
 
-  // Build the post URI. If we have a cache hit, use the real URI.
-  // Otherwise, construct a handle-based AT-URI from route params that the
-  // backend can resolve to the canonical DID-based form.
+  // Build the post URI. Prefer: explicit query param > feed cache > handle-based fallback.
+  // The query param is set when navigating from post creation with the canonical DID-based URI.
   const postUri =
-    cachedPost?.uri ?? buildPostAtUri(communityHandle, params.rkey)
+    (url.searchParams.get('uri') as AtUri | null) ??
+    cachedPost?.uri ??
+    buildPostAtUri(communityHandle, params.rkey)
 
   const loaded = new ReactiveState(
     await feedData.load({

@@ -4,7 +4,6 @@
     CommunityView,
     CommunityViewDetailed,
   } from '$lib/api/coves/types'
-  import { parseAtUri } from '$lib/api/coves/types'
   import { t } from '$lib/app/i18n'
   import { getSessionStorage, setSessionStorage } from '$lib/app/session'
   import { communitySlug } from '$lib/app/util.svelte'
@@ -13,6 +12,7 @@
     PostFormState,
     type PostSubmitResult,
   } from '$lib/feature/post/form/post-form.svelte'
+  import { postLink } from '$lib/feature/post/helpers'
   import { onDestroy } from 'svelte'
 
   let community = getSessionStorage('lastSeenCommunity') as
@@ -25,14 +25,15 @@
   })
 
   function navigateToPost(result: PostSubmitResult): void {
-    const slug = result.community.handle
-      ? communitySlug(result.community.handle)
-      : result.community.name
-
     try {
-      const { rkey } = parseAtUri(result.uri)
-      goto(`/c/${encodeURIComponent(slug)}/post/${encodeURIComponent(rkey)}`)
+      // includeUri=true carries the canonical DID-based AT-URI as ?uri= so the
+      // post page can load immediately — the brand-new record is not yet in any
+      // feed cache, and this avoids a backend handle→DID round-trip.
+      goto(postLink(result, true))
     } catch (err) {
+      const slug = result.community.handle
+        ? communitySlug(result.community.handle)
+        : result.community.name
       console.warn(
         '[create/post] Failed to parse post URI, falling back to community page:',
         err,

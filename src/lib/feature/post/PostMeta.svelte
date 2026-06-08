@@ -1,6 +1,5 @@
 <script lang="ts" module>
   import type { AuthorView, CommunityRef } from '$lib/api/coves/types'
-  import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { type View, settings } from '$lib/app/settings.svelte'
@@ -22,6 +21,7 @@
   import { SvelteMap } from 'svelte/reactivity'
   import CommunityLink from '../community/CommunityLink.svelte'
   import UserLink from '../user/UserLink.svelte'
+  import { postLink } from './helpers'
 
   type BadgeType = 'saved' | 'featured'
   export interface MetaTag {
@@ -307,7 +307,9 @@
     <a
       href={useAttachedUrl
         ? postUrl
-        : `/post/${encodeURIComponent(profile.current.instance)}/${encodeURIComponent(uri)}`}
+        : community
+          ? postLink({ uri, community })
+          : undefined}
       target={useAttachedUrl ? '_blank' : undefined}
       rel={useAttachedUrl ? 'noopener noreferrer' : undefined}
       class="inline-block hover:underline hover:text-primary-900 dark:hover:text-primary-100 transition-colors"

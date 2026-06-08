@@ -604,4 +604,29 @@ describe('postLink', () => {
     // encodeURIComponent encodes "+" -> "%2B"
     expect(postLink(post)).toBe('/c/tech.coves.social/post/rkey%2Bspecial')
   })
+
+  it('omits the query param by default (includeUri defaults to false)', () => {
+    const post = makePostView({
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkey123',
+      communityHandle: 'c-gaming.coves.social',
+    })
+    expect(postLink(post)).toBe('/c/gaming.coves.social/post/rkey123')
+  })
+
+  it('appends the canonical AT-URI as ?uri= when includeUri is true', () => {
+    const uri = 'at://did:plc:abc123/social.coves.community.post/rkey123'
+    const post = makePostView({ uri, communityHandle: 'c-gaming.coves.social' })
+    const [path, query] = postLink(post, true).split('?')
+    expect(path).toBe('/c/gaming.coves.social/post/rkey123')
+    // Round-trips the exact canonical URI so the post page can load without a cache hit.
+    expect(new URLSearchParams(query).get('uri')).toBe(uri)
+  })
+
+  it('accepts a minimal { uri, community } object, not just a full PostView', () => {
+    const link = postLink({
+      uri: 'at://did:plc:abc/social.coves.community.post/rk',
+      community: { handle: 'c-books.coves.social', name: 'books' },
+    })
+    expect(link).toBe('/c/books.coves.social/post/rk')
+  })
 })

@@ -3,10 +3,16 @@
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { Post } from '$lib/feature/post'
   import UserLink from '$lib/feature/user/UserLink.svelte'
+  import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import { Material, Spinner } from 'mono-svelte'
   import { formatRelativeDate } from 'mono-svelte/util/RelativeDate.svelte'
-  import { ChatBubbleOvalLeft, ChevronDown, Icon } from 'svelte-hero-icons/dist'
+  import {
+    ChatBubbleOvalLeft,
+    ChevronDown,
+    Icon,
+    NoSymbol,
+  } from 'svelte-hero-icons/dist'
   import type { PageData } from './$types'
 
   interface Props {
@@ -33,6 +39,8 @@
       property="og:description"
       content={data.data.value.post.record?.content?.slice(0, 200) ?? ''}
     />
+  {:else if data.data.value?.unavailable}
+    <title>Post unavailable</title>
   {/if}
 </svelte:head>
 
@@ -84,6 +92,16 @@
         </p>
       {/await}
     </section>
+  {:else if data.data.value?.unavailable}
+    <Material padding="lg" rounding="2xl" class="py-12">
+      <Placeholder
+        icon={NoSymbol}
+        title="Post unavailable"
+        description={data.data.value.unavailable === 'blocked'
+          ? "You've blocked this post's author."
+          : "This post may have been removed, or it isn't available yet."}
+      />
+    </Material>
   {:else}
     <div
       class="flex justify-center py-8"

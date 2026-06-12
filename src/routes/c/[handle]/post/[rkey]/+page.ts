@@ -1,5 +1,10 @@
 import { coves } from '$lib/api/client.svelte'
-import type { AtUri, PostView as CovesPostView } from '$lib/api/coves/types'
+import {
+  type AtUri,
+  type PostView as CovesPostView,
+  isHydratedPost,
+} from '$lib/api/coves/types'
+import type { Handle } from '$lib/types/atproto'
 import { settings } from '$lib/app/settings.svelte'
 import { mapSort } from '$lib/app/sort'
 import { communityHandleFromSlug, ReactiveState } from '$lib/app/util.svelte'
@@ -14,12 +19,14 @@ import {
 const POST_COLLECTION = 'social.coves.community.post'
 
 /**
- * Constructs an AT-URI for a post from the community handle and record key.
- * Used as a fallback when navigating directly to a post URL without a cache hit.
- * The handle-based AT-URI is resolved by the backend to the canonical DID-based form.
+ * Constructs the canonical DID-based AT-URI for a post.
+ * Used as a fallback when navigating directly to a post URL without a cache hit
+ * or an explicit `?uri=` param. Building it from the community's DID (rather than
+ * its handle) keeps the hydration path stable across community renames — the one
+ * handle→DID hop is resolved up front via `getCommunity`.
  */
-function buildPostAtUri(communityHandle: string, rkey: string): AtUri {
-  return `at://${communityHandle}/${POST_COLLECTION}/${rkey}` as AtUri
+function buildPostAtUri(communityDid: string, rkey: string): AtUri {
+  return `at://${communityDid}/${POST_COLLECTION}/${rkey}` as AtUri
 }
 
 /**
@@ -72,9 +79,27 @@ export async function load({ params, url, fetch, route }) {
 
   const feedData = feed(route.id, async (p) => {
     // If we have a preloaded post from cache, use it. Otherwise fetch from API.
-    const post: CovesPostView =
-      p.preload ??
-      (await coves({ func: fetch }).getPost({ uri: p.postUri as AtUri }))
+    const result =
+      p.preload ?? (await coves({ func: fetch }).getPost(p.postUri as AtUri))
+
+    // The batch endpoint returns a union: a hydrated post, or an unavailable
+    // sentinel (deleted/unindexed/unresolvable/blocked). Surface the latter as
+    // an "unavailable" state instead of throwing into the error page. We log
+    // which discriminator fired so that a real bug in buildPostAtUri (wrong
+    // DID/rkey) or indexing lag is discoverable rather than silently rendering
+    // as "this post was removed".
+    if (!isHydratedPost(result)) {
+      const reason: 'notFound' | 'blocked' =
+        result != null && 'blocked' in result ? 'blocked' : 'notFound'
+      console.warn(
+        `[post-loader] Post unavailable (${reason}) for ${p.postUri}`,
+      )
+      return {
+        unavailable: reason,
+        comments: Promise.resolve([]),
+        params: p,
+      }
+    }
 
     // Fetch comments in parallel (returned as a promise for streaming)
     const commentsPromise = coves({ func: fetch })
@@ -82,18 +107,23 @@ export async function load({ params, url, fetch, route }) {
       .then((r) => r.comments)
 
     return {
-      post,
+      post: result,
       comments: commentsPromise,
       params: p,
     }
   })
 
-  // Build the post URI. Prefer: explicit query param > feed cache > handle-based fallback.
-  // The query param is set when navigating from post creation with the canonical DID-based URI.
-  const postUri =
-    (url.searchParams.get('uri') as AtUri | null) ??
-    cachedPost?.uri ??
-    buildPostAtUri(communityHandle, params.rkey)
+  // Build the canonical DID-based post URI. Prefer sources that are already
+  // DID-based and rename-stable: the explicit `?uri=` param (set on post
+  // creation) and the feed-cache hit (the backend emits DID-based URIs).
+  // Otherwise resolve the community handle → DID once and build it ourselves.
+  let postUri = (url.searchParams.get('uri') as AtUri | null) ?? cachedPost?.uri
+  if (!postUri) {
+    const community = await coves({ func: fetch }).getCommunity({
+      community: communityHandle as Handle,
+    })
+    postUri = buildPostAtUri(community.did, params.rkey)
+  }
 
   const loaded = new ReactiveState(
     await feedData.load({
@@ -109,16 +139,21 @@ export async function load({ params, url, fetch, route }) {
     }),
   )
 
+  // The community ref rides along on the post. When the post is unavailable
+  // there's nothing to populate the card with, so fall back to the default
+  // sidebar (omitting the slot) rather than rendering a broken CommunityCard.
+  const community = loaded.value?.post?.community
+
   return {
     data: loaded,
     communityHandle,
-    slots: {
-      sidebar: {
-        component: CommunityCard,
-        props: {
-          community: loaded.value?.post?.community,
-        },
-      },
-    },
+    slots: community
+      ? {
+          sidebar: {
+            component: CommunityCard,
+            props: { community },
+          },
+        }
+      : undefined,
   }
 }

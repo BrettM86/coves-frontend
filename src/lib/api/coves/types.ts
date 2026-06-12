@@ -145,6 +145,46 @@ export interface PostView {
   stats?: PostStats
 }
 
+/** A requested post that could not be hydrated (deleted/unindexed/unresolvable). */
+export interface NotFoundPost {
+  uri: AtUri
+  notFound: true
+}
+
+/**
+ * A requested post withheld because the viewer blocks its author. Emitted by the
+ * backend's blocked-by-author path. The response preserves the requested URI's
+ * position in the `posts` array.
+ */
+export interface BlockedPost {
+  uri: AtUri
+  blocked: true
+  blockedBy?: DID
+  author?: { did: DID }
+}
+
+/**
+ * One element of `getPosts` — either a hydrated post or an unavailable sentinel.
+ * The response preserves the order of the requested URIs.
+ */
+export type PostViewUnion = PostView | NotFoundPost | BlockedPost
+
+/**
+ * Discriminates a hydrated post from the unavailable sentinels. Mirrors the
+ * backend's flag-based contract: each sentinel carries a documented const
+ * discriminator (`notFound` / `blocked`) and a hydrated `PostView` carries
+ * neither. We therefore treat the *absence* of every known unavailable flag as
+ * "this is a post", which (a) narrows correctly via TS control flow and (b)
+ * keeps a real-but-malformed post (e.g. one momentarily missing `cid`) from
+ * being silently misclassified as removed. A future sentinel must register its
+ * flag here, matching how the backend would emit it.
+ */
+export function isHydratedPost(
+  el: PostViewUnion | null | undefined,
+): el is PostView {
+  return el != null && !('notFound' in el) && !('blocked' in el)
+}
+
 // ---------------------------------------------------------------------------
 // Feed wrapper types
 // ---------------------------------------------------------------------------
@@ -402,7 +442,9 @@ export interface GetCommentsParams {
 }
 
 export interface GetCommentsResponse {
-  post: PostRef
+  // The backend returns the full hydrated post here, not just a strong ref —
+  // so it could serve as a fallback source for the post on the permalink page.
+  post: PostView
   comments: ThreadViewComment[]
   cursor?: string
 }
@@ -494,8 +536,13 @@ export interface DeleteVoteInput {
 // Request / response types — post retrieval
 // ---------------------------------------------------------------------------
 
-export interface GetPostParams {
-  uri: AtUri
+/** 1–25 URIs; the response `posts` array mirrors this order 1:1. */
+export interface GetPostsParams {
+  uris: AtUri[]
+}
+
+export interface GetPostsResponse {
+  posts: PostViewUnion[]
 }
 
 // ---------------------------------------------------------------------------

@@ -64,7 +64,13 @@ export class PostFormState {
       community: community.did,
       title: this.title || undefined,
       content: this.body || undefined,
-      embed: this.url ? { uri: this.url } : undefined,
+      // social.coves.embed.external requires the $type discriminator and an
+      // `external` wrapper. A bare { uri } matches neither the backend's
+      // validate/unfurl gate nor the frontend's $type switch, so it's silently
+      // dropped end-to-end (no link card, no title-opens-url).
+      embed: this.url
+        ? { $type: 'social.coves.embed.external', external: { uri: this.url } }
+        : undefined,
     })
 
     // TODO(coves-api): The UI collects nsfw, altText, and thumbnail but

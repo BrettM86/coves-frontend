@@ -103,8 +103,14 @@ export interface FeedTypes {
         focus?: string
       }
     },
-    {
-      post: CovesPostView
+    // Discriminated on `unavailable`: present ('notFound' | 'blocked') ⇒ the post
+    // could not be hydrated and there is no `post`; absent ⇒ `post` is present.
+    // This makes the illegal { post, unavailable } state unrepresentable and lets
+    // consumers read `value.post` for free in the happy branch.
+    (
+      | { post: CovesPostView; unavailable?: never }
+      | { post?: never; unavailable: 'notFound' | 'blocked' }
+    ) & {
       comments: Promise<ThreadViewComment[]>
       params: {
         postUri: string

@@ -34,7 +34,26 @@ export class XrpcClient {
         params as Record<string, unknown>,
       )) {
         if (value === undefined || value === null) continue
-        searchParams.set(key, String(value))
+        // ATProto serializes array params as repeated keys (`uris=…&uris=…`),
+        // not a comma-joined string. Append each element under the same key.
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            if (item === undefined || item === null) {
+              // A hole in an array param (e.g. from a caller's `.map()` that
+              // yielded `undefined`) would silently send a shorter list,
+              // desyncing any positional 1:1 response array (such as
+              // getPosts' `posts`). Fail fast on the programming error rather
+              // than quietly truncating.
+              throw new Error(
+                `[XrpcClient] Array param "${key}" contains a nullish element; ` +
+                  `filter the array before calling so positional responses stay aligned.`,
+              )
+            }
+            searchParams.append(key, String(item))
+          }
+        } else {
+          searchParams.set(key, String(value))
+        }
       }
       url.search = searchParams.toString()
     }

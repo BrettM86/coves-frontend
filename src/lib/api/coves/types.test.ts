@@ -7,8 +7,9 @@ import {
   isValidCID,
   asCID,
   tryAsCID,
+  isHydratedPost,
 } from './types'
-import type { AtUri } from './types'
+import type { AtUri, CID, PostView, PostViewUnion } from './types'
 
 // ---------------------------------------------------------------------------
 // isValidAtUri
@@ -184,5 +185,52 @@ describe('tryAsCID', () => {
 
   it('returns null for a string with invalid characters', () => {
     expect(tryAsCID('bafy!invalid')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isHydratedPost
+// ---------------------------------------------------------------------------
+
+describe('isHydratedPost', () => {
+  const postView = {
+    uri: 'at://did:plc:abc/social.coves.community.post/1' as AtUri,
+    cid: 'bafyreib2rxk3rybsftg4qpz' as CID,
+  } as PostView
+
+  it('accepts a hydrated post view', () => {
+    expect(isHydratedPost(postView)).toBe(true)
+  })
+
+  it('rejects a notFound sentinel', () => {
+    const el: PostViewUnion = {
+      uri: 'at://did:plc:abc/social.coves.community.post/2' as AtUri,
+      notFound: true,
+    }
+    expect(isHydratedPost(el)).toBe(false)
+  })
+
+  it('rejects a blocked sentinel', () => {
+    const el: PostViewUnion = {
+      uri: 'at://did:plc:abc/social.coves.community.post/3' as AtUri,
+      blocked: true,
+    }
+    expect(isHydratedPost(el)).toBe(false)
+  })
+
+  it('treats an element without a known unavailable flag as a post', () => {
+    // Flag-negative discrimination: only the documented sentinels
+    // (notFound/blocked) are unavailable. A real-but-malformed post that arrives
+    // missing `cid` is still a post — it must not be silently reclassified as
+    // removed (the failure mode of probing for a positive `cid` shape).
+    const el = {
+      uri: 'at://did:plc:abc/social.coves.community.post/4' as AtUri,
+    } as unknown as PostViewUnion
+    expect(isHydratedPost(el)).toBe(true)
+  })
+
+  it('rejects null and undefined', () => {
+    expect(isHydratedPost(null)).toBe(false)
+    expect(isHydratedPost(undefined)).toBe(false)
   })
 })

@@ -275,11 +275,52 @@ describe('Post methods', () => {
     })
   })
 
-  it('getPost() calls query with correct NSID', async () => {
-    await client.getPost({ uri: 'at://did:plc:abc/post/1' as AtUri })
+  it('getPosts() calls query with a repeated uris array', async () => {
+    await client.getPosts({
+      uris: [
+        'at://did:plc:abc/post/1' as AtUri,
+        'at://did:plc:abc/post/2' as AtUri,
+      ],
+    })
 
     expect(querySpy).toHaveBeenCalledWith(NSID.getPost, {
-      uri: 'at://did:plc:abc/post/1',
+      uris: ['at://did:plc:abc/post/1', 'at://did:plc:abc/post/2'],
     })
+  })
+
+  it('getPost() wraps the batch endpoint with a single URI', async () => {
+    const post = { uri: 'at://did:plc:abc/post/1', cid: 'bafy1' }
+    querySpy.mockResolvedValueOnce({ posts: [post] })
+
+    const result = await client.getPost('at://did:plc:abc/post/1' as AtUri)
+
+    expect(querySpy).toHaveBeenCalledWith(NSID.getPost, {
+      uris: ['at://did:plc:abc/post/1'],
+    })
+    expect(result).toBe(post)
+  })
+
+  it('getPost() throws when the batch endpoint returns an empty array', async () => {
+    querySpy.mockResolvedValueOnce({ posts: [] })
+
+    await expect(
+      client.getPost('at://did:plc:abc/post/1' as AtUri),
+    ).rejects.toThrow(/0 posts, expected exactly 1/)
+  })
+
+  it('getPost() throws when posts is missing from the response', async () => {
+    querySpy.mockResolvedValueOnce({})
+
+    await expect(
+      client.getPost('at://did:plc:abc/post/1' as AtUri),
+    ).rejects.toThrow(/non-array posts field, expected exactly 1/)
+  })
+
+  it('getPost() throws when posts is not an array', async () => {
+    querySpy.mockResolvedValueOnce({ posts: null })
+
+    await expect(
+      client.getPost('at://did:plc:abc/post/1' as AtUri),
+    ).rejects.toThrow(/non-array posts field, expected exactly 1/)
   })
 })

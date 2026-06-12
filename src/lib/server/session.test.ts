@@ -206,19 +206,19 @@ describe('parseApiMeResponse', () => {
     expect(parseApiMeResponse(undefined, testInstance, testToken)).toBeNull()
   })
 
-  it('logs warning when did is missing', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('logs error when did is missing', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     parseApiMeResponse({ handle: 'user1.example.com' }, testInstance, testToken)
 
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining('Missing or non-string "did"'),
     )
-    warnSpy.mockRestore()
+    errorSpy.mockRestore()
   })
 
-  it('logs warning when DID format is invalid', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('logs error when DID format is invalid', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     parseApiMeResponse(
       { did: 'not-a-did', handle: 'user1.example.com' },
@@ -226,26 +226,26 @@ describe('parseApiMeResponse', () => {
       testToken,
     )
 
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining('Invalid DID format'),
       'not-a-did',
     )
-    warnSpy.mockRestore()
+    errorSpy.mockRestore()
   })
 
-  it('logs warning when handle is missing', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('logs error when handle is missing', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     parseApiMeResponse({ did: 'did:plc:user1' }, testInstance, testToken)
 
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining('Missing or non-string "handle"'),
     )
-    warnSpy.mockRestore()
+    errorSpy.mockRestore()
   })
 
-  it('logs warning when handle format is invalid', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('logs error when handle format is invalid', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     parseApiMeResponse(
       { did: 'did:plc:user1', handle: 'invalid' },
@@ -253,23 +253,23 @@ describe('parseApiMeResponse', () => {
       testToken,
     )
 
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining('Invalid handle format'),
       'invalid',
     )
-    warnSpy.mockRestore()
+    errorSpy.mockRestore()
   })
 
-  it('logs warning for non-object input', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('logs error for non-object input', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     parseApiMeResponse('string', testInstance, testToken)
 
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining('Invalid input: expected object'),
       'string',
     )
-    warnSpy.mockRestore()
+    errorSpy.mockRestore()
   })
 
   it('rejects javascript: avatar URLs and sets avatar to undefined', () => {

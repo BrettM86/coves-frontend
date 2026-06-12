@@ -79,6 +79,37 @@ describe('XrpcClient.query()', () => {
     expect(url.searchParams.get('sort')).toBe('hot')
   })
 
+  it('serializes array params as repeated keys', async () => {
+    const mockFetch = createMockFetch({ posts: [] })
+    client = new XrpcClient({ fetchFn: mockFetch, baseUrl: BASE_URL })
+
+    await client.query('social.coves.community.post.get', {
+      uris: ['at://did:plc:a/post/1', 'at://did:plc:b/post/2'],
+    })
+
+    const calledUrl = (mockFetch as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string
+    const url = new URL(calledUrl)
+    expect(url.searchParams.getAll('uris')).toEqual([
+      'at://did:plc:a/post/1',
+      'at://did:plc:b/post/2',
+    ])
+  })
+
+  it('throws when an array param contains a nullish element', async () => {
+    // A hole in an array param would silently send a shorter list and desync
+    // any positional 1:1 response array (e.g. getPosts' `posts`). Fail fast.
+    const mockFetch = createMockFetch({ posts: [] })
+    client = new XrpcClient({ fetchFn: mockFetch, baseUrl: BASE_URL })
+
+    await expect(
+      client.query('social.coves.community.post.get', {
+        uris: ['at://did:plc:a/post/1', undefined, 'at://did:plc:b/post/2'],
+      }),
+    ).rejects.toThrow('nullish element')
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
   it('skips undefined and null params', async () => {
     const mockFetch = createMockFetch({ items: [] })
     client = new XrpcClient({ fetchFn: mockFetch, baseUrl: BASE_URL })

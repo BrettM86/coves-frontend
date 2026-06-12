@@ -154,8 +154,13 @@ function isSafeAvatarUrl(url: string): boolean {
 /**
  * Parses and validates a /api/me response into an AccountSession.
  * Combines the API response with the instance URL and sealed token (from cookie).
- * Returns null if validation fails. Logs warnings for each specific validation failure
- * to aid debugging.
+ * Returns null if validation fails.
+ *
+ * Identity-level failures (non-object body, missing/invalid DID or handle) are
+ * logged at error level: they can only occur when /api/me returns HTTP 200 with
+ * a body that breaches the backend contract, which silently logs the user out
+ * and warrants investigation. Recoverable issues (e.g. an unsafe avatar URL,
+ * which is simply dropped) are logged at warn level.
  */
 export function parseApiMeResponse(
   data: unknown,

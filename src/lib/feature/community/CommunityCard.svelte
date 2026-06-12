@@ -81,19 +81,30 @@
 
 <script lang="ts">
   import type {
+    CommunityRef,
     CommunityView as CovesCommunityView,
     CommunityViewDetailed,
   } from '$lib/api/coves/types'
   import EntityHeader from '$lib/ui/generic/EntityHeader.svelte'
   import { communityDisplayName, communityIdentifier } from './helpers'
 
-  type CommunityType = CovesCommunityView | CommunityViewDetailed
+  type HydratedCommunity = CovesCommunityView | CommunityViewDetailed
+  type CommunityType = CommunityRef | HydratedCommunity
+
+  /**
+   * Narrows a community to a hydrated view. A bare `CommunityRef` (e.g. the
+   * post's embedded community) carries no counts or viewer state, so features
+   * that depend on them must be gated behind this guard.
+   */
+  function isHydratedCommunity(c: CommunityType): c is HydratedCommunity {
+    return 'subscriberCount' in c
+  }
 
   let loading = $state({
     subscribing: false,
   })
 
-  async function subscribe(community: CommunityType): Promise<void> {
+  async function subscribe(community: HydratedCommunity): Promise<void> {
     if (!profile.current?.jwt) return
     loading.subscribing = true
     const wasSubscribed = community.viewer?.subscribed === true
@@ -163,14 +174,15 @@
     <EndPlaceholder size="xs" margin="sm">
       {$t('form.post.community')}
     </EndPlaceholder>
-    {#if profile.current?.jwt}
-      {@const subscribed = community.viewer?.subscribed === true}
+    {#if profile.current?.jwt && isHydratedCommunity(community)}
+      {@const hydrated = community}
+      {@const subscribed = hydrated.viewer?.subscribed === true}
       <Button
         disabled={loading.subscribing}
         loading={loading.subscribing}
         size="md"
         color={subscribed ? 'secondary' : 'primary'}
-        onclick={() => subscribe(community)}
+        onclick={() => subscribe(hydrated)}
         class="px-4 relative z-[inherit]"
         alignment="left"
         icon={subscribed ? Check : Plus}
@@ -180,7 +192,7 @@
           : $t('cards.community.subscribe')}
       </Button>
     {/if}
-    {#if profile.isMod(community)}
+    {#if isHydratedCommunity(community) && profile.isMod(community)}
       <SidebarButton
         href="/c/{communityIdentifier(community)}/settings"
         icon={Cog6Tooth}
@@ -200,7 +212,7 @@
         {$t('cards.community.modlog')}
       </MenuButton>
       {#if profile.current?.jwt}
-        {#if profile.isMod(community)}
+        {#if isHydratedCommunity(community) && profile.isMod(community)}
           <MenuButton
             color="success-subtle"
             href="/moderation?community={community.did}"
@@ -239,22 +251,31 @@
         {/if}
       {/if}
     </Menu>
-    <EndPlaceholder size="xs" margin="sm">
-      {$t('cards.site.stats')}
-    </EndPlaceholder>
+    <!--
+      Stats are only present on a hydrated community view. The post permalink
+      sidebar passes the post's embedded `CommunityRef`, which carries no counts
+      — gate the whole block so the card degrades to its header instead of
+      throwing on `undefined.toString()`.
+    -->
+    {#if isHydratedCommunity(community)}
+      {@const hydrated = community}
+      <EndPlaceholder size="xs" margin="sm">
+        {$t('cards.site.stats')}
+      </EndPlaceholder>
 
-    <div class="flex flex-row gap-4 flex-wrap px-3">
-      <LabelStat
-        label={$t('cards.community.members')}
-        content={community.subscriberCount.toString()}
-        formatted
-      />
-      <LabelStat
-        label={$t('content.posts')}
-        content={community.postCount.toString()}
-        formatted
-      />
-    </div>
+      <div class="flex flex-row gap-4 flex-wrap px-3">
+        <LabelStat
+          label={$t('cards.community.members')}
+          content={hydrated.subscriberCount.toString()}
+          formatted
+        />
+        <LabelStat
+          label={$t('content.posts')}
+          content={hydrated.postCount.toString()}
+          formatted
+        />
+      </div>
+    {/if}
 
     <EndPlaceholder size="xs" margin="sm">
       {$t('common.info')}

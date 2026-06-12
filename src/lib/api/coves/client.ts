@@ -21,13 +21,14 @@ import type {
   GetCommentsResponse,
   GetCommunityFeedParams,
   GetCommunityParams,
-  GetPostParams,
+  GetPostsParams,
+  GetPostsResponse,
   GetDiscoverParams,
   GetProfileParams,
   GetTimelineParams,
   ListCommunitiesParams,
   ListCommunitiesResponse,
-  PostView,
+  PostViewUnion,
   ProfileViewDetailed,
   SearchCommunitiesParams,
   SubscribeCommunityInput,
@@ -171,7 +172,27 @@ export class CovesClient {
     return this.xrpc.procedure(NSID.deletePost, input)
   }
 
-  getPost(params: GetPostParams): Promise<PostView> {
+  // The wired endpoint is batch (1–25 URIs); `posts` mirrors `uris` order 1:1.
+  getPosts(params: GetPostsParams): Promise<GetPostsResponse> {
     return this.xrpc.query(NSID.getPost, params)
+  }
+
+  // Single-URI convenience wrapper over the batch endpoint.
+  // Contract: 1 URI in ⇒ exactly 1 element out. A short/empty array (or a
+  // non-array `posts`) is a backend contract violation, not a "removed" post,
+  // so we throw rather than silently returning undefined.
+  async getPost(uri: AtUri): Promise<PostViewUnion> {
+    const { posts } = await this.getPosts({ uris: [uri] })
+    if (!Array.isArray(posts)) {
+      throw new Error(
+        `getPost(${uri}): batch endpoint returned a non-array posts field, expected exactly 1`,
+      )
+    }
+    if (posts.length === 0) {
+      throw new Error(
+        `getPost(${uri}): batch endpoint returned 0 posts, expected exactly 1`,
+      )
+    }
+    return posts[0]
   }
 }

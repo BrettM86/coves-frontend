@@ -1,5 +1,7 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): remove when moderation modals are migrated to Coves types
+  // @ts-nocheck TODO(coves-migration): remove when the remaining legacy
+  // modals (RemoveModal, BanModal, ViewVotesModal) are migrated to Coves
+  // types. ReportModal is already Coves-native.
   import { modals } from './moderation.svelte'
 </script>
 

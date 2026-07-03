@@ -614,6 +614,43 @@ export interface BlockUserInput {
 }
 
 // ---------------------------------------------------------------------------
+// Request / response types — admin reports
+// ---------------------------------------------------------------------------
+
+/**
+ * Report reason categories accepted by `social.coves.admin.submitReport`.
+ * Must match the backend enum (internal/core/adminreports/report.go) and the
+ * mobile client so all clients send identical values.
+ */
+export type ReportReason =
+  | 'spam'
+  | 'harassment'
+  | 'doxing'
+  | 'illegal'
+  | 'csam'
+  | 'other'
+
+/** Maximum characters allowed in a report explanation (backend-enforced). */
+export const MAX_REPORT_EXPLANATION_LENGTH = 1000
+
+/**
+ * Input for `social.coves.admin.submitReport`.
+ * The backend derives the target type (post/comment) from the AT-URI's
+ * collection, so only the URI, reason, and optional explanation are sent.
+ */
+export interface SubmitReportInput {
+  targetUri: AtUri
+  reason: ReportReason
+  explanation?: string
+}
+
+/** Output of `social.coves.admin.submitReport`. */
+export interface SubmitReportOutput {
+  success: boolean
+  reportId: number
+}
+
+// ---------------------------------------------------------------------------
 // XRPC error response
 // ---------------------------------------------------------------------------
 

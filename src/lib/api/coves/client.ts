@@ -31,6 +31,8 @@ import type {
   PostViewUnion,
   ProfileViewDetailed,
   SearchCommunitiesParams,
+  SubmitReportInput,
+  SubmitReportOutput,
   SubscribeCommunityInput,
 } from './types'
 
@@ -59,6 +61,7 @@ export const NSID = {
   createPost: 'social.coves.community.post.create',
   deletePost: 'social.coves.community.post.delete',
   getPost: 'social.coves.community.post.get',
+  submitReport: 'social.coves.admin.submitReport',
 } as const
 
 export class CovesClient {
@@ -194,5 +197,12 @@ export class CovesClient {
       )
     }
     return posts[0]
+  }
+
+  // Moderation
+  // Submits a report for admin review. Requires authentication; the backend
+  // rate-limits this endpoint to 10 reports per minute per client.
+  submitReport(input: SubmitReportInput): Promise<SubmitReportOutput> {
+    return this.xrpc.procedure(NSID.submitReport, input)
   }
 }

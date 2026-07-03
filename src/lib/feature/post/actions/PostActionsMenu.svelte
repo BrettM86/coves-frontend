@@ -4,8 +4,9 @@
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
+  import { report } from '$lib/feature/moderation/moderation.svelte'
   import { MenuButton, toast } from 'mono-svelte'
-  import { ArrowTopRightOnSquare, Trash } from 'svelte-hero-icons/dist'
+  import { ArrowTopRightOnSquare, Flag, Trash } from 'svelte-hero-icons/dist'
 
   interface Props {
     post: PostView
@@ -58,12 +59,7 @@
       {$t('post.actions.more.delete')}
     </MenuButton>
   {/if}
-  <MenuButton
-    onclick={() => {
-      toast({ content: 'Reporting is not yet available', type: 'warning' })
-    }}
-    color="danger-subtle"
-  >
-    Report
+  <MenuButton onclick={() => report(post)} color="danger-subtle" icon={Flag}>
+    {$t('moderation.report')}
   </MenuButton>
 {/if}

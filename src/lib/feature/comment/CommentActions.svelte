@@ -5,10 +5,12 @@
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
+  import { report } from '$lib/feature/moderation/moderation.svelte'
   import { Button, Menu, MenuButton, toast } from 'mono-svelte'
   import {
     ChatBubbleOvalLeft,
     EllipsisHorizontal,
+    Flag,
     PencilSquare,
     Share,
     Trash,
@@ -113,14 +115,12 @@
           {$t('post.actions.more.delete')}
         </MenuButton>
       {/if}
-      <!-- TODO(coves-migration): Re-enable save when backend API is available -->
       <MenuButton
-        onclick={() => {
-          toast({ content: 'Reporting is not yet available', type: 'warning' })
-        }}
+        onclick={() => report(comment)}
         color="danger-subtle"
+        icon={Flag}
       >
-        Report
+        {$t('moderation.report')}
       </MenuButton>
     {/if}
   </Menu>

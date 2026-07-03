@@ -32,6 +32,8 @@ import type {
   ProfileViewDetailed,
   SearchCommunitiesParams,
   SubscribeCommunityInput,
+  UpdateCommentInput,
+  UpdateCommentOutput,
 } from './types'
 
 export const NSID = {
@@ -40,6 +42,7 @@ export const NSID = {
   getCommunityFeed: 'social.coves.communityFeed.getCommunity',
   getComments: 'social.coves.community.comment.getComments',
   createComment: 'social.coves.community.comment.create',
+  updateComment: 'social.coves.community.comment.update',
   deleteComment: 'social.coves.community.comment.delete',
   createVote: 'social.coves.feed.vote.create',
   deleteVote: 'social.coves.feed.vote.delete',
@@ -88,6 +91,10 @@ export class CovesClient {
 
   createComment(input: CreateCommentInput): Promise<CreateCommentOutput> {
     return this.xrpc.procedure(NSID.createComment, input)
+  }
+
+  updateComment(input: UpdateCommentInput): Promise<UpdateCommentOutput> {
+    return this.xrpc.procedure(NSID.updateComment, input)
   }
 
   deleteComment(input: { uri: AtUri }): Promise<void> {

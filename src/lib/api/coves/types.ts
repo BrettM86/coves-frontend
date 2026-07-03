@@ -585,6 +585,24 @@ export interface CreateCommentOutput {
 }
 
 // ---------------------------------------------------------------------------
+// Request / response types — comment editing
+// ---------------------------------------------------------------------------
+
+export interface UpdateCommentInput {
+  uri: AtUri
+  content: string
+  facets?: unknown[]
+  embed?: unknown
+  langs?: string[]
+  labels?: unknown
+}
+
+export interface UpdateCommentOutput {
+  uri: AtUri
+  cid: CID
+}
+
+// ---------------------------------------------------------------------------
 // Request / response types — community management
 // ---------------------------------------------------------------------------
 

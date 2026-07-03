@@ -1,8 +1,10 @@
 <script lang="ts">
   import { page } from '$app/state'
+  import { coves } from '$lib/api/client.svelte'
   import type { StrongRef } from '$lib/api/coves/types'
   import type { DID } from '$lib/types/atproto'
   import { profile } from '$lib/app/auth.svelte'
+  import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { settings } from '$lib/app/settings.svelte'
@@ -54,20 +56,21 @@
   let editingLoad = $state(false)
 
   async function save() {
-    if (!profile.current?.jwt || newComment.length <= 0) return
+    if (!profile.current?.jwt || newComment.trim() === '') return
 
     editingLoad = true
 
     try {
-      // TODO(coves-migration): Implement edit comment when backend API is available
-      toast({
-        content: 'Editing comments is not yet supported.',
-        type: 'warning',
+      const response = await coves().updateComment({
+        uri: node.comment.uri,
+        content: newComment,
       })
+      node.comment.record.content = newComment
+      node.comment.cid = response.cid
       editing = false
     } catch (err) {
       toast({
-        content: err instanceof Error ? err.message : String(err),
+        content: errorMessage(err),
         type: 'error',
       })
     }
@@ -93,6 +96,7 @@
         {postRef}
         actions={false}
         preview={true}
+        editing={true}
       />
       <Button
         submit
@@ -217,7 +221,10 @@
           <CommentActions
             comment={node.comment}
             bind:replying
-            onedit={() => (editing = true)}
+            onedit={() => {
+              newComment = node.comment.record.content
+              editing = true
+            }}
             disabled={false}
           />
         {/if}

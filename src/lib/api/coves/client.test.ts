@@ -89,6 +89,16 @@ describe('Comment methods', () => {
     expect(procedureSpy).toHaveBeenCalledWith(NSID.createComment, input)
   })
 
+  it('updateComment() calls procedure with correct NSID', async () => {
+    const input = {
+      uri: 'at://did:plc:abc/comment/1' as AtUri,
+      content: 'Updated comment text',
+    }
+    await client.updateComment(input)
+
+    expect(procedureSpy).toHaveBeenCalledWith(NSID.updateComment, input)
+  })
+
   it('deleteComment() calls procedure with correct NSID', async () => {
     await client.deleteComment({
       uri: 'at://did:plc:abc/comment/1' as AtUri,

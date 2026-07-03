@@ -7,47 +7,18 @@ import { MAX_REPORT_EXPLANATION_LENGTH } from '$lib/api/coves/types'
 import { XrpcError } from '$lib/api/coves/xrpc'
 
 /**
- * Report reason options presented to the user.
+ * Report reason values presented to the user, in display order.
  * Values and semantics match the backend enum and the mobile client's
- * ReportDialog so both clients send identical payloads.
+ * ReportDialog so both clients send identical payloads. Human-readable
+ * labels/descriptions live in i18n under `moderation.reportModal.reasons`.
  */
-export interface ReportReasonOption {
-  readonly value: ReportReason
-  readonly label: string
-  readonly description: string
-}
-
-export const REPORT_REASONS: readonly ReportReasonOption[] = [
-  {
-    value: 'spam',
-    label: 'Spam',
-    description: 'Unsolicited advertising or repetitive content',
-  },
-  {
-    value: 'harassment',
-    label: 'Harassment',
-    description: 'Bullying, threats, or targeted attacks',
-  },
-  {
-    value: 'doxing',
-    label: 'Doxing',
-    description: 'Sharing private information without consent',
-  },
-  {
-    value: 'illegal',
-    label: 'Illegal Content',
-    description: 'Content that violates laws or regulations',
-  },
-  {
-    value: 'csam',
-    label: 'Child Safety',
-    description: 'Content exploiting or endangering minors',
-  },
-  {
-    value: 'other',
-    label: 'Other',
-    description: 'Other policy violations',
-  },
+export const REPORT_REASONS: readonly ReportReason[] = [
+  'spam',
+  'harassment',
+  'doxing',
+  'illegal',
+  'csam',
+  'other',
 ] as const
 
 /**

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AtUri } from '$lib/api/coves/types'
 import { MAX_REPORT_EXPLANATION_LENGTH } from '$lib/api/coves/types'
 import { XrpcError } from '$lib/api/coves/xrpc'
+import en from '$lib/app/i18n/en.json'
 import {
   buildReportInput,
   REPORT_REASONS,
@@ -12,15 +13,17 @@ const TARGET = 'at://did:plc:abc123/social.coves.community.post/xyz' as AtUri
 
 describe('REPORT_REASONS', () => {
   it('matches the backend reason enum exactly', () => {
-    expect(REPORT_REASONS.map((r) => r.value).sort()).toEqual(
+    expect([...REPORT_REASONS].sort()).toEqual(
       ['csam', 'doxing', 'harassment', 'illegal', 'other', 'spam'].sort(),
     )
   })
 
-  it('has a label and description for every reason', () => {
+  it('has an i18n label and description for every reason', () => {
     for (const reason of REPORT_REASONS) {
-      expect(reason.label.length).toBeGreaterThan(0)
-      expect(reason.description.length).toBeGreaterThan(0)
+      const entry = en.moderation.reportModal.reasons[reason]
+      expect(entry, `missing i18n entry for reason "${reason}"`).toBeDefined()
+      expect(entry.label.length).toBeGreaterThan(0)
+      expect(entry.description.length).toBeGreaterThan(0)
     }
   })
 })

@@ -136,6 +136,7 @@
         "post": {
             "create": "Create post",
             "edit": "Edit post",
+            "crosspostLoadError": "Couldn't load the crosspost content. Starting with an empty form.",
             "community": "Community",
             "title": "Title",
             "url": "URL",
@@ -189,8 +190,8 @@
                 "description": "If any are set, you will only see content explicitly tagged as that language. Most content, untagged, falls under 'Undetermined'."
             },
             "credentials": {
-              "title": "Manage how you log in",
-              "description": "You can enable 2FA for greater security, change your password, view logged in devices, or delete your account here."
+                "title": "Manage how you log in",
+                "description": "You can enable 2FA for greater security, change your password, view logged in devices, or delete your account here."
             }
         },
         "email": "Email",
@@ -657,11 +658,47 @@
         },
         "reportModal": {
             "title": "Report",
-            "success": "Reported that submission.",
-            "presets": {
-                "spam": "Spam/abuse",
-                "rules": "Breaks community rules",
-                "rules.content": "This submission breaks the rules because __"
+            "submitted": "Report submitted",
+            "intro": "Report this {{type}} to the instance administrators. Reports are confidential.",
+            "target": {
+                "post": "post",
+                "comment": "comment",
+                "content": "content"
+            },
+            "reasons": {
+                "spam": {
+                    "label": "Spam",
+                    "description": "Unsolicited advertising or repetitive content"
+                },
+                "harassment": {
+                    "label": "Harassment",
+                    "description": "Bullying, threats, or targeted attacks"
+                },
+                "doxing": {
+                    "label": "Doxing",
+                    "description": "Sharing private information without consent"
+                },
+                "illegal": {
+                    "label": "Illegal Content",
+                    "description": "Content that violates laws or regulations"
+                },
+                "csam": {
+                    "label": "Child Safety",
+                    "description": "Content exploiting or endangering minors"
+                },
+                "other": {
+                    "label": "Other",
+                    "description": "Other policy violations"
+                }
+            },
+            "explanationLabel": "Explanation (optional)",
+            "explanationPlaceholder": "Add any details that will help admins review this report",
+            "selectReason": "Select a reason to submit your report.",
+            "errors": {
+                "rateLimited": "You are submitting reports too quickly. Please wait a minute and try again.",
+                "notLoggedIn": "You must be logged in to submit a report.",
+                "maybeSubmitted": "Your report may have been submitted, but we couldn't confirm it. Please check before reporting again.",
+                "generic": "Failed to submit report. Please try again later."
             }
         },
         "reason": "Reason",
@@ -993,12 +1030,12 @@
             "score": "Score: {{default}}"
         },
         "sidebar": {
-          "title": "Sidebar",
-          "accounts": "Accounts selector"
+            "title": "Sidebar",
+            "accounts": "Accounts selector"
         },
         "loading": "Loading",
         "element": {
-          "pageHeader": "Page header"
+            "pageHeader": "Page header"
         },
         "postDecor": {
             "openImage": "Open image: {{default}}",

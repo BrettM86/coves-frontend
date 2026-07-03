@@ -305,3 +305,62 @@ export function computeVoteState(
 
   return { stats, viewer }
 }
+
+// ---------------------------------------------------------------------------
+// Crosspost query-param encoding
+// ---------------------------------------------------------------------------
+
+/** Draft content carried through the `?crosspost=` query param. */
+export interface CrosspostDraft {
+  name?: string
+  body?: string
+}
+
+/**
+ * Encodes a crosspost draft as URL-safe base64 for the `?crosspost=` param.
+ *
+ * Plain `btoa(JSON.stringify(...))` throws `InvalidCharacterError` on any
+ * character above U+00FF (curly quotes, em dashes, emoji, CJK, ...), so the
+ * JSON is first UTF-8 encoded byte-by-byte. Standard base64 `+` / `/` / `=`
+ * are also unsafe inside a query value (`+` parses back as a space), so the
+ * output uses the base64url alphabet with padding stripped.
+ */
+export function encodeCrosspostDraft(draft: CrosspostDraft): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(draft))
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary)
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replace(/=+$/, '')
+}
+
+/**
+ * Decodes a `?crosspost=` param produced by {@link encodeCrosspostDraft}.
+ *
+ * Also accepts legacy standard-base64 values (with `+`, `/`, and padding)
+ * for backwards compatibility with previously shared links. Returns
+ * undefined for malformed input instead of throwing so a tampered URL
+ * cannot crash the create-post page.
+ */
+export function decodeCrosspostDraft(
+  param: string,
+): CrosspostDraft | undefined {
+  try {
+    const base64 = param.replaceAll('-', '+').replaceAll('_', '/')
+    const binary = atob(base64)
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes))
+    if (typeof parsed !== 'object' || parsed === null) return undefined
+
+    const record = parsed as Record<string, unknown>
+    const draft: CrosspostDraft = {}
+    if (typeof record.name === 'string') draft.name = record.name
+    if (typeof record.body === 'string') draft.body = record.body
+    return draft
+  } catch {
+    return undefined
+  }
+}

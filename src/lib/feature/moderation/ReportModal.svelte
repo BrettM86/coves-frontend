@@ -1,127 +1,157 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): Needs Coves report submission API
-  import { getClient } from '$lib/api/client.svelte'
+  import { coves } from '$lib/api/client.svelte'
   import type {
     CommentView,
     PostView,
-    PrivateMessageView,
-  } from '$lib/api/types'
-  import { profile } from '$lib/app/auth.svelte'
-  import { errorMessage } from '$lib/app/error'
+    ReportReason,
+  } from '$lib/api/coves/types'
+  import {
+    isCommentView,
+    MAX_REPORT_EXPLANATION_LENGTH,
+  } from '$lib/api/coves/types'
   import { t } from '$lib/app/i18n'
-  import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
-  import { Button, Modal, toast } from 'mono-svelte'
-  import ButtonGroup from 'mono-svelte/button/ButtonGroup.svelte'
-  import { Plus } from 'svelte-hero-icons/dist'
-  import { preventDefault, run } from 'svelte/legacy'
-  import CommentItem from '../comment/CommentItem.svelte'
-  import PrivateMessage from '../inbox/PrivateMessage.svelte'
-  import PostItem from '../post/PostItem.svelte'
+  import { Button, Modal, TextArea, toast } from 'mono-svelte'
+  import {
+    buildReportInput,
+    REPORT_REASONS,
+    reportErrorMessage,
+  } from './reportSubmission'
 
   interface Props {
     open: boolean
-    item?: PostView | CommentView | PrivateMessageView | undefined
+    item?: PostView | CommentView | undefined
   }
 
   let { open = $bindable(), item = $bindable() }: Props = $props()
 
-  const isComment = (
-    item: PostView | CommentView | PrivateMessageView,
-  ): item is CommentView => 'comment' in item
-
-  const isPost = (
-    item: PostView | CommentView | PrivateMessageView,
-  ): item is PostView => !isComment(item) && 'post' in item
-
-  const isPrivateMessage = (
-    item: PostView | CommentView | PrivateMessageView,
-  ): item is PrivateMessageView => !isComment(item) && 'private_message' in item
-
   let loading = $state(false)
-  let reason = $state('')
+  let reason = $state<ReportReason | undefined>(undefined)
+  let explanation = $state('')
 
-  async function report() {
-    if (!item || !profile.current?.jwt || reason == '') return
+  const targetLabel = $derived(
+    $t(
+      `moderation.reportModal.target.${
+        item ? (isCommentView(item) ? 'comment' : 'post') : 'content'
+      }`,
+    ),
+  )
+  // Displayed count is untrimmed; validity matches buildReportInput, which
+  // trims before validating. Both count code points, like the backend.
+  const explanationLength = $derived([...explanation].length)
+  const explanationTooLong = $derived(
+    [...explanation.trim()].length > MAX_REPORT_EXPLANATION_LENGTH,
+  )
+
+  async function submit(event: SubmitEvent) {
+    event.preventDefault()
+    if (!item || !reason || loading) return
     loading = true
 
     try {
-      if (isComment(item)) {
-        await getClient().createCommentReport({
-          comment_id: item.comment.id,
-          reason: reason,
-        })
-      } else if (isPost(item)) {
-        await getClient().createPostReport({
-          post_id: item.post.id,
-          reason: reason,
-        })
-      } else if (isPrivateMessage(item)) {
-        await getClient().createPrivateMessageReport({
-          private_message_id: item.private_message.id,
-          reason: reason,
-        })
-      }
+      const input = buildReportInput(item.uri, reason, explanation)
+      await coves().submitReport(input)
       open = false
       toast({
-        content: $t('moderation.reportModal.success'),
+        content: $t('moderation.reportModal.submitted'),
         type: 'success',
       })
     } catch (err) {
-      toast({ content: errorMessage(err as string), type: 'error' })
+      console.error('[ReportModal] Report submission failed:', err)
+      toast({
+        content: reportErrorMessage(err, (key) => $t(key)),
+        type: 'error',
+      })
+    } finally {
+      loading = false
     }
-
-    loading = false
   }
-
-  const resetText = () => (reason = '')
-
-  run(() => {
-    if (item) {
-      resetText()
-    }
-  })
 </script>
 
 <Modal bind:open title={$t('moderation.reportModal.title')}>
-  <form class="flex flex-col gap-4" onsubmit={preventDefault(report)}>
-    {#if item}
-      <div class="pointer-events-none list-none">
-        {#if isComment(item)}
-          <CommentItem actions={false} comment={item} />
-        {:else if isPost(item)}
-          <PostItem post={item} />
-        {:else}
-          <PrivateMessage message={item} />
-        {/if}
+  {#if item}
+    <form class="flex flex-col gap-4" onsubmit={submit}>
+      <p class="text-sm text-slate-600 dark:text-zinc-400">
+        {$t('moderation.reportModal.intro', { type: targetLabel })}
+      </p>
+      <fieldset class="flex flex-col gap-2">
+        <legend
+          class="mb-1 text-sm font-medium text-slate-900 dark:text-zinc-100"
+        >
+          {$t('moderation.reason')}
+        </legend>
+        {#each REPORT_REASONS as value (value)}
+          <label
+            class={[
+              'flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors',
+              reason === value
+                ? 'border-primary-900 bg-slate-100 dark:border-primary-100 dark:bg-zinc-900'
+                : 'border-slate-200 hover:bg-slate-100 dark:border-zinc-800 dark:hover:bg-zinc-900',
+            ]}
+          >
+            <input
+              type="radio"
+              name="report-reason"
+              class="mt-1 accent-primary-900 dark:accent-primary-100"
+              {value}
+              bind:group={reason}
+              required
+            />
+            <span class="flex flex-col">
+              <span
+                class="text-sm font-medium text-slate-900 dark:text-zinc-100"
+              >
+                {$t(`moderation.reportModal.reasons.${value}.label`)}
+              </span>
+              <span class="text-xs text-slate-600 dark:text-zinc-400">
+                {$t(`moderation.reportModal.reasons.${value}.description`)}
+              </span>
+            </span>
+          </label>
+        {/each}
+      </fieldset>
+      <div class="flex flex-col gap-1">
+        <TextArea
+          label={$t('moderation.reportModal.explanationLabel')}
+          placeholder={$t('moderation.reportModal.explanationPlaceholder')}
+          rows={3}
+          bind:value={explanation}
+        />
+        <span
+          class={[
+            'self-end text-xs',
+            explanationTooLong
+              ? 'text-red-500 dark:text-red-400'
+              : 'text-slate-600 dark:text-zinc-400',
+          ]}
+        >
+          {explanationLength}/{MAX_REPORT_EXPLANATION_LENGTH}
+        </span>
       </div>
-    {/if}
-    <MarkdownEditor
-      required
-      rows={4}
-      label={$t('moderation.reason')}
-      bind:value={reason}
-    />
-    <ButtonGroup orientation="horizontal" class="flex flex-wrap">
-      <Button
-        onclick={() => (reason = $t('moderation.reportModal.presets.spam'))}
-        disabled={reason == $t('moderation.reportModal.presets.spam')}
-        icon={Plus}
-      >
-        {$t('moderation.reportModal.presets.spam')}
-      </Button>
-      <Button
-        onclick={() =>
-          (reason = $t('moderation.reportModal.presets.rules.content'))}
-        disabled={reason.startsWith(
-          $t('moderation.reportModal.presets.rules.content').slice(0, -3),
-        )}
-        icon={Plus}
-      >
-        {$t('moderation.reportModal.presets.rules')}
-      </Button>
-    </ButtonGroup>
-    <Button submit {loading} disabled={loading} color="primary" size="lg">
-      {$t('form.submit')}
-    </Button>
-  </form>
+      {#if !reason}
+        <p class="text-xs text-slate-600 dark:text-zinc-400" role="status">
+          {$t('moderation.reportModal.selectReason')}
+        </p>
+      {/if}
+      <div class="flex gap-2">
+        <Button
+          size="lg"
+          class="flex-1"
+          disabled={loading}
+          onclick={() => (open = false)}
+        >
+          {$t('common.cancel')}
+        </Button>
+        <Button
+          submit
+          {loading}
+          disabled={loading || !reason || explanationTooLong}
+          color="primary"
+          size="lg"
+          class="flex-1"
+        >
+          {$t('form.submit')}
+        </Button>
+      </div>
+    </form>
+  {/if}
 </Modal>

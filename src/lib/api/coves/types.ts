@@ -303,6 +303,18 @@ export interface CommentView {
   deletedAt?: string
 }
 
+/**
+ * Discriminates a CommentView from a PostView. Invariant: `CommentView`
+ * carries a required `post: CommentRef` back-reference while `PostView` has
+ * no `post` field. If `PostView` ever gains a `post` field, this guard (and
+ * its pinning test in types.test.ts) must be updated.
+ */
+export function isCommentView(
+  item: PostView | CommentView,
+): item is CommentView {
+  return 'post' in item
+}
+
 export interface ThreadViewComment {
   comment: CommentView
   replies?: ThreadViewComment[]
@@ -648,6 +660,50 @@ export interface BlockCommunityInput {
 
 export interface BlockUserInput {
   did: DID
+}
+
+// ---------------------------------------------------------------------------
+// Request / response types — admin reports
+// ---------------------------------------------------------------------------
+
+/**
+ * Report reason categories accepted by `social.coves.admin.submitReport`,
+ * in the display order presented to the user. Values and semantics must
+ * match the backend enum (internal/core/adminreports/report.go) and the
+ * mobile client's ReportDialog so all clients send identical payloads.
+ * Human-readable labels/descriptions live in i18n under
+ * `moderation.reportModal.reasons`.
+ */
+export const REPORT_REASONS = [
+  'spam',
+  'harassment',
+  'doxing',
+  'illegal',
+  'csam',
+  'other',
+] as const
+
+export type ReportReason = (typeof REPORT_REASONS)[number]
+
+/** Maximum characters allowed in a report explanation (backend-enforced). */
+export const MAX_REPORT_EXPLANATION_LENGTH = 1000
+
+/**
+ * Input for `social.coves.admin.submitReport`.
+ * The backend derives the target type (post/comment) from the AT-URI's
+ * collection, so only the URI, reason, and optional explanation are sent.
+ */
+export interface SubmitReportInput {
+  targetUri: AtUri
+  reason: ReportReason
+  explanation?: string
+}
+
+/** Output of `social.coves.admin.submitReport`. */
+export interface SubmitReportOutput {
+  /** Always `true`; the backend hardcodes it on the success path. */
+  success: true
+  reportId: number
 }
 
 // ---------------------------------------------------------------------------

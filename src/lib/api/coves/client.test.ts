@@ -334,3 +334,35 @@ describe('Post methods', () => {
     ).rejects.toThrow(/non-array posts field, expected exactly 1/)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Moderation methods
+// ---------------------------------------------------------------------------
+
+describe('Moderation methods', () => {
+  it('submitReport() calls procedure with correct NSID and input', async () => {
+    const input = {
+      targetUri: 'at://did:plc:abc/social.coves.community.post/1' as AtUri,
+      reason: 'spam' as const,
+      explanation: 'unsolicited advertising',
+    }
+    procedureSpy.mockResolvedValueOnce({ success: true, reportId: 42 })
+
+    const result = await client.submitReport(input)
+
+    expect(procedureSpy).toHaveBeenCalledWith(NSID.submitReport, input)
+    expect(result).toEqual({ success: true, reportId: 42 })
+  })
+
+  it('submitReport() sends payloads without an explanation unchanged', async () => {
+    const input = {
+      targetUri: 'at://did:plc:abc/social.coves.community.comment/9' as AtUri,
+      reason: 'harassment' as const,
+    }
+    procedureSpy.mockResolvedValueOnce({ success: true, reportId: 7 })
+
+    await client.submitReport(input)
+
+    expect(procedureSpy).toHaveBeenCalledWith(NSID.submitReport, input)
+  })
+})

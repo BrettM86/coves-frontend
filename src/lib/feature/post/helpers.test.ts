@@ -14,6 +14,8 @@ import type { DID, Handle } from '$lib/types/atproto'
 import {
   bestImageURL,
   computeVoteState,
+  decodeCrosspostDraft,
+  encodeCrosspostDraft,
   extractEmbedAlt,
   extractEmbedThumbnail,
   extractEmbedTitle,
@@ -628,5 +630,60 @@ describe('postLink', () => {
       community: { handle: 'c-books.coves.social', name: 'books' },
     })
     expect(link).toBe('/c/books.coves.social/post/rk')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// encodeCrosspostDraft / decodeCrosspostDraft
+// ---------------------------------------------------------------------------
+
+describe('crosspost draft encoding', () => {
+  it('round-trips plain ASCII content', () => {
+    const draft = { name: 'A title', body: 'cross-posted from: at://x\n> body' }
+    expect(decodeCrosspostDraft(encodeCrosspostDraft(draft))).toEqual(draft)
+  })
+
+  it('round-trips non-Latin-1 text that would crash plain btoa()', () => {
+    const draft = {
+      name: 'Curly “quotes” — and em dashes',
+      body: 'emoji 🦊🎉, CJK 日本語テスト, accents àéîõü',
+    }
+    // Plain btoa() throws InvalidCharacterError on this input.
+    expect(() => btoa(JSON.stringify(draft))).toThrow()
+    expect(decodeCrosspostDraft(encodeCrosspostDraft(draft))).toEqual(draft)
+  })
+
+  it('round-trips a draft without a title (name omitted)', () => {
+    const draft = { body: 'body only' }
+    expect(decodeCrosspostDraft(encodeCrosspostDraft(draft))).toEqual(draft)
+  })
+
+  it('produces URL-safe output that survives URLSearchParams parsing', () => {
+    const draft = { name: 'padding + slash / plus ~~~ test?', body: '💯💯' }
+    const encoded = encodeCrosspostDraft(draft)
+    expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/)
+
+    // Simulate a real link round-trip: the param must survive query parsing
+    // untouched (standard base64 '+' would come back as a space).
+    const params = new URLSearchParams(`crosspost=${encoded}`)
+    expect(decodeCrosspostDraft(params.get('crosspost') ?? '')).toEqual(draft)
+  })
+
+  it('decodes legacy standard-base64 values with + / and padding', () => {
+    const draft = { name: 'legacy', body: 'plain ascii legacy link' }
+    const legacy = btoa(JSON.stringify(draft))
+    expect(decodeCrosspostDraft(legacy)).toEqual(draft)
+  })
+
+  it('returns undefined for malformed input instead of throwing', () => {
+    expect(decodeCrosspostDraft('not-valid-base64!!!')).toBeUndefined()
+    expect(decodeCrosspostDraft(btoa('not json'))).toBeUndefined()
+    expect(decodeCrosspostDraft(btoa('"a json string"'))).toBeUndefined()
+    expect(decodeCrosspostDraft('')).toBeUndefined()
+  })
+
+  it('drops non-string name/body fields from tampered payloads', () => {
+    const tampered = btoa(JSON.stringify({ name: 42, body: ['x'] }))
+    expect(decodeCrosspostDraft(tampered)).toEqual({})
   })
 })

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type {
   AtUri,
   CID,
@@ -6,7 +6,6 @@ import type {
   CommentRef,
   CommentStats,
   CommentView,
-  CommentViewerState,
   AuthorView,
   ThreadViewComment,
 } from '$lib/api/coves/types'
@@ -16,6 +15,7 @@ import {
   searchCommentTree,
   insertCommentIntoTree,
   type CommentNodeI,
+  type NormalizedCommentView,
 } from './comments.svelte'
 
 // ---------------------------------------------------------------------------
@@ -74,7 +74,9 @@ function makeStats(overrides?: Partial<CommentStats>): CommentStats {
   }
 }
 
-function makeCommentView(overrides?: Partial<CommentView>): CommentView {
+function makeCommentView(
+  overrides?: Partial<NormalizedCommentView>,
+): NormalizedCommentView {
   return {
     uri: 'at://did:plc:testauthor1/social.coves.community.comment/c1' as AtUri,
     cid: 'bafycomment1' as CID,
@@ -201,11 +203,12 @@ describe('buildCommentsTree', () => {
   })
 
   it('synthesizes a record for tombstones with null records', () => {
-    const cv = makeCommentView({
+    // The server returns deleted-comment tombstones with a null record
+    const cv: CommentView = {
+      ...makeCommentView(),
       isDeleted: true,
-      // The server returns deleted-comment tombstones with a null record
-      record: null as unknown as CommentRecord,
-    })
+      record: null,
+    }
     const reply = makeCommentView({
       uri: 'at://did:plc:testauthor1/social.coves.community.comment/c2' as AtUri,
     })
@@ -224,6 +227,81 @@ describe('buildCommentsTree', () => {
     })
     expect(result[0].children).toHaveLength(1)
     expect(result[0].children[0].comment.uri).toBe(reply.uri)
+  })
+
+  it('synthesizes a record for tombstones with undefined records', () => {
+    // The type says CommentRecord | null, but guard against a server that
+    // omits the field entirely (undefined at runtime)
+    const cv: CommentView = {
+      ...makeCommentView(),
+      isDeleted: true,
+      record: undefined as unknown as CommentView['record'],
+    }
+    const thread = makeThreadComment(cv)
+
+    const result = buildCommentsTree([thread])
+
+    expect(result[0].comment.record.content).toBe('*post.badges.deleted*')
+    expect(result[0].comment.record.reply).toEqual({
+      root: cv.post,
+      parent: cv.post,
+    })
+    expect(result[0].comment.record.createdAt).toBe(cv.createdAt)
+  })
+
+  it('warns when a non-deleted comment has a null record', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const cv: CommentView = {
+      ...makeCommentView(),
+      isDeleted: false,
+      record: null,
+    }
+    const thread = makeThreadComment(cv)
+
+    const result = buildCommentsTree([thread])
+
+    expect(result[0].comment.record.content).toBe('*post.badges.deleted*')
+    expect(warnSpy).toHaveBeenCalledOnce()
+    expect(warnSpy.mock.calls[0][0]).toContain(cv.uri as string)
+    warnSpy.mockRestore()
+  })
+
+  it('does not warn for null records on deleted comments', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const cv: CommentView = {
+      ...makeCommentView(),
+      isDeleted: true,
+      record: null,
+    }
+
+    buildCommentsTree([makeThreadComment(cv)])
+
+    expect(warnSpy).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  it('preserves reply, createdAt, and optional fields when annotating deleted comments', () => {
+    const record: CommentRecord = {
+      ...makeCommentRecord(''),
+      facets: [{ index: { byteStart: 0, byteEnd: 4 } }],
+      langs: ['en'],
+      embed: { $type: 'social.coves.embed.external' },
+      labels: { $type: 'com.atproto.label.defs#selfLabels', values: [] },
+    }
+    const cv = makeCommentView({
+      isDeleted: true,
+      record,
+    })
+    const thread = makeThreadComment(cv)
+
+    const result = buildCommentsTree([thread])
+
+    expect(result[0].comment.record).toEqual({
+      ...record,
+      content: '*post.badges.deleted*',
+    })
+    expect(result[0].comment.record.reply).toEqual(record.reply)
+    expect(result[0].comment.record.createdAt).toBe(record.createdAt)
   })
 
   it('does not annotate deleted comments that have content', () => {
@@ -456,6 +534,8 @@ describe('insertCommentIntoTree', () => {
     expect(tree[0].comment.uri).toBe(newUri)
     expect(tree[0].depth).toBe(0)
     expect(tree[0].children).toEqual([])
+    // Inserted nodes must render expanded, or new comments look collapsed
+    expect(tree[0].expanded).toBe(true)
   })
 
   it('inserts a comment whose parent ref is the post itself as top-level', () => {
@@ -473,6 +553,23 @@ describe('insertCommentIntoTree', () => {
     expect(tree[0].comment.uri).toBe(newUri)
     expect(tree[0].depth).toBe(0)
     expect(tree[0].children).toEqual([])
+    expect(tree[0].expanded).toBe(true)
+  })
+
+  it('does not insert a comment whose parent ref is the post when parentComment is true', () => {
+    const tree = makeTree()
+    const postRef: CommentRef = {
+      uri: 'at://did:plc:post/social.coves.community.post/root1' as AtUri,
+      cid: 'bafypost1' as CID,
+    }
+    const cv = makeCommentView({ uri: newUri, parent: postRef, post: postRef })
+
+    const result = insertCommentIntoTree(tree, cv, true)
+
+    expect(result).toBe(false)
+    expect(tree).toHaveLength(1)
+    expect(tree[0].comment.uri).toBe(rootUri)
+    expect(tree[0].children).toHaveLength(1)
   })
 
   it('does not insert a top-level comment when parentComment is true', () => {
@@ -501,6 +598,8 @@ describe('insertCommentIntoTree', () => {
     expect(rootNode.children).toHaveLength(2)
     expect(rootNode.children[0].comment.uri).toBe(newUri)
     expect(rootNode.children[0].depth).toBe(1)
+    // Inserted nodes must render expanded, or new comments look collapsed
+    expect(rootNode.children[0].expanded).toBe(true)
   })
 
   it('inserts a reply to a nested comment with correct depth', () => {

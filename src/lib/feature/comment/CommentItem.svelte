@@ -5,6 +5,10 @@
   import { ArrowUturnUp, Icon } from 'svelte-hero-icons/dist'
   import type { ClassValue } from 'svelte/elements'
   import Comment from './Comment.svelte'
+  import {
+    deletedContentPlaceholder,
+    type NormalizedCommentView,
+  } from './comments.svelte'
 
   interface Props {
     comment: CommentView
@@ -22,6 +26,18 @@
     actions = true,
     ...rest
   }: Props = $props()
+
+  // Deleted-comment tombstones arrive with a null record; synthesize a
+  // placeholder record so Comment can read record.* unconditionally.
+  let normalized = $derived<NormalizedCommentView>({
+    ...comment,
+    record: comment.record ?? {
+      $type: 'social.coves.community.comment',
+      content: deletedContentPlaceholder(),
+      reply: { root: comment.post, parent: comment.parent ?? comment.post },
+      createdAt: comment.createdAt,
+    },
+  })
 </script>
 
 <div class={['flex flex-col flex-1 rounded-none list-none', clazz]}>
@@ -45,7 +61,7 @@
     </div>
   {/if}
   <Comment
-    node={{ children: [], comment, depth: 1, expanded: true }}
+    node={{ children: [], comment: normalized, depth: 1, expanded: true }}
     postRef={comment.post}
     replying={false}
     {meta}

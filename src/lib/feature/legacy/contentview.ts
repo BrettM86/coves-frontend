@@ -26,7 +26,8 @@ export const contentView = (item: SubmissionView): ContentView => {
   if (isCommentView(item))
     return {
       type: 'comment',
-      body: item.record.content,
+      // Deleted-comment tombstones have a null record
+      body: item.record?.content ?? '',
       creator: item.author,
       uri: item.uri,
     }

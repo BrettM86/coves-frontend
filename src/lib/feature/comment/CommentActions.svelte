@@ -13,6 +13,7 @@
     Share,
     Trash,
   } from 'svelte-hero-icons/dist'
+  import { deletedContentPlaceholder } from './comments.svelte'
   import CommentVote from './CommentVote.svelte'
 
   interface Props {
@@ -88,7 +89,11 @@
     </MenuButton>
     {#if profile.current?.jwt}
       {#if profile.current?.did && profile.current.did === comment.author.did}
-        <MenuButton onclick={() => onedit?.(comment)} icon={PencilSquare}>
+        <MenuButton
+          disabled={comment.isDeleted}
+          onclick={() => onedit?.(comment)}
+          icon={PencilSquare}
+        >
           {$t('post.actions.more.edit')}
         </MenuButton>
       {/if}
@@ -97,11 +102,16 @@
           disabled={comment.isDeleted}
           color="danger-subtle"
           onclick={async () => {
-            if (!profile.current?.jwt) return
+            if (!profile.current?.jwt) {
+              toast({ content: $t('toast.sessionExpired'), type: 'warning' })
+              return
+            }
             try {
               await coves().deleteComment({ uri: comment.uri })
               comment.isDeleted = true
-              comment.record.content = `*${$t('post.badges.deleted')}*`
+              if (comment.record) {
+                comment.record.content = deletedContentPlaceholder()
+              }
             } catch (err) {
               toast({
                 content: errorMessage(err),

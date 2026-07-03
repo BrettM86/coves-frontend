@@ -6,6 +6,7 @@
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { settings } from '$lib/app/settings.svelte'
+  import { toLemmyCommentSort } from '$lib/app/sort'
   import { resumables } from '$lib/feature/legacy/item.svelte'
   import {
     mediaType,
@@ -60,7 +61,7 @@
         limit: 25,
         type_: 'All',
         post_id: data.data.value.post.post.id,
-        sort: settings.defaultSort.comments,
+        sort: toLemmyCommentSort(settings.defaultSort.comments),
         max_depth: data.data.value.post.counts.comments > 100 ? 1 : 3,
       })
       .then((i) => i.comments)

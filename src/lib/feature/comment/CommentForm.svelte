@@ -45,6 +45,7 @@
     editing = false,
     oncancel,
     oncomment,
+    onconfirm,
     ...rest
   }: Props = $props()
 
@@ -52,12 +53,17 @@
   let preview = false
 
   async function submit() {
+    // In editing mode, submission (e.g. Ctrl+Enter) is delegated to the
+    // parent via onconfirm, which performs its own auth/content validation.
+    if (editing) {
+      onconfirm?.(value)
+      return
+    }
     if (!profile.current?.jwt) {
       toast({ content: $t('toast.loginVoteGate'), type: 'warning' })
       return
     }
     if (value.trim() === '') return
-    if (editing) return
 
     loading = true
 

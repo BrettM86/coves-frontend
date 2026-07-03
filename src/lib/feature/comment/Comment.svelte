@@ -56,14 +56,30 @@
   let editingLoad = $state(false)
 
   async function save() {
-    if (!profile.current?.jwt || newComment.trim() === '') return
+    if (node.comment.isDeleted) return
+    if (!profile.current?.jwt) {
+      toast({ content: $t('toast.sessionExpired'), type: 'warning' })
+      return
+    }
+    if (newComment.trim() === '') {
+      toast({ content: 'Comment cannot be empty.', type: 'warning' })
+      return
+    }
 
     editingLoad = true
 
     try {
+      // The backend performs a full record replace on update, so pass the
+      // existing rich-text fields through to avoid erasing them. Caveat:
+      // facet byte offsets may be stale relative to the edited content.
+      const record = node.comment.record
       const response = await coves().updateComment({
         uri: node.comment.uri,
         content: newComment,
+        facets: record.facets,
+        embed: record.embed,
+        langs: record.langs,
+        labels: record.labels,
       })
       node.comment.record.content = newComment
       node.comment.cid = response.cid
@@ -84,22 +100,17 @@
     {#snippet customTitle()}
       <div>{$t('form.edit')}</div>
     {/snippet}
-    <form
-      onsubmit={(e) => {
-        e.preventDefault()
-        save()
-      }}
-      class="contents"
-    >
+    <div class="contents">
       <CommentForm
         bind:value={newComment}
         {postRef}
         actions={false}
         preview={true}
         editing={true}
+        onconfirm={save}
       />
       <Button
-        submit
+        onclick={save}
         color="primary"
         size="lg"
         loading={editingLoad}
@@ -108,7 +119,7 @@
       >
         {$t('form.submit')}
       </Button>
-    </form>
+    </div>
   </Modal>
 {/if}
 

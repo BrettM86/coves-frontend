@@ -2,6 +2,7 @@
   import { page } from '$app/state'
   import type { AuthorView } from '$lib/api/coves/types'
   import { t } from '$lib/app/i18n'
+  import { deletedContentPlaceholder } from '$lib/feature/comment/comments.svelte'
   import PostFeed from '$lib/feature/post/feed/PostFeed.svelte'
   import UserLink from '$lib/feature/user/UserLink.svelte'
   import EntityHeader from '$lib/ui/generic/EntityHeader.svelte'
@@ -147,7 +148,7 @@
                 </span>
               </div>
               <p class="text-sm text-slate-700 dark:text-zinc-300">
-                {comment.record.content}
+                {comment.record?.content ?? deletedContentPlaceholder()}
               </p>
             </li>
           {/each}

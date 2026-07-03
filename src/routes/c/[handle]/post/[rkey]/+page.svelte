@@ -1,11 +1,13 @@
 <script lang="ts">
+  import { page } from '$app/state'
   import { coves } from '$lib/api/client.svelte'
+  import { errorMessage } from '$lib/app/error'
   import { settings } from '$lib/app/settings.svelte'
   import { mapSort } from '$lib/app/sort'
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
   import { Post } from '$lib/feature/post'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
-  import { Material, Spinner } from 'mono-svelte'
+  import { Material, Spinner, toast } from 'mono-svelte'
   import { ChatBubbleOvalLeft, Icon, NoSymbol } from 'svelte-hero-icons/dist'
   import type { PageData } from './$types'
 
@@ -15,14 +17,27 @@
 
   let { data }: Props = $props()
 
-  function reloadComments() {
+  async function reloadComments(): Promise<void> {
     const value = data.data.value
     if (!value?.post) return
-    const { sort } = mapSort(settings?.defaultSort?.comments ?? 'hot')
-    value.comments = coves()
-      .getComments({ ...value.params.comments, sort })
-      .then((r) => r.comments)
-    value.params.thread.singleThread = false
+    // Mirror the loader's precedence: an explicit ?sort= URL param wins over
+    // the user's default comment sort.
+    const { sort } = mapSort(
+      page.url.searchParams.get('sort') ?? settings.defaultSort.comments,
+    )
+    try {
+      const { comments } = await coves().getComments({
+        ...value.params.comments,
+        sort,
+      })
+      // Only swap in the (already-resolved) result on success so a transient
+      // failure keeps the previously loaded comment tree on screen.
+      value.comments = Promise.resolve(comments)
+      value.params.thread.singleThread = false
+    } catch (err) {
+      console.error('[post] Failed to reload comments:', err)
+      toast({ content: errorMessage(err), type: 'error' })
+    }
   }
 </script>
 

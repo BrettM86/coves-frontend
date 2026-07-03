@@ -9,12 +9,29 @@ import type {
 import type { DID, Handle } from '$lib/types/atproto'
 import { t } from '$lib/app/i18n'
 
+/**
+ * A CommentView whose record is guaranteed non-null. `buildCommentsTree`
+ * normalizes server tombstones (null records) into synthesized placeholder
+ * records, so everything downstream of the tree can read `record.*`
+ * unconditionally.
+ */
+export type NormalizedCommentView = CommentView & { record: CommentRecord }
+
 export interface CommentNodeI {
-  comment: CommentView
+  comment: NormalizedCommentView
   children: Array<CommentNodeI>
   depth: number
   loading?: boolean
   expanded?: boolean
+}
+
+/**
+ * The placeholder content rendered for deleted comments. Centralized so
+ * pre-reload (in-place mutation) and post-reload (tree normalization)
+ * rendering cannot drift.
+ */
+export function deletedContentPlaceholder(): string {
+  return `*${t.get('post.badges.deleted')}*`
 }
 
 /**
@@ -29,18 +46,29 @@ export function buildCommentsTree(
   baseDepth: number = 0,
 ): CommentNodeI[] {
   function walk(thread: ThreadViewComment, depth: number): CommentNodeI {
-    let cv = thread.comment
+    const cv = thread.comment
 
     // Annotate deleted comments with a placeholder message. The server
     // returns tombstones with a null record, so synthesize a complete
     // record — downstream components read record.* unconditionally.
-    const record = cv.record as CommentRecord | null
-    if (record === null || (cv.isDeleted && record.content === '')) {
-      cv = {
+    // `== null` (not `=== null`) is deliberate: it also guards against an
+    // undefined record at runtime, which the type does not rule out.
+    const record = cv.record
+    let normalized: NormalizedCommentView
+    if (record == null || (cv.isDeleted && record.content === '')) {
+      if (record == null && !cv.isDeleted) {
+        console.warn(
+          `[comments] Comment ${cv.uri as string} has no record but is not marked deleted (backend data-integrity issue?); rendering as deleted.`,
+        )
+      }
+      normalized = {
         ...cv,
         record: {
+          // Preserve optional fields (facets, langs, embed, labels) from
+          // non-null deleted records, then override the required fields.
+          ...record,
           $type: 'social.coves.community.comment',
-          content: `*${t.get('post.badges.deleted')}*`,
+          content: deletedContentPlaceholder(),
           reply: record?.reply ?? {
             root: cv.post,
             parent: cv.parent ?? cv.post,
@@ -48,6 +76,8 @@ export function buildCommentsTree(
           createdAt: record?.createdAt ?? cv.createdAt,
         },
       }
+    } else {
+      normalized = { ...cv, record }
     }
 
     const children: CommentNodeI[] = (thread.replies ?? []).map((reply) =>
@@ -55,7 +85,7 @@ export function buildCommentsTree(
     )
 
     return {
-      comment: cv,
+      comment: normalized,
       children,
       depth,
       expanded: true,
@@ -95,7 +125,7 @@ export function searchCommentTree(
  */
 export function insertCommentIntoTree(
   tree: CommentNodeI[],
-  cv: CommentView,
+  cv: NormalizedCommentView,
   parentComment: boolean,
 ): boolean {
   const node: CommentNodeI = {
@@ -134,7 +164,7 @@ export function createOptimisticCommentView(
   postRef: StrongRef,
   parentRef: StrongRef,
   author: { did: string; handle: string; avatar?: string },
-): CommentView {
+): NormalizedCommentView {
   const now = new Date().toISOString()
   return {
     uri: output.uri,

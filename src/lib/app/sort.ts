@@ -55,6 +55,46 @@ export function mapSort(sort: string, timeframe?: string): CovesSortParams {
 }
 
 // ---------------------------------------------------------------------------
+// Comment sort normalization and legacy (Lemmy) mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalizes a persisted or env-provided comment sort value to a valid Coves
+ * sort. Handles legacy capitalized values ('Hot', 'Top', 'TopAll', 'New', ...)
+ * written by older versions of the app; anything unrecognized (e.g. 'Old',
+ * 'Controversial') falls back to `'hot'`.
+ */
+export function normalizeCommentSort(sort: string): CovesSortType {
+  const lower = sort.toLowerCase()
+  if (isValidSort(lower)) return lower
+  if (lower.startsWith('top')) return 'top'
+  return 'hot'
+}
+
+/** Comment sort values accepted by the legacy Lemmy API. */
+export type LemmyCommentSortType =
+  | 'Hot'
+  | 'Top'
+  | 'New'
+  | 'Old'
+  | 'Controversial'
+
+/**
+ * Maps a Coves comment sort value back to the capitalized sort expected by
+ * the legacy Lemmy client. Unknown values fall back to `'Hot'`.
+ */
+export function toLemmyCommentSort(sort: string): LemmyCommentSortType {
+  switch (normalizeCommentSort(sort)) {
+    case 'top':
+      return 'Top'
+    case 'new':
+      return 'New'
+    default:
+      return 'Hot'
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Community sort validation
 // ---------------------------------------------------------------------------
 

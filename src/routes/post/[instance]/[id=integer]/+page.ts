@@ -4,6 +4,7 @@ import { resolveRoute } from '$app/paths'
 import { client } from '$lib/api/client.svelte'
 import { profile } from '$lib/app/auth.svelte'
 import { settings } from '$lib/app/settings.svelte'
+import { toLemmyCommentSort } from '$lib/app/sort'
 import { ReactiveState } from '$lib/app/util.svelte'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
 import {
@@ -56,7 +57,7 @@ export async function load({ params, url, route }) {
     redirect(302, resolveRoute('/post/[instance]/[id=integer]/confirm', params))
 
   // TODO use Lemmy profile default settings
-  const sort = settings?.defaultSort?.comments ?? 'Hot'
+  const sort = toLemmyCommentSort(settings?.defaultSort?.comments ?? 'hot')
 
   const cachedPost =
     (await findInFeed('/', params.id)) ??

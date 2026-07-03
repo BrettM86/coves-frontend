@@ -284,7 +284,14 @@ export interface CommentView {
   cid: CID
   createdAt: string
   indexedAt: string
-  record: CommentRecord
+  /**
+   * The comment's record. The server returns `null` for deleted-comment
+   * tombstones, so consumers must handle the null case (or consume the
+   * normalized `CommentNodeI.comment`, whose record is guaranteed non-null
+   * by `buildCommentsTree`). Note that `isDeleted` alone is not a reliable
+   * discriminant: deleted comments can still arrive with a record.
+   */
+  record: CommentRecord | null
   author: AuthorView
   post: CommentRef
   stats: CommentStats
@@ -588,6 +595,18 @@ export interface CreateCommentOutput {
 // Request / response types — comment editing
 // ---------------------------------------------------------------------------
 
+/**
+ * Input for updating an existing comment.
+ *
+ * Omitted-field semantics: the backend treats the update as a full record
+ * replacement, so any optional field left `undefined` (facets, embed, langs,
+ * labels) is CLEARED on the server, not preserved. Callers that want to keep
+ * an existing value must re-send it.
+ *
+ * Server-side validation errors callers should pre-validate against:
+ * - `ContentEmpty` — `content` is empty or whitespace-only
+ * - `ContentTooLong` — `content` exceeds the maximum allowed length
+ */
 export interface UpdateCommentInput {
   uri: AtUri
   content: string

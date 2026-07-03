@@ -1,6 +1,7 @@
 import { browser } from '$app/environment'
 import { env } from '$env/dynamic/public'
 import { locale } from './i18n'
+import { normalizeCommentSort } from './sort'
 
 /**
  * Sort type values for the Coves API.
@@ -217,7 +218,14 @@ function getInitialSettings(defaultValue: Settings): Settings {
 }
 
 function createSettingsState(initial: Settings): Settings {
-  const settings = $state(getInitialSettings(initial))
+  const loaded = getInitialSettings(initial)
+  // Migrate legacy capitalized comment sort values ('Hot', 'Top', 'TopAll',
+  // 'Old', ...) persisted by older app versions (or set via env) to valid
+  // lowercase Coves values.
+  loaded.defaultSort.comments = normalizeCommentSort(
+    loaded.defaultSort.comments,
+  )
+  const settings = $state(loaded)
   return settings
 }
 

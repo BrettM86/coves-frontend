@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { mapListing, mapSort } from './sort'
+import {
+  mapListing,
+  mapSort,
+  normalizeCommentSort,
+  toLemmyCommentSort,
+} from './sort'
 
 describe('mapSort', () => {
   describe('valid sort values', () => {
@@ -112,5 +117,47 @@ describe('mapListing', () => {
     it('maps empty string to "discover" when not authenticated', () => {
       expect(mapListing('', false)).toBe('discover')
     })
+  })
+})
+
+describe('normalizeCommentSort', () => {
+  it('passes through valid lowercase values', () => {
+    expect(normalizeCommentSort('hot')).toBe('hot')
+    expect(normalizeCommentSort('top')).toBe('top')
+    expect(normalizeCommentSort('new')).toBe('new')
+  })
+
+  it('migrates legacy capitalized values', () => {
+    expect(normalizeCommentSort('Hot')).toBe('hot')
+    expect(normalizeCommentSort('Top')).toBe('top')
+    expect(normalizeCommentSort('New')).toBe('new')
+  })
+
+  it('migrates legacy TopAll-style values to "top"', () => {
+    expect(normalizeCommentSort('TopAll')).toBe('top')
+    expect(normalizeCommentSort('TopWeek')).toBe('top')
+  })
+
+  it('falls back to "hot" for unsupported legacy values', () => {
+    expect(normalizeCommentSort('Old')).toBe('hot')
+    expect(normalizeCommentSort('Controversial')).toBe('hot')
+    expect(normalizeCommentSort('')).toBe('hot')
+  })
+})
+
+describe('toLemmyCommentSort', () => {
+  it('maps Coves values to capitalized Lemmy values', () => {
+    expect(toLemmyCommentSort('hot')).toBe('Hot')
+    expect(toLemmyCommentSort('top')).toBe('Top')
+    expect(toLemmyCommentSort('new')).toBe('New')
+  })
+
+  it('handles already-capitalized legacy values', () => {
+    expect(toLemmyCommentSort('Hot')).toBe('Hot')
+    expect(toLemmyCommentSort('TopAll')).toBe('Top')
+  })
+
+  it('falls back to "Hot" for unknown values', () => {
+    expect(toLemmyCommentSort('bogus')).toBe('Hot')
   })
 })

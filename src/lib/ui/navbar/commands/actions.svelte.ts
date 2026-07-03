@@ -12,21 +12,16 @@ import {
   ArrowRightOnRectangle,
   ArrowTrendingDown,
   ArrowTrendingUp,
-  Bookmark,
   ChartBar,
   ChatBubbleLeftRight,
   ChatBubbleOvalLeftEllipsis,
   Clock,
   Cog6Tooth,
   ComputerDesktop,
-  Envelope,
   Fire,
   GlobeAlt,
   GlobeAmericas,
   Home,
-  Identification,
-  Inbox,
-  MagnifyingGlass,
   MapPin,
   Moon,
   Newspaper,
@@ -34,8 +29,6 @@ import {
   PencilSquare,
   Plus,
   Scale,
-  ServerStack,
-  ShieldCheck,
   Star,
   Sun,
   Swatch,
@@ -91,24 +84,6 @@ export function getGroups(
           name: t.get('nav.communities'),
           icon: GlobeAlt,
         },
-        ...(currentProfile.isMod()
-          ? [
-              {
-                href: '/moderation',
-                name: t.get('nav.moderation'),
-                icon: ShieldCheck,
-              },
-            ]
-          : []),
-        ...(currentProfile.isAdmin
-          ? [
-              {
-                href: '/admin',
-                name: t.get('nav.admin'),
-                icon: ServerStack,
-              },
-            ]
-          : []),
       ],
     },
     {
@@ -245,17 +220,6 @@ export function getGroups(
                 icon: UserCircle,
               },
               {
-                href: '/inbox',
-                name: t.get('profile.inbox'),
-                icon: Inbox,
-                shortcut: 'i',
-              },
-              {
-                href: '/saved',
-                name: t.get('profile.saved'),
-                icon: Bookmark,
-              },
-              {
                 href: '/accounts',
                 name: t.get('account.accounts'),
                 icon: UserGroup,
@@ -266,19 +230,9 @@ export function getGroups(
                 icon: ArrowRightOnRectangle,
               },
               {
-                href: '/signup',
-                name: t.get('account.signup'),
-                icon: Identification,
-              },
-              {
                 href: '/login/guest',
                 name: t.get('account.addGuest'),
                 icon: Plus,
-              },
-              {
-                href: '/inbox/messages',
-                name: t.get('filter.inbox.messages'),
-                icon: Envelope,
               },
             ]
           : [
@@ -286,11 +240,6 @@ export function getGroups(
                 href: '/login',
                 name: t.get('account.login'),
                 icon: ArrowRightOnRectangle,
-              },
-              {
-                href: '/signup',
-                name: t.get('account.signup'),
-                icon: Identification,
               },
               {
                 href: '/login/guest',
@@ -409,11 +358,6 @@ export function getGroups(
 // to make sure we don't recalculate ALL of that per keypress
 export function dynamicActions(query: string): Group {
   const actions = [
-    {
-      name: t.get('nav.commands.search', { default: query.trim() }),
-      icon: MagnifyingGlass,
-      href: `/search?q=${query}`,
-    },
     {
       name: t.get('nav.commands.communities', { default: query.trim() }),
       icon: Newspaper,

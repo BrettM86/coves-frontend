@@ -2,15 +2,7 @@
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { Menu, Spinner } from 'mono-svelte'
-  import {
-    Bars3,
-    GlobeAlt,
-    Icon,
-    MagnifyingGlass,
-    PencilSquare,
-    ServerStack,
-    ShieldCheck,
-  } from 'svelte-hero-icons/dist'
+  import { Bars3, GlobeAlt, Icon, PencilSquare } from 'svelte-hero-icons/dist'
   import type { ClassValue } from 'svelte/elements'
   import Avatar from '../generic/Avatar.svelte'
   import CommandsWrapper, { chords } from './commands/CommandsHost.svelte'
@@ -27,25 +19,6 @@
 <CommandsWrapper />
 <nav class={['navbar @container', clazz]} {style} data-sveltekit-preload-data>
   <div class="hidden md:block md:flex-1"></div>
-  <div class="sr-only md:not-sr-only md:contents">
-    {#if profile.isAdmin}
-      <NavButton
-        href="/admin"
-        label={$t('nav.admin')}
-        icon={ServerStack}
-        class="relative order-0"
-        isSelectedFilter={(path) => path.startsWith('/admin')}
-      />
-    {/if}
-    {#if profile.isMod()}
-      <NavButton
-        href="/moderation"
-        label={$t('nav.moderation')}
-        class="relative order-0"
-        icon={ShieldCheck}
-      />
-    {/if}
-  </div>
   <NavButton
     href="/explore/communities"
     label={$t('routes.explore.title')}
@@ -54,17 +27,11 @@
     class="order-1"
   />
   <NavButton
-    href="/search"
-    label={$t('nav.search')}
-    icon={MagnifyingGlass}
-    class="order-3 md:order-2"
-  />
-  <NavButton
     label={$t('nav.create.label')}
     href="/create"
     isSelectedFilter={(path) => path.startsWith('/create')}
     icon={PencilSquare}
-    class="order-2 md:order-3 nav-btn-sm-primary"
+    class="order-2 nav-btn-sm-primary"
   />
   <Menu placement="bottom">
     {#snippet target(attachment)}

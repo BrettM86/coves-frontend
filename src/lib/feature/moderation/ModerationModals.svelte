@@ -1,7 +1,7 @@
 <script lang="ts">
   // @ts-nocheck TODO(coves-migration): remove when the remaining legacy
-  // modals (RemoveModal, BanModal, ViewVotesModal) are migrated to Coves
-  // types. ReportModal is already Coves-native.
+  // modals (RemoveModal, BanModal) are migrated to Coves types.
+  // ReportModal is already Coves-native.
   import { t } from '$lib/app/i18n'
   import { toast } from 'mono-svelte'
   import { modals } from './moderation.svelte'
@@ -50,14 +50,6 @@
       user={modals.banning.user}
       community={modals.banning.community}
     />
-  {:catch}
-    <!-- handled in loadModal -->
-  {/await}
-{/if}
-
-{#if modals.votes.open}
-  {#await loadModal(import('./ViewVotesModal.svelte'), 'ViewVotesModal', () => (modals.votes.open = false)) then { default: VotesModal }}
-    <VotesModal bind:open={modals.votes.open} item={modals.votes.item} />
   {:catch}
     <!-- handled in loadModal -->
   {/await}

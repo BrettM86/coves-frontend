@@ -12,9 +12,7 @@
     EllipsisHorizontal,
     Fire,
     Icon,
-    Newspaper,
     Plus,
-    ShieldCheck,
   } from 'svelte-hero-icons/dist'
   import { purgeCommunity } from './CommunityCard.svelte'
   import { communityDisplayName, communityIdentifier } from './helpers'
@@ -135,54 +133,42 @@
         <Icon src={Cog6Tooth} size="16" mini />
       </Button>
     {/if}
-    <Menu placement="top-end">
-      {#snippet target(attachment)}
-        <Button {@attach attachment} size="square-lg" icon={EllipsisHorizontal}
-        ></Button>
-      {/snippet}
-      <MenuButton href="/modlog?community={community.did}">
-        <Icon src={Newspaper} size="16" mini />
-        {$t('cards.community.modlog')}
-      </MenuButton>
-      {#if profile.isMod(community)}
+    {#if profile.current?.jwt && profile.isAdmin}
+      <Menu placement="top-end">
+        {#snippet target(attachment)}
+          <Button
+            {@attach attachment}
+            size="square-lg"
+            icon={EllipsisHorizontal}
+          ></Button>
+        {/snippet}
         <MenuButton
-          color="success-subtle"
-          href="/moderation?community={community.did}"
+          color="danger-subtle"
+          onclick={() =>
+            modal({
+              title: $t('admin.purgeCommunity.title'),
+              body: `${communityDisplayName(community)}: ${$t('admin.purgeCommunity.warning')}`,
+              actions: [
+                action({
+                  close: true,
+                  content: $t('common.cancel'),
+                }),
+                action({
+                  action: () => purgeCommunity(community.did),
+                  close: true,
+                  content: $t('admin.purge'),
+                  type: 'danger',
+                  icon: Fire,
+                }),
+              ],
+              dismissable: true,
+              type: 'error',
+            })}
+          icon={Fire}
         >
-          <Icon src={ShieldCheck} size="16" micro />
-          {$t('routes.moderation.feed')}
+          {$t('admin.purge')}
         </MenuButton>
-      {/if}
-      {#if profile.current?.jwt}
-        {#if profile.isAdmin}
-          <MenuButton
-            color="danger-subtle"
-            onclick={() =>
-              modal({
-                title: $t('admin.purgeCommunity.title'),
-                body: `${communityDisplayName(community)}: ${$t('admin.purgeCommunity.warning')}`,
-                actions: [
-                  action({
-                    close: true,
-                    content: $t('common.cancel'),
-                  }),
-                  action({
-                    action: () => purgeCommunity(community.did),
-                    close: true,
-                    content: $t('admin.purge'),
-                    type: 'danger',
-                    icon: Fire,
-                  }),
-                ],
-                dismissable: true,
-                type: 'error',
-              })}
-            icon={Fire}
-          >
-            {$t('admin.purge')}
-          </MenuButton>
-        {/if}
-      {/if}
-    </Menu>
+      </Menu>
+    {/if}
   </div>
 </EntityHeader>

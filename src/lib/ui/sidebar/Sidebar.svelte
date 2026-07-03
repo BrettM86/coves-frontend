@@ -7,14 +7,11 @@
   import { Option, Select } from 'mono-svelte'
   import {
     ArrowLeftOnRectangle,
-    Bookmark,
     ChevronUpDown,
     Cog6Tooth,
     ComputerDesktop,
     Home,
     Icon,
-    Identification,
-    Inbox,
     Moon,
     Sun,
     Swatch,
@@ -49,7 +46,6 @@
   />
   <EndPlaceholder margin="sm" size="xs">{$t('profile.profile')}</EndPlaceholder>
   {#if profile.current?.jwt}
-    <!-- TODO: Re-enable inbox notifications when Coves API provides them -->
     <SidebarButton
       icon={UserCircle}
       href={profile.current.type === 'authenticated'
@@ -57,18 +53,11 @@
         : '/login'}
       label={$t('profile.profile')}
     />
-    <SidebarButton icon={Inbox} href="/inbox" label={$t('profile.inbox')} />
-    <SidebarButton icon={Bookmark} href="/saved" label={$t('profile.saved')} />
   {:else}
     <SidebarButton
       href="/login"
       label={$t('account.login')}
       icon={ArrowLeftOnRectangle}
-    />
-    <SidebarButton
-      href="/signup"
-      label={$t('account.signup')}
-      icon={Identification}
     />
     <SidebarButton
       href="/accounts"

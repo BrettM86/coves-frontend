@@ -256,11 +256,7 @@
   >
     {#if tags}
       {#each tags as tag}
-        {@const href =
-          tag.type == 'flair' ? null : `/search?q=[${tag.content}]&type=Posts`}
-        <svelte:element
-          this={href ? 'a' : 'div'}
-          {href}
+        <div
           class="hover:brightness-110"
           style="{tag.color ? `--tag-color: ${tag.color};` : ''} {tag.textColor
             ? `--tag-text-color: ${tag.textColor}`
@@ -276,7 +272,7 @@
             {/snippet}
             {tag.content}
           </Badge>
-        </svelte:element>
+        </div>
       {/each}
     {/if}
     {#each Object.keys(badges)

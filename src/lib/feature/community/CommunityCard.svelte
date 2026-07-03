@@ -25,10 +25,7 @@
     Cog6Tooth,
     EllipsisHorizontal,
     Fire,
-    Icon,
-    Newspaper,
     Plus,
-    ShieldCheck,
   } from 'svelte-hero-icons/dist'
 
   /**
@@ -199,58 +196,43 @@
         label={$t('routes.profile.edit')}
       />
     {/if}
-    <Menu placement="bottom-start">
-      {#snippet target(attachment)}
-        <SidebarButton
-          {@attach attachment}
-          label={$t('post.actions.more.label')}
-          icon={EllipsisHorizontal}
-        />
-      {/snippet}
-      <MenuButton href="/modlog?community={community.did}">
-        <Icon src={Newspaper} size="16" mini />
-        {$t('cards.community.modlog')}
-      </MenuButton>
-      {#if profile.current?.jwt}
-        {#if isHydratedCommunity(community) && profile.isMod(community)}
-          <MenuButton
-            color="success-subtle"
-            href="/moderation?community={community.did}"
-          >
-            <Icon src={ShieldCheck} size="16" micro />
-            {$t('routes.moderation.feed')}
-          </MenuButton>
-        {/if}
-        {#if profile.isAdmin}
-          <MenuButton
-            color="danger-subtle"
-            onclick={() =>
-              modal({
-                title: $t('admin.purgeCommunity.title'),
-                body: `${communityDisplayName(community)}: ${$t('admin.purgeCommunity.warning')}`,
-                actions: [
-                  action({
-                    close: true,
-                    content: $t('common.cancel'),
-                  }),
-                  action({
-                    action: () => purgeCommunity(community.did),
-                    close: true,
-                    content: $t('admin.purge'),
-                    type: 'danger',
-                    icon: Fire,
-                  }),
-                ],
-                dismissable: true,
-                type: 'error',
-              })}
-            icon={Fire}
-          >
-            {$t('admin.purge')}
-          </MenuButton>
-        {/if}
-      {/if}
-    </Menu>
+    {#if profile.current?.jwt && profile.isAdmin}
+      <Menu placement="bottom-start">
+        {#snippet target(attachment)}
+          <SidebarButton
+            {@attach attachment}
+            label={$t('post.actions.more.label')}
+            icon={EllipsisHorizontal}
+          />
+        {/snippet}
+        <MenuButton
+          color="danger-subtle"
+          onclick={() =>
+            modal({
+              title: $t('admin.purgeCommunity.title'),
+              body: `${communityDisplayName(community)}: ${$t('admin.purgeCommunity.warning')}`,
+              actions: [
+                action({
+                  close: true,
+                  content: $t('common.cancel'),
+                }),
+                action({
+                  action: () => purgeCommunity(community.did),
+                  close: true,
+                  content: $t('admin.purge'),
+                  type: 'danger',
+                  icon: Fire,
+                }),
+              ],
+              dismissable: true,
+              type: 'error',
+            })}
+          icon={Fire}
+        >
+          {$t('admin.purge')}
+        </MenuButton>
+      </Menu>
+    {/if}
     <!--
       Stats are only present on a hydrated community view. The post permalink
       sidebar passes the post's embedded `CommunityRef`, which carries no counts

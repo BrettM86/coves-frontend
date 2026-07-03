@@ -144,9 +144,6 @@
       >
         {$t('account.login')}
       </Button>
-      <Button href="/signup" size="lg" rounding="2xl" icon={Identification}>
-        {$t('account.signup')}
-      </Button>
       {#if !LINKED_INSTANCE_URL}
         <Button
           href="/accounts/login/guest"

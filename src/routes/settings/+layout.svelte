@@ -47,10 +47,6 @@
       name: $t('settings.app.title'),
     },
     {
-      href: '/settings/lemmy',
-      name: $t('settings.lemmy.title'),
-    },
-    {
       href: '/settings/embeds',
       name: $t('settings.embeds.title'),
     },

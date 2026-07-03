@@ -92,8 +92,6 @@ export const linkify = markedLinkifyIt(
 )
 
 const regexes = {
-  post: /^https:\/\/([a-zA-Z0-9.-]+)\/post\/(\d+)$/i,
-  comment: /^https:\/\/([a-zA-Z0-9.-]+)\/comment\/(\d+)$/i,
   user: /^https:\/\/([a-zA-Z0-9.-]+)(\/u\/)([a-zA-Z0-9.-_]+)$/i,
   community: /^https:\/\/([a-zA-Z0-9.-]+)(\/c\/)([a-zA-Z0-9.-_]+)$/i,
   implicitUser: /^mailto:([a-z0-9_.-]+)@(([\da-z.-]+)\.([a-z]{2,63}))/i,
@@ -112,16 +110,6 @@ export const localizeLink = (link) => {
     // If the match[3] includes @, the URL included an instance already, so don't add one.
     if (match?.[3].includes('@')) return `/c/${match?.[3]}`
     else return `/c/${match?.[3]}@${match?.[1]}`
-  }
-  if (regexes.post.test(link)) {
-    const match = link.match(regexes.post)
-    if (!match) return
-    return `/post/${match?.[1]}/${match?.[2]}`
-  }
-  if (regexes.comment.test(link)) {
-    const match = link.match(regexes.comment)
-    if (!match) return
-    return `/comment/${match?.[1]}/${match?.[2]}`
   }
   if (regexes.user.test(link)) {
     const match = link.match(regexes.user)

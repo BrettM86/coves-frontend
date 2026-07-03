@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { browser } from '$app/environment'
-  import { goto } from '$app/navigation'
   import { coves } from '$lib/api/client.svelte'
   import type { StrongRef } from '$lib/api/coves/types'
   import type { DID } from '$lib/types/atproto'
@@ -115,11 +113,8 @@
       {/if}
     </Comment>
     {#if node.comment.stats.replyCount > 0 && node.children.length == 0}
-      <svelte:element
-        this={browser ? 'div' : 'a'}
-        class="w-full h-10 -mt-2 -ml-2.5"
-        href="/comment/{encodeURIComponent(node.comment.uri as string)}"
-      >
+      <!-- Deep threads expand in place — there is no Coves comment permalink yet. -->
+      <div class="w-full h-10 -mt-2 -ml-2.5">
         <Button
           loading={nodes[index].loading}
           disabled={nodes[index].loading}
@@ -128,22 +123,14 @@
           class="font-normal text-slate-600 dark:text-zinc-400"
           shadow="none"
           loaderWidth={16}
-          onclick={() => {
-            if (nodes[index].depth > 4) {
-              goto(
-                `/comment/${encodeURIComponent(nodes[index].comment.uri as string)}#comments`,
-              )
-            } else {
-              fetchChildren(nodes[index])
-            }
-          }}
+          onclick={() => fetchChildren(nodes[index])}
           icon={ArrowDownCircle}
         >
           {$t('comment.more', {
             comments: node.comment.stats.replyCount,
           })}
         </Button>
-      </svelte:element>
+      </div>
     {/if}
   {/each}
 </ul>

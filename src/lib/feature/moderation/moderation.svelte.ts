@@ -32,10 +32,6 @@ interface Modals {
     user: AuthorView | undefined
     community: CommunityRef | undefined
   }
-  votes: {
-    open: boolean
-    item: PostView | CommentView | undefined
-  }
 }
 
 export const modals: Modals = $state({
@@ -53,10 +49,6 @@ export const modals: Modals = $state({
     banned: false,
     user: undefined,
     community: undefined,
-  },
-  votes: {
-    open: false,
-    item: undefined,
   },
 })
 
@@ -90,10 +82,6 @@ export function feature(
     content: 'Comment distinguishing is not yet available',
     type: 'warning',
   })
-}
-
-export async function viewVotes(item: PostView | CommentView) {
-  modals.votes = { open: true, item }
 }
 
 export const removalTemplate = (

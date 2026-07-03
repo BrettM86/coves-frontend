@@ -65,28 +65,6 @@ describe('localizeLink - community links', () => {
 })
 
 // ---------------------------------------------------------------------------
-// localizeLink() - post links
-// ---------------------------------------------------------------------------
-
-describe('localizeLink - post links', () => {
-  it('rewrites post link to /post/{instance}/{id} path', () => {
-    const result = localizeLink('https://lemmy.world/post/12345')
-    expect(result).toBe('/post/lemmy.world/12345')
-  })
-})
-
-// ---------------------------------------------------------------------------
-// localizeLink() - comment links
-// ---------------------------------------------------------------------------
-
-describe('localizeLink - comment links', () => {
-  it('rewrites comment link to /comment/{instance}/{id} path', () => {
-    const result = localizeLink('https://lemmy.world/comment/6789')
-    expect(result).toBe('/comment/lemmy.world/6789')
-  })
-})
-
-// ---------------------------------------------------------------------------
 // localizeLink() - non-matching links
 // ---------------------------------------------------------------------------
 
@@ -110,6 +88,16 @@ describe('localizeLink - non-matching links', () => {
     const result = localizeLink('https://lemmy.world/settings')
     expect(result).toBeUndefined()
   })
+
+  it('returns undefined for an external post link (legacy route removed)', () => {
+    const result = localizeLink('https://lemmy.world/post/12345')
+    expect(result).toBeUndefined()
+  })
+
+  it('returns undefined for an external comment link (legacy route removed)', () => {
+    const result = localizeLink('https://lemmy.world/comment/6789')
+    expect(result).toBeUndefined()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -117,18 +105,6 @@ describe('localizeLink - non-matching links', () => {
 // ---------------------------------------------------------------------------
 
 describe('CONTENT_REGEXES', () => {
-  it('exports post regex', () => {
-    expect(CONTENT_REGEXES.post).toBeInstanceOf(RegExp)
-    expect(CONTENT_REGEXES.post.test('https://lemmy.world/post/123')).toBe(true)
-  })
-
-  it('exports comment regex', () => {
-    expect(CONTENT_REGEXES.comment).toBeInstanceOf(RegExp)
-    expect(
-      CONTENT_REGEXES.comment.test('https://lemmy.world/comment/456'),
-    ).toBe(true)
-  })
-
   it('exports user regex', () => {
     expect(CONTENT_REGEXES.user).toBeInstanceOf(RegExp)
     expect(CONTENT_REGEXES.user.test('https://lemmy.world/u/alice')).toBe(true)

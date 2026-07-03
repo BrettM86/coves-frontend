@@ -17,18 +17,14 @@
   } from 'mono-svelte'
   import {
     ArrowLeftOnRectangle,
-    Bookmark,
     BugAnt,
     CodeBracketSquare,
     Cog6Tooth,
     CommandLine,
     ComputerDesktop,
     Icon,
-    Identification,
-    Inbox,
     Moon,
     ServerStack,
-    ShieldCheck,
     Sun,
     Swatch,
     UserCircle,
@@ -41,23 +37,7 @@
   <CovesSidebar />
 {/snippet}
 
-<!-- TODO: Re-enable notification badge when Coves API provides notifications -->
-
 {#if profile.current?.jwt}
-  <!-- TODO: Re-enable inbox notifications when Coves API provides them -->
-  <MenuButton href="/inbox" icon={Inbox}>
-    {$t('profile.inbox')}
-  </MenuButton>
-  {#if profile.isMod()}
-    <MenuButton href="/moderation" icon={ShieldCheck}>
-      {$t('routes.moderation.feed')}
-    </MenuButton>
-  {/if}
-  {#if profile.isAdmin}
-    <MenuButton href="/admin/applications" icon={ServerStack}>
-      {$t('routes.admin.applications.title')}
-    </MenuButton>
-  {/if}
   <MenuDivider>{$t('profile.profile')}</MenuDivider>
   <MenuButton
     href={profile.current.type === 'authenticated'
@@ -67,15 +47,9 @@
   >
     {$t('profile.profile')}
   </MenuButton>
-  <MenuButton href="/saved" icon={Bookmark}>
-    {$t('profile.saved')}
-  </MenuButton>
 {:else}
   <MenuButton href="/accounts/login" icon={ArrowLeftOnRectangle}>
     {$t('account.login')}
-  </MenuButton>
-  <MenuButton href="/signup" icon={Identification}>
-    {$t('account.signup')}
   </MenuButton>
 {/if}
 <MenuButton href="/accounts" icon={UserGroup}>

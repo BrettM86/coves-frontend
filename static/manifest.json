@@ -38,10 +38,6 @@
   ],
   "shortcuts": [
     {
-      "name": "Inbox",
-      "url": "/inbox"
-    },
-    {
       "name": "Create post",
       "url": "/create/post"
     },

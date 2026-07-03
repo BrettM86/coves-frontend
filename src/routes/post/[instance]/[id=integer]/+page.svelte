@@ -26,7 +26,7 @@
   import { ChatBubbleLeftRight, ChevronDoubleUp } from 'svelte-hero-icons/dist'
   import { expoOut } from 'svelte/easing'
   import { fly } from 'svelte/transition'
-  import CommentProvider from './CommentProvider.svelte'
+  import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
 
   let { data } = $props()
 

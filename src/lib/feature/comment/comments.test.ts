@@ -432,6 +432,23 @@ describe('insertCommentIntoTree', () => {
     expect(tree[0].children).toEqual([])
   })
 
+  it('inserts a comment whose parent ref is the post itself as top-level', () => {
+    const tree = makeTree()
+    const postRef: CommentRef = {
+      uri: 'at://did:plc:post/social.coves.community.post/root1' as AtUri,
+      cid: 'bafypost1' as CID,
+    }
+    const cv = makeCommentView({ uri: newUri, parent: postRef, post: postRef })
+
+    const result = insertCommentIntoTree(tree, cv, false)
+
+    expect(result).toBe(true)
+    expect(tree).toHaveLength(2)
+    expect(tree[0].comment.uri).toBe(newUri)
+    expect(tree[0].depth).toBe(0)
+    expect(tree[0].children).toEqual([])
+  })
+
   it('does not insert a top-level comment when parentComment is true', () => {
     const tree = makeTree()
     const cv = makeCommentView({ uri: newUri, parent: undefined })

@@ -79,9 +79,10 @@ export function searchCommentTree(
 
 /**
  * Inserts a newly created CommentView into the tree at the correct
- * position. If the comment has a parent, it is prepended to the
- * parent's children. If it is a top-level comment (no parent) and
- * `parentComment` is false, it is prepended to the root of the tree.
+ * position. If the comment has a parent comment, it is prepended to the
+ * parent's children. If it is a top-level comment (no parent, or a
+ * parent ref pointing at the post itself) and `parentComment` is false,
+ * it is prepended to the root of the tree.
  */
 export function insertCommentIntoTree(
   tree: CommentNodeI[],
@@ -92,9 +93,10 @@ export function insertCommentIntoTree(
     comment: cv,
     children: [],
     depth: 0,
+    expanded: true,
   }
 
-  if (cv.parent) {
+  if (cv.parent && cv.parent.uri !== cv.post.uri) {
     const parentNode = searchCommentTree(tree, cv.parent.uri)
     if (parentNode) {
       node.depth = parentNode.depth + 1

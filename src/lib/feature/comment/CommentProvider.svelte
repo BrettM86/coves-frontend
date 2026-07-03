@@ -23,9 +23,7 @@
   import { onMount } from 'svelte'
   import {
     ArrowPath,
-    ArrowTrendingDown,
     ChatBubbleOvalLeft,
-    Clock,
     Fire,
     Icon,
     PlusCircle,
@@ -89,17 +87,11 @@
             bind:value={settings.defaultSort.comments}
             onchange={onupdate}
           >
-            <Option icon={Fire} value="Hot">{$t('filter.sort.hot')}</Option>
-            <Option icon={Trophy} value="Top">
+            <Option icon={Fire} value="hot">{$t('filter.sort.hot')}</Option>
+            <Option icon={Trophy} value="top">
               {$t('filter.sort.top.label')}
             </Option>
-            <Option icon={Star} value="New">{$t('filter.sort.new')}</Option>
-            <Option icon={Clock} value="Old">
-              {$t('filter.sort.old')}
-            </Option>
-            <Option icon={ArrowTrendingDown} value="Controversial">
-              {$t('filter.sort.controversial')}
-            </Option>
+            <Option icon={Star} value="new">{$t('filter.sort.new')}</Option>
           </Select>
           <Button
             size="custom"
@@ -145,17 +137,11 @@
       bind:value={settings.defaultSort.comments}
       onchange={onupdate}
     >
-      <Option icon={Fire} value="Hot">{$t('filter.sort.hot')}</Option>
-      <Option icon={Trophy} value="Top">
+      <Option icon={Fire} value="hot">{$t('filter.sort.hot')}</Option>
+      <Option icon={Trophy} value="top">
         {$t('filter.sort.top.label')}
       </Option>
-      <Option icon={Star} value="New">{$t('filter.sort.new')}</Option>
-      <Option icon={Clock} value="Old">
-        {$t('filter.sort.old')}
-      </Option>
-      <Option icon={ArrowTrendingDown} value="Controversial">
-        {$t('filter.sort.controversial')}
-      </Option>
+      <Option icon={Star} value="new">{$t('filter.sort.new')}</Option>
     </Select>
     <Button
       size="custom"

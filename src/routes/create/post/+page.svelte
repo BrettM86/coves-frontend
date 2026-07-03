@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
+  import { page } from '$app/state'
   import type {
     CommunityView,
     CommunityViewDetailed,
@@ -12,13 +13,34 @@
     PostFormState,
     type PostSubmitResult,
   } from '$lib/feature/post/form/post-form.svelte'
-  import { postLink } from '$lib/feature/post/helpers'
+  import { decodeCrosspostDraft, postLink } from '$lib/feature/post/helpers'
+  import { toast } from 'mono-svelte'
   import { onDestroy } from 'svelte'
 
   let community = getSessionStorage('lastSeenCommunity') as
     | CommunityView
     | CommunityViewDetailed
     | undefined
+
+  // Read the ?crosspost= draft once at component init — it should only seed
+  // the form on initial load, never overwrite the user's edits reactively.
+  const crosspostParam = page.url.searchParams.get('crosspost')
+  const crosspostDraft =
+    crosspostParam !== null ? decodeCrosspostDraft(crosspostParam) : undefined
+
+  if (crosspostParam !== null && crosspostDraft === undefined) {
+    // Malformed/tampered param: warn and fall back to the normal empty form.
+    toast({ content: $t('form.post.crosspostLoadError'), type: 'error' })
+  }
+
+  const init =
+    community || crosspostDraft
+      ? new PostFormState({
+          community,
+          title: crosspostDraft?.name,
+          body: crosspostDraft?.body,
+        })
+      : undefined
 
   onDestroy(() => {
     setSessionStorage('lastSeenCommunity', undefined)
@@ -47,9 +69,6 @@
   <title>{$t('form.post.create')}</title>
 </svelte:head>
 
-<PostForm
-  init={community ? new PostFormState({ community }) : undefined}
-  onsubmit={navigateToPost}
->
+<PostForm {init} onsubmit={navigateToPost}>
   {#snippet title()}{/snippet}
 </PostForm>

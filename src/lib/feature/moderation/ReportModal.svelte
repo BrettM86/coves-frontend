@@ -5,8 +5,10 @@
     PostView,
     ReportReason,
   } from '$lib/api/coves/types'
-  import { MAX_REPORT_EXPLANATION_LENGTH } from '$lib/api/coves/types'
-  import { profile } from '$lib/app/auth.svelte'
+  import {
+    isCommentView,
+    MAX_REPORT_EXPLANATION_LENGTH,
+  } from '$lib/api/coves/types'
   import { t } from '$lib/app/i18n'
   import { Button, Modal, TextArea, toast } from 'mono-svelte'
   import {
@@ -22,9 +24,6 @@
 
   let { open = $bindable(), item = $bindable() }: Props = $props()
 
-  // CommentView has a `post` ref to its parent post; PostView does not.
-  const isComment = (i: PostView | CommentView): i is CommentView => 'post' in i
-
   let loading = $state(false)
   let reason = $state<ReportReason | undefined>(undefined)
   let explanation = $state('')
@@ -32,23 +31,20 @@
   const targetLabel = $derived(
     $t(
       `moderation.reportModal.target.${
-        item ? (isComment(item) ? 'comment' : 'post') : 'content'
+        item ? (isCommentView(item) ? 'comment' : 'post') : 'content'
       }`,
     ),
   )
-  const explanationLength = $derived([...explanation.trim()].length)
-
-  // Reset the form whenever the modal is opened for a (new) item.
-  $effect(() => {
-    if (open && item) {
-      reason = undefined
-      explanation = ''
-    }
-  })
+  // Displayed count is untrimmed; validity matches buildReportInput, which
+  // trims before validating. Both count code points, like the backend.
+  const explanationLength = $derived([...explanation].length)
+  const explanationTooLong = $derived(
+    [...explanation.trim()].length > MAX_REPORT_EXPLANATION_LENGTH,
+  )
 
   async function submit(event: SubmitEvent) {
     event.preventDefault()
-    if (!item || !profile.current?.jwt || !reason || loading) return
+    if (!item || !reason || loading) return
     loading = true
 
     try {
@@ -60,7 +56,11 @@
         type: 'success',
       })
     } catch (err) {
-      toast({ content: reportErrorMessage(err), type: 'error' })
+      console.error('[ReportModal] Report submission failed:', err)
+      toast({
+        content: reportErrorMessage(err, (key) => $t(key)),
+        type: 'error',
+      })
     } finally {
       loading = false
     }
@@ -114,10 +114,16 @@
           label={$t('moderation.reportModal.explanationLabel')}
           placeholder={$t('moderation.reportModal.explanationPlaceholder')}
           rows={3}
-          maxlength={MAX_REPORT_EXPLANATION_LENGTH}
           bind:value={explanation}
         />
-        <span class="self-end text-xs text-slate-600 dark:text-zinc-400">
+        <span
+          class={[
+            'self-end text-xs',
+            explanationTooLong
+              ? 'text-red-500 dark:text-red-400'
+              : 'text-slate-600 dark:text-zinc-400',
+          ]}
+        >
           {explanationLength}/{MAX_REPORT_EXPLANATION_LENGTH}
         </span>
       </div>
@@ -138,7 +144,7 @@
         <Button
           submit
           {loading}
-          disabled={loading || !reason}
+          disabled={loading || !reason || explanationTooLong}
           color="primary"
           size="lg"
           class="flex-1"

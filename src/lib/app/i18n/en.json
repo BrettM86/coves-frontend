@@ -136,6 +136,7 @@
         "post": {
             "create": "Create post",
             "edit": "Edit post",
+            "crosspostLoadError": "Couldn't load the crosspost content. Starting with an empty form.",
             "community": "Community",
             "title": "Title",
             "url": "URL",
@@ -657,12 +658,6 @@
         },
         "reportModal": {
             "title": "Report",
-            "success": "Reported that submission.",
-            "presets": {
-                "spam": "Spam/abuse",
-                "rules": "Breaks community rules",
-                "rules.content": "This submission breaks the rules because __"
-            },
             "submitted": "Report submitted",
             "intro": "Report this {{type}} to the instance administrators. Reports are confidential.",
             "target": {
@@ -698,7 +693,13 @@
             },
             "explanationLabel": "Explanation (optional)",
             "explanationPlaceholder": "Add any details that will help admins review this report",
-            "selectReason": "Select a reason to submit your report."
+            "selectReason": "Select a reason to submit your report.",
+            "errors": {
+                "rateLimited": "You are submitting reports too quickly. Please wait a minute and try again.",
+                "notLoggedIn": "You must be logged in to submit a report.",
+                "maybeSubmitted": "Your report may have been submitted, but we couldn't confirm it. Please check before reporting again.",
+                "generic": "Failed to submit report. Please try again later."
+            }
         },
         "reason": "Reason",
         "lock": "Lock",

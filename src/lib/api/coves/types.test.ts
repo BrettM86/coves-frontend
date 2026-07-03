@@ -8,8 +8,9 @@ import {
   asCID,
   tryAsCID,
   isHydratedPost,
+  isCommentView,
 } from './types'
-import type { AtUri, CID, PostView, PostViewUnion } from './types'
+import type { AtUri, CID, CommentView, PostView, PostViewUnion } from './types'
 
 // ---------------------------------------------------------------------------
 // isValidAtUri
@@ -232,5 +233,32 @@ describe('isHydratedPost', () => {
   it('rejects null and undefined', () => {
     expect(isHydratedPost(null)).toBe(false)
     expect(isHydratedPost(undefined)).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isCommentView
+// ---------------------------------------------------------------------------
+
+describe('isCommentView', () => {
+  it('identifies a CommentView by its required post back-reference', () => {
+    const comment = {
+      uri: 'at://did:plc:abc/social.coves.community.comment/1' as AtUri,
+      post: {
+        uri: 'at://did:plc:abc/social.coves.community.post/1' as AtUri,
+        cid: 'bafyreib2rxk3rybsftg4qpz' as CID,
+      },
+    } as CommentView
+    expect(isCommentView(comment)).toBe(true)
+  })
+
+  it('rejects a PostView, which carries no post field', () => {
+    // Pins the guard's invariant: PostView must never gain a `post` field
+    // without isCommentView being updated alongside it.
+    const post = {
+      uri: 'at://did:plc:abc/social.coves.community.post/1' as AtUri,
+      cid: 'bafyreib2rxk3rybsftg4qpz' as CID,
+    } as PostView
+    expect(isCommentView(post)).toBe(false)
   })
 })

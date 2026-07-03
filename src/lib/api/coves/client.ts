@@ -201,7 +201,7 @@ export class CovesClient {
 
   // Moderation
   // Submits a report for admin review. Requires authentication; the backend
-  // rate-limits this endpoint to 10 reports per minute per client.
+  // rate-limits this endpoint to 10 reports per minute per user.
   submitReport(input: SubmitReportInput): Promise<SubmitReportOutput> {
     return this.xrpc.procedure(NSID.submitReport, input)
   }

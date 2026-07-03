@@ -101,6 +101,7 @@
             try {
               await coves().deleteComment({ uri: comment.uri })
               comment.isDeleted = true
+              comment.record.content = `*${$t('post.badges.deleted')}*`
             } catch (err) {
               toast({
                 content: errorMessage(err),

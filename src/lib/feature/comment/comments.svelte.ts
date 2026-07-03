@@ -1,6 +1,7 @@
 import type {
   AtUri,
   CID,
+  CommentRecord,
   CommentView,
   StrongRef,
   ThreadViewComment,
@@ -30,13 +31,21 @@ export function buildCommentsTree(
   function walk(thread: ThreadViewComment, depth: number): CommentNodeI {
     let cv = thread.comment
 
-    // Annotate deleted comments with a placeholder message
-    if (cv.isDeleted && cv.record.content === '') {
+    // Annotate deleted comments with a placeholder message. The server
+    // returns tombstones with a null record, so synthesize a complete
+    // record — downstream components read record.* unconditionally.
+    const record = cv.record as CommentRecord | null
+    if (record === null || (cv.isDeleted && record.content === '')) {
       cv = {
         ...cv,
         record: {
-          ...cv.record,
+          $type: 'social.coves.community.comment',
           content: `*${t.get('post.badges.deleted')}*`,
+          reply: record?.reply ?? {
+            root: cv.post,
+            parent: cv.parent ?? cv.post,
+          },
+          createdAt: record?.createdAt ?? cv.createdAt,
         },
       }
     }

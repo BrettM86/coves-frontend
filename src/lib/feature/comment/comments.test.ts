@@ -200,6 +200,32 @@ describe('buildCommentsTree', () => {
     expect(result[0].comment.record.content).toBe('*post.badges.deleted*')
   })
 
+  it('synthesizes a record for tombstones with null records', () => {
+    const cv = makeCommentView({
+      isDeleted: true,
+      // The server returns deleted-comment tombstones with a null record
+      record: null as unknown as CommentRecord,
+    })
+    const reply = makeCommentView({
+      uri: 'at://did:plc:testauthor1/social.coves.community.comment/c2' as AtUri,
+    })
+    const thread = makeThreadComment(cv, [makeThreadComment(reply)])
+
+    const result = buildCommentsTree([thread])
+
+    expect(result[0].comment.record).toEqual({
+      $type: 'social.coves.community.comment',
+      content: '*post.badges.deleted*',
+      reply: {
+        root: cv.post,
+        parent: cv.post,
+      },
+      createdAt: cv.createdAt,
+    })
+    expect(result[0].children).toHaveLength(1)
+    expect(result[0].children[0].comment.uri).toBe(reply.uri)
+  })
+
   it('does not annotate deleted comments that have content', () => {
     const cv = makeCommentView({
       isDeleted: true,

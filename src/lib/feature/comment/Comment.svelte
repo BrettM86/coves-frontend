@@ -9,6 +9,7 @@
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { settings } from '$lib/app/settings.svelte'
+  import type { PostLinkRef } from '$lib/feature/post'
   import { publishedToDate } from '$lib/ui/util/date'
   import { Button, Modal, toast } from 'mono-svelte'
   import RelativeDate from 'mono-svelte/util/RelativeDate.svelte'
@@ -27,6 +28,8 @@
   interface Props {
     node: CommentNodeI
     postRef: StrongRef
+    /** Post link ref for handle-based share permalinks (see CommentActions). */
+    post?: PostLinkRef
     postAuthorDid?: DID
     actions?: boolean
     meta?: boolean
@@ -41,6 +44,7 @@
   let {
     node = $bindable(),
     postRef,
+    post,
     postAuthorDid,
     actions = true,
     meta = true,
@@ -236,6 +240,7 @@
           <!-- TODO(coves-migration): Re-enable ban/lock checking when API provides banned_from_community and post.locked fields -->
           <CommentActions
             comment={node.comment}
+            {post}
             bind:replying
             onedit={() => {
               newComment = node.comment.record.content

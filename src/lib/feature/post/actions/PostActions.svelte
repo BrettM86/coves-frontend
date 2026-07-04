@@ -36,7 +36,7 @@
   let buttonSquare = $derived(view == 'compact' ? 'w-7.5 h-7.5' : 'w-8 h-8')
 
   function share(): void {
-    const link = post.uri as string
+    const link = new URL(postLink(post), location.origin).toString()
 
     if (navigator.share)
       navigator.share?.({

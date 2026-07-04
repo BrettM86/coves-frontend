@@ -6,6 +6,11 @@
   import { t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
   import { report } from '$lib/feature/moderation/moderation.svelte'
+  import {
+    commentLink,
+    postLinkRefFromUri,
+    type PostLinkRef,
+  } from '$lib/feature/post'
   import { Button, Menu, MenuButton, toast } from 'mono-svelte'
   import {
     ChatBubbleOvalLeft,
@@ -20,6 +25,12 @@
 
   interface Props {
     comment: CommentView
+    /**
+     * Post the comment belongs to — yields a handle-based permalink slug.
+     * When absent, the share link falls back to a DID slug derived from the
+     * comment's post ref (see {@link postLinkRefFromUri}).
+     */
+    post?: PostLinkRef
     replying?: boolean
     disabled?: boolean
     onedit?: (comment: CommentView) => void
@@ -27,10 +38,15 @@
 
   let {
     comment = $bindable(),
+    post,
     replying = $bindable(false),
     disabled = false,
     onedit,
   }: Props = $props()
+
+  let shareUrl = $derived(
+    commentLink(post ?? postLinkRefFromUri(comment.post.uri), comment.uri),
+  )
 </script>
 
 <div
@@ -71,10 +87,11 @@
     <MenuButton
       onclick={async () => {
         try {
+          const url = new URL(shareUrl, location.origin).toString()
           if (navigator.share) {
-            await navigator.share({ url: comment.uri as string })
+            await navigator.share({ url })
           } else {
-            await navigator.clipboard.writeText(comment.uri as string)
+            await navigator.clipboard.writeText(url)
             toast({ content: $t('toast.copied'), type: 'success' })
           }
         } catch (err) {

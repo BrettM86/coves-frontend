@@ -27,6 +27,7 @@ import {
   mediaType,
   optimizeImageURL,
   postLink,
+  postLinkRefFromUri,
 } from './helpers'
 
 // ---------------------------------------------------------------------------
@@ -730,6 +731,39 @@ describe('commentLink', () => {
       },
     }
     expect(commentLink(post, commentUri)).not.toContain('?')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// postLinkRefFromUri
+// ---------------------------------------------------------------------------
+
+describe('postLinkRefFromUri', () => {
+  it('derives the community DID from the post AT-URI authority', () => {
+    const uri =
+      'at://did:plc:gaming1/social.coves.community.post/rkey123' as AtUri
+    expect(postLinkRefFromUri(uri)).toEqual({
+      uri,
+      community: { did: 'did:plc:gaming1', name: 'did:plc:gaming1' },
+    })
+  })
+
+  it('produces a ref that postLink renders with a DID slug (no handle)', () => {
+    const uri =
+      'at://did:plc:gaming1/social.coves.community.post/rkey123' as AtUri
+    expect(postLink(postLinkRefFromUri(uri))).toBe(
+      '/c/did%3Aplc%3Agaming1/post/rkey123',
+    )
+  })
+
+  it('composes with commentLink into a full comment permalink', () => {
+    const postUri =
+      'at://did:plc:books1/social.coves.community.post/postrk' as AtUri
+    const commentUri =
+      'at://did:plc:commenter/social.coves.community.comment/commentrk' as AtUri
+    expect(commentLink(postLinkRefFromUri(postUri), commentUri)).toBe(
+      '/c/did%3Aplc%3Abooks1/post/postrk/comment/commentrk',
+    )
   })
 })
 

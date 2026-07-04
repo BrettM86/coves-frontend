@@ -139,6 +139,19 @@ export function postLink(post: PostLinkRef, includeUri = false): string {
 }
 
 /**
+ * Builds a {@link PostLinkRef} from a bare post AT-URI. Post records live in
+ * the community's repo, so the URI authority is the community DID — enough
+ * for a DID-slug permalink when no community ref is on hand (e.g. sharing a
+ * comment whose view only carries a `post: CommentRef` back-reference).
+ * Prefer passing a real community ref when one is available: it yields the
+ * prettier handle-based slug.
+ */
+export function postLinkRefFromUri(postUri: AtUri): PostLinkRef {
+  const { did } = parseAtUri(postUri)
+  return { uri: postUri, community: { did, name: did } }
+}
+
+/**
  * Builds the canonical Coves permalink for a comment:
  * `/c/<slug>/post/<rkey>/comment/<crkey>`.
  *

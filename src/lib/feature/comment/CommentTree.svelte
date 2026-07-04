@@ -112,6 +112,7 @@
   {#each nodes as node, index (node.comment.uri)}
     <Comment
       bind:node={nodes[index]}
+      {post}
       {postRef}
       {postAuthorDid}
       contentClass={[

@@ -11,9 +11,13 @@ import type {
 } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import {
+  MAX_INLINE_DEPTH,
   buildCommentsTree,
-  searchCommentTree,
+  buildSubtreeChildren,
+  findTopLevelIndexByRkey,
   insertCommentIntoTree,
+  searchCommentTree,
+  subtreeFetchDepth,
   type CommentNodeI,
   type NormalizedCommentView,
 } from './comments.svelte'
@@ -408,6 +412,161 @@ describe('buildCommentsTree', () => {
 
     // The original input should not be mutated
     expect(cv.record.content).toBe(originalContent)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// subtreeFetchDepth()
+// ---------------------------------------------------------------------------
+
+describe('subtreeFetchDepth', () => {
+  it('pins the inline depth cutoff at 4', () => {
+    // The permalink loader's SUBTREE_DEPTH and CommentTree's expand-vs-
+    // permalink split both derive from this value; changing it is a
+    // deliberate product decision, not a refactor.
+    expect(MAX_INLINE_DEPTH).toBe(4)
+  })
+
+  // Pins the depth expression for every inline-expandable parent depth:
+  // remaining inline capacity plus one level for the continue-thread row.
+  it.each([
+    [0, 5],
+    [1, 4],
+    [2, 3],
+    [3, 2],
+    [4, 1],
+  ])('parent at depth %i requests a subtree of depth %i', (parent, depth) => {
+    expect(subtreeFetchDepth(parent)).toBe(depth)
+  })
+
+  it('requests at least one level for every inline-expandable depth', () => {
+    for (let depth = 0; depth <= MAX_INLINE_DEPTH; depth++) {
+      expect(subtreeFetchDepth(depth)).toBeGreaterThanOrEqual(1)
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// buildSubtreeChildren()
+// ---------------------------------------------------------------------------
+
+describe('buildSubtreeChildren', () => {
+  const parentUri =
+    'at://did:plc:a/social.coves.community.comment/parent1' as AtUri
+
+  function makeParent(depth: number): CommentNodeI {
+    return {
+      comment: makeCommentView({
+        uri: parentUri,
+        stats: makeStats({ replyCount: 2 }),
+      }),
+      children: [],
+      depth,
+    }
+  }
+
+  /** A subtree response: the parent as sole root, with two direct replies,
+   * the second of which has a nested reply. */
+  function makeResponseComments(): ThreadViewComment[] {
+    const reply1 = makeCommentView({
+      uri: 'at://did:plc:a/social.coves.community.comment/r1' as AtUri,
+    })
+    const reply2 = makeCommentView({
+      uri: 'at://did:plc:a/social.coves.community.comment/r2' as AtUri,
+    })
+    const nested = makeCommentView({
+      uri: 'at://did:plc:a/social.coves.community.comment/r2a' as AtUri,
+    })
+    return [
+      makeThreadComment(makeCommentView({ uri: parentUri }), [
+        makeThreadComment(reply1),
+        makeThreadComment(reply2, [makeThreadComment(nested)]),
+      ]),
+    ]
+  }
+
+  it('grafts direct replies at parent.depth + 1', () => {
+    const parent = makeParent(2)
+
+    const children = buildSubtreeChildren(makeResponseComments(), parent)
+
+    expect(children).not.toBeNull()
+    expect(children).toHaveLength(2)
+    expect(children![0].depth).toBe(3)
+    expect(children![1].depth).toBe(3)
+    expect(children![1].children[0].depth).toBe(4)
+  })
+
+  it('grafts at depth 1 for a top-level parent', () => {
+    const parent = makeParent(0)
+
+    const children = buildSubtreeChildren(makeResponseComments(), parent)
+
+    expect(children).not.toBeNull()
+    expect(children![0].depth).toBe(1)
+  })
+
+  it('returns the parent replies, not the parent itself', () => {
+    const parent = makeParent(1)
+
+    const children = buildSubtreeChildren(makeResponseComments(), parent)
+
+    expect(children).not.toBeNull()
+    expect(children!.map((c) => c.comment.uri)).toEqual([
+      'at://did:plc:a/social.coves.community.comment/r1',
+      'at://did:plc:a/social.coves.community.comment/r2',
+    ])
+  })
+
+  it('returns an empty array when the parent has no replies in the response', () => {
+    const parent = makeParent(1)
+    const response = [makeThreadComment(makeCommentView({ uri: parentUri }))]
+
+    expect(buildSubtreeChildren(response, parent)).toEqual([])
+  })
+
+  it('returns null for an empty response (missing root)', () => {
+    const parent = makeParent(1)
+
+    expect(buildSubtreeChildren([], parent)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// findTopLevelIndexByRkey()
+// ---------------------------------------------------------------------------
+
+describe('findTopLevelIndexByRkey', () => {
+  function makeNode(rkey: string, children: CommentNodeI[] = []): CommentNodeI {
+    return {
+      comment: makeCommentView({
+        uri: `at://did:plc:a/social.coves.community.comment/${rkey}` as AtUri,
+      }),
+      children,
+      depth: 0,
+    }
+  }
+
+  it('finds a top-level node by its own rkey', () => {
+    const tree = [makeNode('top1'), makeNode('top2')]
+    expect(findTopLevelIndexByRkey(tree, 'top2')).toBe(1)
+  })
+
+  it('returns the containing top-level index for a nested match', () => {
+    const tree = [
+      makeNode('top1'),
+      makeNode('top2', [makeNode('child', [makeNode('grandchild')])]),
+    ]
+    expect(findTopLevelIndexByRkey(tree, 'grandchild')).toBe(1)
+  })
+
+  it('returns -1 when the rkey is not in the tree', () => {
+    const tree = [makeNode('top1')]
+    expect(findTopLevelIndexByRkey(tree, 'absent')).toBe(-1)
+  })
+
+  it('returns -1 for an empty tree', () => {
+    expect(findTopLevelIndexByRkey([], 'anything')).toBe(-1)
   })
 })
 

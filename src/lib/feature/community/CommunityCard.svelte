@@ -83,7 +83,11 @@
     CommunityViewDetailed,
   } from '$lib/api/coves/types'
   import EntityHeader from '$lib/ui/generic/EntityHeader.svelte'
-  import { communityDisplayName, communityIdentifier } from './helpers'
+  import {
+    communityDisplayName,
+    communityHandleOrName,
+    communityIdentifier,
+  } from './helpers'
 
   type HydratedCommunity = CovesCommunityView | CommunityViewDetailed
   type CommunityType = CommunityRef | HydratedCommunity
@@ -164,7 +168,7 @@
       avatarCircle={false}
     >
       {#snippet nameDetail()}
-        !{communityIdentifier(community)}
+        !{communityHandleOrName(community)}
       {/snippet}
     </EntityHeader>
 

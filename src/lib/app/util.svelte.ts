@@ -58,8 +58,13 @@ export function communitySlug(handle: string): string {
  * Coves community handles use a "c-" prefix convention (e.g. "c-mycommunity")
  * to distinguish community actors from user actors in the ATProto namespace.
  * This reverses {@link communitySlug} for API calls that expect the full handle.
+ *
+ * DIDs (e.g. "did:plc:abc123") are passed through unchanged: the route param
+ * matcher accepts URL-encoded DIDs as well as handles, and a DID already
+ * identifies the community actor without any handle prefix.
  */
 export function communityHandleFromSlug(slug: string): string {
+  if (slug.startsWith('did:')) return slug
   return slug.startsWith('c-') ? slug : `c-${slug}`
 }
 
@@ -214,6 +219,10 @@ export const isVideo = (url: string | undefined): boolean => {
 /**
  * Generate a link path for a community.
  * Accepts a Coves CommunityRef or CommunityView.
+ *
+ * Falls back to the community DID when the handle is missing — the
+ * `[handle=handle]` route matcher accepts handles and DIDs but not bare
+ * community names, so a `name`-based URL would 404 at routing.
  */
 export function communityLink(
   community: CommunityRef | CovesCommunityView,
@@ -222,7 +231,7 @@ export function communityLink(
   if ('handle' in community && community.handle) {
     return `${prefix}/c/${encodeURIComponent(communitySlug(community.handle))}`
   }
-  return `${prefix}/c/${encodeURIComponent(community.name)}`
+  return `${prefix}/c/${encodeURIComponent(community.did)}`
 }
 
 /**

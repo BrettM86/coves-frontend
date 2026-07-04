@@ -53,9 +53,11 @@
       // feed cache, and this avoids a backend handle→DID round-trip.
       goto(postLink(result, true))
     } catch (err) {
+      // DID fallback keeps the URL routable: the [handle=handle] matcher
+      // accepts handles and DIDs, but not bare community names.
       const slug = result.community.handle
         ? communitySlug(result.community.handle)
-        : result.community.name
+        : result.community.did
       console.warn(
         '[create/post] Failed to parse post URI, falling back to community page:',
         err,

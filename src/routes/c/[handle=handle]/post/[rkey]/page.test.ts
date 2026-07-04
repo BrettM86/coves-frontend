@@ -70,7 +70,7 @@ const POST_COLLECTION = 'social.coves.community.post'
 
 // The loader only destructures { params, url, fetch, route }; supplying those
 // four is sufficient at runtime. Cast to the full LoadEvent for the type, the
-// same way the repo's other load tests do (see u/[handle]/page.test.ts).
+// same way the repo's other load tests do (see u/[handle=handle]/page.test.ts).
 function makeArgs(overrides?: {
   handle?: string
   rkey?: string
@@ -86,7 +86,7 @@ function makeArgs(overrides?: {
         `https://coves.test/c/${overrides?.handle ?? 'testcommunity'}/post/${overrides?.rkey ?? 'abc123'}`,
     ),
     fetch: globalThis.fetch,
-    route: { id: '/c/[handle]/post/[rkey]' },
+    route: { id: '/c/[handle=handle]/post/[rkey]' },
   } as unknown as Parameters<typeof load>[0]
 }
 

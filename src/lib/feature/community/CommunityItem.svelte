@@ -8,7 +8,11 @@
   import type { Snippet } from 'svelte'
   import { Check, Icon, InformationCircle, Plus } from 'svelte-hero-icons/dist'
   import CommunityCard from './CommunityCard.svelte'
-  import { communityDisplayName, communityIdentifier } from './helpers'
+  import {
+    communityDisplayName,
+    communityHandleOrName,
+    communityIdentifier,
+  } from './helpers'
 
   interface Props {
     community: CommunityView
@@ -33,7 +37,7 @@
   icon={community.avatar}
   href="/c/{communityIdentifier(community)}"
   title={communityDisplayName(community)}
-  detail="{communityIdentifier(community)}{!showCounts
+  detail="{communityHandleOrName(community)}{!showCounts
     ? ` • ${Intl.NumberFormat($locale, { notation: 'compact' }).format(community.subscriberCount)}`
     : ''}"
   orientation={view == 'cozy' ? 'vertical' : 'horizontal'}

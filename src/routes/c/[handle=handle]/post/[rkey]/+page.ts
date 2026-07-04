@@ -15,26 +15,14 @@ import {
   feeds,
   type FeedTypes,
 } from '$lib/feature/feeds/feed.svelte'
-
-const POST_COLLECTION = 'social.coves.community.post'
-
-/**
- * Constructs the canonical DID-based AT-URI for a post.
- * Used as a fallback when navigating directly to a post URL without a cache hit
- * or an explicit `?uri=` param. Building it from the community's DID (rather than
- * its handle) keeps the hydration path stable across community renames — the one
- * handle→DID hop is resolved up front via `getCommunity`.
- */
-function buildPostAtUri(communityDid: string, rkey: string): AtUri {
-  return `at://${communityDid}/${POST_COLLECTION}/${rkey}` as AtUri
-}
+import { buildPostAtUri } from '$lib/feature/post/helpers'
 
 /**
  * Searches the feed cache for a post matching the given rkey.
  * This provides instant display when the user navigated from a feed page.
  */
 function findInFeed(
-  id: '/' | '/c/[handle]',
+  id: '/' | '/c/[handle=handle]',
   rkey: string,
 ): CovesPostView | undefined {
   const cached = (
@@ -75,7 +63,8 @@ export async function load({ params, url, fetch, route }) {
 
   // Try feed cache for instant display
   const cachedPost =
-    findInFeed('/', params.rkey) ?? findInFeed('/c/[handle]', params.rkey)
+    findInFeed('/', params.rkey) ??
+    findInFeed('/c/[handle=handle]', params.rkey)
 
   const feedData = feed(route.id, async (p) => {
     // If we have a preloaded post from cache, use it. Otherwise fetch from API.

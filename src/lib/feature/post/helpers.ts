@@ -80,30 +80,79 @@ export const isYoutubeLink = (url?: string): RegExpMatchArray | null => {
   return url?.match?.(YOUTUBE_REGEX)
 }
 
+/** The ATProto collection NSID for Coves community posts. */
+export const POST_COLLECTION = 'social.coves.community.post'
+
+/**
+ * Constructs the canonical DID-based AT-URI for a post.
+ * Used as a fallback when navigating directly to a post (or comment permalink)
+ * URL without a cache hit or an explicit `?uri=` param. Building it from the
+ * community's DID (rather than its handle) keeps the hydration path stable
+ * across community renames — the one handle→DID hop is resolved up front via
+ * `getCommunity`.
+ */
+export function buildPostAtUri(communityDid: string, rkey: string): AtUri {
+  return `at://${communityDid}/${POST_COLLECTION}/${rkey}` as AtUri
+}
+
+/**
+ * Minimal shape {@link postLink} and {@link commentLink} need to build a
+ * permalink: the post's AT-URI plus a community ref. Satisfied by a full
+ * `PostView` (whose `community` is a `CommunityRef`) or a hand-built
+ * `{ uri, community }` object.
+ */
+export interface PostLinkRef {
+  uri: string
+  community: {
+    did: string
+    handle?: string
+    name: string
+  }
+}
+
 /**
  * Builds the canonical Coves permalink for a post: `/c/<slug>/post/<rkey>`.
  *
  * Single source of truth for post URL generation — route every post link
  * through here instead of hand-rolling the path, so the URL scheme only ever
  * lives in one place. Accepts any object carrying the post's AT-URI and a
- * community ref (a full `PostView`, or just the `{ uri, community }` pieces).
+ * community ref (see {@link PostLinkRef}).
+ *
+ * The slug prefers the community's handle; when the handle is missing it
+ * falls back to the community DID, which the `[handle=handle]` route matcher
+ * accepts and the community loaders resolve — a bare `name` would 404 at
+ * routing.
  *
  * @param includeUri - When true, appends `?uri=<canonical AT-URI>` to the path.
  *   The post page reads this param to load the post immediately, without a
  *   feed-cache hit or a backend handle→DID resolution — use it right after
  *   creating a post, when the new record is not yet in any feed cache.
  */
-export function postLink(
-  post: { uri: string; community: { handle?: string; name: string } },
-  includeUri = false,
-): string {
+export function postLink(post: PostLinkRef, includeUri = false): string {
   const { rkey } = parseAtUri(post.uri as AtUri)
   const slug = post.community.handle
     ? communitySlug(post.community.handle)
-    : post.community.name
+    : post.community.did
   const path = `/c/${encodeURIComponent(slug)}/post/${encodeURIComponent(rkey)}`
   if (!includeUri) return path
   return `${path}?${new URLSearchParams({ uri: post.uri })}`
+}
+
+/**
+ * Builds the canonical Coves permalink for a comment:
+ * `/c/<slug>/post/<rkey>/comment/<crkey>`.
+ *
+ * Single source of truth for comment URL generation — route every comment
+ * permalink through here instead of hand-rolling the path, mirroring
+ * {@link postLink} (which it builds on for the post segment). Accepts any
+ * object carrying the post's AT-URI and a community ref (see
+ * {@link PostLinkRef}) plus the comment's AT-URI
+ * (`at://<commenterDid>/social.coves.community.comment/<rkey>`), from which
+ * the trailing rkey segment is derived.
+ */
+export function commentLink(post: PostLinkRef, commentUri: AtUri): string {
+  const { rkey } = parseAtUri(commentUri)
+  return `${postLink(post)}/comment/${encodeURIComponent(rkey)}`
 }
 
 export type MediaType = 'video' | 'image' | 'iframe' | 'embed' | 'none'

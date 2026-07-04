@@ -36,7 +36,7 @@ export async function load({ params, url, fetch, route }) {
       }
     } catch (err) {
       if (err instanceof Error && err.message.includes('not found')) {
-        error(404, 'User not found')
+        error(404, 'couldnt_find_person')
       }
       error(500, 'Failed to load profile')
     }

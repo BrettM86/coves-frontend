@@ -1,33 +1,40 @@
 <script lang="ts">
   import { coves } from '$lib/api/client.svelte'
   import type { StrongRef } from '$lib/api/coves/types'
+  import { parseAtUri } from '$lib/api/coves/types'
+  import { XrpcError } from '$lib/api/coves/xrpc'
   import type { DID } from '$lib/types/atproto'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
+  import { commentLink, type PostLinkRef } from '$lib/feature/post'
   import { Button, toast } from 'mono-svelte'
-  import { ArrowDownCircle } from 'svelte-hero-icons/dist'
+  import { ArrowDownCircle, ArrowRightCircle } from 'svelte-hero-icons/dist'
   import Comment from './Comment.svelte'
   import {
     type CommentNodeI,
-    buildCommentsTree,
-    searchCommentTree,
+    MAX_INLINE_DEPTH,
+    buildSubtreeChildren,
+    subtreeFetchDepth,
   } from './comments.svelte'
   import CommentTree from './CommentTree.svelte'
 
+  /**
+   * Upper bound on cursor pages followed per "N more" click. Each page holds
+   * up to 50 of the parent's direct replies (the backend default), so this
+   * keeps one click from turning into an unbounded fetch storm; direct
+   * replies beyond the cap stay unloaded.
+   */
+  const MAX_REPLY_PAGES = 4
+
   interface Props {
     nodes: CommentNodeI[]
+    /** Post the comments belong to — needed to build comment permalinks. */
+    post: PostLinkRef
     postRef: StrongRef
     postAuthorDid?: DID
   }
 
-  let { nodes = $bindable(), postRef, postAuthorDid }: Props = $props()
-
-  function adjustDepths(nodes: CommentNodeI[], depth: number): void {
-    for (const n of nodes) {
-      n.depth = depth
-      adjustDepths(n.children, depth + 1)
-    }
-  }
+  let { nodes = $bindable(), post, postRef, postAuthorDid }: Props = $props()
 
   async function fetchChildren(parent: CommentNodeI) {
     if (
@@ -39,40 +46,57 @@
     try {
       parent.loading = true
 
-      // TODO: The API does not yet support a `parent` param to scope to a subtree.
-      // Once supported, pass `parent: parent.comment.uri` to avoid fetching all comments.
-      const response = await coves().getComments({
-        post: postRef.uri,
-      })
+      // `parentRkey` scopes the response to the parent's subtree: exactly one
+      // top-level ThreadViewComment (the parent itself) with its descendants
+      // nested beneath it — no more fetching the whole tree and searching.
+      // `depth` is relative to the parent; stop one level past the inline
+      // cutoff so deeper replies stay unloaded and render the permalink
+      // anchor instead of indenting forever (see subtreeFetchDepth).
+      //
+      // `response.cursor` pages the parent's DIRECT replies: follow it up to
+      // MAX_REPLY_PAGES so wide threads load fully — most fit in one page.
+      const parentRkey = parseAtUri(parent.comment.uri).rkey
+      const children: CommentNodeI[] = []
+      let cursor: string | undefined
 
-      // TODO: response.cursor is currently ignored — use it for pagination support.
+      for (let page = 0; page < MAX_REPLY_PAGES; page++) {
+        const response = await coves().getComments({
+          post: postRef.uri,
+          parentRkey,
+          depth: subtreeFetchDepth(parent.depth),
+          cursor,
+        })
 
-      if (response.comments.length === 0) {
+        // Grafted children land at parent.depth + 1.
+        const grafted = buildSubtreeChildren(response.comments, parent)
+        if (grafted === null) {
+          // Empty response. On the first page there is nothing to show; on a
+          // later page keep what already loaded (pagination race).
+          if (page === 0) {
+            toast({
+              content: $t('toast.noComments'),
+              type: 'error',
+            })
+            return
+          }
+          break
+        }
+        children.push(...grafted)
+
+        cursor = response.cursor
+        if (!cursor) break
+      }
+
+      parent.children = children
+    } catch (err) {
+      if (err instanceof XrpcError && err.errorName === 'ParentNotFound') {
+        // The comment vanished between render and click (deleted/unindexed).
         toast({
-          content: $t('toast.noComments'),
+          content: $t('toast.commentNotFound'),
           type: 'error',
         })
         return
       }
-
-      // The server returns ThreadViewComment[] for the full post tree.
-      // Build with baseDepth=0 since the server returns the complete tree from root.
-      const fullTree = buildCommentsTree(response.comments, 0)
-      const matchedNode = searchCommentTree(fullTree, parent.comment.uri)
-      if (matchedNode) {
-        parent.children = matchedNode.children
-        adjustDepths(parent.children, parent.depth + 1)
-      } else {
-        console.warn(
-          `[comments] Could not find parent node ${parent.comment.uri as string} in fetched comment tree. Children not loaded.`,
-        )
-        toast({
-          content: $t('toast.failedToLoadComments'),
-          type: 'error',
-        })
-        parent.children = []
-      }
-    } catch (err) {
       console.error(err)
       toast({
         content: errorMessage(err),
@@ -106,6 +130,7 @@
       <div class={['comment-corner', node.depth == 0 && 'hidden']}></div>
       {#if node.children?.length > 0}
         <CommentTree
+          {post}
           {postRef}
           {postAuthorDid}
           bind:nodes={nodes[index].children}
@@ -113,23 +138,37 @@
       {/if}
     </Comment>
     {#if node.comment.stats.replyCount > 0 && node.children.length == 0}
-      <!-- Deep threads expand in place — there is no Coves comment permalink yet. -->
       <div class="w-full h-10 -mt-2 -ml-2.5">
-        <Button
-          loading={nodes[index].loading}
-          disabled={nodes[index].loading}
-          rounding="pill"
-          color="tertiary"
-          class="font-normal text-slate-600 dark:text-zinc-400"
-          shadow="none"
-          loaderWidth={16}
-          onclick={() => fetchChildren(nodes[index])}
-          icon={ArrowDownCircle}
-        >
-          {$t('comment.more', {
-            comments: node.comment.stats.replyCount,
-          })}
-        </Button>
+        {#if node.depth > MAX_INLINE_DEPTH}
+          <!-- Deep threads continue on the comment's permalink page. A real
+               anchor keeps this working without JS and middle-clickable. -->
+          <Button
+            href={commentLink(post, node.comment.uri)}
+            rounding="pill"
+            color="tertiary"
+            class="font-normal text-slate-600 dark:text-zinc-400"
+            shadow="none"
+            icon={ArrowRightCircle}
+          >
+            {$t('comment.thread')}
+          </Button>
+        {:else}
+          <Button
+            loading={nodes[index].loading}
+            disabled={nodes[index].loading}
+            rounding="pill"
+            color="tertiary"
+            class="font-normal text-slate-600 dark:text-zinc-400"
+            shadow="none"
+            loaderWidth={16}
+            onclick={() => fetchChildren(nodes[index])}
+            icon={ArrowDownCircle}
+          >
+            {$t('comment.more', {
+              comments: node.comment.stats.replyCount,
+            })}
+          </Button>
+        {/if}
       </div>
     {/if}
   {/each}

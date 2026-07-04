@@ -12,7 +12,11 @@
   import type { Snippet } from 'svelte'
   import { Check, Icon, InformationCircle, Plus } from 'svelte-hero-icons/dist'
   import CommunityCard from './CommunityCard.svelte'
-  import { communityDisplayName, communityIdentifier } from './helpers'
+  import {
+    communityDisplayName,
+    communityHandleOrName,
+    communityIdentifier,
+  } from './helpers'
   import { withPreset } from '$lib/feature/post/image-proxy'
 
   interface Props {
@@ -70,7 +74,7 @@
         {communityDisplayName(community)}
       </h3>
       <p class="text-sm text-slate-600 dark:text-zinc-400">
-        {communityIdentifier(community)}
+        {communityHandleOrName(community)}
       </p>
     </header>
     <Avatar

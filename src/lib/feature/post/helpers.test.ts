@@ -13,6 +13,8 @@ import type { AtUri, CID } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import {
   bestImageURL,
+  buildPostAtUri,
+  commentLink,
   computeVoteState,
   decodeCrosspostDraft,
   encodeCrosspostDraft,
@@ -502,13 +504,25 @@ describe('computeVoteState', () => {
 })
 
 // ---------------------------------------------------------------------------
+// buildPostAtUri()
+// ---------------------------------------------------------------------------
+
+describe('buildPostAtUri', () => {
+  it('builds the canonical DID-based post AT-URI', () => {
+    expect(buildPostAtUri('did:plc:community1', '3kabc')).toBe(
+      'at://did:plc:community1/social.coves.community.post/3kabc',
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
 // postLink()
 // ---------------------------------------------------------------------------
 
 describe('postLink', () => {
   /**
    * Helper to build a minimal PostView fixture.
-   * Only `uri`, `community.handle`, and `community.name` matter for postLink().
+   * Only `uri`, `community.handle`, and `community.did` matter for postLink().
    */
   function makePostView(overrides: {
     uri: string
@@ -550,16 +564,19 @@ describe('postLink', () => {
     expect(postLink(post)).toBe('/c/tech.coves.social/post/rkey456')
   })
 
-  it('falls back to community.name when handle is empty', () => {
+  it('falls back to the community DID when handle is empty', () => {
+    // A bare community name (e.g. "general") is not matcher-valid — the
+    // [handle=handle] matcher only accepts handles and DIDs — so the
+    // fallback must be the DID to keep the URL routable.
     const post = makePostView({
       uri: 'at://did:plc:abc123/social.coves.community.post/rkey789',
       communityHandle: '',
       communityName: 'general',
     })
-    expect(postLink(post)).toBe('/c/general/post/rkey789')
+    expect(postLink(post)).toBe('/c/did%3Aplc%3Acommunity1/post/rkey789')
   })
 
-  it('falls back to community.name when handle is undefined', () => {
+  it('falls back to the community DID when handle is undefined', () => {
     const community: CommunityRef = {
       did: 'did:plc:community1' as DID,
       handle: undefined as unknown as Handle,
@@ -577,7 +594,7 @@ describe('postLink', () => {
       },
       community,
     }
-    expect(postLink(post)).toBe('/c/announcements/post/rkeyabc')
+    expect(postLink(post)).toBe('/c/did%3Aplc%3Acommunity1/post/rkeyabc')
   })
 
   it('correctly parses the rkey from the AT-URI', () => {
@@ -627,9 +644,92 @@ describe('postLink', () => {
   it('accepts a minimal { uri, community } object, not just a full PostView', () => {
     const link = postLink({
       uri: 'at://did:plc:abc/social.coves.community.post/rk',
-      community: { handle: 'c-books.coves.social', name: 'books' },
+      community: {
+        did: 'did:plc:books1',
+        handle: 'c-books.coves.social',
+        name: 'books',
+      },
     })
     expect(link).toBe('/c/books.coves.social/post/rk')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// commentLink()
+// ---------------------------------------------------------------------------
+
+describe('commentLink', () => {
+  const commentUri =
+    'at://did:plc:commenter/social.coves.community.comment/3kcomment1' as AtUri
+
+  it('appends /comment/<rkey> to the post permalink', () => {
+    const post = {
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkey123',
+      community: {
+        did: 'did:plc:gaming1',
+        handle: 'c-gaming.coves.social',
+        name: 'gaming',
+      },
+    }
+    expect(commentLink(post, commentUri)).toBe(
+      '/c/gaming.coves.social/post/rkey123/comment/3kcomment1',
+    )
+  })
+
+  it('derives the rkey from the comment AT-URI, not the post', () => {
+    const post = {
+      uri: 'at://did:plc:abc123/social.coves.community.post/postrkey',
+      community: {
+        did: 'did:plc:tech1',
+        handle: 'tech.coves.social',
+        name: 'tech',
+      },
+    }
+    const uri =
+      'at://did:plc:other/social.coves.community.comment/replyrkey' as AtUri
+    expect(commentLink(post, uri)).toBe(
+      '/c/tech.coves.social/post/postrkey/comment/replyrkey',
+    )
+  })
+
+  it('falls back to the community DID when handle is empty, like postLink', () => {
+    const post = {
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkey789',
+      community: { did: 'did:plc:general1', handle: '', name: 'general' },
+    }
+    expect(commentLink(post, commentUri)).toBe(
+      '/c/did%3Aplc%3Ageneral1/post/rkey789/comment/3kcomment1',
+    )
+  })
+
+  it('encodes special characters in the comment rkey', () => {
+    const post = {
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkey1',
+      community: {
+        did: 'did:plc:tech1',
+        handle: 'tech.coves.social',
+        name: 'tech',
+      },
+    }
+    const uri =
+      'at://did:plc:x/social.coves.community.comment/rk+special' as AtUri
+    expect(commentLink(post, uri)).toBe(
+      '/c/tech.coves.social/post/rkey1/comment/rk%2Bspecial',
+    )
+  })
+
+  it('never emits a query string, even for posts fresh from creation', () => {
+    // commentLink builds on postLink's default (no ?uri= param) — deep links
+    // to comments must stay canonical.
+    const post = {
+      uri: 'at://did:plc:abc/social.coves.community.post/rk',
+      community: {
+        did: 'did:plc:books1',
+        handle: 'c-books.coves.social',
+        name: 'books',
+      },
+    }
+    expect(commentLink(post, commentUri)).not.toContain('?')
   })
 })
 

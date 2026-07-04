@@ -4,6 +4,7 @@
   import { profile } from '$lib/app/auth.svelte'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
+  import { communitySlug } from '$lib/app/util.svelte'
   import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
   import ImageInputUpload from '$lib/ui/form/ImageInputUpload.svelte'
   import { Header } from '$lib/ui/layout'
@@ -99,12 +100,13 @@
       // TODO: Update local state when Coves API provides user moderates data
       addSubscription(res.community_view.community, true)
 
-      if (!edit)
-        goto(
-          `/c/${res.community_view.community.name}@${
-            new URL(res.community_view.community.actor_id).hostname
-          }`,
-        )
+      if (!edit) {
+        // Coves community handles follow the `c-{name}.{host}` convention;
+        // community URLs use the slug (the handle minus its `c-` prefix).
+        const { name, actor_id } = res.community_view.community
+        const handle = `c-${name}.${new URL(actor_id).hostname}`
+        goto(`/c/${encodeURIComponent(communitySlug(handle))}`)
+      }
     } catch (err) {
       toast({
         content: errorMessage(err as string),

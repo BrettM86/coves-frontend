@@ -15,7 +15,11 @@
     Plus,
   } from 'svelte-hero-icons/dist'
   import { purgeCommunity } from './CommunityCard.svelte'
-  import { communityDisplayName, communityIdentifier } from './helpers'
+  import {
+    communityDisplayName,
+    communityHandleOrName,
+    communityIdentifier,
+  } from './helpers'
 
   interface Props {
     community: CommunityViewDetailed
@@ -93,12 +97,14 @@
   {#snippet nameDetail()}
     <button
       onclick={() => {
-        navigator?.clipboard?.writeText?.(`!${communityIdentifier(community)}`)
+        navigator?.clipboard?.writeText?.(
+          `!${communityHandleOrName(community)}`,
+        )
         toast({ content: $t('toast.copied') })
       }}
       class="text-sm flex gap-0 items-center"
     >
-      !{communityIdentifier(community)}
+      !{communityHandleOrName(community)}
     </button>
   {/snippet}
   <div

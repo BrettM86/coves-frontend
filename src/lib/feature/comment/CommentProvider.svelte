@@ -13,6 +13,7 @@
   import CommentListVirtualizer from '$lib/feature/comment/CommentListVirtualizer.svelte'
   import {
     buildCommentsTree,
+    findTopLevelIndexByRkey,
     insertCommentIntoTree,
     createOptimisticCommentView,
   } from '$lib/feature/comment/comments.svelte'
@@ -60,6 +61,25 @@
   $effect(() => {
     tree = buildCommentsTree(comments)
   })
+
+  let virtualizer = $state<CommentListVirtualizer>()
+
+  /**
+   * Points the comment list at the top-level row containing the comment with
+   * the given rkey, mounting it when the list is virtualized. Returns
+   * 'missing' when the rkey isn't anywhere in the loaded tree, 'pending'
+   * while the virtualizer hasn't rendered yet (callers should retry), and
+   * 'scrolled' once the row is mounted (or the list isn't virtualized, so
+   * every row already is).
+   */
+  export function scrollToComment(
+    rkey: string,
+  ): 'scrolled' | 'missing' | 'pending' {
+    const index = findTopLevelIndexByRkey(tree, rkey)
+    if (index === -1) return 'missing'
+    if (!virtualize) return 'scrolled'
+    return virtualizer?.scrollToRow(index) ? 'scrolled' : 'pending'
+  }
 
   onMount(() => {
     if (browser && !isNaN(Number(page.url.hash.slice(1)) || NaN))
@@ -184,6 +204,8 @@
 {/if}
 {#if virtualize}
   <CommentListVirtualizer
+    bind:this={virtualizer}
+    {post}
     {postRef}
     postAuthorDid={post.author.did}
     nodes={tree}
@@ -192,7 +214,12 @@
 {:else}
   <div class="divide-y divide-slate-200 dark:divide-zinc-800">
     <div class="-mx-3 sm:-mx-6 px-3 sm:px-6">
-      <CommentTree nodes={tree} {postRef} postAuthorDid={post.author.did} />
+      <CommentTree
+        nodes={tree}
+        {post}
+        {postRef}
+        postAuthorDid={post.author.did}
+      />
     </div>
   </div>
 {/if}

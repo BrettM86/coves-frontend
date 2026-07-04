@@ -70,6 +70,48 @@ describe('Comment methods', () => {
     })
   })
 
+  it('getComments() passes parentRkey through to the query params', async () => {
+    await client.getComments({
+      post: 'at://did:plc:abc/post/1' as AtUri,
+      parentRkey: '3jui7kd2xs22a',
+      depth: 6,
+    })
+
+    expect(querySpy).toHaveBeenCalledWith(NSID.getComments, {
+      post: 'at://did:plc:abc/post/1',
+      parentRkey: '3jui7kd2xs22a',
+      depth: 6,
+    })
+  })
+
+  it('getComments() omits parentRkey from the request URL when undefined', async () => {
+    // Asserting through the query spy can't distinguish `{ parentRkey:
+    // undefined }` from the key being absent (toHaveBeenCalledWith treats
+    // them as equal), so pin the behavior at the serialized-URL level with
+    // an unmocked query() and a fake fetch instead.
+    querySpy.mockRestore()
+    const fetchSpy = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ comments: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    const urlClient = new CovesClient({
+      fetchFn: fetchSpy as unknown as typeof fetch,
+      baseUrl: 'https://api.coves.social',
+    })
+
+    await urlClient.getComments({
+      post: 'at://did:plc:abc/post/1' as AtUri,
+      parentRkey: undefined,
+    })
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const url = new URL(String(fetchSpy.mock.calls[0][0]))
+    expect(url.searchParams.has('parentRkey')).toBe(false)
+    expect(url.searchParams.get('post')).toBe('at://did:plc:abc/post/1')
+  })
+
   it('createComment() calls procedure with correct NSID', async () => {
     const input = {
       reply: {

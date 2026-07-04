@@ -630,8 +630,18 @@
         "locked": "This post is locked.",
         "banned": "You are banned from this community.",
         "more": "{{comments:number}} more",
+        "thread": "Continue this thread",
         "collapse": "Collapse",
-        "expand": "Expand"
+        "expand": "Expand",
+        "permalink": {
+            "title": "Comment thread",
+            "single": "You're viewing a single comment's thread.",
+            "allComments": "View all comments",
+            "context": "Show context",
+            "postFallback": "Post",
+            "loading": "Loading comments",
+            "failed": "Failed to load comments."
+        }
     },
     "moderation": {
         "report": "Report",
@@ -744,6 +754,7 @@
     },
     "toast": {
         "noComments": "The API returned no comments.",
+        "commentNotFound": "That comment could not be found.",
         "loginVoteGate": "You must be logged in to vote.",
         "blockedCommunity": "Blocked that community.",
         "unblockedCommunity": "Unblocked that community.",
@@ -995,6 +1006,7 @@
         "incorrect_login_12": "...",
         "registration_application_is_pending": "The registration application for that account hasn't been accepted yet.",
         "couldnt_find_post": "That post doesn't exist, is not on this server, or was removed.",
+        "couldnt_find_comment": "That comment doesn't exist, is not on this server, or was removed.",
         "cant_block_yourself": "You cannot block yourself. You shouldn't either, you're (probably) a great person!",
         "email_not_verified": "Your account's email is not verified.",
         "passwords_do_not_match": "Your input password and the verification password do not match.",

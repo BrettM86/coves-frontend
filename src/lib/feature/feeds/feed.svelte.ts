@@ -1,5 +1,6 @@
 import { browser } from '$app/environment'
 import type {
+  AtUri,
   CommunityView as CovesCommunityView,
   CommunityViewDetailed,
   FeedPaginationParams,
@@ -70,7 +71,7 @@ export interface FeedTypes {
       }
     },
   ]
-  '/c/[handle]': [
+  '/c/[handle=handle]': [
     FeedPaginationParams & { community: string },
     {
       feed: FeedViewPost[]
@@ -87,7 +88,7 @@ export interface FeedTypes {
       comments: GetActorCommentsResponse
     },
   ]
-  '/c/[handle]/post/[rkey]': [
+  '/c/[handle=handle]/post/[rkey]': [
     {
       postUri: string
       comments: GetCommentsParams
@@ -116,6 +117,21 @@ export interface FeedTypes {
           focus?: string
         }
       }
+    },
+  ]
+  '/c/[handle=handle]/post/[rkey]/comment/[crkey]': [
+    {
+      postUri: string
+      comments: GetCommentsParams
+    },
+    // Unlike the post page there is no unavailable branch: the comment
+    // permalink loader 404s when the post or comment cannot be hydrated, so a
+    // cached value always carries a post and the focused comment's subtree.
+    {
+      post: CovesPostView
+      comments: Promise<ThreadViewComment[]>
+      focused: { uri: AtUri; rkey: string; parentUri?: AtUri }
+      params: { postUri: string; comments: GetCommentsParams }
     },
   ]
   '/explore/communities': [

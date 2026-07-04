@@ -458,6 +458,14 @@ export interface GetCommentsParams {
   depth?: number
   limit?: number
   cursor?: string
+  /**
+   * Scopes the response to a single subtree: when set, `comments` contains
+   * exactly one top-level ThreadViewComment — the comment with this rkey —
+   * with its descendants nested beneath it. `depth` is relative to that
+   * comment and `cursor` paginates its direct replies. An unknown rkey
+   * yields an HTTP 404 with error name `ParentNotFound`.
+   */
+  parentRkey?: string
 }
 
 export interface GetCommentsResponse {

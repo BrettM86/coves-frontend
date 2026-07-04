@@ -28,13 +28,15 @@ describe('communityLink', () => {
     expect(communityLink(community)).toBe('/c/tech.coves.social')
   })
 
-  it('returns /c/{name} for CommunityRef without handle', () => {
+  it('falls back to /c/{did} for CommunityRef without handle', () => {
+    // A bare name is not matcher-valid for the [handle=handle] route;
+    // the DID keeps the generated URL routable.
     const noHandle: CommunityRef = {
       did: 'did:plc:abc123' as DID,
       handle: '' as Handle,
       name: 'tech',
     }
-    expect(communityLink(noHandle)).toBe('/c/tech')
+    expect(communityLink(noHandle)).toBe('/c/did%3Aplc%3Aabc123')
   })
 
   it('prepends prefix when provided', () => {
@@ -113,6 +115,24 @@ describe('communityHandleFromSlug', () => {
 
   it('handles an empty string by prepending c-', () => {
     expect(communityHandleFromSlug('')).toBe('c-')
+  })
+
+  it('passes a did:plc DID through unchanged', () => {
+    expect(communityHandleFromSlug('did:plc:abc123xyz')).toBe(
+      'did:plc:abc123xyz',
+    )
+  })
+
+  it('passes a did:web DID through unchanged', () => {
+    expect(communityHandleFromSlug('did:web:coves.social')).toBe(
+      'did:web:coves.social',
+    )
+  })
+
+  it('still prefixes a handle-shaped slug that merely contains "did"', () => {
+    expect(communityHandleFromSlug('did.coves.social')).toBe(
+      'c-did.coves.social',
+    )
   })
 })
 

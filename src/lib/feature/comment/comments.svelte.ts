@@ -6,8 +6,17 @@ import type {
   StrongRef,
   ThreadViewComment,
 } from '$lib/api/coves/types'
+import { parseAtUri } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import { t } from '$lib/app/i18n'
+
+/**
+ * Maximum depth CommentTree renders inline. Nodes deeper than this continue
+ * on the comment permalink page instead of indenting forever. The permalink
+ * page's subtree fetch depth is derived from this (see `subtreeFetchDepth`
+ * and the comment permalink loader).
+ */
+export const MAX_INLINE_DEPTH = 4
 
 /**
  * A CommentView whose record is guaranteed non-null. `buildCommentsTree`
@@ -93,6 +102,46 @@ export function buildCommentsTree(
   }
 
   return threadComments.map((thread) => walk(thread, baseDepth))
+}
+
+/**
+ * Depth to request when fetching a collapsed node's subtree via
+ * `getComments({ parentRkey })`. The `depth` param is relative to the parent,
+ * so this fills the remaining inline capacity plus one extra level — the row
+ * that renders as a "continue this thread" permalink instead of expanding.
+ */
+export function subtreeFetchDepth(parentDepth: number): number {
+  return MAX_INLINE_DEPTH + 1 - parentDepth
+}
+
+/**
+ * Converts a subtree response (`getComments` with `parentRkey`) into children
+ * graftable onto `parent`. The response's single top-level ThreadViewComment
+ * is the parent itself, so its replies are rebuilt with the parent's depth as
+ * base — landing them at `parent.depth + 1`. Returns null when the response
+ * carries no root (empty response: the parent vanished between requests).
+ */
+export function buildSubtreeChildren(
+  comments: ThreadViewComment[],
+  parent: CommentNodeI,
+): CommentNodeI[] | null {
+  const [root] = buildCommentsTree(comments, parent.depth)
+  return root ? root.children : null
+}
+
+/**
+ * Returns the index of the top-level tree node whose subtree contains a
+ * comment with the given rkey, or -1 when no loaded node matches. Used to
+ * point a virtualized comment list at the row that must be mounted before a
+ * `#comment-<rkey>` deep link can resolve its element.
+ */
+export function findTopLevelIndexByRkey(
+  tree: CommentNodeI[],
+  rkey: string,
+): number {
+  const contains = (node: CommentNodeI): boolean =>
+    parseAtUri(node.comment.uri).rkey === rkey || node.children.some(contains)
+  return tree.findIndex((node) => contains(node))
 }
 
 /**

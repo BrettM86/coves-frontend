@@ -2,6 +2,7 @@
   import { page } from '$app/state'
   import { coves } from '$lib/api/client.svelte'
   import type { StrongRef } from '$lib/api/coves/types'
+  import { parseAtUri } from '$lib/api/coves/types'
   import type { DID } from '$lib/types/atproto'
   import { profile } from '$lib/app/auth.svelte'
   import { errorMessage } from '$lib/app/error'
@@ -54,6 +55,10 @@
   let editing = $state(false)
   let newComment = $state(node.comment.record.content)
   let editingLoad = $state(false)
+
+  // Stable anchor id (`comment-<rkey>`) so permalinks can deep-link to this
+  // comment via a `#comment-<rkey>` URL fragment.
+  const domId = $derived(`comment-${parseAtUri(node.comment.uri).rkey}`)
 
   async function save() {
     if (node.comment.isDeleted) return
@@ -123,7 +128,7 @@
   </Modal>
 {/if}
 
-<li class={['py-3 relative', clazz]} id={node.comment.uri as string}>
+<li class={['py-3 relative', clazz]} id={domId}>
   {#if meta}
     {@const creatorIsOp =
       postAuthorDid !== undefined && node.comment.author.did === postAuthorDid}
@@ -223,7 +228,7 @@
           noStyle
           class={[
             'text-[15px] sm:text-base text-slate-700 dark:text-zinc-300 *:leading-[1.6] break-words space-y-3',
-            page.url.hash.slice(1) === (node.comment.uri as string) &&
+            page.url.hash.slice(1) === domId &&
               'material-info px-3 py-1.5 rounded-xl max-w-max',
           ]}
         />

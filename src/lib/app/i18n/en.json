@@ -623,6 +623,7 @@
     },
     "comment": {
         "reply": "Reply",
+        "deletedAuthor": "[deleted]",
         "actions": {
             "label": "Actions",
             "link": "Copy Link"

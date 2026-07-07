@@ -135,7 +135,9 @@
 <li class={['py-3 relative', clazz]} id={domId}>
   {#if meta}
     {@const creatorIsOp =
-      postAuthorDid !== undefined && node.comment.author.did === postAuthorDid}
+      !node.comment.isDeleted &&
+      postAuthorDid !== undefined &&
+      node.comment.author.did === postAuthorDid}
     <label
       for="comment-expand-{node.comment.uri}"
       class="flex flex-row cursor-pointer gap-2 items-center group text-sm flex-wrap w-full z-0 group relative"
@@ -167,21 +169,35 @@
         </div>
       </div>
       {@render metaSuffix?.()}
-      <span
-        class={[
-          'flex flex-row gap-1 items-center',
-          creatorIsOp && 'text-blue-600 dark:text-blue-400 font-bold',
-        ]}
-      >
-        <UserLink inComment avatarSize={20} avatar user={node.comment.author} />
-      </span>
-      {#if creatorIsOp}
-        <Icon
-          mini
-          size="16"
-          src={Microphone}
-          class="text-blue-500 dark:text-blue-400"
-        />
+      {#if node.comment.isDeleted}
+        <!-- Tombstones arrive with an empty handle but the author's real
+             DID; rendering UserLink would produce a bare "@" linking to
+             the profile, de-anonymizing the deleted comment. -->
+        <span class="text-slate-500 dark:text-zinc-400 italic">
+          {$t('comment.deletedAuthor')}
+        </span>
+      {:else}
+        <span
+          class={[
+            'flex flex-row gap-1 items-center',
+            creatorIsOp && 'text-blue-600 dark:text-blue-400 font-bold',
+          ]}
+        >
+          <UserLink
+            inComment
+            avatarSize={20}
+            avatar
+            user={node.comment.author}
+          />
+        </span>
+        {#if creatorIsOp}
+          <Icon
+            mini
+            size="16"
+            src={Microphone}
+            class="text-blue-500 dark:text-blue-400"
+          />
+        {/if}
       {/if}
       <RelativeDate
         class="text-slate-600 dark:text-zinc-400"

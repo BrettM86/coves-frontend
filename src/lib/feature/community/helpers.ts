@@ -1,16 +1,18 @@
 import type { CommunityRef, CommunityView } from '$lib/api/coves/types'
+import { communitySlug } from '$lib/app/util.svelte'
 
 /**
  * Returns the identifier string for a community (for URLs, route params, etc.).
- * Prefers `handle`, falling back to `did` — both are accepted by the
- * `[handle=handle]` route matcher, whereas a bare `name` (e.g. "general")
+ * Prefers the canonical slug form of `handle` (no `c-` prefix, matching
+ * {@link postLink} permalinks), falling back to `did` — both are accepted by
+ * the `[handle=handle]` route matcher, whereas a bare `name` (e.g. "general")
  * would build a URL the router refuses. For human-readable text use
  * {@link communityHandleOrName} or {@link communityDisplayName} instead.
  */
 export function communityIdentifier(
   community: CommunityView | CommunityRef,
 ): string {
-  return community.handle ?? community.did
+  return community.handle ? communitySlug(community.handle) : community.did
 }
 
 /**

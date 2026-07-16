@@ -215,7 +215,7 @@
   <div class="divide-y divide-slate-200 dark:divide-zinc-800">
     <div class="-mx-3 sm:-mx-6 px-3 sm:px-6">
       <CommentTree
-        nodes={tree}
+        bind:nodes={tree}
         {post}
         {postRef}
         postAuthorDid={post.author.did}

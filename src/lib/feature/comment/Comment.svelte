@@ -256,7 +256,7 @@
         {#if actions}
           <!-- TODO(coves-migration): Re-enable ban/lock checking when API provides banned_from_community and post.locked fields -->
           <CommentActions
-            comment={node.comment}
+            bind:comment={node.comment}
             {post}
             bind:replying
             onedit={() => {

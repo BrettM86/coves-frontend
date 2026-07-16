@@ -46,7 +46,7 @@ any bugs found, and committing the fixes.
 
 | # | Section | Status | Last run | Notes |
 |---|---|---|---|---|
-| 1 | Auth & Session | pending | — | |
+| 1 | Auth & Session | fixed | 2026-07-15 | 3 frontend bugs fixed (stuck logout on expired session, missing `form.handle` i18n key, raw i18n key on error page). **Backend issue flagged**: OAuth callback redirects to the Go backend landing page at `127.0.0.1:8081/` instead of back into the app — session is created but user is dumped outside the frontend; needs a fix in `~/Code/coves` `/oauth/callback`. |
 | 2 | Home Feed | pending | — | |
 | 3 | Community Pages | pending | — | |
 | 4 | Post Detail & Comments | pending | — | |

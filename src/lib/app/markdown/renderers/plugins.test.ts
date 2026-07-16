@@ -28,23 +28,16 @@ describe('localizeLink - user links', () => {
 })
 
 // ---------------------------------------------------------------------------
-// localizeLink() - implicit user links (mailto)
+// localizeLink() - mailto links stay untouched (real email links must work)
 // ---------------------------------------------------------------------------
 
-describe('localizeLink - implicit user links (mailto)', () => {
-  it('rewrites mailto link to /profile/ path', () => {
-    const result = localizeLink('mailto:alice@coves.social')
-    expect(result).toBe('/profile/alice@coves.social')
+describe('localizeLink - mailto links', () => {
+  it('leaves plain mailto links untouched', () => {
+    expect(localizeLink('mailto:alice@coves.social')).toBeUndefined()
   })
 
-  it('rewrites mailto link with subdomain instance', () => {
-    const result = localizeLink('mailto:bob@lemmy.world')
-    expect(result).toBe('/profile/bob@lemmy.world')
-  })
-
-  it('handles username with dots and hyphens', () => {
-    const result = localizeLink('mailto:first.last@example.org')
-    expect(result).toBe('/profile/first.last@example.org')
+  it('leaves mailto links with dots and hyphens untouched', () => {
+    expect(localizeLink('mailto:first.last@example.org')).toBeUndefined()
   })
 })
 
@@ -113,13 +106,6 @@ describe('CONTENT_REGEXES', () => {
   it('exports community regex', () => {
     expect(CONTENT_REGEXES.community).toBeInstanceOf(RegExp)
     expect(CONTENT_REGEXES.community.test('https://lemmy.world/c/tech')).toBe(
-      true,
-    )
-  })
-
-  it('exports implicitUser regex', () => {
-    expect(CONTENT_REGEXES.implicitUser).toBeInstanceOf(RegExp)
-    expect(CONTENT_REGEXES.implicitUser.test('mailto:alice@coves.social')).toBe(
       true,
     )
   })

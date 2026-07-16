@@ -94,7 +94,6 @@ export const linkify = markedLinkifyIt(
 const regexes = {
   user: /^https:\/\/([a-zA-Z0-9.-]+)(\/u\/)([a-zA-Z0-9.-_]+)$/i,
   community: /^https:\/\/([a-zA-Z0-9.-]+)(\/c\/)([a-zA-Z0-9.-_]+)$/i,
-  implicitUser: /^mailto:([a-z0-9_.-]+)@(([\da-z.-]+)\.([a-z]{2,63}))/i,
 }
 
 export { regexes as CONTENT_REGEXES }
@@ -119,13 +118,9 @@ export const localizeLink = (link) => {
     if (match?.[3].includes('@')) return `/profile/${match?.[3]}`
     else return `/profile/${match?.[3]}@${match?.[1]}`
   }
-  // Support implicit user syntax (no preceding @), by messing with mailto links.
-  if (regexes.implicitUser.test(link)) {
-    const exec = regexes.implicitUser.exec(link)
-
-    if (!exec?.[1] || !exec?.[2]) return
-    return `/profile/${exec[1]}@${exec[2]}`
-  }
+  // NOTE: mailto: links are deliberately left untouched. The old Lemmy-era
+  // "implicit user mention" rewrite turned every real email link (e.g.
+  // support@coves.social on /legal) into a dead /profile/ link.
 }
 
 export function subSupscriptExtension(tokensExtractor) {

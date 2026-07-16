@@ -33,6 +33,14 @@ export function errorMessage(error: any, instance?: string): string {
     const translated = t.get(key)
     return translated === key ? String(error) : translated
   } catch {
-    return error as any
+    // Consumers render this (e.g. inside toast markdown), so it must always
+    // be a string — a raw object here crashes the toast into an empty box.
+    if (typeof error === 'string') return error
+    if (error instanceof Error) return error.message
+    try {
+      return JSON.stringify(error) ?? String(error)
+    } catch {
+      return String(error)
+    }
   }
 }

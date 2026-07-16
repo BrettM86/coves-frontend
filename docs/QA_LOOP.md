@@ -47,7 +47,7 @@ any bugs found, and committing the fixes.
 | # | Section | Status | Last run | Notes |
 |---|---|---|---|---|
 | 1 | Auth & Session | fixed | 2026-07-15 | 3 frontend bugs fixed (stuck logout on expired session, missing `form.handle` i18n key, raw i18n key on error page). **Backend issue flagged**: OAuth callback redirects to the Go backend landing page at `127.0.0.1:8081/` instead of back into the app — session is created but user is dumped outside the frontend; needs a fix in `~/Code/coves` `/oauth/callback`. |
-| 2 | Home Feed | pending | — | |
+| 2 | Home Feed | fixed | 2026-07-15 | 4 bugs fixed: infinite-scroll dead-stop after fast jumps to the bottom (pre-existing, confirmed by A/B against unmodified code), truncated end-of-feed message, empty rendering of untitled posts (incl. `undefined === undefined` embed-dedup path), nested `<a>` inside post-title anchors. Also silenced feed console noise (ownership warnings, scrollToTop i18n race). Carry-forwards: community slug inconsistency `/c/c-<handle>` vs `/c/<handle>` (check in §3), comment-side ownership + `CommentTree` binding warnings (§4), sidebar "Posts 0" stat looks wrong (backend), vote count transition may announce transient values to screen readers. |
 | 3 | Community Pages | pending | — | |
 | 4 | Post Detail & Comments | pending | — | |
 | 5 | Creation Flows | pending | — | |

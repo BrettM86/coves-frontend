@@ -68,8 +68,19 @@ export async function load({ params, url, fetch, route }) {
 
   const feedData = feed(route.id, async (p) => {
     // If we have a preloaded post from cache, use it. Otherwise fetch from API.
-    const result =
+    let result =
       p.preload ?? (await coves({ func: fetch }).getPost(p.postUri as AtUri))
+
+    // A brand-new post can beat the AppView indexer here — the create flow
+    // redirects immediately after the record is written. When the navigation
+    // carries the fresh-post signal (`?uri=`), poll briefly instead of
+    // declaring the post unavailable.
+    if (!isHydratedPost(result) && p.retryUnavailable) {
+      for (let attempt = 0; attempt < 6 && !isHydratedPost(result); attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        result = await coves({ func: fetch }).getPost(p.postUri as AtUri)
+      }
+    }
 
     // The batch endpoint returns a union: a hydrated post, or an unavailable
     // sentinel (deleted/unindexed/unresolvable/blocked). Surface the latter as
@@ -124,6 +135,7 @@ export async function load({ params, url, fetch, route }) {
         limit: 50,
       },
       preload: cachedPost,
+      retryUnavailable: url.searchParams.has('uri'),
       thread: { showContext, singleThread, focus },
     }),
   )

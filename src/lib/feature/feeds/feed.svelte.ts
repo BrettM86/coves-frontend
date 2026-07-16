@@ -93,6 +93,8 @@ export interface FeedTypes {
       postUri: string
       comments: GetCommentsParams
       preload?: CovesPostView
+      /** Poll briefly when the post isn't indexed yet (fresh-create redirect). */
+      retryUnavailable?: boolean
       thread: {
         showContext?: boolean
         singleThread?: boolean

@@ -235,7 +235,7 @@
         "frontpage": {
             "title": "Coves",
             "footer": "{{users:number}} active {{users; 1:user; default:users;}}",
-            "endFeed": "You have reached the end of {{community_name; undefined:the feed.; default:{{community_name}}.}}",
+            "endFeed": "You have reached the end of the feed.",
             "empty": {
                 "title": "No posts",
                 "description": "There are no posts in this feed."
@@ -564,6 +564,7 @@
         "url": "URL"
     },
     "post": {
+        "untitled": "Untitled post",
         "actions": {
             "comments": "Comments",
             "save": "Save",

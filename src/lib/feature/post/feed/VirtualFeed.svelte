@@ -9,7 +9,7 @@
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { Button, Material, Spinner } from 'mono-svelte'
-  import { onMount, untrack } from 'svelte'
+  import { onMount, tick, untrack } from 'svelte'
   import {
     ArchiveBox,
     ArrowTopRightOnSquare,
@@ -62,6 +62,25 @@
     (posts ?? []).map((fp) => fp.post.uri as string),
   )
 
+  const SCROLL_THRESHOLD = 300
+
+  // svelte-infinite-scroll only re-dispatches loadMore after the user scrolls
+  // back OUT of the threshold zone, so a fast jump to the bottom (End key,
+  // scrollbar drag, programmatic scroll) permanently stalls the feed. Observe
+  // the loading sentinel directly so entering view always loads the next page.
+  let sentinel = $state<HTMLDivElement>()
+  $effect(() => {
+    if (!sentinel) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMore()
+      },
+      { rootMargin: `${SCROLL_THRESHOLD}px` },
+    )
+    io.observe(sentinel)
+    return () => io.disconnect()
+  })
+
   async function loadMore(): Promise<void> {
     if (!hasMore || loading || !loadFeed) return
 
@@ -91,6 +110,21 @@
       error = e
     } finally {
       loading = false
+    }
+
+    // svelte-infinite-scroll latches after dispatching loadMore and only
+    // re-arms once the user scrolls back out of the threshold zone. If the
+    // viewport is still at the bottom when this page finishes loading, no
+    // further scroll event will ever fire — chain the next page ourselves.
+    if (!error && hasMore && browser) {
+      await tick()
+      const doc = document.documentElement
+      if (
+        doc.scrollHeight - doc.clientHeight - doc.scrollTop <=
+        SCROLL_THRESHOLD
+      ) {
+        loadMore()
+      }
     }
   }
 
@@ -198,7 +232,7 @@
             class={['relative post-container', row < 7 && '']}
           >
             <Post
-              post={feedPost.post}
+              bind:post={posts[row].post}
               pinned={isPinned}
               hideCommunity={community}
               view={isPinned && settings.posts.compactFeatured
@@ -244,7 +278,7 @@
         {/if}
       </Material>
     {:else if hasMore}
-      <div class="w-full h-32 grid place-items-center">
+      <div bind:this={sentinel} class="w-full h-32 grid place-items-center">
         <Spinner width={24} />
       </div>
     {:else}
@@ -259,7 +293,11 @@
         </EndPlaceholder>
       </div>
     {/if}
-    <InfiniteScroll window threshold={300} on:loadMore={loadMore} />
+    <InfiniteScroll
+      window
+      threshold={SCROLL_THRESHOLD}
+      on:loadMore={loadMore}
+    />
   {/if}
   {@render children?.()}
 </ul>

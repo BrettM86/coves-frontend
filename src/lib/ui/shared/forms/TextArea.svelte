@@ -72,6 +72,7 @@
       {id}
       {placeholder}
       {disabled}
+      {required}
       {rows}
       bind:value
       bind:this={element}

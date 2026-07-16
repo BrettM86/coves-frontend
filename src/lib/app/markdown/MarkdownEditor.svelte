@@ -107,6 +107,7 @@
     previewButton = true,
     tools = true,
     disabled = false,
+    required = false,
     rows = 2,
     // should be preprocess instead
     beforePreview = (input) => input ?? '',
@@ -137,7 +138,11 @@
 
 <div>
   {#if label || customLabel}
-    <Label>
+    <Label
+      class={required
+        ? "after:content-['*'] after:text-red-500 after:ml-1"
+        : ''}
+    >
       {#if label}
         {label}
       {:else if customLabel}
@@ -316,6 +321,7 @@
           }
         }}
         {rows}
+        {required}
         {...rest}
       />
     {/if}

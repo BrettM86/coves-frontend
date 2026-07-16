@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PostView } from '$lib/api/coves/types'
+  import { t } from '$lib/app/i18n'
   import { type View, settings } from '$lib/app/settings.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import type { ClassValue } from 'svelte/elements'
@@ -48,7 +49,8 @@
   let embedTitle = $derived(extractEmbedTitle(post.embed))
   let hideTitle = $derived(
     settings.posts.deduplicateEmbed &&
-      embedTitle === post.record?.title &&
+      !!post.record?.title &&
+      embedTitle === post.record.title &&
       view !== 'compact' &&
       type !== 'iframe',
   )
@@ -84,9 +86,7 @@
     uri={post.uri}
     title={hideTitle
       ? undefined
-      : tags?.title
-        ? tags.title
-        : post.record?.title}
+      : tags?.title || post.record?.title || $t('post.untitled')}
     style="grid-area: meta;"
     edited={post.editedAt}
     tags={tags?.tags}

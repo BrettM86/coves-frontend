@@ -288,8 +288,9 @@ class Profile {
    * Remove a profile by calling the server logout endpoint.
    * The server handles token cleanup and session management.
    *
-   * @returns LogoutResult indicating success/failure and any warnings
-   * @throws Error if the server logout fails (local state is NOT cleared)
+   * @returns LogoutResult indicating success/failure and any warnings.
+   * Local state is NOT cleared if the server logout fails, except on 401
+   * (session already expired server-side), which is treated as logged out.
    */
   async remove(id: string): Promise<LogoutResult> {
     const profileToRemove = this.meta.profiles.find((p) => p.id === id)
@@ -314,7 +315,11 @@ class Profile {
       }
     }
 
-    if (!response.ok) {
+    if (response.status === 401) {
+      // Session already gone on the server — treat logout as complete and
+      // fall through to clear local state, otherwise the profile is stuck.
+      console.warn('[auth] Session already expired; clearing local profile')
+    } else if (!response.ok) {
       // Server returned an error - don't clear local state
       let errorMsg = `Server returned status ${response.status}`
       try {

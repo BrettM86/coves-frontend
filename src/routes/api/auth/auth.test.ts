@@ -731,7 +731,7 @@ describe('POST /api/auth/logout', () => {
     vi.clearAllMocks()
   })
 
-  it('returns 401 if not authenticated', async () => {
+  it('succeeds idempotently and clears cookie if not authenticated', async () => {
     const cookies = createMockCookies()
 
     const event = createMockEvent({
@@ -741,7 +741,11 @@ describe('POST /api/auth/logout', () => {
     })
 
     const response = await logoutHandler(event)
-    expect(response.status).toBe(401)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(cookies.delete).toHaveBeenCalledWith('coves_session', { path: '/' })
   })
 
   it('returns 403 for cross-origin requests', async () => {

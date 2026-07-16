@@ -26,7 +26,10 @@ export const POST: RequestHandler = async ({
   }
 
   if (!locals.auth.authenticated) {
-    return json({ error: 'Not authenticated' }, { status: 401 })
+    // Session already expired or invalid — logout is idempotent. Clear any
+    // stale cookie and report success so the client can drop its local state.
+    cookies.delete('coves_session', { path: '/' })
+    return json({ success: true, session: null })
   }
 
   // Call Go /oauth/logout to revoke the session on the backend (best effort).

@@ -234,12 +234,12 @@ describe('buildCommentsTree', () => {
   })
 
   it('synthesizes a record for tombstones with undefined records', () => {
-    // The type says CommentRecord | null, but guard against a server that
-    // omits the field entirely (undefined at runtime)
+    // The server omits `record` entirely for tombstones (undefined at
+    // runtime; older backends sent an explicit null)
     const cv: CommentView = {
       ...makeCommentView(),
       isDeleted: true,
-      record: undefined as unknown as CommentView['record'],
+      record: undefined,
     }
     const thread = makeThreadComment(cv)
 
@@ -251,6 +251,41 @@ describe('buildCommentsTree', () => {
       parent: cv.post,
     })
     expect(result[0].comment.record.createdAt).toBe(cv.createdAt)
+  })
+
+  it('handles tombstones with author and record keys absent entirely', () => {
+    // Current backend tombstone shape: both `author` and `record` are
+    // omitted (keys absent, not null) to keep deleted-comment authors
+    // anonymous. Everything else (uri, cid, post, stats, isDeleted,
+    // timestamps) is present.
+    const base = makeCommentView()
+    const {
+      author: _author,
+      record: _record,
+      ...rest
+    } = { ...base, isDeleted: true as const }
+    const cv: CommentView = rest
+    const reply = makeCommentView({
+      uri: 'at://did:plc:testauthor1/social.coves.community.comment/c2' as AtUri,
+    })
+    const thread = makeThreadComment(cv, [makeThreadComment(reply)])
+
+    const result = buildCommentsTree([thread])
+
+    expect(result[0].comment.author).toBeUndefined()
+    expect(result[0].comment.isDeleted).toBe(true)
+    expect(result[0].comment.record).toEqual({
+      $type: 'social.coves.community.comment',
+      content: '*post.badges.deleted*',
+      reply: {
+        root: cv.post,
+        parent: cv.post,
+      },
+      createdAt: cv.createdAt,
+    })
+    expect(result[0].children).toHaveLength(1)
+    expect(result[0].children[0].comment.uri).toBe(reply.uri)
+    expect(result[0].children[0].comment.author).toEqual(makeAuthor())
   })
 
   it('warns when a non-deleted comment has a null record', () => {

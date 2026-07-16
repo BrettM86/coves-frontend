@@ -140,7 +140,12 @@
                 class="flex items-center gap-2 text-sm text-slate-500 dark:text-zinc-400 mb-1"
               >
                 <Icon src={ChatBubbleOvalLeft} size="14" mini />
-                <UserLink user={comment.author} avatarSize={16} />
+                {#if comment.author}
+                  <UserLink user={comment.author} avatarSize={16} />
+                {:else}
+                  <!-- Deleted-comment tombstones omit `author` entirely. -->
+                  <span class="italic">{$t('comment.deletedAuthor')}</span>
+                {/if}
                 <span class="text-xs">
                   {formatRelativeDate(publishedToDate(comment.createdAt), {
                     style: 'short',

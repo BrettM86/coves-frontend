@@ -285,14 +285,21 @@ export interface CommentView {
   createdAt: string
   indexedAt: string
   /**
-   * The comment's record. The server returns `null` for deleted-comment
-   * tombstones, so consumers must handle the null case (or consume the
-   * normalized `CommentNodeI.comment`, whose record is guaranteed non-null
-   * by `buildCommentsTree`). Note that `isDeleted` alone is not a reliable
+   * The comment's record. The server omits this field entirely for
+   * deleted-comment tombstones (older backends returned `null`), so
+   * consumers must handle the absent/null case (or consume the normalized
+   * `CommentNodeI.comment`, whose record is guaranteed non-null by
+   * `buildCommentsTree`). Note that `isDeleted` alone is not a reliable
    * discriminant: deleted comments can still arrive with a record.
    */
-  record: CommentRecord | null
-  author: AuthorView
+  record?: CommentRecord | null
+  /**
+   * The comment's author. The server omits this field entirely for
+   * deleted-comment tombstones (older backends returned a real DID with an
+   * empty handle) so deleted-comment authors stay anonymous. Present on all
+   * non-deleted comments.
+   */
+  author?: AuthorView
   post: CommentRef
   stats: CommentStats
   embed?: PostEmbed

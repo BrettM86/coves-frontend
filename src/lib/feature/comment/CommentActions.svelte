@@ -107,7 +107,10 @@
       {$t('post.actions.more.share')}
     </MenuButton>
     {#if profile.current?.jwt}
-      {#if profile.current?.did && profile.current.did === comment.author.did}
+      <!-- `author` is absent on deleted-comment tombstones, so `?.` keeps
+           the identity check from throwing (and correctly hides edit/delete
+           for tombstones — there is no author to match). -->
+      {#if profile.current?.did && profile.current.did === comment.author?.did}
         <MenuButton
           disabled={comment.isDeleted}
           onclick={() => onedit?.(comment)}
@@ -116,7 +119,7 @@
           {$t('post.actions.more.edit')}
         </MenuButton>
       {/if}
-      {#if profile.current?.did && profile.current.did === comment.author.did}
+      {#if profile.current?.did && profile.current.did === comment.author?.did}
         <MenuButton
           disabled={comment.isDeleted}
           color="danger-subtle"

@@ -137,7 +137,7 @@
     {@const creatorIsOp =
       !node.comment.isDeleted &&
       postAuthorDid !== undefined &&
-      node.comment.author.did === postAuthorDid}
+      node.comment.author?.did === postAuthorDid}
     <label
       for="comment-expand-{node.comment.uri}"
       class="flex flex-row cursor-pointer gap-2 items-center group text-sm flex-wrap w-full z-0 group relative"
@@ -169,10 +169,11 @@
         </div>
       </div>
       {@render metaSuffix?.()}
-      {#if node.comment.isDeleted}
-        <!-- Tombstones arrive with an empty handle but the author's real
-             DID; rendering UserLink would produce a bare "@" linking to
-             the profile, de-anonymizing the deleted comment. -->
+      {#if node.comment.isDeleted || !node.comment.author}
+        <!-- Deleted-comment tombstones omit `author` entirely (older
+             backends sent the real DID with an empty handle); rendering
+             UserLink would de-anonymize the deleted comment or crash on
+             the missing author, so show the placeholder instead. -->
         <span class="text-slate-500 dark:text-zinc-400 italic">
           {$t('comment.deletedAuthor')}
         </span>

@@ -41,7 +41,7 @@
           settings.posts.compactFeatured
             ? 'compact'
             : settings.view}
-          post={feedPost.post}
+          bind:post={feedPost.post}
           class="transition-all duration-250"
         />
       </li>

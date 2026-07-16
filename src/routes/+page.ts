@@ -57,7 +57,10 @@ export async function load({ url, fetch, route }) {
     contextual: {
       actions: [
         {
-          name: t.get('routes.post.scrollToTop'),
+          // Lazy: load() can run before translations finish loading
+          get name() {
+            return t.get('routes.post.scrollToTop')
+          },
           handle: () => window?.scrollTo({ top: 0, behavior: 'instant' }),
           icon: ChevronDoubleUp,
         },

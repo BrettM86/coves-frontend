@@ -27,7 +27,11 @@
 
   let { data, inline = false }: Props = $props()
 
-  let filterType = $state<'all' | 'posts' | 'comments'>('all')
+  // Seed from the URL so deep links / hard reloads honor ?type=
+  const initialType = page.url.searchParams.get('type')
+  let filterType = $state<'all' | 'posts' | 'comments'>(
+    initialType === 'posts' || initialType === 'comments' ? initialType : 'all',
+  )
   let sortForm = $state<HTMLFormElement>()
 </script>
 

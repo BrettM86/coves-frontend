@@ -7,6 +7,7 @@ import type {
   CreateCommentInput,
   CreateCommentOutput,
   CreateCommunityInput,
+  CreateCommunityResponse,
   CreatePostInput,
   CreatePostOutput,
   CreateVoteInput,
@@ -153,7 +154,9 @@ export class CovesClient {
     return this.xrpc.query(NSID.searchCommunities, params)
   }
 
-  createCommunity(input: CreateCommunityInput): Promise<CommunityViewDetailed> {
+  createCommunity(
+    input: CreateCommunityInput,
+  ): Promise<CreateCommunityResponse> {
     return this.xrpc.procedure(NSID.createCommunity, input)
   }
 

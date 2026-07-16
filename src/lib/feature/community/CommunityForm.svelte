@@ -1,120 +1,60 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
-  import { client, site } from '$lib/api/client.svelte'
+  import { coves } from '$lib/api/client.svelte'
+  import type { CommunityVisibility } from '$lib/api/coves/types'
   import { profile } from '$lib/app/auth.svelte'
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import { communitySlug } from '$lib/app/util.svelte'
   import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
-  import ImageInputUpload from '$lib/ui/form/ImageInputUpload.svelte'
   import { Header } from '$lib/ui/layout'
-  import {
-    Badge,
-    Button,
-    Label,
-    Material,
-    Menu,
-    MenuButton,
-    Option,
-    Select,
-    Switch,
-    TextInput,
-    toast,
-  } from 'mono-svelte'
-  import { GlobeAlt, Icon, MapPin, Plus } from 'svelte-hero-icons/dist'
-  import { addSubscription } from '../user'
+  import { Button, Option, Select, TextInput, toast } from 'mono-svelte'
+  import { GlobeAlt, LockClosed, MapPin } from 'svelte-hero-icons/dist'
 
   interface Props {
-    /**
-     * The community ID to edit.
-     */
-    edit?: number
-    formData?: {
-      name: string
-      displayName: string
-      icon?: string
-      banner?: string
-      sidebar?: string
-      nsfw: boolean
-      postsLockedToModerators: boolean
-      submitting: boolean
-      visibility: 'Public' | 'LocalOnly'
-      languages?: number[]
-    }
     formtitle?: import('svelte').Snippet
   }
 
-  let {
-    edit = undefined,
-    formData: passedFormData = $bindable({
-      name: '',
-      displayName: '',
-      sidebar: '',
-      nsfw: false,
-      postsLockedToModerators: false,
-      submitting: false,
-      visibility: 'Public',
-      languages: undefined,
-    }),
-    formtitle,
-  }: Props = $props()
+  let { formtitle }: Props = $props()
 
-  let formData = $state(passedFormData)
+  let formData = $state({
+    name: '',
+    description: '',
+    visibility: 'public' as CommunityVisibility,
+    submitting: false,
+  })
+
+  // Backend rule: DNS-label name — alphanumeric and hyphens, must start and
+  // end alphanumeric, max 63 chars. The handle becomes c-<name>.<host>.
+  const NAME_PATTERN = '[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?'
 
   async function submit() {
     if (!profile.current?.jwt) return
-    if ((!edit && formData.name == '') || formData.displayName == '') return
+    if (formData.name == '' || formData.description == '') return
 
     formData.submitting = true
 
     try {
-      const res = edit
-        ? await client().editCommunity({
-            title: formData.displayName,
-            description: formData.sidebar,
-            nsfw: formData.nsfw,
-            posting_restricted_to_mods: formData.postsLockedToModerators,
-            icon: formData.icon,
-            banner: formData.banner,
-            community_id: edit,
-            visibility: formData.visibility,
-            discussion_languages: formData.languages,
-          })
-        : await client().createCommunity({
-            name: formData.name,
-            title: formData.displayName,
-            description: formData.sidebar,
-            nsfw: formData.nsfw,
-            posting_restricted_to_mods: formData.postsLockedToModerators,
-            icon: formData.icon,
-            banner: formData.banner,
-            visibility: formData.visibility,
-            discussion_languages: formData.languages,
-          })
+      const res = await coves().createCommunity({
+        name: formData.name,
+        description: formData.description,
+        visibility: formData.visibility,
+      })
 
       toast({
         content: $t('toast.updatedCommunity'),
         type: 'success',
       })
 
-      // TODO: Update local state when Coves API provides user moderates data
-      addSubscription(res.community_view.community, true)
-
-      if (!edit) {
-        // Coves community handles follow the `c-{name}.{host}` convention;
-        // community URLs use the slug (the handle minus its `c-` prefix).
-        const { name, actor_id } = res.community_view.community
-        const handle = `c-${name}.${new URL(actor_id).hostname}`
-        goto(`/c/${encodeURIComponent(communitySlug(handle))}`)
-      }
+      goto(`/c/${encodeURIComponent(communitySlug(res.handle))}`)
     } catch (err) {
       toast({
-        content: errorMessage(err as string),
+        content: errorMessage(err),
         type: 'error',
       })
+    } finally {
+      formData.submitting = false
     }
-
-    formData.submitting = false
   }
 </script>
 
@@ -132,87 +72,25 @@
     required
     label={$t('form.name')}
     bind:value={formData.name}
+    pattern={NAME_PATTERN}
+    minlength={1}
+    maxlength={63}
     oninput={() => {
-      formData.name = formData.name.toLowerCase().replaceAll(' ', '_')
+      formData.name = formData.name.toLowerCase().replaceAll(/[\s_]+/g, '-')
     }}
-    disabled={edit != undefined}
   />
-  <TextInput
-    required
-    label={$t('form.profile.displayName')}
-    bind:value={formData.displayName}
-  />
-  <div class="flex flex-row gap-4 flex-wrap *:flex-1">
-    <ImageInputUpload
-      bind:imageUrl={formData.icon}
-      label={$t('routes.admin.config.icon')}
-    />
-    <ImageInputUpload
-      bind:imageUrl={formData.banner}
-      label={$t('routes.admin.config.banner')}
-    />
-  </div>
   <MarkdownEditor
     previewButton
-    label={$t('routes.admin.config.sidebar')}
-    bind:value={formData.sidebar}
+    required
+    label={$t('form.description')}
+    bind:value={formData.description}
   />
 
-  <Switch bind:checked={formData.nsfw}>{$t('post.badges.nsfw')}</Switch>
-  <Switch bind:checked={formData.postsLockedToModerators}>
-    Only moderators can post
-  </Switch>
   <Select label="Visibility" class="w-max" bind:value={formData.visibility}>
-    <Option icon={GlobeAlt} value="Public">Public</Option>
-    <Option icon={MapPin} value="LocalOnly">Local Only</Option>
+    <Option icon={GlobeAlt} value="public">Public</Option>
+    <Option icon={MapPin} value="unlisted">Unlisted</Option>
+    <Option icon={LockClosed} value="private">Private</Option>
   </Select>
-
-  <div class="space-y-1">
-    <Label>{$t('form.profile.languages.title')}</Label>
-    <Material rounding="xl" color="uniform" class="dark:bg-zinc-950">
-      {#if site.data}
-        <div class="flex gap-2 flex-wrap flex-row">
-          <Menu class="gap-px">
-            {#snippet target(attachment)}
-              <button {@attach attachment} type="button">
-                <Badge color="blue-subtle">
-                  <Icon src={Plus} micro size="14" />
-                  {$t('common.add')}
-                </Badge>
-              </button>
-            {/snippet}
-            {#each site.data.all_languages.filter((l) => !formData.languages?.includes(l.id)) as language (language.id)}
-              <MenuButton
-                class="min-h-[16px] py-0"
-                onclick={() => {
-                  formData.languages = [
-                    ...(formData.languages ?? []),
-                    language.id,
-                  ]
-                }}
-              >
-                {language.name}
-              </MenuButton>
-            {/each}
-          </Menu>
-          {#each formData.languages ?? [] as languageId, index (languageId)}
-            {@const language = site.data.all_languages.find(
-              (l) => l.id == languageId,
-            )}
-            <button
-              type="button"
-              class="hover:brightness-150 transition-all"
-              onclick={() => {
-                formData.languages?.splice(index, 1)
-              }}
-            >
-              <Badge class="cursor-pointer">{language?.name}</Badge>
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </Material>
-  </div>
 
   <Button
     submit
@@ -222,6 +100,6 @@
     loading={formData.submitting}
     disabled={formData.submitting}
   >
-    {edit ? $t('common.save') : $t('form.submit')}
+    {$t('form.submit')}
   </Button>
 </form>

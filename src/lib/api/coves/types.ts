@@ -655,10 +655,16 @@ export interface UpdateCommentOutput {
 export interface CreateCommunityInput {
   name: string
   description: string
-  visibility: CommunityVisibility
-  displayName?: string
+  visibility?: CommunityVisibility
   language?: string
   allowExternalDiscovery?: boolean
+}
+
+export interface CreateCommunityResponse {
+  uri: AtUri
+  cid: CID
+  did: DID
+  handle: Handle
 }
 
 export interface SubscribeCommunityInput {

@@ -2,14 +2,6 @@
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { Tabs } from '$lib/ui/layout'
-  import { Button, Menu, MenuButton } from 'mono-svelte'
-  import {
-    ArrowDown,
-    ArrowUp,
-    EllipsisHorizontal,
-    Icon,
-    Photo,
-  } from 'svelte-hero-icons/dist'
 
   let { children } = $props()
 
@@ -25,46 +17,21 @@
 </svelte:head>
 
 <div class="flex flex-row justify-between">
+  <!-- TODO(coves-migration): the settings tab and the media / voted-history
+       menu were removed because their routes are gated 404s until the Coves
+       APIs exist (see the respective +page.ts gates). Restore them here when
+       the pages are migrated. -->
   <Tabs
     routes={[
       {
         href: profileHref,
         name: $t('routes.profile.submissions'),
       },
-
-      {
-        href: '/profile/settings',
-        name: $t('routes.profile.edit'),
-      },
-
       {
         href: '/profile/blocks',
         name: $t('routes.profile.blocks.title'),
       },
     ]}
-  >
-    <Menu class="flex-1" placement="bottom-end">
-      {#snippet target(attachment)}
-        <Button
-          {@attach attachment}
-          aria-label={$t('post.actions.more.label')}
-          size="square-sm"
-          color="none"
-          class="z-0 text-slate-600 dark:text-zinc-500 hover:bg-slate-100 hover:dark:bg-zinc-800"
-        >
-          <Icon src={EllipsisHorizontal} size="16" micro />
-        </Button>
-      {/snippet}
-      <MenuButton href="/profile/media" icon={Photo}>
-        {$t('routes.profile.media.title')}
-      </MenuButton>
-      <MenuButton href="/profile/voted/up" icon={ArrowUp}>
-        {$t('routes.profile.upvoted')}
-      </MenuButton>
-      <MenuButton href="/profile/voted/down" icon={ArrowDown}>
-        {$t('routes.profile.downvoted')}
-      </MenuButton>
-    </Menu>
-  </Tabs>
+  />
 </div>
 {@render children?.()}

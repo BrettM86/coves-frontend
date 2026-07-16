@@ -124,6 +124,7 @@
     },
     "form": {
         "username": "Username",
+        "handle": "Handle",
         "name": "Name",
         "instance": "Server domain",
         "password": "Password",

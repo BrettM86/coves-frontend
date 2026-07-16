@@ -32,6 +32,29 @@
 
   let banner = $derived(getBanner(community))
   let bannerError = $state(false)
+
+  // Optimistic subscribe state lives locally instead of mutating the
+  // `community` prop, which this component does not own (the list passes it
+  // unbound). Server state wins again on the next load.
+  let subscribedOverride = $state<boolean | undefined>(undefined)
+  let subscribed = $derived(
+    subscribedOverride ?? community.viewer?.subscribed === true,
+  )
+
+  async function toggleSubscribe(): Promise<void> {
+    const wasSubscribed = subscribed
+    try {
+      if (wasSubscribed) {
+        await coves().unsubscribe({ community: community.did })
+      } else {
+        await coves().subscribe({ community: community.did })
+      }
+      subscribedOverride = !wasSubscribed
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      toast({ content: errorMsg, type: 'error' })
+    }
+  }
 </script>
 
 {#snippet communityInfo()}
@@ -104,27 +127,9 @@
       <Icon src={InformationCircle} size="16" mini />
     </Button>
     {#if profile.current?.jwt}
-      {@const subscribed = community.viewer?.subscribed === true}
       <Button
         disabled={!profile.current?.jwt}
-        onclick={async () => {
-          const wasSubscribed = community.viewer?.subscribed === true
-          try {
-            if (wasSubscribed) {
-              await coves().unsubscribe({ community: community.did })
-            } else {
-              await coves().subscribe({ community: community.did })
-            }
-            if (community.viewer) {
-              community.viewer.subscribed = !wasSubscribed
-            } else {
-              community.viewer = { subscribed: !wasSubscribed }
-            }
-          } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : String(err)
-            toast({ content: errorMsg, type: 'error' })
-          }
-        }}
+        onclick={toggleSubscribe}
         title={subscribed
           ? $t('cards.community.subscribed')
           : $t('cards.community.subscribe')}

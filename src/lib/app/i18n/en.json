@@ -585,6 +585,8 @@
                 "share.photon": "Kelp link",
                 "crosspost": "Crosspost",
                 "delete": "Delete",
+                "deletePostConfirm": "Delete this post permanently? This can't be undone.",
+                "deleteCommentConfirm": "Delete this comment permanently? This can't be undone.",
                 "restore": "Restore"
             },
             "vote": {

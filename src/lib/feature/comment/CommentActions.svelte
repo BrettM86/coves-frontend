@@ -11,7 +11,7 @@
     postLinkRefFromUri,
     type PostLinkRef,
   } from '$lib/feature/post'
-  import { Button, Menu, MenuButton, toast } from 'mono-svelte'
+  import { action, Button, Menu, MenuButton, modal, toast } from 'mono-svelte'
   import {
     ChatBubbleOvalLeft,
     EllipsisHorizontal,
@@ -47,6 +47,44 @@
   let shareUrl = $derived(
     commentLink(post ?? postLinkRefFromUri(comment.post.uri), comment.uri),
   )
+
+  async function deleteComment(): Promise<void> {
+    if (!profile.current?.jwt) {
+      toast({ content: $t('toast.sessionExpired'), type: 'warning' })
+      return
+    }
+    try {
+      await coves().deleteComment({ uri: comment.uri })
+      comment.isDeleted = true
+      if (comment.record) {
+        comment.record.content = deletedContentPlaceholder()
+      }
+    } catch (err) {
+      toast({
+        content: errorMessage(err),
+        type: 'error',
+      })
+    }
+  }
+
+  function confirmDelete(): void {
+    modal({
+      title: $t('post.actions.more.delete'),
+      body: $t('post.actions.more.deleteCommentConfirm'),
+      actions: [
+        action({
+          content: $t('post.actions.more.delete'),
+          action: deleteComment,
+          type: 'danger',
+          close: true,
+        }),
+        action({
+          content: $t('common.cancel'),
+          close: true,
+        }),
+      ],
+    })
+  }
 </script>
 
 <div
@@ -123,24 +161,7 @@
         <MenuButton
           disabled={comment.isDeleted}
           color="danger-subtle"
-          onclick={async () => {
-            if (!profile.current?.jwt) {
-              toast({ content: $t('toast.sessionExpired'), type: 'warning' })
-              return
-            }
-            try {
-              await coves().deleteComment({ uri: comment.uri })
-              comment.isDeleted = true
-              if (comment.record) {
-                comment.record.content = deletedContentPlaceholder()
-              }
-            } catch (err) {
-              toast({
-                content: errorMessage(err),
-                type: 'error',
-              })
-            }
-          }}
+          onclick={confirmDelete}
           icon={Trash}
         >
           {$t('post.actions.more.delete')}

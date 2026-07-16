@@ -6,7 +6,7 @@
   import { settings } from '$lib/app/settings.svelte'
   import { report } from '$lib/feature/moderation/moderation.svelte'
   import { encodeCrosspostDraft } from '$lib/feature/post/helpers'
-  import { MenuButton, toast } from 'mono-svelte'
+  import { action, MenuButton, modal, toast } from 'mono-svelte'
   import { ArrowTopRightOnSquare, Flag, Trash } from 'svelte-hero-icons/dist'
 
   interface Props {
@@ -47,6 +47,25 @@
       deleting = false
     }
   }
+
+  function confirmDelete(): void {
+    modal({
+      title: $t('post.actions.more.delete'),
+      body: $t('post.actions.more.deletePostConfirm'),
+      actions: [
+        action({
+          content: $t('post.actions.more.delete'),
+          action: handleDelete,
+          type: 'danger',
+          close: true,
+        }),
+        action({
+          content: $t('common.cancel'),
+          close: true,
+        }),
+      ],
+    })
+  }
 </script>
 
 {#if profile.current?.jwt}
@@ -57,7 +76,7 @@
     {$t('post.actions.more.crosspost')}
   </MenuButton>
   {#if profile.current?.did && profile.current.did === post.author.did}
-    <MenuButton onclick={handleDelete} color="danger-subtle" icon={Trash}>
+    <MenuButton onclick={confirmDelete} color="danger-subtle" icon={Trash}>
       {$t('post.actions.more.delete')}
     </MenuButton>
   {/if}

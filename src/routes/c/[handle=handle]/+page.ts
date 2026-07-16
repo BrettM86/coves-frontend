@@ -1,6 +1,8 @@
 import type { FeedPaginationParams } from '$lib/api/coves/types'
 import { coves } from '$lib/api/client.svelte'
+import { XrpcError } from '$lib/api/coves/xrpc'
 import { settings } from '$lib/app/settings.svelte'
+import { error } from '@sveltejs/kit'
 import { mapSort } from '$lib/app/sort'
 import { communityHandleFromSlug } from '$lib/app/util.svelte'
 import type { Handle } from '$lib/types/atproto'
@@ -16,33 +18,41 @@ export async function load({ params, fetch, url, route }) {
   const communityHandle = communityHandleFromSlug(params.handle) as Handle
   const mapped = mapSort(sort, timeframe)
 
-  const feedData = await feed(route.id, async (p) => {
-    const api = coves({ func: fetch })
+  let feedData
+  try {
+    feedData = await feed(route.id, async (p) => {
+      const api = coves({ func: fetch })
 
-    const [feedResponse, communityData] = await Promise.all([
-      api.getCommunityFeed({
-        community: communityHandle,
-        sort: mapped.sort,
-        timeframe: mapped.timeframe,
-        limit: p.limit,
-        cursor: p.cursor,
-      }),
-      api.getCommunity({ community: communityHandle }),
-    ])
+      const [feedResponse, communityData] = await Promise.all([
+        api.getCommunityFeed({
+          community: communityHandle,
+          sort: mapped.sort,
+          timeframe: mapped.timeframe,
+          limit: p.limit,
+          cursor: p.cursor,
+        }),
+        api.getCommunity({ community: communityHandle }),
+      ])
 
-    return {
-      feed: feedResponse.feed ?? [],
-      community: communityData,
-      cursor: feedResponse.cursor,
-      params: { ...p, cursor: feedResponse.cursor },
+      return {
+        feed: feedResponse.feed ?? [],
+        community: communityData,
+        cursor: feedResponse.cursor,
+        params: { ...p, cursor: feedResponse.cursor },
+      }
+    }).load({
+      community: params.handle,
+      sort: mapped.sort,
+      timeframe: mapped.timeframe,
+      limit: 20,
+      cursor: cursor,
+    })
+  } catch (e) {
+    if (e instanceof XrpcError && e.status === 404) {
+      error(404, 'Community not found')
     }
-  }).load({
-    community: params.handle,
-    sort: mapped.sort,
-    timeframe: mapped.timeframe,
-    limit: 20,
-    cursor: cursor,
-  })
+    throw e
+  }
 
   return {
     ...feedData,

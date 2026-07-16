@@ -13,6 +13,7 @@
   import MdList from './renderers/MdList.svelte'
   import MdListItem from './renderers/MdListItem.svelte'
   import MdParagraph from './renderers/MdParagraph.svelte'
+  import MdPassthrough from './renderers/MdPassthrough.svelte'
   import MdQuote from './renderers/MdQuote.svelte'
   import MdSpoiler from './renderers/MdSpoiler.svelte'
   import MdSubscript from './renderers/MdSubscript.svelte'
@@ -115,6 +116,13 @@
     codespan: MdCodespan,
   }
 
+  // For text rendered inside an existing <a> (e.g. post titles): links become
+  // plain text, since nested anchors are invalid HTML and split in browsers.
+  export const linklessInlineRenderers = {
+    ...inlineRenderers,
+    link: MdPassthrough,
+  }
+
   export type Renderer = keyof typeof renderers
 </script>
 
@@ -127,6 +135,7 @@
   interface Props {
     source?: string
     inline?: boolean
+    noLinks?: boolean
     noStyle?: boolean
     style?: string
     class?: ClassValue
@@ -136,6 +145,7 @@
   let {
     source = '',
     inline = false,
+    noLinks = false,
     noStyle = false,
     style = '',
     class: clazz = '',
@@ -159,5 +169,12 @@
   class={[!noStyle && 'break-words space-y-4 leading-normal', clazz]}
   {style}
 >
-  <MdTree {tokens} renderers={inline ? inlineRenderers : renderers} />
+  <MdTree
+    {tokens}
+    renderers={inline
+      ? noLinks
+        ? linklessInlineRenderers
+        : inlineRenderers
+      : renderers}
+  />
 </svelte:element>

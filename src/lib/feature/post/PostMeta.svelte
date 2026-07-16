@@ -312,6 +312,7 @@
     >
       <Markdown
         inline
+        noLinks
         source={title}
         class={view != 'compact' ? '' : 'leading-[1.3]'}
       />

@@ -63,6 +63,8 @@
         "moveUp": "Move up",
         "moveDown": "Move down",
         "guest": "Guest",
+        "block": "Block user",
+        "unblock": "Unblock user",
         "piefedGate": "Piefed support is experimental. Some features are not supported."
     },
     "filter": {

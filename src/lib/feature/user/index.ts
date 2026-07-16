@@ -7,9 +7,9 @@ import type { DID } from '$lib/types/atproto'
  */
 export async function blockUser(block: boolean, did: DID): Promise<void> {
   if (block) {
-    await coves().blockUser({ did })
+    await coves().blockUser({ subject: did })
   } else {
-    await coves().unblockUser({ did })
+    await coves().unblockUser({ subject: did })
   }
 }
 

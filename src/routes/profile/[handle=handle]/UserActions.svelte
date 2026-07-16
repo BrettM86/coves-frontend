@@ -23,9 +23,9 @@
     const newBlockedState = !isBlocked
     try {
       if (newBlockedState) {
-        await coves().blockUser({ did: userProfile.did })
+        await coves().blockUser({ subject: userProfile.did })
       } else {
-        await coves().unblockUser({ did: userProfile.did })
+        await coves().unblockUser({ subject: userProfile.did })
       }
       isBlocked = newBlockedState
       toast({
@@ -43,7 +43,7 @@
   }
 </script>
 
-{#if authProfile.current?.jwt}
+{#if authProfile.current?.jwt && authProfile.current?.did !== userProfile.did}
   <div class="flex items-center gap-2 w-full flex-wrap">
     <!-- TODO: Implement Coves messaging when available -->
     <Button

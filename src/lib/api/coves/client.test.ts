@@ -214,18 +214,18 @@ describe('Actor methods', () => {
   })
 
   it('blockUser() calls procedure with correct NSID', async () => {
-    await client.blockUser({ did: 'did:plc:abc123' as DID })
+    await client.blockUser({ subject: 'did:plc:abc123' as DID })
 
     expect(procedureSpy).toHaveBeenCalledWith(NSID.blockUser, {
-      did: 'did:plc:abc123',
+      subject: 'did:plc:abc123',
     })
   })
 
   it('unblockUser() calls procedure with correct NSID', async () => {
-    await client.unblockUser({ did: 'did:plc:abc123' as DID })
+    await client.unblockUser({ subject: 'did:plc:abc123' as DID })
 
     expect(procedureSpy).toHaveBeenCalledWith(NSID.unblockUser, {
-      did: 'did:plc:abc123',
+      subject: 'did:plc:abc123',
     })
   })
 })

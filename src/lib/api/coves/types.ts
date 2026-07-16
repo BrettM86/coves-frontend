@@ -680,7 +680,8 @@ export interface BlockCommunityInput {
 // ---------------------------------------------------------------------------
 
 export interface BlockUserInput {
-  did: DID
+  /** DID or handle of the user to (un)block. */
+  subject: DID | Handle
 }
 
 // ---------------------------------------------------------------------------

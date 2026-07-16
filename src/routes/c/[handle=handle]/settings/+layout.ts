@@ -1,24 +1,13 @@
-import { coves } from '$lib/api/client.svelte'
-import type { Handle } from '$lib/types/atproto'
-import { communityHandleFromSlug, ReactiveState } from '$lib/app/util.svelte'
-import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
+import type { CommunityViewDetailed } from '$lib/api/coves/types'
+import type { ReactiveState } from '$lib/app/util.svelte'
+import { error } from '@sveltejs/kit'
 
-export async function load({ fetch, params }) {
-  const handle = communityHandleFromSlug(params.handle) as Handle
-
-  const community = await coves({ func: fetch }).getCommunity({
-    community: handle,
-  })
-
-  return {
-    community: new ReactiveState(community),
-    slots: {
-      sidebar: {
-        component: CommunityCard,
-        props: {
-          community: community,
-        },
-      },
-    },
-  }
+// TODO(coves-migration): The community settings pages under this layout are
+// unmigrated Lemmy code, and the Coves API has no community-update or
+// moderator-management endpoints yet. Without this gate they render a blank
+// crash (legacy `community_view` shape) or a management UI that cannot work.
+// Remove the gate and migrate the pages once those APIs exist. The declared
+// return type keeps the (currently unreachable) pages type-checking.
+export function load(): { community: ReactiveState<CommunityViewDetailed> } {
+  error(404, 'Community settings are not available yet')
 }

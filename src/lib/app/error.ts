@@ -27,7 +27,11 @@ export function errorMessage(error: any, instance?: string): string {
     }
     if (!error) throw error
 
-    return t.get(`error.${error}`)
+    // t.get returns the key itself when no translation exists — fall back
+    // to the raw error message instead of showing "error.<message>"
+    const key = `error.${error}`
+    const translated = t.get(key)
+    return translated === key ? String(error) : translated
   } catch {
     return error as any
   }

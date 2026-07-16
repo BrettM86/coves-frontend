@@ -2,6 +2,21 @@ import type { CommunityRef, CommunityView } from '$lib/api/coves/types'
 import { communitySlug } from '$lib/app/util.svelte'
 
 /**
+ * ATProto's sentinel for a handle that could not be resolved. Treat it as
+ * "no handle": building URLs or display text from it produces dead links
+ * (`/c/handle.invalid` always 404s).
+ */
+const INVALID_HANDLE = 'handle.invalid'
+
+function usableHandle(
+  community: CommunityView | CommunityRef,
+): string | undefined {
+  return community.handle && community.handle !== INVALID_HANDLE
+    ? community.handle
+    : undefined
+}
+
+/**
  * Returns the identifier string for a community (for URLs, route params, etc.).
  * Prefers the canonical slug form of `handle` (no `c-` prefix, matching
  * {@link postLink} permalinks), falling back to `did` — both are accepted by
@@ -12,7 +27,8 @@ import { communitySlug } from '$lib/app/util.svelte'
 export function communityIdentifier(
   community: CommunityView | CommunityRef,
 ): string {
-  return community.handle ? communitySlug(community.handle) : community.did
+  const handle = usableHandle(community)
+  return handle ? communitySlug(handle) : community.did
 }
 
 /**
@@ -23,7 +39,7 @@ export function communityIdentifier(
 export function communityHandleOrName(
   community: CommunityView | CommunityRef,
 ): string {
-  return community.handle ?? community.name
+  return usableHandle(community) ?? community.name
 }
 
 /**

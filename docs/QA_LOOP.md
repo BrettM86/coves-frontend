@@ -55,6 +55,29 @@ any bugs found, and committing the fixes.
 | 7 | Explore & Discovery | pass | 2026-07-16 | Re-verified (2nd pass): subscribe round-trip with zero mutation warnings and exact state restoration, DID-fallback link loads a working community view, search/sort/empty states/canonical links all hold, explore page fully console-clean. Backend diagnostic stands: `community.list` populates `viewer.subscribed`; `community.get` omits it (§3). Carry-forwards: card subtitles show raw `c-` handle text (display only); always-split "Top/Other results"; top cards omit member counts; "Popular" sort non-deterministic; no user/post search; instance stats aggregation (backend). |
 | 8 | Settings, Theme & Shell | pass | 2026-07-16 | Re-verified (2nd pass): mailto link real (zero /profile/support links), 404 pages i18n-warning-free, settings persistence round-trip, dark/system scheme switch, shell nav spot-checks — 0 errors and only the Vite HMR notice across every page. Minor carry-forwards: theme hex inputs report #000000 in a11y snapshot; preset cards use lorem-ipsum sample text. |
 
+## Follow-ups (2026-07-17, post-loop)
+
+- **Backend fixes verified in-app** (required an AppView restart — the running
+  binary predated them): `community.get` now returns `viewer` state, so
+  community-page subscribe survives reload and unsubscribing works (§3/§7
+  flags resolved); block records index within ~5s, so the full block
+  round-trip works — block → listed in `/profile/blocks/users` → feed
+  filtered → unblock → feed restored (§6 flag resolved).
+- **Blocked-users page migrated** to `social.coves.actor.getBlockedUsers`
+  with per-DID profile hydration and Coves-API unblock (was legacy Lemmy
+  shape that could never show blocks). Block/unblock toast i18n keys fixed.
+- **Title-less posts are first-class**: the "Untitled post" fallback is gone;
+  compact rows use a plain-text body excerpt as their clickable text, and
+  detail pages fall back to excerpt → "Post by @handle" for document/og
+  titles.
+- **Fresh-post redirects render optimistically**: the create flow hands an
+  assembled PostView to the post page (one-shot stash) — instant render, no
+  getPost, comments skip straight to the empty state; the `?uri=` retry poll
+  remains for hard reloads.
+- Still open (backend): OAuth callback lands on the Go landing page at
+  `127.0.0.1:8081` after authorize (intermittent in latest runs); instance
+  stats aggregation (`Posts 0`).
+
 ---
 
 ## Section 1 — Auth & Session

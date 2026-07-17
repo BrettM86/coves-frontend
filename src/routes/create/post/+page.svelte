@@ -13,6 +13,7 @@
     PostFormState,
     type PostSubmitResult,
   } from '$lib/feature/post/form/post-form.svelte'
+  import { stashFreshPost } from '$lib/feature/post/fresh-post'
   import { decodeCrosspostDraft, postLink } from '$lib/feature/post/helpers'
   import { toast } from 'mono-svelte'
   import { onDestroy } from 'svelte'
@@ -48,6 +49,9 @@
 
   function navigateToPost(result: PostSubmitResult): void {
     try {
+      // Hand the optimistic view to the post page so it renders instantly —
+      // the AppView indexer may not have seen the record yet.
+      if (result.post) stashFreshPost(result.post)
       // includeUri=true carries the canonical DID-based AT-URI as ?uri= so the
       // post page can load immediately — the brand-new record is not yet in any
       // feed cache, and this avoids a backend handle→DID round-trip.

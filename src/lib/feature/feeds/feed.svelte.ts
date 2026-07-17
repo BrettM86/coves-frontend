@@ -93,6 +93,8 @@ export interface FeedTypes {
       postUri: string
       comments: GetCommentsParams
       preload?: CovesPostView
+      /** Preload is the just-created post — skip the comments fetch entirely. */
+      freshPost?: boolean
       /** Poll briefly when the post isn't indexed yet (fresh-create redirect). */
       retryUnavailable?: boolean
       thread: {

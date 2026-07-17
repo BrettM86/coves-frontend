@@ -4,7 +4,9 @@ import type {
   CommunityView,
   CommunityViewDetailed,
   CreatePostOutput,
+  PostView,
 } from '$lib/api/coves/types'
+import { buildFreshPostView } from '$lib/feature/post/fresh-post'
 
 export type CommunityFormValue =
   | CommunityRef
@@ -14,6 +16,12 @@ export type CommunityFormValue =
 /** Result returned from PostFormState.submit(), containing both the API output and community context. */
 export interface PostSubmitResult extends CreatePostOutput {
   community: CommunityFormValue
+  /**
+   * Optimistic view of the created post, assembled client-side from the form
+   * data. Lets the post page render immediately instead of waiting for the
+   * AppView indexer to catch up with the record write.
+   */
+  post?: PostView
 }
 
 export type PostFormInit = {
@@ -77,6 +85,16 @@ export class PostFormState {
     // CreatePostInput does not accept these fields yet. Wire them up once
     // the Coves API supports them (this.nsfw, this.altText, this.thumbnail).
 
-    return { ...result, community }
+    return {
+      ...result,
+      community,
+      post: buildFreshPostView({
+        output: result,
+        community,
+        title: this.title || undefined,
+        content: this.body || undefined,
+        url: this.url || undefined,
+      }),
+    }
   }
 }

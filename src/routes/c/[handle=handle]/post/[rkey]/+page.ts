@@ -15,6 +15,7 @@ import {
   feeds,
   type FeedTypes,
 } from '$lib/feature/feeds/feed.svelte'
+import { takeFreshPost } from '$lib/feature/post/fresh-post'
 import { buildPostAtUri } from '$lib/feature/post/helpers'
 
 /**
@@ -61,8 +62,12 @@ export async function load({ params, url, fetch, route }) {
     }
   }
 
-  // Try feed cache for instant display
+  // Instant display sources, best first: the optimistic view handed off by
+  // the create flow (the AppView may not have indexed the record yet), then
+  // the feed caches when the user navigated from a feed page.
+  const freshPost = takeFreshPost(params.rkey)
   const cachedPost =
+    freshPost ??
     findInFeed('/', params.rkey) ??
     findInFeed('/c/[handle=handle]', params.rkey)
 
@@ -101,10 +106,15 @@ export async function load({ params, url, fetch, route }) {
       }
     }
 
-    // Fetch comments in parallel (returned as a promise for streaming)
-    const commentsPromise = coves({ func: fetch })
-      .getComments(p.comments)
-      .then((r) => r.comments)
+    // Fetch comments in parallel (returned as a promise for streaming). A
+    // just-created post definitionally has none — and asking before the
+    // AppView indexes the post 404s into "Failed to load comments" — so skip
+    // straight to the empty state.
+    const commentsPromise = p.freshPost
+      ? Promise.resolve([])
+      : coves({ func: fetch })
+          .getComments(p.comments)
+          .then((r) => r.comments)
 
     return {
       post: result,
@@ -135,6 +145,7 @@ export async function load({ params, url, fetch, route }) {
         limit: 50,
       },
       preload: cachedPost,
+      freshPost: !!freshPost,
       retryUnavailable: url.searchParams.has('uri'),
       thread: { showContext, singleThread, focus },
     }),

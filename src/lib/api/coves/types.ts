@@ -684,6 +684,22 @@ export interface BlockUserInput {
   subject: DID | Handle
 }
 
+export interface GetBlockedUsersParams {
+  limit?: number
+  offset?: number
+}
+
+export interface BlockedUserEntry {
+  blockedDid: DID
+  recordUri: AtUri
+  recordCid: CID
+  blockedAt: string
+}
+
+export interface GetBlockedUsersResponse {
+  blocks: BlockedUserEntry[]
+}
+
 // ---------------------------------------------------------------------------
 // Request / response types — admin reports
 // ---------------------------------------------------------------------------

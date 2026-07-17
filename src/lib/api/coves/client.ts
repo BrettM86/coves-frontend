@@ -3,6 +3,8 @@ import type {
   AtUri,
   BlockCommunityInput,
   BlockUserInput,
+  GetBlockedUsersParams,
+  GetBlockedUsersResponse,
   CommunityViewDetailed,
   CreateCommentInput,
   CreateCommentOutput,
@@ -54,6 +56,7 @@ export const NSID = {
   getActorComments: 'social.coves.actor.getComments',
   blockUser: 'social.coves.actor.blockUser',
   unblockUser: 'social.coves.actor.unblockUser',
+  getBlockedUsers: 'social.coves.actor.getBlockedUsers',
   getCommunity: 'social.coves.community.get',
   listCommunities: 'social.coves.community.list',
   searchCommunities: 'social.coves.community.search',
@@ -131,6 +134,12 @@ export class CovesClient {
 
   blockUser(input: BlockUserInput): Promise<void> {
     return this.xrpc.procedure(NSID.blockUser, input)
+  }
+
+  getBlockedUsers(
+    params?: GetBlockedUsersParams,
+  ): Promise<GetBlockedUsersResponse> {
+    return this.xrpc.query(NSID.getBlockedUsers, params)
   }
 
   unblockUser(input: BlockUserInput): Promise<void> {

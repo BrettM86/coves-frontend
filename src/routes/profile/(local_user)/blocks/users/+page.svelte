@@ -1,53 +1,56 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): Needs Coves user block API
-  import { client } from '$lib/api/client.svelte'
+  import { coves } from '$lib/api/client.svelte'
+  import type { DID } from '$lib/types/atproto'
+  import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
-  import { userLink } from '$lib/app/util.svelte.js'
   import ItemList from '$lib/ui/generic/ItemList.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
-  import { Button } from 'mono-svelte'
+  import { Button, toast } from 'mono-svelte'
   import { ArrowUturnUp, Check, Trash } from 'svelte-hero-icons/dist'
+  import type { PageData } from './$types'
 
-  let { data } = $props()
+  interface Props {
+    data: PageData
+  }
 
-  async function unblock(id: number) {
-    if (!data.person_blocks) return
-    data.person_blocks.splice(
-      data.person_blocks.findIndex((i) => i.person.id == id),
-      1,
-    )
+  let { data }: Props = $props()
 
-    await client().blockPerson({
-      block: false,
-      person_id: id,
-    })
+  async function unblock(did: DID): Promise<void> {
+    try {
+      await coves().unblockUser({ subject: did })
+      data.blockedUsers.value = data.blockedUsers.value.filter(
+        (row) => row.block.blockedDid !== did,
+      )
+    } catch (err) {
+      toast({ content: errorMessage(err), type: 'error' })
+    }
   }
 </script>
 
-{#if data.person_blocks && data.person_blocks?.length > 0}
+{#if data.blockedUsers.value.length > 0}
   <ItemList
-    items={data.person_blocks.map((i) => ({
-      id: i.target.id,
-      name: i.target.name,
-      avatar: i.target.avatar,
-      url: userLink(i.target),
-      instance: new URL(i.target.actor_id).hostname,
+    items={data.blockedUsers.value.map(({ block, profile }) => ({
+      id: block.blockedDid,
+      name: profile?.displayName ?? profile?.handle ?? block.blockedDid,
+      avatar: profile?.avatar,
+      url: `/profile/${encodeURIComponent(profile?.handle ?? block.blockedDid)}`,
+      instance: profile?.handle,
       circle: true,
     }))}
     link={false}
   >
-    {#snippet action(block)}
+    {#snippet action(item)}
       <Button
         title={$t('common.jump')}
         size="square-md"
-        href={block.url}
+        href={item.url}
         color="primary"
         icon={ArrowUturnUp}
       />
       <Button
-        title="Unblock"
+        title={$t('account.unblock')}
         size="square-md"
-        onclick={() => unblock(block.id)}
+        onclick={() => unblock(item.id as DID)}
         icon={Trash}
       />
     {/snippet}

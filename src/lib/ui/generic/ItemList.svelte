@@ -8,7 +8,7 @@
     avatar?: string
     name: string
     instance?: string
-    id: number
+    id: number | string
     url?: string
     circle?: boolean
   }

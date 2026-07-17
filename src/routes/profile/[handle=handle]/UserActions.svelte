@@ -30,8 +30,8 @@
       isBlocked = newBlockedState
       toast({
         content: newBlockedState
-          ? $t('toast.blockedUser')
-          : $t('toast.unblockedUser'),
+          ? $t('toast.blockUser')
+          : $t('toast.unblockUser'),
         type: 'success',
       })
     } catch (err) {

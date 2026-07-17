@@ -46,7 +46,7 @@
       <Button
         title="Unblock"
         size="square-md"
-        onclick={() => unblock(block.id)}
+        onclick={() => unblock(Number(block.id))}
         icon={Trash}
       />
     {/snippet}

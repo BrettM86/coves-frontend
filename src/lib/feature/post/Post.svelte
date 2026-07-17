@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { PostView } from '$lib/api/coves/types'
-  import { t } from '$lib/app/i18n'
   import { type View, settings } from '$lib/app/settings.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import type { ClassValue } from 'svelte/elements'
@@ -11,7 +10,12 @@
     PostMediaCompact,
     PostMeta,
   } from '.'
-  import { extractEmbedTitle, extractEmbedUrl, mediaType } from './helpers'
+  import {
+    extractEmbedTitle,
+    extractEmbedUrl,
+    mediaType,
+    postTextFallback,
+  } from './helpers'
   import { type MetaTag, parseTags } from './PostMeta.svelte'
 
   interface Props {
@@ -55,6 +59,14 @@
       type !== 'iframe',
   )
 
+  // Coves posts may legitimately have no title. Cozy/list views render the
+  // body below the meta row, but compact rows would show no text at all — so
+  // fall back to a plain-text body excerpt there. Everywhere else the title
+  // slot simply stays empty.
+  let compactExcerpt = $derived(
+    view == 'compact' ? postTextFallback(post.record?.content) : undefined,
+  )
+
   let badges = $derived({
     featured: pinned,
     saved: post.viewer?.saved ?? false,
@@ -86,7 +98,7 @@
     uri={post.uri}
     title={hideTitle
       ? undefined
-      : tags?.title || post.record?.title || $t('post.untitled')}
+      : tags?.title || post.record?.title || compactExcerpt}
     style="grid-area: meta;"
     edited={post.editedAt}
     tags={tags?.tags}

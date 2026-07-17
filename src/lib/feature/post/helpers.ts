@@ -426,3 +426,33 @@ export function decodeCrosspostDraft(
     return undefined
   }
 }
+
+/**
+ * Plain-text excerpt of a post body, for contexts that need a short text
+ * stand-in when a post has no title (Coves posts may legitimately omit one):
+ * compact list rows and document/og titles. Takes the first non-empty line,
+ * strips markdown syntax that would render literally, and truncates.
+ */
+export function postTextFallback(
+  content: string | undefined,
+  max = 120,
+): string | undefined {
+  if (!content) return undefined
+
+  const line = content
+    .split('\n')
+    .map((part) => part.trim())
+    .find((part) => part.length > 0)
+  if (!line) return undefined
+
+  const plain = line
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^#{1,6}\s+/, '')
+    .replace(/^>\s*/, '')
+    .replace(/[*_`~]/g, '')
+    .trim()
+  if (!plain) return undefined
+
+  return plain.length > max ? `${plain.slice(0, max - 1).trimEnd()}…` : plain
+}

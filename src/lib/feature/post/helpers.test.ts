@@ -28,6 +28,7 @@ import {
   optimizeImageURL,
   postLink,
   postLinkRefFromUri,
+  postTextFallback,
 } from './helpers'
 
 // ---------------------------------------------------------------------------
@@ -819,5 +820,46 @@ describe('crosspost draft encoding', () => {
   it('drops non-string name/body fields from tampered payloads', () => {
     const tampered = btoa(JSON.stringify({ name: 42, body: ['x'] }))
     expect(decodeCrosspostDraft(tampered)).toEqual({})
+  })
+})
+
+describe('postTextFallback', () => {
+  it('returns undefined for missing or empty content', () => {
+    expect(postTextFallback(undefined)).toBeUndefined()
+    expect(postTextFallback('')).toBeUndefined()
+    expect(postTextFallback('   \n  \n')).toBeUndefined()
+  })
+
+  it('returns the first non-empty line', () => {
+    expect(postTextFallback('\n\nHello world\nsecond line')).toBe('Hello world')
+  })
+
+  it('strips markdown syntax that would render literally', () => {
+    expect(postTextFallback('# A heading start')).toBe('A heading start')
+    expect(postTextFallback('> quoted text')).toBe('quoted text')
+    expect(postTextFallback('**bold** and _italic_ and `code`')).toBe(
+      'bold and italic and code',
+    )
+    expect(postTextFallback('see [the docs](https://example.com) here')).toBe(
+      'see the docs here',
+    )
+    expect(postTextFallback('![alt text](https://example.com/x.png)')).toBe(
+      'alt text',
+    )
+  })
+
+  it('returns undefined when the line is only markdown syntax', () => {
+    expect(postTextFallback('***')).toBeUndefined()
+  })
+
+  it('truncates long content with an ellipsis', () => {
+    const long = 'a'.repeat(200)
+    const result = postTextFallback(long, 120)
+    expect(result).toHaveLength(120)
+    expect(result?.endsWith('…')).toBe(true)
+  })
+
+  it('leaves short content untouched', () => {
+    expect(postTextFallback('short post', 120)).toBe('short post')
   })
 })

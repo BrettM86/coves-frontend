@@ -7,6 +7,7 @@
   import { mapSort } from '$lib/app/sort'
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
   import { Post } from '$lib/feature/post'
+  import { postTextFallback } from '$lib/feature/post/helpers'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Material, Spinner, toast } from 'mono-svelte'
   import { ChatBubbleOvalLeft, Icon, NoSymbol } from 'svelte-hero-icons/dist'
@@ -144,20 +145,22 @@
 
 <svelte:head>
   {#if data.data.value?.post}
+    {@const headPost = data.data.value.post}
+    {@const headTitle =
+      headPost.record?.title ??
+      postTextFallback(headPost.record?.content, 80) ??
+      `Post by @${headPost.author.handle}`}
     <title>
-      {data.data.value.post.record?.title ?? 'Post'}
+      {headTitle}
     </title>
     <meta
       name="description"
-      content={data.data.value.post.record?.content?.slice(0, 200) ?? ''}
+      content={headPost.record?.content?.slice(0, 200) ?? ''}
     />
-    <meta
-      property="og:title"
-      content={data.data.value.post.record?.title ?? 'Post'}
-    />
+    <meta property="og:title" content={headTitle} />
     <meta
       property="og:description"
-      content={data.data.value.post.record?.content?.slice(0, 200) ?? ''}
+      content={headPost.record?.content?.slice(0, 200) ?? ''}
     />
   {:else if data.data.value?.unavailable}
     <title>Post unavailable</title>

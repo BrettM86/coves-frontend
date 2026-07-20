@@ -9,15 +9,19 @@ any bugs found, and committing the fixes.
 | Thing | Value |
 |---|---|
 | App URL | `http://localhost:8080` (Caddy proxy → Go backend :8081 + Vite :5173) |
-| Start stack | `make dev-up` in `~/Code/coves` (run in background if not already up) |
+| Start stack | `make dev-up` in your Coves backend checkout (run in background if not already up) |
 | Health check | `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080` → expect `200` |
-| Test account | handle `mari.local.coves.dev`, password `password` |
-| Browser | **Firefox only** (Chrome is not installed) — Playwright MCP is configured for it |
+| Test account | any seeded local dev account on your `*.local.coves.dev` PDS |
+| Browser | whichever browser your Playwright MCP is configured for |
+
+Machine-specific values (backend checkout path, test-account credentials, and
+the dated status log) live in `docs/QA_LOOP.local.md`, which is gitignored —
+create it locally from the tables above.
 
 ## Loop Protocol (every iteration)
 
 1. **Bootstrap**: verify `http://localhost:8080` responds; if not, start the stack
-   with `make dev-up` from `~/Code/coves` and wait for it to come up.
+   with `make dev-up` from the Coves backend checkout and wait for it to come up.
 2. **Pick a section**: take the first section in the Status table below whose
    status is `pending`, or if all are `pass`/`fixed`, the one with the oldest
    `Last run` (continuous re-verification).
@@ -34,8 +38,9 @@ any bugs found, and committing the fixes.
 5. **Commit**: one commit per logical fix, conventional-commit style matching
    repo history, e.g. `fix(comments): handle tombstones that omit author`.
    Do **not** commit if nothing was fixed.
-6. **Record**: update the Status table row (status, date, notes) and commit the
-   spec update as `docs: update QA loop status for <section>`.
+6. **Record**: update the section's row in the Status table in
+   `docs/QA_LOOP.local.md` (status, date, notes). The status log is local-only
+   and never committed.
 7. **Schedule**: continue the loop (self-paced; ~20–30 min between iterations,
    sooner if the previous iteration found bugs in an adjacent area).
 
@@ -44,39 +49,19 @@ any bugs found, and committing the fixes.
 
 ## Status
 
+The per-section status log (status, last-run date, session notes) is kept in
+`docs/QA_LOOP.local.md`, which is gitignored. Seed it with a table like:
+
 | # | Section | Status | Last run | Notes |
 |---|---|---|---|---|
-| 1 | Auth & Session | pass | 2026-07-16 | Re-verified: all 3 fixes hold (idempotent logout confirmed via 200 on sessionless logout; "Handle" label; clean error copy), full logout/login round-trip clean, zero console errors or warnings. **Backend issue still open**: OAuth callback redirects to the Go backend landing page at `127.0.0.1:8081/` instead of back into the app — needs a fix in `~/Code/coves` `/oauth/callback`. Cosmetic: logout confirm dialog shows the raw backend URL instead of the instance domain. |
-| 2 | Home Feed | pass | 2026-07-16 | Re-verified: all 5 fixes hold (scroll-to-end through ~50 posts with no dead-stop, full end message, untitled fallback, zero nested anchors, zero console warnings on the feed). Sort + vote round-trips clean. Carry-forwards: post detail page still logs 6 dev warnings/load (1 ownership via SvelteKit data prop, 4 CommentTree virtualizer bindings, 1 isAdmin stub — all catalogued in §4); sidebar "Posts 0" stat (backend); vote count transition may announce transient values to screen readers. |
-| 3 | Community Pages | pass | 2026-07-16 | Re-verified (2nd pass): settings gates, 404 for unknown communities, canonical links (zero `/c/c-` hrefs anywhere), and DID-fallback links all hold; pagination + subscribe round-trip clean. **Backend issues still open**: `community.get` omits `viewer` state (subscribe resets on reload — `community.list` has the correct pattern to copy); stats counters disagree with reality. Carry-forwards: feed loader logs a console error on community-404 pages before the 404 renders; `displayHandle` unused (header shows `!c-science.coves.social`); community sort dropdown renders no selected value; catalogued dev-only binding warnings on /c pages. |
-| 4 | Post Detail & Comments | pass | 2026-07-16 | Re-verified (2nd pass): delete-confirmation modal works end-to-end (cancel preserves, confirm tombstones), zero CommentActions/CommentVote ownership warnings, full lifecycle (create/nest/vote/edit/delete), tombstones link-free, share URLs canonical, permalinks render standalone. Carry-forwards unchanged: CommentTree.svelte:114 virtualizer binding warnings (needs refactor, dev-only), single ownership warning via SvelteKit `data` prop, deleted comments count in totals (backend), `[image-proxy] withPreset non-proxy URL` warning on PDS getBlob avatars. Note: older QA test comments from previous sessions remain on the science post as content/tombstones. |
-| 5 | Creation Flows | pass | 2026-07-16 | Re-verified (2nd pass): community form correct (fields, DNS-name auto-transform, pattern validation blocks bad names with NO network call, zero legacy /api/v3 requests), fresh-post redirect lands on the rendered post (markdown body correct, feed listing, clean delete via confirm modal). +1 new fix: required markdown fields (community description) failed silently — `TextArea` never applied `required` to the DOM; now shows native validation + label asterisks. Carry-forwards: drafts not preserved when navigating away; post delete doesn't navigate/update in place; validation is native-browser only. |
-| 6 | Profiles & Blocks | pass | 2026-07-16 | Re-verified (2nd pass): own profile clean of foreign actions, "Block user" label translated, all 4 gated routes show clean 404s, nav cleanup holds, blocks pages + not-found graceful, zero new console noise. +1 new fix: deep-linked `?type=` filter now honored on hard loads (state seeded from URL). **Backend issues still open**: block records never indexed (jetstream consumer) — blocking untestable end-to-end (block deliberately not clicked to avoid stranding PDS records); blocks-users page migration to `getBlockedUsers` blocked on that. Carry-forward: feed fetch console error on 404 pages. |
-| 7 | Explore & Discovery | pass | 2026-07-16 | Re-verified (2nd pass): subscribe round-trip with zero mutation warnings and exact state restoration, DID-fallback link loads a working community view, search/sort/empty states/canonical links all hold, explore page fully console-clean. Backend diagnostic stands: `community.list` populates `viewer.subscribed`; `community.get` omits it (§3). Carry-forwards: card subtitles show raw `c-` handle text (display only); always-split "Top/Other results"; top cards omit member counts; "Popular" sort non-deterministic; no user/post search; instance stats aggregation (backend). |
-| 8 | Settings, Theme & Shell | pass | 2026-07-16 | Re-verified (2nd pass): mailto link real (zero /profile/support links), 404 pages i18n-warning-free, settings persistence round-trip, dark/system scheme switch, shell nav spot-checks — 0 errors and only the Vite HMR notice across every page. Minor carry-forwards: theme hex inputs report #000000 in a11y snapshot; preset cards use lorem-ipsum sample text. |
-
-## Follow-ups (2026-07-17, post-loop)
-
-- **Backend fixes verified in-app** (required an AppView restart — the running
-  binary predated them): `community.get` now returns `viewer` state, so
-  community-page subscribe survives reload and unsubscribing works (§3/§7
-  flags resolved); block records index within ~5s, so the full block
-  round-trip works — block → listed in `/profile/blocks/users` → feed
-  filtered → unblock → feed restored (§6 flag resolved).
-- **Blocked-users page migrated** to `social.coves.actor.getBlockedUsers`
-  with per-DID profile hydration and Coves-API unblock (was legacy Lemmy
-  shape that could never show blocks). Block/unblock toast i18n keys fixed.
-- **Title-less posts are first-class**: the "Untitled post" fallback is gone;
-  compact rows use a plain-text body excerpt as their clickable text, and
-  detail pages fall back to excerpt → "Post by @handle" for document/og
-  titles.
-- **Fresh-post redirects render optimistically**: the create flow hands an
-  assembled PostView to the post page (one-shot stash) — instant render, no
-  getPost, comments skip straight to the empty state; the `?uri=` retry poll
-  remains for hard reloads.
-- Still open (backend): OAuth callback lands on the Go landing page at
-  `127.0.0.1:8081` after authorize (intermittent in latest runs); instance
-  stats aggregation (`Posts 0`).
+| 1 | Auth & Session | pending | — | |
+| 2 | Home Feed | pending | — | |
+| 3 | Community Pages | pending | — | |
+| 4 | Post Detail & Comments | pending | — | |
+| 5 | Creation Flows | pending | — | |
+| 6 | Profiles & Blocks | pending | — | |
+| 7 | Explore & Discovery | pending | — | |
+| 8 | Settings, Theme & Shell | pending | — | |
 
 ---
 
@@ -86,7 +71,7 @@ any bugs found, and committing the fixes.
 
 **Scenarios**:
 - Load `/login`; form renders with handle + password fields, no console errors.
-- Log in as `mari.local.coves.dev` / `password`; lands back in the app with the
+- Log in as the local test account; lands back in the app with the
   account visible in the nav/profile menu.
 - Bad password shows a user-visible error (not a silent failure or blank page).
 - Guest login flow at `/login/guest` loads and functions.

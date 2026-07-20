@@ -82,6 +82,12 @@
   }: Props = $props()
 
   let envBadge = $derived(getEnvBadge(user.did))
+  let shownName = $derived(
+    displayName ? user.displayName || user.handle : user.handle,
+  )
+  // Without a displayName the primary text already IS the handle — appending
+  // "@handle" would render it twice (e.g. "mari.dev@mari.dev").
+  let showHandleSuffix = $derived(showInstance && shownName !== user.handle)
 </script>
 
 <a
@@ -106,9 +112,9 @@
       class:font-medium={showInstance}
       class="username-text {envBadge && envBadge.classes}"
     >
-      {displayName ? user.displayName || user.handle : user.handle}
+      {shownName}
     </span>
-    {#if showInstance}
+    {#if showHandleSuffix}
       <span
         class="text-slate-500 dark:text-zinc-500 font-normal instance-text shrink {instanceClass ??
           ''}"

@@ -204,7 +204,7 @@
     <CommunityLink
       {community}
       style="grid-area: community;"
-      class="shrink no-list-margin"
+      class="shrink no-list-margin justify-self-start"
     />
   {/if}
   <div

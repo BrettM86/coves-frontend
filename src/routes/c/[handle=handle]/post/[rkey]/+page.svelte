@@ -171,7 +171,7 @@
   {#if data.data.value?.post}
     {@const post = data.data.value.post}
 
-    <Material padding="none" rounding="2xl" class="overflow-hidden">
+    <Material padding="none" rounding="2xl" class="overflow-hidden px-4">
       <Post {post} actions={true} view="cozy" />
     </Material>
 

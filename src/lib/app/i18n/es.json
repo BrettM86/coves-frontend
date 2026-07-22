@@ -480,7 +480,7 @@
         },
         "locked": "Esta publicación está cerrada.",
         "banned": "Se ha prohibido su interacción con esta comunidad.",
-        "more": "{{comments:number}} más"
+        "more": "Cargar más"
     },
     "moderation": {
         "report": "Reportar",

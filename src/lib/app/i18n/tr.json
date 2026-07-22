@@ -525,7 +525,7 @@
         },
         "locked": "Bu yazı kilitlidir.",
         "banned": "Bu topluluktan yasaklandınız.",
-        "more": "{{comments:number}} Daha"
+        "more": "Daha fazla yükle"
     },
     "moderation": {
         "report": "Rapor",

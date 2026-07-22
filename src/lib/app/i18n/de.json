@@ -586,7 +586,7 @@
             "label": "Aktionen",
             "link": "Link kopieren"
         },
-        "more": "{{comments:number}} mehr",
+        "more": "Mehr laden",
         "banned": "Du bist aus dieser Community gesperrt."
     },
     "moderation": {

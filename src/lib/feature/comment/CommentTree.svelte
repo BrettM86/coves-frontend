@@ -165,9 +165,7 @@
             onclick={() => fetchChildren(nodes[index])}
             icon={ArrowDownCircle}
           >
-            {$t('comment.more', {
-              comments: node.comment.stats.replyCount,
-            })}
+            {$t('comment.more')}
           </Button>
         {/if}
       </div>

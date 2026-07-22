@@ -581,7 +581,7 @@
         },
         "locked": "Ten post jest zablokowany.",
         "banned": "Zostałeś zbanowany z tej społeczności.",
-        "more": "{{comments:number}} więcej"
+        "more": "Załaduj więcej"
     },
     "moderation": {
         "report": "Zgłoś",

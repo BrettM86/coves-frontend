@@ -571,7 +571,7 @@
         "reply": "תגובה",
         "locked": "הפוסט נעול.",
         "banned": "נחסמת מהקהילה הזו.",
-        "more": "עוד {{comments:number}}"
+        "more": "טען עוד"
     },
     "moderation": {
         "report": "דיווח"

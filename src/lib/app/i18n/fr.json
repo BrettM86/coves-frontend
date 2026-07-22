@@ -671,7 +671,7 @@
             "label": "Actions"
         },
         "locked": "Cette publication est verrouillée.",
-        "more": "{{comments:number}} en plus",
+        "more": "Charger plus",
         "banned": "Vous êtes banni de cette communauté."
     },
     "moderation": {

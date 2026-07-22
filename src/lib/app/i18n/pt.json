@@ -482,7 +482,7 @@
         },
         "reply": "Responder",
         "locked": "Esta publicação está trancada.",
-        "more": "Mais {{comments:number}}",
+        "more": "Carregar mais",
         "banned": "Estás banido desta comunidade."
     },
     "moderation": {

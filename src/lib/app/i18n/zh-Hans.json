@@ -857,7 +857,7 @@
         },
         "locked": "此帖子已被锁定。",
         "banned": "你已被此社群封禁。",
-        "more": "更多 {{comments:number}} 条"
+        "more": "加载更多"
     },
     "error": {
         "language_not_allowed": "该语言在此社群中不被允许。请撤销语言设置以使用社群的默认语言。",

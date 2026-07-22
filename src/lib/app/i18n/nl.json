@@ -747,7 +747,7 @@
         },
         "locked": "Dit bericht is vergrendeld.",
         "banned": "Je bent verbannen uit deze gemeenschap.",
-        "more": "{{comments:number}} meer"
+        "more": "Meer laden"
     },
     "moderation": {
         "report": "Rapporteer",

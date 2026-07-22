@@ -638,7 +638,7 @@
         },
         "locked": "Tämä julkaisu on lukittu.",
         "reply": "Vastaa",
-        "more": "{{comments:number}} lisää",
+        "more": "Lataa lisää",
         "banned": "Olet saanut porttikiellon tähän yhteisöön."
     },
     "common": {

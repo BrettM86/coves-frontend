@@ -777,7 +777,7 @@
     },
     "comment": {
         "reply": "返信",
-        "more": "更に{{comments:number}}件",
+        "more": "さらに読み込む",
         "locked": "投稿は施錠されています。",
         "actions": {
             "label": "操作",

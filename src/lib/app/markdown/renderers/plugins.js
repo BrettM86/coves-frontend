@@ -123,6 +123,27 @@ export const localizeLink = (link) => {
   // support@coves.social on /legal) into a dead /profile/ link.
 }
 
+// Markdown link targets are untrusted user content. Enforce a protocol
+// allowlist here rather than relying on upstream regex stripping: the URL
+// parser normalizes tricks like embedded tabs in "java\tscript:" that
+// pattern-based blocklists miss. Relative links resolve against the base
+// and come out as https:, so they pass.
+export const SAFE_PROTOCOLS = new Set(['http:', 'https:', 'mailto:'])
+
+/**
+ * Whether a markdown link href is safe to render as an anchor.
+ * @param {string} href
+ * @returns {boolean}
+ */
+export const isSafeHref = (href) => {
+  if (!href) return false
+  try {
+    return SAFE_PROTOCOLS.has(new URL(href, 'https://base.invalid').protocol)
+  } catch {
+    return false
+  }
+}
+
 export function subSupscriptExtension(tokensExtractor) {
   return {
     name: 'subscriptSuperscript',

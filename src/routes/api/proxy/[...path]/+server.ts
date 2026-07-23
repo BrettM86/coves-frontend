@@ -1,4 +1,6 @@
 import type { RequestHandler } from './$types'
+import { env } from '$env/dynamic/private'
+import { env as publicEnv } from '$env/dynamic/public'
 import { DEFAULT_INSTANCE_URL } from '$lib/app/instance.svelte'
 import { validateProxyPath } from '../validate'
 
@@ -45,6 +47,25 @@ import { validateProxyPath } from '../validate'
  */
 
 /**
+ * Resolves an instance value (which may lack a scheme) to a URL origin,
+ * applying the same https:// protocol-defaulting used when deriving the
+ * proxy target from the session instance. Returns null when the value is
+ * empty or unparseable.
+ */
+function toOrigin(instance: string | undefined): string | null {
+  if (!instance) return null
+  const withProtocol =
+    instance.startsWith('http://') || instance.startsWith('https://')
+      ? instance
+      : `https://${instance}`
+  try {
+    return new URL(withProtocol).origin
+  } catch {
+    return null
+  }
+}
+
+/**
  * Handles proxying requests to the upstream Coves server.
  * Injects the Authorization header from the session if available.
  */
@@ -78,6 +99,18 @@ async function handler({
   const instance = locals.auth.authenticated
     ? locals.auth.account.instance
     : DEFAULT_INSTANCE_URL
+  if (!instance) {
+    return new Response(
+      JSON.stringify({
+        error: 'Internal Server Error',
+        message: 'No instance URL configured',
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    )
+  }
   let baseUrl: string
   if (instance.startsWith('http://') || instance.startsWith('https://')) {
     // Instance already has protocol, use as-is
@@ -87,18 +120,36 @@ async function handler({
     baseUrl = `https://${instance}`
   }
 
-  // In production, only allow HTTPS URLs to prevent MITM attacks
+  // In production, only allow HTTPS URLs to prevent MITM attacks.
+  // ALLOW_HTTP_INTERNAL_INSTANCE=true is an explicit operator opt-in for
+  // deployments that reach the backend over a private network (e.g. the
+  // Docker service `http://appview:8080`), where plaintext is the norm.
+  // The exemption is scoped: plaintext is permitted ONLY when the target
+  // origin equals the operator-configured PUBLIC_INTERNAL_INSTANCE (which
+  // must carry an explicit http:// scheme to match) — a session-derived
+  // instance can never downgrade the proxy to http://.
   if (import.meta.env.PROD && baseUrl.startsWith('http://')) {
-    return new Response(
-      JSON.stringify({
-        error: 'Bad Request',
-        message: 'HTTP URLs are not allowed in production',
-      }),
-      {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      },
-    )
+    const allowedHttpOrigin =
+      env.ALLOW_HTTP_INTERNAL_INSTANCE === 'true'
+        ? toOrigin(publicEnv.PUBLIC_INTERNAL_INSTANCE)
+        : null
+    const targetOrigin = toOrigin(baseUrl)
+    if (
+      allowedHttpOrigin === null ||
+      targetOrigin === null ||
+      targetOrigin !== allowedHttpOrigin
+    ) {
+      return new Response(
+        JSON.stringify({
+          error: 'Bad Request',
+          message: 'HTTP URLs are not allowed in production',
+        }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+    }
   }
   // Remove trailing slash from baseUrl if present to avoid double slashes
   // Preserve query parameters from the original request
@@ -138,6 +189,15 @@ async function handler({
       fetchOptions.body = await request.blob()
     }
 
+    // Bound upstream latency: a hung backend must fail this request rather
+    // than accumulate pending connections until the process is starved.
+    // The signal is created only after the client body has been fully read,
+    // so a slow client upload doesn't eat into the upstream's 30s budget.
+    // Known limitation (accepted risk): the signal continues to govern the
+    // response body stream after headers return, so an upstream stream that
+    // takes >30s in total is truncated mid-stream rather than mapped to 504.
+    fetchOptions.signal = AbortSignal.timeout(30_000)
+
     const response = await fetchFn(targetUrl, fetchOptions)
 
     // Return response, stripping headers that SvelteKit should handle
@@ -158,14 +218,21 @@ async function handler({
       `Proxy error [${request.method} /${path}] [requestId: ${requestId}]:`,
       error,
     )
+    // Name-based check rather than `instanceof DOMException`: under other
+    // runtimes (e.g. the Bun adapter) the abort error may not be a
+    // DOMException, but timeout aborts are always named 'TimeoutError'.
+    // DOMException subclasses Error in modern runtimes, so this narrows safely.
+    const timedOut = error instanceof Error && error.name === 'TimeoutError'
     return new Response(
       JSON.stringify({
-        error: 'Bad Gateway',
-        message: 'Failed to connect to upstream server',
+        error: timedOut ? 'Gateway Timeout' : 'Bad Gateway',
+        message: timedOut
+          ? 'Upstream server timed out'
+          : 'Failed to connect to upstream server',
         requestId,
       }),
       {
-        status: 502,
+        status: timedOut ? 504 : 502,
         headers: { 'Content-Type': 'application/json' },
       },
     )

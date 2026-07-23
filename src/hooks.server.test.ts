@@ -162,6 +162,7 @@ describe('hooks.server handle', () => {
 
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:4000/api/me', {
         headers: { Cookie: 'coves_session=sealed-token-value' },
+        signal: expect.any(AbortSignal),
       })
       expect(event.locals.auth.authenticated).toBe(true)
       if (event.locals.auth.authenticated) {
@@ -304,6 +305,33 @@ describe('hooks.server handle', () => {
         expect.any(TypeError),
       )
       expect(resolve).toHaveBeenCalledWith(event)
+
+      warnSpy.mockRestore()
+    })
+
+    it('classifies TimeoutError and AbortError as network errors by name', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      for (const name of ['TimeoutError', 'AbortError']) {
+        warnSpy.mockClear()
+        mockFetch.mockRejectedValue(new DOMException('operation failed', name))
+
+        const cookies = createMockCookies({
+          coves_session: 'sealed-token-value',
+        })
+        const event = createMockEvent({ cookies })
+        const resolve = createMockResolve()
+
+        await handle({ event, resolve })
+
+        expect(event.locals.auth.authenticated).toBe(false)
+        expect(event.locals.authError).toBe('network_error')
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Network error calling /api/me'),
+          expect.any(DOMException),
+        )
+        expect(cookies.delete).not.toHaveBeenCalled()
+      }
 
       warnSpy.mockRestore()
     })
@@ -515,6 +543,7 @@ describe('hooks.server handle', () => {
         'https://coves.example.com/api/me',
         {
           headers: { Cookie: 'coves_session=sealed-token-value' },
+          signal: expect.any(AbortSignal),
         },
       )
       expect(event.locals.auth.authenticated).toBe(true)
@@ -676,5 +705,104 @@ describe('hooks.server handleError', () => {
     })
 
     expect(result).toEqual({ message: 'An unexpected error occurred' })
+  })
+
+  describe('log sanitization', () => {
+    const sealedToken = 'sealed-session-token-v1.super-secret-value'
+
+    /**
+     * Creates an event carrying the sealed session token in both places it
+     * lives on a real authenticated request: the Cookie header and locals.auth.
+     */
+    function createEventWithToken(): RequestEvent {
+      const cookies = createMockCookies({ coves_session: sealedToken })
+      const event = createMockEvent({
+        cookies,
+        locals: {
+          auth: {
+            authenticated: true,
+            account: {
+              did: 'did:plc:test123',
+              handle: 'test.example.com',
+              pdsUrl: 'https://pds.example.com',
+              sealedToken,
+            },
+            authToken: sealedToken,
+          },
+        } as unknown as App.Locals,
+      })
+      // Replace the bare request with one that includes the session cookie
+      // header, as the real server would receive it.
+      Object.assign(event, {
+        request: new Request(event.url, {
+          headers: { Cookie: `coves_session=${sealedToken}` },
+        }),
+      })
+      return event
+    }
+
+    /** Best-effort string form of a logged argument for content assertions. */
+    function stringifyLoggedArg(arg: unknown): string {
+      if (typeof arg === 'string') return arg
+      try {
+        return JSON.stringify(arg) ?? String(arg)
+      } catch {
+        return String(arg)
+      }
+    }
+
+    it('never logs the event object or the session token for non-404 errors', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const event = createEventWithToken()
+      await handleError({
+        error: new Error('Internal database connection failed'),
+        event,
+        status: 500,
+        message: 'Internal Server Error',
+      })
+
+      expect(errorSpy).toHaveBeenCalled()
+      for (const call of errorSpy.mock.calls) {
+        for (const arg of call) {
+          expect(arg).not.toBe(event)
+          expect(stringifyLoggedArg(arg)).not.toContain(sealedToken)
+        }
+      }
+
+      errorSpy.mockRestore()
+    })
+
+    it('does not call console.error for 404 errors', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      await handleError({
+        error: new Error('Page not found'),
+        event: createEventWithToken(),
+        status: 404,
+        message: 'Not Found',
+      })
+
+      expect(errorSpy).not.toHaveBeenCalled()
+
+      errorSpy.mockRestore()
+    })
+
+    it('logs the error stack for diagnostics', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const error = new Error('boom')
+      await handleError({
+        error,
+        event: createEventWithToken(),
+        status: 500,
+        message: 'Internal Server Error',
+      })
+
+      expect(error.stack).toBeDefined()
+      expect(errorSpy).toHaveBeenCalledWith(error.stack)
+
+      errorSpy.mockRestore()
+    })
   })
 })

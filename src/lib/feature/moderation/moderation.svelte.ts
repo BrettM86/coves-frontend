@@ -1,11 +1,4 @@
-import type {
-  AuthorView,
-  CommentView,
-  CommunityRef,
-  PostView,
-} from '$lib/api/coves/types'
-import { toast } from 'mono-svelte'
-import type { SubmissionView } from '../legacy/contentview'
+import type { CommentView, PostView } from '$lib/api/coves/types'
 
 /**
  * Moderation modal state. Invariant: when `open` is true, the associated
@@ -21,17 +14,6 @@ interface Modals {
     open: boolean
     item: PostView | CommentView | undefined
   }
-  removing: {
-    open: boolean
-    item: SubmissionView | undefined
-    purge: boolean
-  }
-  banning: {
-    open: boolean
-    banned: boolean
-    user: AuthorView | undefined
-    community: CommunityRef | undefined
-  }
 }
 
 export const modals: Modals = $state({
@@ -39,49 +21,10 @@ export const modals: Modals = $state({
     open: false,
     item: undefined,
   },
-  removing: {
-    open: false,
-    item: undefined,
-    purge: false,
-  },
-  banning: {
-    open: false,
-    banned: false,
-    user: undefined,
-    community: undefined,
-  },
 })
 
 export function report(item: PostView | CommentView) {
   modals.reporting = { open: true, item }
-}
-
-export function remove(item: SubmissionView, purge: boolean = false) {
-  modals.removing = { open: true, item, purge }
-}
-
-export function ban(
-  banned: boolean,
-  item: AuthorView,
-  community?: CommunityRef,
-) {
-  modals.banning = { open: true, user: item, banned, community }
-}
-
-/**
- * @deprecated No Coves API for distinguishing comments
- */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-export function feature(
-  _featured: boolean,
-  _item: CommentView,
-  _jwt: string,
-): void {
-  /* eslint-enable @typescript-eslint/no-unused-vars */
-  toast({
-    content: 'Comment distinguishing is not yet available',
-    type: 'warning',
-  })
 }
 
 export const removalTemplate = (

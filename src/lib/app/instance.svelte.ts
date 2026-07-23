@@ -1,4 +1,4 @@
-import { browser } from '$app/environment'
+import { browser, dev } from '$app/environment'
 import { env } from '$env/dynamic/public'
 import { profile } from './auth.svelte'
 
@@ -18,13 +18,23 @@ export const LINKED_INSTANCE_URL =
     : undefined
 
 const getDefaultInstance = (): string => {
-  if (browser) {
-    return env.PUBLIC_INSTANCE_URL || 'lemdro.id'
-  } else {
-    return (
-      env.PUBLIC_INTERNAL_INSTANCE || env.PUBLIC_INSTANCE_URL || 'lemdro.id'
+  // The instance URL must never default to a third-party host. In production
+  // the server fails fast when PUBLIC_INSTANCE_URL is missing — even if
+  // PUBLIC_INTERNAL_INSTANCE is set, because the browser can only ever see
+  // PUBLIC_INSTANCE_URL, so an internal-only config would leave every client
+  // without an instance. In dev and in the browser we return '' instead of
+  // throwing; server-side consumers (e.g. the API proxy) treat empty as a
+  // hard config error.
+  if (!browser && !dev && !env.PUBLIC_INSTANCE_URL) {
+    throw new Error(
+      '[instance] PUBLIC_INSTANCE_URL is required in production. Set PUBLIC_INSTANCE_URL (PUBLIC_INTERNAL_INSTANCE is optional on top of it).',
     )
   }
+
+  const configured = browser
+    ? env.PUBLIC_INSTANCE_URL
+    : env.PUBLIC_INTERNAL_INSTANCE || env.PUBLIC_INSTANCE_URL
+  return configured || ''
 }
 
 export const DEFAULT_INSTANCE_URL = getDefaultInstance()

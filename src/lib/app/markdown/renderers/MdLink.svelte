@@ -1,6 +1,5 @@
 <script lang="ts">
-  // @ts-nocheck
-  import { localizeLink } from './plugins'
+  import { isSafeHref, localizeLink } from './plugins'
 
   interface Props {
     href?: string
@@ -10,21 +9,18 @@
 
   let { href = '', title = undefined, children }: Props = $props()
 
-  export const parseURL = (href: string) => {
-    try {
-      return new URL(href)
-    } catch {
-      return undefined
-    }
-  }
-
+  let safe = $derived(isSafeHref(href))
   let localized = $derived(localizeLink(href))
 </script>
 
-<a
-  href={localized ?? href}
-  {title}
-  class="hover:underline text-blue-600 dark:text-blue-400"
->
+{#if safe}
+  <a
+    href={localized ?? href}
+    {title}
+    class="hover:underline text-blue-600 dark:text-blue-400"
+  >
+    {@render children?.()}
+  </a>
+{:else}
   {@render children?.()}
-</a>
+{/if}

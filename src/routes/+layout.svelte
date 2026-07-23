@@ -113,6 +113,23 @@
     profile.syncFromServer(page.data.session ?? undefined)
   })
 
+  // Surface auth infrastructure failures from hooks.server.ts (mirrors the
+  // sessionExpired flash handling above): the backend couldn't be reached to
+  // validate the session, so the user may appear logged out even though their
+  // session cookie is preserved. Warn once per outage rather than on every
+  // navigation while the backend stays unreachable.
+  let notifiedAuthNetworkError = false
+  $effect(() => {
+    if (page.data.authError === 'network_error') {
+      if (!notifiedAuthNetworkError) {
+        notifiedAuthNetworkError = true
+        toast({ content: $t('toast.serverUnreachable'), type: 'warning' })
+      }
+    } else {
+      notifiedAuthNetworkError = false
+    }
+  })
+
   let nprogressTimeout = -1
   $effect(() => {
     if (navigating.to) {

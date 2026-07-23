@@ -28,5 +28,6 @@ export const load = async ({ request, locals }) => {
     lang: preferredLanguage,
     session,
     sessionExpired: locals.sessionExpired ?? false,
+    authError: locals.authError ?? null,
   }
 }

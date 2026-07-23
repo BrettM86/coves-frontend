@@ -38,6 +38,13 @@ function getCanonicalHost(): string | null {
  */
 function isNetworkError(error: unknown): boolean {
   if (error instanceof Error) {
+    // AbortSignal.timeout() rejects with a DOMException named 'TimeoutError';
+    // an aborted fetch rejects with 'AbortError'. Match the structured name
+    // rather than message substrings so programming bugs that merely mention
+    // "timeout"/"abort" in their message are not misclassified.
+    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+      return true
+    }
     const msg = error.message.toLowerCase()
     return (
       msg.includes('fetch failed') ||
@@ -97,6 +104,9 @@ export const handle: Handle = async ({ event, resolve }) => {
       headers: {
         Cookie: `coves_session=${covesSession}`,
       },
+      // A hung backend must not pile up requests until the Node process
+      // exhausts sockets — this fetch runs on every authenticated request.
+      signal: AbortSignal.timeout(10_000),
     })
 
     if (!response.ok) {
@@ -170,11 +180,12 @@ export const handleError: HandleServerError = async ({
     return { message: 'Not found' }
   }
 
-  console.error(`An error was captured:`)
-  console.error(error)
-  console.error(`Event:`, event)
-  console.error(`Status:`, status)
-  console.error(`Message:`, message)
+  // Log only safe request context — never the full event, which contains the
+  // session cookie and sealed auth token (locals.auth.authToken).
+  console.error(
+    `[hooks] Error captured: ${event.request.method} ${event.url.pathname} (status ${status}): ${message}`,
+  )
+  console.error(error instanceof Error ? (error.stack ?? error.message) : error)
 
   return { message: 'An unexpected error occurred' }
 }

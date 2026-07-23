@@ -47,6 +47,8 @@ export const POST: RequestHandler = async ({
         headers: {
           Cookie: `coves_session=${authToken}`,
         },
+        // Remote revocation is best-effort — don't let a hung backend stall logout.
+        signal: AbortSignal.timeout(10_000),
       },
     )
     if (!logoutResponse.ok) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { localizeLink, CONTENT_REGEXES } from './plugins'
+import { localizeLink, isSafeHref, CONTENT_REGEXES } from './plugins'
 
 // ---------------------------------------------------------------------------
 // localizeLink() - user links
@@ -90,6 +90,72 @@ describe('localizeLink - non-matching links', () => {
   it('returns undefined for an external comment link (legacy route removed)', () => {
     const result = localizeLink('https://lemmy.world/comment/6789')
     expect(result).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isSafeHref() - protocol allowlist for untrusted markdown link targets
+// ---------------------------------------------------------------------------
+
+describe('isSafeHref', () => {
+  it('rejects javascript: URLs', () => {
+    expect(isSafeHref('javascript:alert(1)')).toBe(false)
+  })
+
+  it('rejects javascript: with an embedded tab (parser strips it)', () => {
+    // The exact bypass this defends against: the URL parser normalizes
+    // "java\tscript:" back to "javascript:", which regex blocklists miss.
+    expect(isSafeHref('java\tscript:alert(1)')).toBe(false)
+  })
+
+  it('rejects javascript: with an embedded newline (parser strips it)', () => {
+    expect(isSafeHref('java\nscript:alert(1)')).toBe(false)
+  })
+
+  it('rejects mixed-case javascript: URLs', () => {
+    expect(isSafeHref('JaVaScRiPt:alert(1)')).toBe(false)
+  })
+
+  it('rejects data: URLs', () => {
+    expect(isSafeHref('data:text/html,x')).toBe(false)
+  })
+
+  it('rejects vbscript: URLs', () => {
+    expect(isSafeHref('vbscript:x')).toBe(false)
+  })
+
+  it('accepts https: URLs', () => {
+    expect(isSafeHref('https://example.com')).toBe(true)
+  })
+
+  it('accepts http: URLs', () => {
+    expect(isSafeHref('http://example.com')).toBe(true)
+  })
+
+  it('accepts mailto: URLs', () => {
+    expect(isSafeHref('mailto:a@b.c')).toBe(true)
+  })
+
+  it('accepts relative paths (resolved against the base)', () => {
+    expect(isSafeHref('/c/technology')).toBe(true)
+  })
+
+  it('accepts fragment-only links', () => {
+    expect(isSafeHref('#section')).toBe(true)
+  })
+
+  it('accepts query-only links', () => {
+    expect(isSafeHref('?query=1')).toBe(true)
+  })
+
+  it('accepts protocol-relative URLs (intentional: resolves to https:)', () => {
+    // "//evil.example" resolves against the https: base, so its protocol is
+    // https: — an ordinary external link, safe to render as an anchor.
+    expect(isSafeHref('//evil.example')).toBe(true)
+  })
+
+  it('rejects the empty string', () => {
+    expect(isSafeHref('')).toBe(false)
   })
 })
 

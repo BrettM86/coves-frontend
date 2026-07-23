@@ -8,6 +8,8 @@
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
+  import RichText from '$lib/app/richtext/RichText.svelte'
+  import { hasFacets } from '$lib/app/richtext/facets'
   import { settings } from '$lib/app/settings.svelte'
   import type { PostLinkRef } from '$lib/feature/post'
   import { publishedToDate } from '$lib/ui/util/date'
@@ -64,6 +66,13 @@
   // comment via a `#comment-<rkey>` URL fragment.
   const domId = $derived(`comment-${parseAtUri(node.comment.uri).rkey}`)
 
+  // Shared by the RichText and Markdown body branches.
+  const bodyClass = $derived([
+    'text-[15px] sm:text-base text-slate-700 dark:text-zinc-300 *:leading-[1.6] break-words space-y-3',
+    page.url.hash.slice(1) === domId &&
+      'material-info px-3 py-1.5 rounded-xl max-w-max',
+  ])
+
   async function save() {
     if (node.comment.isDeleted) return
     if (!profile.current?.jwt) {
@@ -79,18 +88,27 @@
 
     try {
       // The backend performs a full record replace on update, so pass the
-      // existing rich-text fields through to avoid erasing them. Caveat:
-      // facet byte offsets may be stale relative to the edited content.
+      // existing rich-text fields through to avoid erasing them. Facets are
+      // byte-offset annotations over the exact content, so they only survive
+      // an edit that leaves the content unchanged — otherwise stale offsets
+      // would silently corrupt the annotations. This guard is the real
+      // protection: the backend only rejects offsets that land outside the
+      // new content, not stale ones that still fit within it.
       const record = node.comment.record
+      const keptFacets =
+        newComment === record.content ? record.facets : undefined
       const response = await coves().updateComment({
         uri: node.comment.uri,
         content: newComment,
-        facets: record.facets,
+        facets: keptFacets,
         embed: record.embed,
         langs: record.langs,
         labels: record.labels,
       })
+      // Mirror exactly what the server now stores, so the re-render can't
+      // apply old byte offsets to the new content.
       node.comment.record.content = newComment
+      node.comment.record.facets = keptFacets
       node.comment.cid = response.cid
       editing = false
     } catch (err) {
@@ -244,15 +262,20 @@
           'flex flex-col whitespace-pre-wrap max-w-full gap-1 mt-1 relative w-full',
         ]}
       >
-        <Markdown
-          source={node.comment.record.content}
-          noStyle
-          class={[
-            'text-[15px] sm:text-base text-slate-700 dark:text-zinc-300 *:leading-[1.6] break-words space-y-3',
-            page.url.hash.slice(1) === domId &&
-              'material-info px-3 py-1.5 rounded-xl max-w-max',
-          ]}
-        />
+        {#if hasFacets(node.comment.record.facets)}
+          <RichText
+            content={node.comment.record.content}
+            facets={node.comment.record.facets}
+            noStyle
+            class={bodyClass}
+          />
+        {:else}
+          <Markdown
+            source={node.comment.record.content}
+            noStyle
+            class={bodyClass}
+          />
+        {/if}
         {#if actions}
           <!-- TODO(coves-migration): Re-enable ban/lock checking when API provides banned_from_community and post.locked fields -->
           <CommentActions

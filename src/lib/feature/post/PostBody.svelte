@@ -1,5 +1,7 @@
 <script lang="ts">
   import Markdown from '$lib/app/markdown/Markdown.svelte'
+  import RichText from '$lib/app/richtext/RichText.svelte'
+  import { hasFacets } from '$lib/app/richtext/facets'
   import { Button } from 'mono-svelte'
   import { ChevronDoubleDown, Icon } from 'svelte-hero-icons/dist'
   import type { ClassValue } from 'svelte/elements'
@@ -16,6 +18,9 @@
 
   interface Props {
     body: string
+    /** Rich text facets from the record; when present the body is rendered
+     * as canonical plaintext with facet annotations instead of markdown. */
+    facets?: unknown[]
     clickThrough?: boolean
     element?: string
     style?: string
@@ -24,6 +29,7 @@
 
   let {
     body,
+    facets = undefined,
     clickThrough = false,
     element: htmlElement = 'div',
     style = '',
@@ -53,7 +59,15 @@
   ]}
   bind:this={element}
 >
-  <Markdown source={expanded ? body : body.slice(0, 1000)} />
+  {#if hasFacets(facets)}
+    <!-- Facets are byte offsets into the exact content, so slicing when
+         collapsed would misalign annotations (and could split multi-byte
+         chars). The full body always renders; the collapsed max-height
+         clamps it visually. -->
+    <RichText content={body} {facets} />
+  {:else}
+    <Markdown source={expanded ? body : body.slice(0, 1000)} />
+  {/if}
   {#if overflows}
     <Button
       onclick={() => (expanded = !expanded)}

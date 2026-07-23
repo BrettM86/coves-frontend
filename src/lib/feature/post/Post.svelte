@@ -124,6 +124,7 @@
     <PostBody
       element="section"
       body={post.record.content}
+      facets={post.record.facets}
       style="grid-area: body"
       class="relative"
     />

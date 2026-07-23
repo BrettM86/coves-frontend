@@ -556,6 +556,10 @@
         }
     },
     "content": {
+        "spoiler": {
+            "show": "Show spoiler"
+        },
+        "copyCode": "Copy code",
         "all": "All",
         "users": "Users",
         "posts": "Posts",
@@ -777,6 +781,7 @@
         "generatedTitle": "Generated title and body from the URL. Do you want to undo this?",
         "failGenerateTitle": "There was no usable title or description of that website.",
         "restoredFromDraft": "Restored your post from the draft.",
+        "copyFailed": "Couldn't copy to clipboard.",
         "copied": "Copied to clipboard.",
         "approvedApplication": "Approved that application.",
         "deniedApplication": "Denied that application.",

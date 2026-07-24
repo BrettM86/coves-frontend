@@ -29,8 +29,6 @@
             },
             "theme": "Tema",
             "about": "Hakkında",
-            "source": "Kaynak",
-            "donate": "Bağış yap",
             "instance": "Sunucu"
         },
         "commands": {
@@ -228,7 +226,6 @@
             "overview": "Genel Bakış",
             "submissions": "Gönderimler"
         },
-        "translators": "Çevirmenler",
         "accounts": "Hesaplar",
         "communities": {
             "title": "Topluluklar",
@@ -705,7 +702,6 @@
                 "zh-Hans": "Çince (Basitleştirilmiş)",
                 "zh-Hant": "Çince (Geleneksel)",
                 "auto": "Otomatik",
-                "credits": "Katkıda bulunanlar",
                 "useRtl": {
                     "title": "RTL düzenini kullan",
                     "description": "RTL dilleri için RTL düzeni kullanın."
@@ -793,43 +789,6 @@
                 "invidious": "Invidious sunucusu",
                 "piped": "Piped sunucusu",
                 "description": "YouTube içeriğinin yerleştirileceği sunucu."
-            }
-        },
-        "lemmy": {
-            "title": "Lemmy",
-            "showHiddenPosts": {
-                "title": "Gizli gönderileri göster",
-                "description": "Manuel olarak gizlediğiniz gönderileri gösterin."
-            },
-            "compactFeatured": {
-                "title": "Kompakt öne çıkan gönderiler",
-                "description": "Öne çıkan gönderileri daha kompakt hale getirin"
-            },
-            "markReadPosts": {
-                "title": "Okunmuş gönderileri işaretleme",
-                "description": "Bir gönderiyi tıkladığınızda okundu olarak işaretleme"
-            },
-            "fadeReadPosts": {
-                "title": "Okunan gönderileri soldur",
-                "description": "Daha önce okuduğunuz yazıların başlığını silin"
-            },
-            "crosspostMarker": {
-                "title": "Çapraz gönderileri işaretle",
-                "description": "Çapraz paylaşım sırasında 'çapraz paylaşım yapılan yeri' göster."
-            },
-            "hideSubmissions": {
-                "title": "Gönderimleri gizle",
-                "description": "Belirli gönderim türlerini gizleyin.",
-                "deleted": "Kullanıcı tarafından silindi",
-                "removed": "Moderatör tarafından kaldırıldı"
-            },
-            "nsfwBlur": {
-                "title": "NSFW bulanıklığı",
-                "description": "Görüntüleri bulanıklaştırın ve NSFW gönderilerinin gönderi gövdelerini kaldırın."
-            },
-            "instances": {
-                "title": "Sunucuları göster",
-                "description": "Belirli içeriğin geldiği sunucuları gösterin."
             }
         },
         "moderation": {

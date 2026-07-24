@@ -29,8 +29,6 @@
             },
             "theme": "Téma",
             "about": "Névjegy",
-            "source": "Forrás",
-            "donate": "Adományozás",
             "instance": "Szerver"
         },
         "commands": {
@@ -204,7 +202,6 @@
             },
             "welcome": "Üdvözöljük, {{default}}!"
         },
-        "translators": "Fordítók",
         "accounts": "Fiókok",
         "search": {
             "title": "Keresés",
@@ -478,7 +475,6 @@
                 "zh-Hans": "Kínai (egyszerűsített)",
                 "zh-Hant": "Kínai (hagyományos)",
                 "auto": "Automatikus",
-                "credits": "Kreditek",
                 "en": "Angol",
                 "he": "Héber",
                 "et": "Észt",

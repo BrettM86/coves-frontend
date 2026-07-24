@@ -278,7 +278,6 @@
             "title": "条款",
             "noLegal": "此实例未设置任何条款。"
         },
-        "translators": "翻译",
         "accounts": "账户",
         "communities": {
             "title": "社群",
@@ -354,9 +353,7 @@
             },
             "theme": "主题",
             "about": "关于",
-            "source": "来源",
-            "instance": "站点",
-            "donate": "捐款"
+            "instance": "站点"
         },
         "commands": {
             "contextual": "在此页",
@@ -588,8 +585,7 @@
                 "de": "德语",
                 "fi": "芬兰语",
                 "pt": "葡萄牙语",
-                "zh": "中文",
-                "credits": "致谢"
+                "zh": "中文"
             },
             "expandImages": {
                 "description": "点击帖子图片会使您进入大图浏览，而不是帖子页面。",
@@ -668,43 +664,6 @@
             "reverseActions": {
                 "title": "反转操作列",
                 "description": "反转帖子和评论中的操作顺序。"
-            }
-        },
-        "lemmy": {
-            "nsfwBlur": {
-                "title": "模糊 NSFW 内容",
-                "description": "模糊图像并移除NSFW帖子的内容。"
-            },
-            "fadeReadPosts": {
-                "description": "淡化你已经阅读过的帖子的标题",
-                "title": "淡化已读帖子"
-            },
-            "markReadPosts": {
-                "description": "点击帖子时，将其标记为已读",
-                "title": "将帖子标记为已读"
-            },
-            "instances": {
-                "description": "显示某些内容来自的实例。",
-                "title": "显示实例"
-            },
-            "title": "Lemmy",
-            "showHiddenPosts": {
-                "title": "显示被隐藏的帖子",
-                "description": "显示您手动隐藏的帖子。"
-            },
-            "compactFeatured": {
-                "title": "紧凑显示精华帖",
-                "description": "使精华帖的展示更加紧凑"
-            },
-            "crosspostMarker": {
-                "title": "标记转帖",
-                "description": "转帖时显示 '转自'。"
-            },
-            "hideSubmissions": {
-                "title": "隐藏提交内容",
-                "description": "隐藏某些类型的提交内容。",
-                "deleted": "已被用户删除的",
-                "removed": "已被社群管理员删除的"
             }
         },
         "navigation": {

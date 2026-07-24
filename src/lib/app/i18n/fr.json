@@ -26,8 +26,6 @@
             },
             "theme": "Apparence",
             "about": "À propos",
-            "donate": "Faire un Don",
-            "source": "Source",
             "instance": "Instance",
             "app": "Application"
         },
@@ -402,7 +400,6 @@
             }
         },
         "instances": "Instances",
-        "translators": "Traducteurs",
         "createCommunity": "Créer une communauté",
         "modlog": "Journal de modération",
         "verifyEmail": {
@@ -475,7 +472,6 @@
                 "fi": "Finlandais",
                 "pt": "Portugais",
                 "auto": "Automatique",
-                "credits": "Crédits",
                 "title": "Langues",
                 "description": "La langue qui est utilisée dans l'interface.",
                 "note": "Les langues autres que l'Anglais et le Hebreu sont traduits par la communautée, et peuvent être incomplets.",
@@ -605,43 +601,6 @@
                 "description": "L'instance pour charger les liens incorporés de YouTube.",
                 "piped": "instance de Piped",
                 "invidious": "Instance d'Invidious"
-            }
-        },
-        "lemmy": {
-            "showHiddenPosts": {
-                "description": "Afficher les publications que vous avez masqués.",
-                "title": "Afficher les pubications cachés"
-            },
-            "compactFeatured": {
-                "description": " ",
-                "title": "Rendre compact les publications en vedette."
-            },
-            "title": "Lemmy",
-            "nsfwBlur": {
-                "description": "Flouter les images et supprimer les corps des messages NSFW.",
-                "title": "Flouter le NSFW"
-            },
-            "instances": {
-                "title": "Afficher les instances",
-                "description": "Montrer de quelle instance provient le contenu."
-            },
-            "crosspostMarker": {
-                "title": "Montrez les crosspublications",
-                "description": "Montrez 'crossposté de' en crosspostant."
-            },
-            "hideSubmissions": {
-                "title": "Cacher des publications/commentaires",
-                "description": "Cacher certains types de publications/commentaires.",
-                "deleted": "Supprimé par l'utilisateur",
-                "removed": "Supprimé par un moderateur"
-            },
-            "markReadPosts": {
-                "title": "Marquer les publications lues",
-                "description": "Maquer une publication comme \"lu\" quand vous cliquez dessus"
-            },
-            "fadeReadPosts": {
-                "title": "Rendre les publications lues semi-transparents",
-                "description": "Rendre les titres des publications lues semi-transparents"
             }
         },
         "moderation": {

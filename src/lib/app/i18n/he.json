@@ -190,7 +190,6 @@
             "overview": "סקירה",
             "submissions": "הגשות"
         },
-        "translators": "מתרגמים",
         "accounts": "חשבונות",
         "communities": {
             "title": "קהילות",
@@ -432,8 +431,6 @@
             },
             "theme": "סגנון",
             "about": "אודות",
-            "source": "מקור",
-            "donate": "תרומה",
             "instance": "שרת"
         },
         "commands": {

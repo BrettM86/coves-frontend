@@ -5,8 +5,9 @@ node_modules
 .git*
 .vscode
 README.md
-Dockerile*
+Dockerfile*
 docker-compose.yml
 public
 .svelte-kit
 build
+.env*

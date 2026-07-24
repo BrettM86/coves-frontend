@@ -1,13 +1,11 @@
 <script lang="ts">
-  import { env } from '$env/dynamic/public'
   import { locale, t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
   import Sort from '$lib/feature/filter/Sort.svelte'
   import ViewSelect from '$lib/feature/filter/ViewSelect.svelte'
-  import Link from '$lib/ui/form/Link.svelte'
   import Switch from '$lib/ui/form/Switch.svelte'
   import { CommonList } from '$lib/ui/layout'
-  import { Button, Option, Select } from 'mono-svelte'
+  import { Option, Select } from 'mono-svelte'
   import {
     ArrowsPointingOut,
     ArrowsRightLeft,
@@ -22,7 +20,6 @@
     DocumentText,
     Fire,
     GlobeAmericas,
-    Heart,
     Icon,
     Language,
     Photo,
@@ -64,28 +61,6 @@
 </script>
 
 <CommonList>
-  {#if env.PUBLIC_XYLIGHT_MODE}
-    <Setting icon={Heart}>
-      {#snippet title()}
-        <span class="dark:text-pink-400 text-pink-600">
-          {$t('nav.menu.donate')}
-        </span>
-      {/snippet}
-      {#snippet description()}
-        {$t('settings.donate.description')}
-      {/snippet}
-      <Button
-        color="none"
-        class="bg-gradient-to-r ml-6 dark:from-pink-400 dark:to-fuchsia-400 from-pink-600 to-red-600 text-white dark:text-black"
-        href="https://buymeacoffee.com/xylight"
-        target="_blank"
-        rounding="xl"
-        icon={Heart}
-      >
-        {$t('nav.menu.donate')}
-      </Button>
-    </Setting>
-  {/if}
   <Setting icon={Language}>
     {#snippet title()}
       {$t('settings.app.lang.title')}
@@ -93,9 +68,6 @@
     {#snippet description()}
       <p>
         {$t('settings.app.lang.description')}
-        <Link href="/translators" highlight class="text-base font-semibold">
-          {$t('settings.app.lang.credits')}
-        </Link>
       </p>
     {/snippet}
     <!--@ts-ignore-->

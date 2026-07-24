@@ -41,8 +41,7 @@
                 "zh": "中国語",
                 "zh-Hans": "中国語（簡体）",
                 "zh-Hant": "中国語（繁体）",
-                "auto": "自動",
-                "credits": "クレジット"
+                "auto": "自動"
             },
             "infiniteScroll": {
                 "title": "無限スクロール",
@@ -127,43 +126,6 @@
         "export": "エクスポート",
         "import": "インポート",
         "reset": "リセット",
-        "lemmy": {
-            "crosspostMarker": {
-                "description": "クロスポストを作るときに転送元を表示。",
-                "title": "転送投稿を印付ける"
-            },
-            "compactFeatured": {
-                "description": "モデレーターが勧めた投稿を普通の投稿より小さくする",
-                "title": "ピン付投稿をコンパクト表示する"
-            },
-            "nsfwBlur": {
-                "description": "成人向けの投稿の画像にモザイクを付け、本文プレビューを隠します。",
-                "title": "NSFWモザイク"
-            },
-            "title": "Lemmy",
-            "showHiddenPosts": {
-                "title": "非表示した投稿を見せる",
-                "description": "手動で非表示した投稿を表示します。"
-            },
-            "markReadPosts": {
-                "title": "既読投稿を印付ける",
-                "description": "クリックした投稿を既読として記す"
-            },
-            "fadeReadPosts": {
-                "title": "既読投稿を薄れて表示する",
-                "description": "既に読んだ投稿の題名を薄れて表示します"
-            },
-            "hideSubmissions": {
-                "title": "投稿を隠す",
-                "description": "特定の投稿を非表示します。",
-                "deleted": "ユーザーが削除した投稿",
-                "removed": "モデレーターが撤去した投稿"
-            },
-            "instances": {
-                "title": "インスタンスを表示",
-                "description": "コンテンツはどのインスタンスから送信かを表示。"
-            }
-        },
         "moderation": {
             "replyPresets": {
                 "description": "投稿撤去時の理由でよく使うプリセット。",
@@ -333,8 +295,6 @@
             },
             "theme": "テーマ",
             "about": "情報",
-            "source": "ソースコード",
-            "donate": "寄付する",
             "instance": "インスタンス"
         }
     },
@@ -510,7 +470,6 @@
                 "warning": "この操作は元に戻せません。よろしいですか？"
             }
         },
-        "translators": "翻訳者",
         "accounts": "アカウント",
         "communities": "コミュニティ",
         "search": {

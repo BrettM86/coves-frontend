@@ -25,11 +25,9 @@
                 "light": "Valge"
             },
             "theme": "Theme",
-            "donate": "Anneta",
             "instance": "Server",
             "app": "Äpp",
-            "about": "Info",
-            "source": "Allikas"
+            "about": "Info"
         },
         "admin": "Admin",
         "commands": {
@@ -295,7 +293,7 @@
             },
             "view": {
                 "title": "Postituse stiil",
-                "legacy": "Vana photoni nägemus."
+                "legacy": "Vana Covesi nägemus."
             },
             "sort": {
                 "title": "tavaline sorteerimine"
@@ -313,11 +311,6 @@
             },
             "youtube": {
                 "description": "Interneti domeen et embedida YouTuubi videoid."
-            }
-        },
-        "lemmy": {
-            "instances": {
-                "title": "Näe serverit"
             }
         },
         "moderation": {

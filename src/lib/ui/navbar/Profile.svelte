@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { env } from '$env/dynamic/public'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
@@ -18,7 +17,6 @@
   import {
     ArrowLeftOnRectangle,
     BugAnt,
-    CodeBracketSquare,
     Cog6Tooth,
     CommandLine,
     ComputerDesktop,
@@ -134,15 +132,5 @@
     >
       <Icon src={ServerStack} size="16" micro />
     </Button>
-    {#if env.PUBLIC_XYLIGHT_MODE?.toLowerCase() == 'true'}
-      <Button
-        color="tertiary"
-        href="https://tangled.org/bretton.dev/coves-frontend"
-        title={$t('nav.menu.source')}
-        size="square-md"
-      >
-        <Icon src={CodeBracketSquare} size="16" micro />
-      </Button>
-    {/if}
   </div>
 </li>

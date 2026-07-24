@@ -2,7 +2,7 @@ import type { RequestHandler } from './$types'
 import { env } from '$env/dynamic/private'
 import { env as publicEnv } from '$env/dynamic/public'
 import { DEFAULT_INSTANCE_URL } from '$lib/app/instance.svelte'
-import { validateProxyPath } from '../validate'
+import { enforceSameOrigin, validateProxyPath } from '../validate'
 
 /**
  * =============================================================================
@@ -73,14 +73,23 @@ async function handler({
   params,
   request,
   locals,
+  url,
   fetch: fetchFn,
 }: {
   params: { path: string }
   request: Request
   locals: App.Locals
+  url: URL
   fetch: typeof fetch
 }): Promise<Response> {
   const path = params.path
+
+  // CSRF defense-in-depth: reject cross-origin state-changing requests
+  // (see enforceSameOrigin for the full policy rationale).
+  const csrfRejection = enforceSameOrigin(request, url.origin, path)
+  if (csrfRejection) {
+    return csrfRejection
+  }
 
   // Validate path for security issues
   const pathError = validateProxyPath(path)

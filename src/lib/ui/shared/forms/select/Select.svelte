@@ -169,7 +169,7 @@
             class="text-slate-600 dark:text-zinc-400"
           />
         {/if}
-        {@html option.label}
+        {option.label}
       </MenuButton>
     {/if}
   {/each}

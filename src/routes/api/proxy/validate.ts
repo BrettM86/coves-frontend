@@ -1,3 +1,5 @@
+import { validateRequestOrigin } from '$lib/server/csrf'
+
 /**
  * Validates a proxy path for security issues.
  * Returns an error message if the path is invalid, or null if it's safe.
@@ -40,4 +42,48 @@ export function validateProxyPath(path: string): string | null {
   }
 
   return null
+}
+
+/**
+ * CSRF defense-in-depth for state-changing proxy requests.
+ *
+ * SameSite=Lax on the session cookie already blocks most CSRF vectors, but
+ * the proxy carries every authenticated write, so the Origin/Referer headers
+ * are validated too (same policy as /api/auth/logout). GET/HEAD are exempt:
+ * reads are side-effect-free and Lax deliberately allows top-level GET
+ * navigations.
+ *
+ * Returns a 403 Response to short-circuit with, or null when the request may
+ * proceed. Exported so the tests exercise the same code the route ships —
+ * a test-local copy of this check would stay green if the real one were
+ * removed.
+ */
+export function enforceSameOrigin(
+  request: Request,
+  expectedOrigin: string,
+  path: string,
+): Response | null {
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    return null
+  }
+
+  const originResult = validateRequestOrigin(request, expectedOrigin)
+  if (originResult.valid) {
+    return null
+  }
+
+  console.warn(
+    `[proxy] Cross-origin ${request.method} /${path} blocked:`,
+    originResult.reason,
+  )
+  return new Response(
+    JSON.stringify({
+      error: 'Forbidden',
+      message: 'Cross-origin requests not allowed',
+    }),
+    {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    },
+  )
 }

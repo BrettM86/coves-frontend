@@ -31,7 +31,10 @@ export default ts.config(
       'no-undef': 'off',
       // sveltekit should make this native then
       'svelte/valid-prop-names-in-kit-pages': 'off',
-      'svelte/no-at-html-tags': 'off',
+      // {@html} is an XSS sink — every use needs an explicit, justified
+      // eslint-disable comment (a shared-component use once shipped as a
+      // mutation-XSS landmine because this rule was off)
+      'svelte/no-at-html-tags': 'error',
       '@typescript-eslint/no-unsafe-function-type': 'off',
       'svelte/require-each-key': 'off',
       'svelte/prefer-writable-derived': 'off',

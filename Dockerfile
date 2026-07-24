@@ -1,39 +1,33 @@
-# Base stage for both Bun and Node.js
-FROM alpine:3.14 AS base
+# Build stage — installs with the committed pnpm lockfile for reproducible builds
+FROM node:22-alpine AS builder
 WORKDIR /app
-COPY package.json .
-
-# Bun stage
-FROM oven/bun:1.2.9-alpine AS bun-builder
-WORKDIR /app
-COPY --from=base /app/package.json .
+RUN npm install -g pnpm@10.28.2
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN bun install
-RUN ADAPTER=bun bun run build
+RUN ADAPTER=node pnpm run build
+# Drop devDependencies so the runtime image only ships production deps
+RUN pnpm prune --prod
 
-# Node.js stage
-FROM node:20-alpine AS node-builder
+# Runtime stage
+#
+# Required runtime environment (set in docker-compose / orchestrator):
+#   ORIGIN                       - public URL of this frontend (e.g. https://coves.social);
+#                                  adapter-node needs it behind a proxy for correct
+#                                  origin/form-action checks
+#   PUBLIC_INSTANCE_URL          - public URL of the Coves backend
+#   PUBLIC_INTERNAL_INSTANCE     - internal backend URL for SSR/proxy hops
+#                                  (e.g. http://appview:8080)
+#   ALLOW_HTTP_INTERNAL_INSTANCE - "true" only if PUBLIC_INTERNAL_INSTANCE is plaintext
+#                                  http:// on a private network
+FROM node:22-alpine AS node
+ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=base /app/package.json .
-COPY . .
-RUN npm install --no-lockfile
-RUN ADAPTER=node npm run build
-
-# Final Node.js image
-FROM node:20-alpine AS node
+COPY --from=builder /app/build ./build
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
 USER node
-WORKDIR /app
-COPY --from=node-builder /app/build /app/build
-COPY --from=node-builder /app/node_modules /app/node_modules
-COPY --from=node-builder /app/package.json /app/package.json
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:3000/healthz || exit 1
 CMD ["node", "build/index.js"]
-
-# Final Bun image
-FROM oven/bun:1.2.9-alpine AS bun
-WORKDIR /app
-COPY --from=bun-builder /app/build /app/build
-COPY --from=bun-builder /app/node_modules /app/node_modules
-EXPOSE 3000
-USER bun
-CMD ["bun", "build/index.js"]

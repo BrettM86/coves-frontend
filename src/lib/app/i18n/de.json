@@ -28,8 +28,6 @@
             },
             "theme": "Thema",
             "about": "Über",
-            "source": "Quellcode",
-            "donate": "Spenden",
             "instance": "Instanz"
         },
         "moderation": "Moderation",
@@ -258,7 +256,6 @@
             "upvoted": "Hochgestimmt",
             "downvoted": "Heruntergestimmt"
         },
-        "translators": "Übersetzer",
         "communities": {
             "trending": "im Trend",
             "search": {
@@ -694,7 +691,6 @@
                 "fi": "Finnisch",
                 "pt": "Portugiesisch",
                 "auto": "Automatisch",
-                "credits": "Anerkennungen",
                 "title": "Sprache",
                 "en": "Englisch",
                 "en-US": "Englisch (US)",
@@ -757,32 +753,6 @@
                 "on": "An",
                 "off": "Aus",
                 "adaptive": "Adaptiv"
-            }
-        },
-        "lemmy": {
-            "compactFeatured": {
-                "description": "Stellt vorgestellte Beiträge kompakter dar.",
-                "title": "Kompakte vorgestellte Beiträge"
-            },
-            "markReadPosts": {
-                "title": "Gelesene Beiträge markieren",
-                "description": "Markiert einen Beitrag als gelesen, wenn du auf ihn klickst."
-            },
-            "fadeReadPosts": {
-                "title": "Gelesene Beiträge verblassen",
-                "description": "Titel von Beiträgen, die Du bereits gelesen hast, verblassen lassen"
-            },
-            "hideSubmissions": {
-                "deleted": "Vom Nutzer gelöscht",
-                "removed": "Durch einen Moderator entfernt"
-            },
-            "instances": {
-                "title": "Instanzen anzeigen"
-            },
-            "title": "Lemmy",
-            "showHiddenPosts": {
-                "title": "Versteckte Beiträge anzeigen",
-                "description": "Zeige die von Dir versteckten Beiträge an."
             }
         },
         "beta": "Beta",

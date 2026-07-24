@@ -28,7 +28,6 @@
             },
             "theme": "主題",
             "about": "關於",
-            "source": "來源",
             "instance": "站點",
             "label": "個人資料"
         }
@@ -211,12 +210,6 @@
             "lang": {
                 "auto": "自動",
                 "title": "語言"
-            }
-        },
-        "lemmy": {
-            "nsfwBlur": {
-                "description": "模糊圖片並隱藏限制級(NSFW)帖文預覽。",
-                "title": "限制級(NSFW) 遮擋"
             }
         }
     },

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { SealedToken, InstanceURL } from '$lib/server/session'
-import { validateProxyPath } from './validate'
+import { enforceSameOrigin, validateProxyPath } from './validate'
 
 // Mock SvelteKit types for testing - mirrors App.AuthState
 type MockAuthState =
@@ -35,9 +35,18 @@ async function createHandler(options: {
   request: Request
   locals: MockLocals
   fetch: MockFetch
+  url?: URL
 }): Promise<Response> {
   const { params, request, locals, fetch: fetchFn } = options
+  const url = options.url ?? new URL(request.url)
   const path = params.path
+
+  // CSRF gate: this is the REAL exported gate from validate.ts — the same
+  // code the production route runs, not a test-local copy.
+  const csrfRejection = enforceSameOrigin(request, url.origin, path)
+  if (csrfRejection) {
+    return csrfRejection
+  }
 
   // Validate path for security issues
   const pathError = validateProxyPath(path)
@@ -885,6 +894,104 @@ describe('API Proxy', () => {
       // In test/dev, HTTP should work
       // Note: createHandler uses https:// prefix, so this tests the handler accepts
       // the request. The actual +server.ts implementation handles HTTP instances.
+      expect(response.status).toBe(200)
+    })
+  })
+
+  describe('CSRF origin validation', () => {
+    it('rejects cross-origin POST requests with 403', async () => {
+      const request = new Request('http://localhost/api/proxy/api/v1/posts', {
+        method: 'POST',
+        headers: { Origin: 'https://evil.example.com' },
+        body: JSON.stringify({ title: 'forged' }),
+      })
+
+      const response = await createHandler({
+        params: { path: 'api/v1/posts' },
+        request,
+        locals: createAuthenticatedLocals('token', 'test.coves.social'),
+        fetch: mockFetch,
+      })
+
+      expect(response.status).toBe(403)
+      const body = await response.json()
+      expect(body.error).toBe('Forbidden')
+      // The forged request must never reach the upstream backend
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+
+    it('rejects cross-origin requests identified only by Referer', async () => {
+      const request = new Request('http://localhost/api/proxy/api/v1/posts', {
+        method: 'DELETE',
+        headers: { Referer: 'https://evil.example.com/attack-page' },
+      })
+
+      const response = await createHandler({
+        params: { path: 'api/v1/posts' },
+        request,
+        locals: createAuthenticatedLocals('token', 'test.coves.social'),
+        fetch: mockFetch,
+      })
+
+      expect(response.status).toBe(403)
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+
+    it('allows same-origin POST requests', async () => {
+      mockFetch.mockResolvedValue(new Response('OK', { status: 200 }))
+
+      const request = new Request('http://localhost/api/proxy/api/v1/posts', {
+        method: 'POST',
+        headers: { Origin: 'http://localhost' },
+        body: JSON.stringify({ title: 'legit' }),
+      })
+
+      const response = await createHandler({
+        params: { path: 'api/v1/posts' },
+        request,
+        locals: createAuthenticatedLocals('token', 'test.coves.social'),
+        fetch: mockFetch,
+      })
+
+      expect(response.status).toBe(200)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('allows POST requests with no Origin or Referer header', async () => {
+      // Some browsers/clients strip these headers; rejecting would break them
+      mockFetch.mockResolvedValue(new Response('OK', { status: 200 }))
+
+      const request = new Request('http://localhost/api/proxy/api/v1/posts', {
+        method: 'POST',
+        body: JSON.stringify({ title: 'no-origin client' }),
+      })
+
+      const response = await createHandler({
+        params: { path: 'api/v1/posts' },
+        request,
+        locals: createAuthenticatedLocals('token', 'test.coves.social'),
+        fetch: mockFetch,
+      })
+
+      expect(response.status).toBe(200)
+    })
+
+    it('does not block cross-origin GET requests', async () => {
+      // Reads are safe; only state-changing methods need origin validation
+      mockFetch.mockResolvedValue(new Response('OK', { status: 200 }))
+
+      const request = new Request('http://localhost/api/proxy/api/v1/feed', {
+        method: 'GET',
+        headers: { Origin: 'https://other.example.com' },
+      })
+
+      const response = await createHandler({
+        params: { path: 'api/v1/feed' },
+        request,
+        locals: createUnauthenticatedLocals(),
+        fetch: mockFetch,
+      })
+
       expect(response.status).toBe(200)
     })
   })

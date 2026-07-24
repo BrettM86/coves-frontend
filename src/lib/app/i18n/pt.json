@@ -21,8 +21,6 @@
             },
             "theme": "Tema",
             "about": "Sobre",
-            "source": "Código fonte",
-            "donate": "Doar",
             "instance": "Instância"
         },
         "admin": "Admin",
@@ -323,7 +321,6 @@
             "upvoted": "Votou positivamente",
             "downvoted": "Votou negativamente"
         },
-        "translators": "Tradutores",
         "accounts": "Contas",
         "communities": "Comunidades",
         "saved": "Guardados",
@@ -586,43 +583,6 @@
         "retry": "Tentar novamente"
     },
     "settings": {
-        "lemmy": {
-            "instances": {
-                "description": "Mostrar a instância de onde as coisas vêm.",
-                "title": "Mostrar instâncias"
-            },
-            "hideSubmissions": {
-                "description": "Ocultar certos tipos de submissões.",
-                "title": "Ocultar submissões",
-                "deleted": "Eliminado pelo utilizador",
-                "removed": "Removido por um moderador"
-            },
-            "fadeReadPosts": {
-                "description": "Escurece um pouco o título das publicações que já leste",
-                "title": "Escurecer publicações lidas"
-            },
-            "showHiddenPosts": {
-                "description": "Mostrar as publicações que escondeste manualmente.",
-                "title": "Mostrar publicações escondidas"
-            },
-            "compactFeatured": {
-                "title": "Publicações afixadas compactas",
-                "description": "Tornar publicações afixadas mais compactas"
-            },
-            "title": "Lemmy",
-            "markReadPosts": {
-                "title": "Marcar publicações como lidas",
-                "description": "Marcar uma publicação como lida quando lhe clicas"
-            },
-            "crosspostMarker": {
-                "title": "Marcar publicações cruzadas",
-                "description": "Mostrar \"publicação cruzada em\" quando pertinente."
-            },
-            "nsfwBlur": {
-                "title": "Desfoque de NSFW",
-                "description": "Desfocar imagens e remover texto das publicações NSFW."
-            }
-        },
         "app": {
             "expandImages": {
                 "description": "Clicar na imagem de uma publicação mostra-te uma versão aumentada ao invés de te levar para a página da publicação.",
@@ -645,7 +605,6 @@
                 "fi": "Finlandês",
                 "pt": "Português",
                 "auto": "Automático",
-                "credits": "Créditos",
                 "title": "Idioma",
                 "useRtl": {
                     "description": "Utilizar uma disposição DPE para idiomas dessa natureza.",

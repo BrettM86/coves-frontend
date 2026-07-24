@@ -139,7 +139,9 @@ describe('asOAuthState', () => {
 
   it('throws for invalid state', () => {
     expect(() => asOAuthState('invalid')).toThrow('Invalid OAuthState format')
-    expect(() => asOAuthState('a'.repeat(63))).toThrow('Invalid OAuthState format')
+    expect(() => asOAuthState('a'.repeat(63))).toThrow(
+      'Invalid OAuthState format',
+    )
   })
 })
 
@@ -185,8 +187,20 @@ describe('validateRequestOrigin', () => {
     expect(result.reason).toContain('https://evil.com')
   })
 
+  it('rejects the literal "null" Origin (sandboxed iframe / data: URL)', () => {
+    // Browsers send `Origin: null` for opaque origins — sandboxed iframes,
+    // data: URLs, some redirect chains — all real CSRF delivery vectors.
+    // This must never be "fixed" as a false positive.
+    const request = createMockRequest({ Origin: 'null' })
+    const result = validateRequestOrigin(request, expectedOrigin)
+
+    expect(result.valid).toBe(false)
+  })
+
   it('accepts same-origin requests via Referer header when Origin is missing', () => {
-    const request = createMockRequest({ Referer: 'https://example.com/some/path' })
+    const request = createMockRequest({
+      Referer: 'https://example.com/some/path',
+    })
     const result = validateRequestOrigin(request, expectedOrigin)
 
     expect(result.valid).toBe(true)

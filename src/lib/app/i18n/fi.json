@@ -77,7 +77,6 @@
         },
         "instances": "Instanssit",
         "createPost": "Luo julkaisu",
-        "translators": "Kääntäjät",
         "accounts": "Käyttäjätilit",
         "search": {
             "title": "Haku",
@@ -386,8 +385,6 @@
             },
             "theme": "Teemat",
             "about": "Tietoja",
-            "source": "Lähdekoodi",
-            "donate": "Lahjoita",
             "instance": "Instanssi"
         },
         "communities": "Selaa yhteisöjä",
@@ -722,8 +719,7 @@
         "verifyEmail": "Vahvistuslinkki lähetettiin sähköpostiisi. Vahvista sähköpostisi ja sitten kirjaudu.",
         "settingsImport": "Asetusten tuonti onnistui.",
         "settingsImportWarning": "Tuodut asetukset eivät vaikuta kelvollisilta. Haluatko yrittää siitä huolimatta?",
-        "userLoading": "Ladataan käyttäjätietoja...",
-        "lemmyDonate": "Instanssisi käyttää avoimen lähdekoodin Lemmy-ohjelmistoa. Lemmyn kehittäjät ottavat vastaan lahjoituksia. Kiitos käyttäjien tuen, Lemmy on vapaa mainoksista ja jäljityksestä.\n\nVuosittain he pyytävät harkitsemaan lahjoitusta, jotta Lemmyn ylläpito ja parantaminen jatkuisi.\n\n[Lahjoita](https://join-lemmy.org/donate)\n\n*Huomaa: tämä on lahjoitus Lemmylle, ei Kelpille.*"
+        "userLoading": "Ladataan käyttäjätietoja..."
     },
     "settings": {
         "app": {
@@ -746,7 +742,6 @@
                 "et": "viro",
                 "fr": "ranska",
                 "auto": "automaattinen",
-                "credits": "Kääntäjät",
                 "description": "Käyttöliittymän kieli.",
                 "note": "Virallisesti tuetut kielet ovat englanti ja heprea. Muut käännökset ovat yhteisön tekemiä, eivätkä siten välttämättä ole täydellisiä.",
                 "fi": "suomi",
@@ -865,43 +860,6 @@
             "autoHide": {
                 "title": "Piilota telakka automaattisesti",
                 "description": "Piilottaa telakan mobiilinäkymässä, kun kelaat alaspäin."
-            }
-        },
-        "lemmy": {
-            "compactFeatured": {
-                "title": "Tiiviit nostot",
-                "description": "Näyttää nostetut julkaisut tiiviinä."
-            },
-            "markReadPosts": {
-                "description": "Merkitsee julkaisut luetuksi avattaessa.",
-                "title": "Merkitse avatut julkaisut luetuksi"
-            },
-            "fadeReadPosts": {
-                "title": "Häivytä luetut",
-                "description": "Häivytä luettujen julkaisujen otsikot"
-            },
-            "hideSubmissions": {
-                "title": "Piilota sisältö",
-                "description": "Piilota tietyntyyppinen sisältö.",
-                "removed": "Poistettu moderaattorin toimesta",
-                "deleted": "Poistettu käyttäjän toimesta"
-            },
-            "instances": {
-                "description": "Näyttää instanssin, josta sisältö on kotoisin.",
-                "title": "Näytä instanssit"
-            },
-            "nsfwBlur": {
-                "title": "NSFW-sumennus",
-                "description": "Sumentaa NSFW-julkaisujen kuvat ja piilotta tekstin."
-            },
-            "title": "Lemmy",
-            "crosspostMarker": {
-                "title": "Merkitse ristijulkaisut",
-                "description": "Lisää linkin alkuperäiseen julkaisuun jakaessa ristiin."
-            },
-            "showHiddenPosts": {
-                "title": "Näytä piilotetut julkaisut",
-                "description": "Näyttää käsin piilottamasi julkaisut."
             }
         },
         "moderation": {

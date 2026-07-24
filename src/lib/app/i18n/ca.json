@@ -28,9 +28,7 @@
             },
             "theme": "Tema",
             "about": "Quant a",
-            "donate": "Donar",
             "label": "Perfil",
-            "source": "Codi font",
             "instance": "Instància"
         },
         "commands": {
@@ -262,7 +260,6 @@
             "edit": "Editar",
             "moderates": "Moderant"
         },
-        "translators": "Traductors",
         "communities": {
             "title": "Comunitats",
             "trending": "Tendència",

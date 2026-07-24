@@ -66,6 +66,7 @@
       clazz,
     ]}
   >
+    <!-- eslint-disable-next-line svelte/no-at-html-tags -- DiceBear-generated SVG; the library XML-escapes its seed input -->
     {@html createAvatar(initials, {
       seed: alt,
       backgroundType: ['gradientLinear'],

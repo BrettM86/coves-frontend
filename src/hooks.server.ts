@@ -61,6 +61,16 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
+  // The /util/* debug pages are dev-only. Their +layout.ts guard only runs
+  // client-side when SSR is disabled, which still serves a 200 app shell —
+  // return a real HTTP 404 at the server edge instead.
+  if (
+    !dev &&
+    (event.url.pathname === '/util' || event.url.pathname.startsWith('/util/'))
+  ) {
+    return new Response('Not found', { status: 404 })
+  }
+
   // DEV MODE: Normalize hostname to match the OAuth callback domain.
   // The ATProto PDS requires 127.0.0.1 in redirect_uri (per RFC 8252), so the
   // coves_session cookie is set on 127.0.0.1. If the user accesses the app via

@@ -175,16 +175,55 @@ export const inDarkColorScheme = (): boolean => {
   return false
 }
 
-function loadTheme() {
+function isTheme(value: unknown): value is Theme {
+  if (!value || typeof value !== 'object') return false
+  const t = value as Theme
+  return (
+    typeof t.id === 'number' &&
+    typeof t.name === 'string' &&
+    !!t.colors &&
+    typeof t.colors === 'object'
+  )
+}
+
+function loadTheme(): ThemeData | undefined {
   if (!browser) return
   const localTheme = localStorage.getItem('theme.data')
+  if (!localTheme) return
 
-  if (localTheme) {
-    const data = JSON.parse(localTheme)
-    if (!data) return
-    data.themes = [...presets, ...data.themes]
-    return data
+  // This runs at module init: a corrupted or malformed value must fall back
+  // to defaults, not throw and white-screen the app on every future visit.
+  // Every theme entry is validated individually — a top-level shape check
+  // alone lets e.g. {"themes":[null]} through, which then crashes the
+  // persist effect and derived state on every visit without ever hitting
+  // the cleanup path below.
+  try {
+    const data: unknown = JSON.parse(localTheme)
+    if (
+      !data ||
+      typeof data !== 'object' ||
+      !Array.isArray((data as ThemeData).themes)
+    ) {
+      console.warn('[theme] discarding malformed theme.data:', localTheme)
+      localStorage.removeItem('theme.data')
+      return
+    }
+    const parsed = data as ThemeData
+    const validThemes = parsed.themes.filter(isTheme)
+    if (validThemes.length < parsed.themes.length) {
+      console.warn(
+        '[theme] dropped invalid entries from theme.data:',
+        localTheme,
+      )
+    }
+    parsed.themes = [...presets, ...validThemes]
+    if (typeof parsed.currentTheme !== 'number') {
+      parsed.currentTheme = 0
+    }
+    return parsed
+  } catch (err) {
+    console.warn('[theme] discarding unparseable theme.data:', localTheme, err)
+    localStorage.removeItem('theme.data')
+    return
   }
-
-  return
 }

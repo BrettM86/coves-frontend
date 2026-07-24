@@ -7,11 +7,19 @@ Based on [Photon](https://github.com/Xyphyn/photon) by [Xyphyn](https://github.c
 ## Development
 
 ```sh
-bun install
-bun run dev
+pnpm install
+pnpm dev          # start dev server
+pnpm check        # TypeScript + Svelte type checking
+pnpm lint         # ESLint
+pnpm test         # Vitest
+pnpm build        # production build (ADAPTER=node for the Docker image)
 ```
 
 Built with [SvelteKit](https://svelte.dev/docs/kit), Svelte 5, and Tailwind CSS.
+
+Configuration (environment variables) is documented in
+[.github/README.md](.github/README.md); the production container's required
+runtime env is documented in the [Dockerfile](Dockerfile).
 
 ## License
 

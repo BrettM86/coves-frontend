@@ -135,7 +135,6 @@
             "title": "Informacje prawne",
             "noLegal": "Ta instancja nie zawiera żadnych informacji prawnych."
         },
-        "translators": "Tłumacze",
         "accounts": "Konta",
         "communities": {
             "trending": "Popularne",
@@ -387,8 +386,6 @@
             },
             "theme": "Motyw",
             "about": "O nas",
-            "source": "Źródło",
-            "donate": "Przekaż darowiznę",
             "instance": "Instancja"
         },
         "commands": {
@@ -726,7 +723,6 @@
                 "zh": "Chiński",
                 "zh-Hans": "Chiński (uproszczony)",
                 "auto": "Auto",
-                "credits": "Kredyty",
                 "useRtl": {
                     "title": "Użyj układu RTL",
                     "description": "Użyj układu RTL dla języków RTL."
@@ -851,43 +847,6 @@
                 "description": "Ukrywa dock na telefonie gdy przewijasz w dół. Dock pojawi się z powrotem gdy przewiniesz w górę."
             }
         },
-        "lemmy": {
-            "instances": {
-                "title": "Pokaż instancje",
-                "description": "Pokaż instancje, z których pochodzą określone treści."
-            },
-            "title": "Lemmy",
-            "showHiddenPosts": {
-                "title": "Pokaż ukryte posty",
-                "description": "Pokaż posty, które zostały ręcznie ukryte."
-            },
-            "compactFeatured": {
-                "title": "Kompaktowe wyróżnione posty",
-                "description": "Spraw, by wyróżnione posty były bardziej kompaktowe"
-            },
-            "markReadPosts": {
-                "title": "Oznacz przeczytane posty",
-                "description": "Oznacz post jako przeczytany po jego kliknięciu"
-            },
-            "fadeReadPosts": {
-                "title": "Wygaszone przeczytane posty",
-                "description": "Wygasza tytuł postów, które już zostały przeczytane"
-            },
-            "crosspostMarker": {
-                "title": "Oznacz reposty",
-                "description": "Pokaż 'repost z' podczas repostowania."
-            },
-            "hideSubmissions": {
-                "title": "Ukryj zgłoszenia",
-                "description": "Ukryj określone rodzaje zgłoszeń.",
-                "deleted": "Usunięte przez użytkownika",
-                "removed": "Usunięte przez moderatora"
-            },
-            "nsfwBlur": {
-                "title": "Rozmycie NSFW",
-                "description": "Rozmywa obrazy i usuwa treści postów NSFW."
-            }
-        },
         "embeds": {
             "title": "Osadzanie",
             "clickToView": {
@@ -921,9 +880,6 @@
                 "title": "Nie wirtualizuj kanałów",
                 "description": "Wirtualizacja renderuje tylko widoczne posty, znacznie zwiększając wydajność. Wyłącz wirtualizację, jeśli masz problemy z zacinaniem się. Wyłączenie tej funkcji spowoduje wyłączenie nieskończonego przewijania."
             }
-        },
-        "donate": {
-            "description": "Ta aplikacja jest otwartym oprogramowaniem, i dołożyłem wszelkich starań w jej rozwinięcie i utrzymywanie. Jeżeli chcesz wesprzeć dalszy rozwój, możesz do niego dopłacić, lub po prostu polecić innym!"
         },
         "account": {
             "title": "Konto"

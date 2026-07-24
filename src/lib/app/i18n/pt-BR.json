@@ -26,8 +26,6 @@
             },
             "theme": "Tema",
             "about": "Sobre",
-            "source": "Código Fonte",
-            "donate": "Doar",
             "instance": "Instância",
             "label": "Perfil"
         },
@@ -278,7 +276,6 @@
             },
             "instanceWarning": "Esta publicação veio de um servidor diferente do servidor da sua conta. Muitas ações podem não funcionar."
         },
-        "translators": "Tradutores",
         "saved": "Salvos",
         "createCommunity": "Criar Comunidade"
     }

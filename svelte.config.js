@@ -2,7 +2,6 @@ import auto from '@sveltejs/adapter-auto'
 import node from '@sveltejs/adapter-node'
 import staticAdapter from '@sveltejs/adapter-static'
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte'
-import bun from 'svelte-adapter-bun-next'
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -22,15 +21,7 @@ const config = {
           })
         : process.env.ADAPTER == 'node'
           ? node()
-          : process.env.ADAPTER == 'bun'
-            ? bun({
-                out: 'build',
-                precompress: {
-                  brotli: true,
-                  gzip: true,
-                },
-              })
-            : auto(),
+          : auto(),
     alias: {
       'mono-svelte': 'src/lib/ui/shared',
       'svelte-hero-icons': 'node_modules/@xylightdev/svelte-hero-icons',
@@ -39,12 +30,16 @@ const config = {
     csp: {
       directives: {
         'script-src': ['self'],
+        // No <base> tag hijacking of relative URLs
+        'base-uri': ['self'],
+        // No Flash/plugin embeds
+        'object-src': ['none'],
+        // No clickjacking via framing (also enforced by Caddy's X-Frame-Options)
+        'frame-ancestors': ['none'],
       },
-      // must be specified with either the `report-uri` or `report-to` directives, or both
-      reportOnly: {
-        'script-src': ['self'],
-        'report-uri': ['/'],
-      },
+      // NOTE: in production behind Caddy, the Caddyfile's `header` directive
+      // REPLACES this header site-wide — keep the two policies in sync
+      // (see Caddyfile in the backend repo).
     },
   },
 }

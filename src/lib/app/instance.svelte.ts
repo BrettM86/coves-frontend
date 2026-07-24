@@ -1,4 +1,4 @@
-import { browser, dev } from '$app/environment'
+import { browser, building, dev } from '$app/environment'
 import { env } from '$env/dynamic/public'
 import { profile } from './auth.svelte'
 
@@ -24,8 +24,10 @@ const getDefaultInstance = (): string => {
   // PUBLIC_INSTANCE_URL, so an internal-only config would leave every client
   // without an instance. In dev and in the browser we return '' instead of
   // throwing; server-side consumers (e.g. the API proxy) treat empty as a
-  // hard config error.
-  if (!browser && !dev && !env.PUBLIC_INSTANCE_URL) {
+  // hard config error. `building` is exempt: SvelteKit's postbuild analysis
+  // imports this module inside the image build, where runtime env is
+  // legitimately absent — the fail-fast belongs to server startup only.
+  if (!browser && !building && !dev && !env.PUBLIC_INSTANCE_URL) {
     throw new Error(
       '[instance] PUBLIC_INSTANCE_URL is required in production. Set PUBLIC_INSTANCE_URL (PUBLIC_INTERNAL_INSTANCE is optional on top of it).',
     )

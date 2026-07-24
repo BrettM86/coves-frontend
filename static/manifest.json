@@ -1,10 +1,10 @@
 {
-  "short_name": "Kelp",
-  "name": "Kelp",
+  "short_name": "Coves",
+  "name": "Coves",
   "start_url": "/",
   "icons": [
     {
-      "src": "logo_512.png",
+      "src": "logo_maskable_512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"
@@ -21,21 +21,6 @@
   "scope": "/",
   "theme_color": "#000000",
   "description": "The web frontend for Coves, a forum-like social platform.",
-  "screenshots": [
-    {
-      "form_factor": "wide",
-      "label": "Desktop interface",
-      "type": "image/webp",
-      "src": "img/pwa/wide.webp",
-      "sizes": "3692x1948"
-    },
-    {
-      "form_factor": "narrow",
-      "label": "Mobile interface",
-      "src": "img/pwa/narrow.webp",
-      "sizes": "962x1948"
-    }
-  ],
   "shortcuts": [
     {
       "name": "Create post",

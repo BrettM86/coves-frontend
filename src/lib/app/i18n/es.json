@@ -12,8 +12,6 @@
                 "light": "Claro"
             },
             "about": "Acerca de",
-            "source": "Fuente",
-            "donate": "Donar",
             "instance": "Instancia"
         },
         "commands": {
@@ -210,7 +208,6 @@
             "settings": "Ajustes",
             "logins": "Ingresos"
         },
-        "translators": "Traductores",
         "accounts": "Cuentas",
         "communities": "Comunidades",
         "search": {
@@ -650,7 +647,6 @@
                 "zh-Hans": "Chino (simplificado)",
                 "zh-Hant": "Chino (tradicional)",
                 "auto": "Por omisión",
-                "credits": "Créditos",
                 "useRtl": {
                     "title": "Usar disposición de derecha a izquierda",
                     "description": "Usar disposición de derecha a izquierda para los idiomas que se leen de derecha a izquierda."
@@ -736,36 +732,6 @@
                 "invidious": "Instancia de Invidious",
                 "piped": "Instancia de Piped",
                 "description": "La instancia en la que se embeberá el contenido de YouTube."
-            }
-        },
-        "lemmy": {
-            "showHiddenPosts": {
-                "title": "Mostrar publicaciones ocultas",
-                "description": "Mostrar las publicaciones que ha ocultado manualmente."
-            },
-            "compactFeatured": {
-                "description": "Mostrar las publicaciones destacadas en forma compacta.",
-                "title": "Publicaciones destacadas compactas"
-            },
-            "markReadPosts": {
-                "title": "Marcar las publicaciones como leídas",
-                "description": "Marca una publicación como leída cuando hace clic sobre ella."
-            },
-            "fadeReadPosts": {
-                "title": "Desvanecer las publicaciones leídas",
-                "description": "Desvanece el título de las publicaciones que ha leído."
-            },
-            "instances": {
-                "title": "Mostrar instancias",
-                "description": "Mostrar las instancias de las que proviene cierto contenido."
-            },
-            "hideSubmissions": {
-                "deleted": "Borrado por el usuario",
-                "removed": "Quitado por un moderador"
-            },
-            "nsfwBlur": {
-                "title": "Desenfocar el contenido NSFW",
-                "description": "Desenfocar las imágenes y ocultar los contenidos de las publicaciones NSFW."
             }
         },
         "moderation": {

@@ -29,8 +29,6 @@
             },
             "theme": "Theme",
             "about": "About",
-            "source": "Source",
-            "donate": "Donate",
             "instance": "Server info"
         },
         "commands": {
@@ -290,7 +288,6 @@
             "submissions": "Submissions",
             "edit": "Edit"
         },
-        "translators": "Translators",
         "accounts": "Accounts",
         "accounts.placeholder": {
             "title": "Not logged in",
@@ -820,7 +817,6 @@
         "settingsImport": "Successfully imported settings",
         "settingsImportWarning": "The imported settings don't seem valid. Are you sure you want to import this?",
         "userLoading": "Still loading your user data...",
-        "lemmyDonate": "Your account's server runs Lemmy, and the developers are requesting donations. They are able to develop Lemmy as an open source platform, free of tracking and ads, thanks to the generosity of its users.\n\nAnnually, they ask you to consider donating to support their work, and allow them to continue maintaining and improving Lemmy.\n\n[Donate](https://join-lemmy.org/donate)\n\n*Note: this is a donation to Lemmy, not Kelp.*",
         "sessionExpired": "Your session has expired. Please log in again.",
         "serverUnreachable": "Can't reach the server right now. You may appear logged out, but your session is preserved."
     },
@@ -851,7 +847,6 @@
                 "title": "Language",
                 "description": "The language used for text in the UI.",
                 "auto": "Auto",
-                "credits": "Credits",
                 "useRtl": {
                     "title": "Use RTL layout",
                     "description": "Use an RTL layout for RTL languages."
@@ -940,43 +935,6 @@
                 "description": "The instance to embed YouTube content in."
             }
         },
-        "lemmy": {
-            "title": "Lemmy",
-            "showHiddenPosts": {
-                "title": "Show hidden posts",
-                "description": "Shows the posts you've manually hidden."
-            },
-            "compactFeatured": {
-                "title": "Compact featured posts",
-                "description": "Makes featured posts more compact."
-            },
-            "markReadPosts": {
-                "title": "Mark posts as read automatically",
-                "description": "Marks posts as read when you visit them."
-            },
-            "fadeReadPosts": {
-                "title": "Fade read posts",
-                "description": "Fade the title of posts you've already read"
-            },
-            "crosspostMarker": {
-                "title": "Mark crossposts",
-                "description": "Insert 'crossposted from' and a link when crossposting."
-            },
-            "hideSubmissions": {
-                "title": "Hide submissions",
-                "description": "Hide certain types of submissions.",
-                "deleted": "Deleted by user",
-                "removed": "Removed by moderator"
-            },
-            "nsfwBlur": {
-                "title": "NSFW blur",
-                "description": "Blurs images and remove post bodies of NSFW posts."
-            },
-            "instances": {
-                "title": "Show server identifiers",
-                "description": "Shows the servers where certain content originated from."
-            }
-        },
         "moderation": {
             "title": "Moderation",
             "replyPresets": {
@@ -998,9 +956,6 @@
         },
         "account": {
             "title": "Account"
-        },
-        "donate": {
-            "description": "Kelp will always be free and open-source, and is continuously developed and designed to be helpful. If you like Kelp and want to financially support its development, you can donate here."
         }
     },
     "error": {
@@ -1028,7 +983,7 @@
         "slurs": "Your submission contains a term banned in this server.",
         "captcha_incorrect": "Incorrect CAPTCHA answer.",
         "cant_block_local_instance": "You cannot block the server you are actively using.",
-        "invalid_vote_value": "You cannot commit voter fraud on Lemmy posts, sorry.",
+        "invalid_vote_value": "You cannot commit voter fraud, sorry.",
         "language_not_allowed": "That language is not allowed in this community. Unset it to use the community's default.",
         "couldnt_find_person": "That user doesn't exist.",
         "couldnt_find_community": "That community doesn't exist.",

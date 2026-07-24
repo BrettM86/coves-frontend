@@ -99,7 +99,6 @@
                 "warning": "Dit kan niet ongedaan gemaakt worden, weet je het zeker?"
             }
         },
-        "translators": "Vertalers",
         "accounts": "Accounts",
         "communities": "Gemeenschappen",
         "search": {
@@ -337,43 +336,6 @@
         "userLoading": "Bezig met het laden van je gebruikersgegevens..."
     },
     "settings": {
-        "lemmy": {
-            "hideSubmissions": {
-                "deleted": "Verwijderd door gebruiker",
-                "removed": "Verwijderd door moderator",
-                "title": "Verberg inzendingen",
-                "description": "Verberg bepaalde soorten inzendingen."
-            },
-            "nsfwBlur": {
-                "title": "NSFW vervaging",
-                "description": "Vervag afbeeldingen en verwijder berichtinhoud van NSFW-berichten."
-            },
-            "title": "Lemmy",
-            "showHiddenPosts": {
-                "title": "Toon verborgen berichten",
-                "description": "Toon de berichten die je handmatig hebt verborgen."
-            },
-            "compactFeatured": {
-                "title": "Compacte uitgelichte berichten",
-                "description": "Maak uitgelichte berichten compacter"
-            },
-            "markReadPosts": {
-                "title": "Markeer gelezen berichten",
-                "description": "Markeer een bericht als gelezen wanneer je erop klikt"
-            },
-            "fadeReadPosts": {
-                "title": "Vervagende gelezen berichten",
-                "description": "Vervag de titel van berichten die je al hebt gelezen"
-            },
-            "crosspostMarker": {
-                "title": "Markeer crossposts",
-                "description": "Toon 'gecrosspost vanuit' bij het crossposten."
-            },
-            "instances": {
-                "title": "Toon instanties",
-                "description": "Toon de instanties waar bepaalde inhoud vandaan komt."
-            }
-        },
         "moderation": {
             "replyPresets": {
                 "title": "Verwijderingsantwoord presets",
@@ -445,7 +407,6 @@
                 "zh-Hans": "Chinees (Vereenvoudigd)",
                 "zh-Hant": "Chinees (Traditioneel)",
                 "auto": "Automatisch",
-                "credits": "Credits",
                 "useRtl": {
                     "title": "Gebruik RTL-indeling",
                     "description": "Gebruik een RTL-indeling voor RTL-talen."
@@ -576,8 +537,6 @@
             },
             "theme": "Thema",
             "about": "Over",
-            "source": "Bron",
-            "donate": "Doneer",
             "instance": "Instantie"
         },
         "commands": {

@@ -27,9 +27,7 @@
                 "light": "فاتح"
             },
             "theme": "المظهر",
-            "about": "عن فوتون",
-            "source": "مصدر",
-            "donate": "تبرع",
+            "about": "عن Coves",
             "instance": "الخادوم"
         },
         "commands": {
@@ -60,7 +58,7 @@
         "guest": "صيف",
         "login": "تسجيل الدخول",
         "resetColor": "إعادة ضبط اللون",
-        "versionGate": "هذا الإصدار الفوتون يقبل الخوادم بالإصدار {{version}} أو اعلى."
+        "versionGate": "هذا الإصدار Coves يقبل الخوادم بالإصدار {{version}} أو اعلى."
     },
     "filter": {
         "location": {
@@ -227,7 +225,6 @@
             "overview": "إظهار عامة",
             "submissions": "تقديمات"
         },
-        "translators": "مترجمين",
         "accounts": "حواسب",
         "communities": {
             "title": "مجتمعات",

@@ -19,6 +19,7 @@
   role="img"
   aria-label="Coves mascot"
 >
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -- static bundled SVG asset, no user input -->
   {@html svgContent}
 </div>
 

@@ -2,7 +2,7 @@
   import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
   import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
-  import { placeholders } from '$lib/app/util.svelte'
+  import { communitySlug, placeholders } from '$lib/app/util.svelte'
   import FreeTextInput from '$lib/ui/form/FreeTextInput.svelte'
   import ImageInputModal from '$lib/ui/form/ImageInputModal.svelte'
   import ObjectAutocomplete from '$lib/ui/form/ObjectAutocomplete.svelte'
@@ -120,7 +120,9 @@
         <div class="flex flex-col gap-0">
           <span class="text-sm">{form.community.name}</span>
           <span class="text-[10px] leading-3">
-            {form.community.handle ?? form.community.did}
+            {form.community.handle
+              ? communitySlug(form.community.handle)
+              : form.community.did}
           </span>
         </div>
       </Button>

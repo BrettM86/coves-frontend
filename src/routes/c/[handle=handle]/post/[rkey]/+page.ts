@@ -7,7 +7,7 @@ import {
 import type { Handle } from '$lib/types/atproto'
 import { settings } from '$lib/app/settings.svelte'
 import { mapSort } from '$lib/app/sort'
-import { communityHandleFromSlug, ReactiveState } from '$lib/app/util.svelte'
+import { ReactiveState } from '$lib/app/util.svelte'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
 import {
   type Feed,
@@ -38,7 +38,7 @@ function findInFeed(
 }
 
 export async function load({ params, url, fetch, route }) {
-  const communityHandle = communityHandleFromSlug(params.handle)
+  const communityHandle = params.handle
   const commentSort =
     url.searchParams.get('sort') ?? settings?.defaultSort?.comments ?? 'hot'
   const { sort } = mapSort(commentSort)

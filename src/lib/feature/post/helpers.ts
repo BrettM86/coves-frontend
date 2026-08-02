@@ -51,6 +51,7 @@ export const bestImageURL = (
       return ''
     }
     case 'social.coves.embed.post':
+    case 'social.coves.embed.post#view':
     case 'social.coves.embed.record':
     case 'social.coves.embed.record#view':
       return ''
@@ -201,6 +202,7 @@ export function mediaType(embed?: PostEmbed): MediaType {
       return 'none'
     }
     case 'social.coves.embed.post':
+    case 'social.coves.embed.post#view':
     case 'social.coves.embed.record':
     case 'social.coves.embed.record#view':
       return 'embed'
@@ -233,6 +235,7 @@ export function extractEmbedUrl(embed?: PostEmbed): string | undefined {
     case 'social.coves.embed.video#view':
       return embed.video
     case 'social.coves.embed.post':
+    case 'social.coves.embed.post#view':
     case 'social.coves.embed.record':
     case 'social.coves.embed.record#view':
       return undefined
@@ -261,6 +264,7 @@ export function extractEmbedThumbnail(embed?: PostEmbed): string | undefined {
     case 'social.coves.embed.video#view':
       return embed.thumbnail
     case 'social.coves.embed.post':
+    case 'social.coves.embed.post#view':
     case 'social.coves.embed.record':
     case 'social.coves.embed.record#view':
       return undefined
@@ -285,6 +289,7 @@ export function extractEmbedTitle(embed?: PostEmbed): string | undefined {
     case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
     case 'social.coves.embed.post':
+    case 'social.coves.embed.post#view':
     case 'social.coves.embed.record':
     case 'social.coves.embed.record#view':
       return undefined
@@ -310,6 +315,7 @@ export function extractEmbedAlt(embed?: PostEmbed): string | undefined {
     case 'social.coves.embed.external':
     case 'social.coves.embed.external#view':
     case 'social.coves.embed.post':
+    case 'social.coves.embed.post#view':
     case 'social.coves.embed.record':
     case 'social.coves.embed.record#view':
       return undefined

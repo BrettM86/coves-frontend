@@ -312,8 +312,10 @@ describe('comment permalink loader', () => {
     await load(makeArgs())
 
     expect(mockCovesMethods.getCommunity).toHaveBeenCalledTimes(1)
+    // The route param goes to the AppView verbatim — no "c-" is fabricated,
+    // which would 404 any community whose stored handle lacks the prefix.
     expect(mockCovesMethods.getCommunity).toHaveBeenCalledWith({
-      community: 'c-testcommunity',
+      community: 'testcommunity',
     })
     expect(mockCovesMethods.getPost).toHaveBeenCalledWith(POST_URI)
   })

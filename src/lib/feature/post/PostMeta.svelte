@@ -3,6 +3,7 @@
   import { t } from '$lib/app/i18n'
   import Markdown from '$lib/app/markdown/Markdown.svelte'
   import { type View, settings } from '$lib/app/settings.svelte'
+  import { communitySlug } from '$lib/app/util.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import { Badge, Material, modal, Popover } from 'mono-svelte'
@@ -190,7 +191,7 @@
                 <span class="font-medium text-base">{community.name}</span>
                 {#if community.handle}
                   <span class="text-xs text-slate-500 dark:text-zinc-400">
-                    @{community.handle}
+                    !{communitySlug(community.handle)}
                   </span>
                 {/if}
               </div>

@@ -42,30 +42,23 @@ export const fullCommunityName = (name: string, actorId: string): string => {
 }
 
 /**
- * Strips the "c-" prefix from a community handle to produce a URL-friendly slug.
+ * Strips the "c-" prefix from a community handle to produce its canonical form.
  *
- * Coves community handles use a "c-" prefix convention (e.g. "c-mycommunity")
- * to distinguish community actors from user actors in the ATProto namespace.
- * Route params and URLs use the bare slug without the prefix.
+ * Communities provisioned on a Coves instance use a "c-" prefix convention
+ * (e.g. "c-mycommunity.coves.social") to distinguish community actors from
+ * user actors in the ATProto namespace. Communities bridged in from other
+ * platforms keep their source handle and carry no prefix, so this strips the
+ * prefix only when it is actually there.
+ *
+ * The prefix is internal plumbing: route params, URLs, and any handle shown to
+ * a user all use the bare form. There is deliberately no inverse — a slug is
+ * sent to the API as-is, because the bare form is ambiguous (both
+ * "gardening.coves.social" and a bridged "linux.lemmy-ml.tdpl.io" are
+ * prefix-free) and only the AppView knows which stored handle it maps to. It
+ * resolves either form.
  */
 export function communitySlug(handle: string): string {
   return handle.startsWith('c-') ? handle.slice(2) : handle
-}
-
-/**
- * Prepends the "c-" prefix to a URL slug to reconstruct the community handle.
- *
- * Coves community handles use a "c-" prefix convention (e.g. "c-mycommunity")
- * to distinguish community actors from user actors in the ATProto namespace.
- * This reverses {@link communitySlug} for API calls that expect the full handle.
- *
- * DIDs (e.g. "did:plc:abc123") are passed through unchanged: the route param
- * matcher accepts URL-encoded DIDs as well as handles, and a DID already
- * identifies the community actor without any handle prefix.
- */
-export function communityHandleFromSlug(slug: string): string {
-  if (slug.startsWith('did:')) return slug
-  return slug.startsWith('c-') ? slug : `c-${slug}`
 }
 
 export const placeholders = {

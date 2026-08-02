@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CommunityRef, CommunityView } from '$lib/api/coves/types'
   import { settings } from '$lib/app/settings.svelte'
+  import { communitySlug } from '$lib/app/util.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import type { HTMLAnchorAttributes } from 'svelte/elements'
   import { communityDisplayName, communityIdentifier } from './helpers'
@@ -52,7 +53,7 @@
           class="text-slate-500 dark:text-zinc-500 font-normal
           instance-text shrink {instanceClass || ''}"
         >
-          @{community.handle}
+          !{communitySlug(community.handle)}
         </span>
       {/if}
     </span>

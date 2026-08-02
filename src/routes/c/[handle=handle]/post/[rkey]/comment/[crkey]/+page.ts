@@ -5,7 +5,7 @@ import { XrpcError } from '$lib/api/coves/xrpc'
 import type { Handle } from '$lib/types/atproto'
 import { settings } from '$lib/app/settings.svelte'
 import { mapSort } from '$lib/app/sort'
-import { communityHandleFromSlug, ReactiveState } from '$lib/app/util.svelte'
+import { ReactiveState } from '$lib/app/util.svelte'
 import { MAX_INLINE_DEPTH } from '$lib/feature/comment/comments.svelte'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
 import { feed } from '$lib/feature/feeds/feed.svelte'
@@ -20,7 +20,7 @@ import { buildPostAtUri } from '$lib/feature/post/helpers'
 const SUBTREE_DEPTH = MAX_INLINE_DEPTH + 1
 
 export async function load({ params, url, fetch, route }) {
-  const communityHandle = communityHandleFromSlug(params.handle)
+  const communityHandle = params.handle
   const commentSort =
     url.searchParams.get('sort') ?? settings?.defaultSort?.comments ?? 'hot'
   const { sort } = mapSort(commentSort)

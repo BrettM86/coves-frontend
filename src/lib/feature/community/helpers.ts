@@ -35,11 +35,16 @@ export function communityIdentifier(
  * Returns a human-readable identifier for display copy (e.g. `!handle` text,
  * list detail lines). Prefers `handle` over `name` and never degrades to a
  * DID — for URLs use {@link communityIdentifier} instead.
+ *
+ * The `c-` prefix is an internal namespacing convention, so the handle is
+ * shown in its canonical form (`science.coves.social`, not
+ * `c-science.coves.social`).
  */
 export function communityHandleOrName(
   community: CommunityView | CommunityRef,
 ): string {
-  return usableHandle(community) ?? community.name
+  const handle = usableHandle(community)
+  return handle ? communitySlug(handle) : community.name
 }
 
 /**

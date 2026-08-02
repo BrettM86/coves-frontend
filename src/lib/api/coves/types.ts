@@ -423,6 +423,7 @@ export interface VideoEmbed {
 export interface RecordEmbed {
   $type:
     | 'social.coves.embed.post'
+    | 'social.coves.embed.post#view'
     | 'social.coves.embed.record'
     | 'social.coves.embed.record#view'
   post: StrongRef

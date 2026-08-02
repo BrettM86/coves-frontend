@@ -4,7 +4,6 @@ import { XrpcError } from '$lib/api/coves/xrpc'
 import { settings } from '$lib/app/settings.svelte'
 import { error } from '@sveltejs/kit'
 import { mapSort } from '$lib/app/sort'
-import { communityHandleFromSlug } from '$lib/app/util.svelte'
 import type { Handle } from '$lib/types/atproto'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
 import { feed } from '$lib/feature/feeds/feed.svelte'
@@ -15,7 +14,9 @@ export async function load({ params, fetch, url, route }) {
   const sort = url.searchParams.get('sort') ?? settings.defaultSort.sort
   const timeframe = url.searchParams.get('timeframe') ?? undefined
 
-  const communityHandle = communityHandleFromSlug(params.handle) as Handle
+  // Sent verbatim: the AppView resolves a DID, a bare handle, or a "c-"
+  // prefixed handle, so the slug needs no rewriting here.
+  const communityHandle = params.handle as Handle
   const mapped = mapSort(sort, timeframe)
 
   let feedData

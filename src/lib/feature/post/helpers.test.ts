@@ -64,6 +64,17 @@ const recordEmbed: RecordEmbed = {
   },
 }
 
+// The appview rewrites social.coves.embed.post to its #view form on the wire
+// whenever it attaches resolved Bluesky data (blob_transform.go).
+const postViewEmbed: RecordEmbed = {
+  $type: 'social.coves.embed.post#view',
+  post: {
+    uri: 'at://did:plc:abc/app.bsky.feed.post/1' as AtUri,
+    cid: 'bafyreig2' as CID,
+  },
+  resolved: { unavailable: false },
+}
+
 // ---------------------------------------------------------------------------
 // mediaType()
 // ---------------------------------------------------------------------------
@@ -83,6 +94,10 @@ describe('mediaType', () => {
 
   it('returns "embed" for record embed', () => {
     expect(mediaType(recordEmbed)).toBe('embed')
+  })
+
+  it('returns "embed" for post#view embed', () => {
+    expect(mediaType(postViewEmbed)).toBe('embed')
   })
 
   it('returns "image" for external embed with image URI', () => {
@@ -228,6 +243,10 @@ describe('bestImageURL', () => {
     expect(bestImageURL(recordEmbed)).toBe('')
   })
 
+  it('returns empty string for post#view embed', () => {
+    expect(bestImageURL(postViewEmbed)).toBe('')
+  })
+
   it('returns empty string for image embed with empty images (type-cast edge case)', () => {
     const emptyImages = {
       $type: 'social.coves.embed.images#view' as const,
@@ -360,6 +379,10 @@ describe('extractEmbedUrl', () => {
   it('returns undefined for record embed', () => {
     expect(extractEmbedUrl(recordEmbed)).toBeUndefined()
   })
+
+  it('returns undefined for post#view embed', () => {
+    expect(extractEmbedUrl(postViewEmbed)).toBeUndefined()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -391,6 +414,10 @@ describe('extractEmbedThumbnail', () => {
 
   it('returns undefined for record embed', () => {
     expect(extractEmbedThumbnail(recordEmbed)).toBeUndefined()
+  })
+
+  it('returns undefined for post#view embed', () => {
+    expect(extractEmbedThumbnail(postViewEmbed)).toBeUndefined()
   })
 })
 
@@ -439,6 +466,10 @@ describe('extractEmbedAlt', () => {
 
   it('returns undefined for record embed', () => {
     expect(extractEmbedAlt(recordEmbed)).toBeUndefined()
+  })
+
+  it('returns undefined for post#view embed', () => {
+    expect(extractEmbedAlt(postViewEmbed)).toBeUndefined()
   })
 })
 

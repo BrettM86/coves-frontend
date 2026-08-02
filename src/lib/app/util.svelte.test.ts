@@ -3,7 +3,6 @@ import type { AuthorView, CommunityRef } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import {
   canParseUrl,
-  communityHandleFromSlug,
   communityLink,
   communitySlug,
   escapeHtml,
@@ -93,73 +92,32 @@ describe('communitySlug', () => {
 })
 
 // ---------------------------------------------------------------------------
-// communityHandleFromSlug()
+// communitySlug() — slug stability
+//
+// A slug goes to the API verbatim, so slugifying an already-slugified handle
+// must be a no-op. There is no inverse function: reconstructing the handle by
+// re-adding "c-" is what used to 404 every bridged community, whose stored
+// handle never had the prefix to begin with.
 // ---------------------------------------------------------------------------
 
-describe('communityHandleFromSlug', () => {
-  it('prepends c- to a plain slug', () => {
-    expect(communityHandleFromSlug('gaming.coves.social')).toBe(
-      'c-gaming.coves.social',
-    )
+describe('communitySlug stability', () => {
+  it('is idempotent for a prefixed handle', () => {
+    const handle = 'c-gaming.coves.social'
+    expect(communitySlug(communitySlug(handle))).toBe(communitySlug(handle))
   })
 
-  it('does not double-prefix a slug that already starts with c-', () => {
-    expect(communityHandleFromSlug('c-gaming.coves.social')).toBe(
-      'c-gaming.coves.social',
-    )
-  })
-
-  it('prepends c- to a slug without dots', () => {
-    expect(communityHandleFromSlug('gaming')).toBe('c-gaming')
-  })
-
-  it('handles an empty string by prepending c-', () => {
-    expect(communityHandleFromSlug('')).toBe('c-')
+  it('leaves a bridged handle untouched through repeated slugging', () => {
+    const bridged = 'selfhosted.lemmy-world.tdpl.io'
+    expect(communitySlug(bridged)).toBe(bridged)
+    expect(communitySlug(communitySlug(bridged))).toBe(bridged)
   })
 
   it('passes a did:plc DID through unchanged', () => {
-    expect(communityHandleFromSlug('did:plc:abc123xyz')).toBe(
-      'did:plc:abc123xyz',
-    )
+    expect(communitySlug('did:plc:abc123xyz')).toBe('did:plc:abc123xyz')
   })
 
   it('passes a did:web DID through unchanged', () => {
-    expect(communityHandleFromSlug('did:web:coves.social')).toBe(
-      'did:web:coves.social',
-    )
-  })
-
-  it('still prefixes a handle-shaped slug that merely contains "did"', () => {
-    expect(communityHandleFromSlug('did.coves.social')).toBe(
-      'c-did.coves.social',
-    )
-  })
-})
-
-// ---------------------------------------------------------------------------
-// communitySlug / communityHandleFromSlug round-trip
-// ---------------------------------------------------------------------------
-
-describe('communitySlug <-> communityHandleFromSlug round-trip', () => {
-  it('round-trip: communityHandleFromSlug(communitySlug(handle)) === handle for c- prefixed handle', () => {
-    const handle = 'c-gaming.coves.social'
-    expect(communityHandleFromSlug(communitySlug(handle))).toBe(handle)
-  })
-
-  it('round-trip: communitySlug(communityHandleFromSlug(slug)) === slug for plain slug', () => {
-    const slug = 'gaming.coves.social'
-    expect(communitySlug(communityHandleFromSlug(slug))).toBe(slug)
-  })
-
-  it('round-trip preserves identity for handle without c- prefix', () => {
-    const handle = 'tech.coves.social'
-    // communitySlug('tech.coves.social') -> 'tech.coves.social' (no c- to strip)
-    // communityHandleFromSlug('tech.coves.social') -> 'c-tech.coves.social'
-    // This is NOT a round-trip identity for non-c- handles, which is expected
-    // since the canonical handle form uses c- prefix
-    expect(communityHandleFromSlug(communitySlug(handle))).toBe(
-      'c-tech.coves.social',
-    )
+    expect(communitySlug('did:web:coves.social')).toBe('did:web:coves.social')
   })
 })
 

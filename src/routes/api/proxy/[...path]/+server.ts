@@ -213,6 +213,12 @@ async function handler({
     const responseHeaders = new Headers(response.headers)
     // 'content-encoding' - Let SvelteKit handle compression to avoid double-encoding
     responseHeaders.delete('content-encoding')
+    // 'content-length' - fetch transparently decompresses the upstream body, so
+    // the upstream length describes the *compressed* bytes and no longer matches
+    // what we forward. Leaving it set truncates every compressed response to its
+    // gzipped length, which surfaces as a JSON parse error rather than a short
+    // read. The body is a stream; the server sets the framing itself.
+    responseHeaders.delete('content-length')
 
     return new Response(response.body, {
       status: response.status,

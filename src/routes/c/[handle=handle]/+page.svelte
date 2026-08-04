@@ -52,6 +52,7 @@
     getParams={data.params}
     params={{
       sort: data.params.sort,
+      timeframe: data.params.timeframe,
     }}
     loadFeed={data.loadFeed}
   >

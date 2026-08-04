@@ -3,7 +3,7 @@ import { coves } from '$lib/api/client.svelte'
 import { profile } from '$lib/app/auth.svelte'
 import { t } from '$lib/app/i18n'
 import { settings } from '$lib/app/settings.svelte'
-import { mapListing, mapSort } from '$lib/app/sort'
+import { mapListing, resolveFeedSort } from '$lib/app/sort'
 import { ReactiveState, awaitIfServer } from '$lib/app/util.svelte'
 import { feed } from '$lib/feature/feeds/feed.svelte'
 import { ChevronDoubleUp } from '@xylightdev/svelte-hero-icons'
@@ -11,11 +11,9 @@ import { ChevronDoubleUp } from '@xylightdev/svelte-hero-icons'
 export async function load({ url, fetch, route }) {
   const cursor = url.searchParams.get('cursor') as string | undefined
 
-  const sort = url.searchParams.get('sort') ?? settings.defaultSort.sort
-  const timeframe = url.searchParams.get('timeframe') ?? undefined
   const listingType = url.searchParams.get('type') ?? settings.defaultSort.feed
 
-  const mapped = mapSort(sort, timeframe)
+  const mapped = resolveFeedSort(url, settings.defaultSort)
   const listing = mapListing(listingType, profile.isAuthenticated)
 
   const feedData = feed(route.id, async (params) => {

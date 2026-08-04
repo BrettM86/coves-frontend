@@ -3,7 +3,7 @@ import { coves } from '$lib/api/client.svelte'
 import { XrpcError } from '$lib/api/coves/xrpc'
 import { settings } from '$lib/app/settings.svelte'
 import { error } from '@sveltejs/kit'
-import { mapSort } from '$lib/app/sort'
+import { resolveFeedSort } from '$lib/app/sort'
 import type { Handle } from '$lib/types/atproto'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
 import { feed } from '$lib/feature/feeds/feed.svelte'
@@ -11,28 +11,32 @@ import { feed } from '$lib/feature/feeds/feed.svelte'
 export async function load({ params, fetch, url, route }) {
   const cursor = url.searchParams.get('cursor') as string | undefined
 
-  const sort = url.searchParams.get('sort') ?? settings.defaultSort.sort
-  const timeframe = url.searchParams.get('timeframe') ?? undefined
-
   // Sent verbatim: the AppView resolves a DID, a bare handle, or a "c-"
   // prefixed handle, so the slug needs no rewriting here.
   const communityHandle = params.handle as Handle
-  const mapped = mapSort(sort, timeframe)
+  const mapped = resolveFeedSort(url, settings.defaultSort)
 
   let feedData
   try {
     feedData = await feed(route.id, async (p) => {
       const api = coves({ func: fetch })
 
+      // Every community shares the route ID `/c/[handle=handle]`, so the cache
+      // can hand this closure back on a later navigation to a *different*
+      // community or sort. Read the identity of the request from `p` only —
+      // anything captured from the enclosing load() run would be stale.
+      // The route's `handle` matcher guarantees the slug is handle-shaped.
+      const community = p.community as Handle
+
       const [feedResponse, communityData] = await Promise.all([
         api.getCommunityFeed({
-          community: communityHandle,
-          sort: mapped.sort,
-          timeframe: mapped.timeframe,
+          community,
+          sort: p.sort,
+          timeframe: p.timeframe,
           limit: p.limit,
           cursor: p.cursor,
         }),
-        api.getCommunity({ community: communityHandle }),
+        api.getCommunity({ community }),
       ])
 
       return {
@@ -42,7 +46,7 @@ export async function load({ params, fetch, url, route }) {
         params: { ...p, cursor: feedResponse.cursor },
       }
     }).load({
-      community: params.handle,
+      community: communityHandle,
       sort: mapped.sort,
       timeframe: mapped.timeframe,
       limit: 20,

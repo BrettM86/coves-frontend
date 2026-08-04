@@ -1,7 +1,7 @@
 <script lang="ts">
   import { locale, t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
-  import Sort from '$lib/feature/filter/Sort.svelte'
+  import { TIMEFRAME_OPTIONS } from '$lib/app/sort'
   import ViewSelect from '$lib/feature/filter/ViewSelect.svelte'
   import Switch from '$lib/ui/form/Switch.svelte'
   import { CommonList } from '$lib/ui/layout'
@@ -16,6 +16,7 @@
     Calendar,
     ChartBar,
     ChatBubbleOvalLeftEllipsis,
+    Clock,
     CubeTransparent,
     DocumentText,
     Fire,
@@ -23,6 +24,7 @@
     Icon,
     Language,
     Photo,
+    Sparkles,
     Star,
     TableCells,
     Tag,
@@ -122,19 +124,46 @@
         {#snippet customLabel()}
           <div class="flex items-center gap-1">
             <Icon src={GlobeAmericas} size="16" mini />
-            {$t('filter.location.label')}
+            {$t('filter.feed.label')}
           </div>
         {/snippet}
-        <Option value="All">{$t('filter.location.all')}</Option>
-        <Option value="Local">{$t('filter.location.local')}</Option>
-        <Option value="Subscribed">
-          {$t('filter.location.subscribed')}
+        <Option icon={GlobeAmericas} value="discover">
+          {$t('filter.feed.discover')}
         </Option>
-        <Option value="Moderator">
-          {$t('filter.location.moderator')}
+        <Option icon={Sparkles} value="timeline">
+          {$t('filter.feed.forYou')}
         </Option>
       </Select>
-      <Sort bind:selected={settings.defaultSort.sort} navigate={false} />
+      <Select bind:value={settings.defaultSort.sort}>
+        {#snippet customLabel()}
+          <div class="flex items-center gap-1">
+            <Icon src={ChartBar} size="14" mini />
+            {$t('filter.sort.label')}
+          </div>
+        {/snippet}
+
+        <Option icon={Fire} value="hot">{$t('filter.sort.hot')}</Option>
+        <Option icon={Trophy} value="top">
+          {$t('filter.sort.top.label')}
+        </Option>
+        <Option icon={Star} value="new">{$t('filter.sort.new')}</Option>
+      </Select>
+      {#if settings.defaultSort.sort === 'top'}
+        <Select bind:value={settings.defaultSort.timeframe}>
+          {#snippet customLabel()}
+            <div class="flex items-center gap-1">
+              <Icon src={Clock} size="14" mini />
+              {$t('filter.sort.top.time.label')}
+            </div>
+          {/snippet}
+
+          {#each TIMEFRAME_OPTIONS as option (option.value)}
+            <Option icon={Clock} value={option.value}>
+              {$t(option.labelKey)}
+            </Option>
+          {/each}
+        </Select>
+      {/if}
       <Select bind:value={settings.defaultSort.comments}>
         {#snippet customLabel()}
           <div class="flex items-center gap-1">

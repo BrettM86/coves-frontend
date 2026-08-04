@@ -2,19 +2,15 @@ import { browser } from '$app/environment'
 import { env } from '$env/dynamic/public'
 import { locale } from './i18n'
 import { mergeDeep } from './merge'
-import { normalizeCommentSort } from './sort'
-
-/**
- * Sort type values for the Coves API.
- *
- * The `| (string & {})` fallback allows values from env vars and localStorage
- * that may not match these known literals.
- */
-type SortType = 'hot' | 'new' | 'top' | (string & {})
-
-type ListingType = 'discover' | 'timeline' | (string & {})
-
-type CommentSortType = 'hot' | 'top' | 'new' | (string & {})
+import {
+  normalizeCommentSort,
+  normalizeListing,
+  normalizeSort,
+  normalizeTimeframe,
+  type CovesListingType,
+  type CovesSortType,
+  type CovesTimeframe,
+} from './sort'
 
 export type View = 'cozy' | 'compact'
 
@@ -41,11 +37,16 @@ interface Settings {
 
   view: View
 
+  /**
+   * Defaults applied when a feed URL carries no sort params. Every write path
+   * runs these through {@link normalizeSettings}, so they always hold values
+   * the Coves API accepts.
+   */
   defaultSort: {
-    sort: SortType
-    feed: ListingType
-    comments: CommentSortType
-    timeframe: string
+    sort: CovesSortType
+    feed: CovesListingType
+    comments: CovesSortType
+    timeframe: CovesTimeframe
   }
   hidePosts: {
     deleted: boolean
@@ -115,10 +116,10 @@ export const defaultSettings: Settings = {
   expandableImages: toBool(env.PUBLIC_EXPANDABLE_IMAGES) ?? true,
   markReadPosts: toBool(env.PUBLIC_MARK_READ_POSTS) ?? true,
   defaultSort: {
-    sort: (env.PUBLIC_DEFAULT_FEED_SORT ?? 'hot') as SortType,
-    feed: (env.PUBLIC_DEFAULT_FEED ?? 'discover') as ListingType,
-    comments: (env.PUBLIC_DEFAULT_COMMENT_SORT ?? 'hot') as CommentSortType,
-    timeframe: env.PUBLIC_DEFAULT_FEED_TIMEFRAME ?? 'all',
+    sort: normalizeSort(env.PUBLIC_DEFAULT_FEED_SORT ?? 'hot'),
+    feed: normalizeListing(env.PUBLIC_DEFAULT_FEED ?? 'discover'),
+    comments: normalizeCommentSort(env.PUBLIC_DEFAULT_COMMENT_SORT ?? 'hot'),
+    timeframe: normalizeTimeframe(env.PUBLIC_DEFAULT_FEED_TIMEFRAME ?? 'all'),
   },
   hidePosts: {
     deleted: toBool(env.PUBLIC_HIDE_DELETED) ?? false,
@@ -220,14 +221,72 @@ function getInitialSettings(defaultValue: Settings): Settings {
   }
 }
 
+/**
+ * Coerces the feed defaults to values the Coves API accepts, in place.
+ *
+ * Legacy Lemmy-era values ('Hot', 'TopWeek', 'Subscribed', ...) persisted by
+ * older versions of the app, and anything supplied by a hand-edited settings
+ * import, would otherwise render blank in the settings selects and be rejected
+ * by `mapSort`/`mapListing` on every feed load. Call this on any path that can
+ * introduce foreign values.
+ */
+export function normalizeSettings(target: Settings): void {
+  target.defaultSort.comments = normalizeCommentSort(
+    target.defaultSort.comments,
+  )
+  target.defaultSort.sort = normalizeSort(target.defaultSort.sort)
+  target.defaultSort.timeframe = normalizeTimeframe(
+    target.defaultSort.timeframe,
+  )
+  target.defaultSort.feed = normalizeListing(target.defaultSort.feed)
+}
+
+/**
+ * Restores every setting to its default.
+ *
+ * The clone matters: assigning `defaultSettings` directly would alias its
+ * nested objects (`defaultSort`, `embeds`, ...) into the live state, so the
+ * next settings edit would mutate the defaults singleton and leave the user
+ * with nothing to reset to.
+ */
+export function resetSettings(): void {
+  Object.assign(settings, cloneDefaults(defaultSettings))
+}
+
+/**
+ * Replaces the live settings with a user-supplied JSON export.
+ *
+ * The payload is layered onto a *detached* clone of the defaults rather than
+ * onto the live object: `mergeDeep` keeps only keys the current schema defines
+ * and only values whose shape matches, which is also what drops a crafted
+ * `__proto__` key — spreading the parsed JSON into `Object.assign` would hand
+ * it the live settings object's prototype. Building the candidate first also
+ * means a payload that fails partway leaves the live settings untouched
+ * instead of half-written.
+ *
+ * @throws {SyntaxError} if the text is not JSON.
+ * @throws {Error} if the JSON is not an object (`42`, `"oops"`, `[]`), which
+ * would otherwise merge nothing and silently reset every setting.
+ */
+export function importSettings(json: string): void {
+  const parsed: unknown = JSON.parse(json)
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Settings must be a JSON object')
+  }
+
+  const candidate = mergeDeep(
+    cloneDefaults(defaultSettings) as unknown as Record<string, unknown>,
+    parsed,
+  ) as unknown as Settings
+  normalizeSettings(candidate)
+
+  Object.assign(settings, candidate)
+}
+
 function createSettingsState(initial: Settings): Settings {
   const loaded = getInitialSettings(initial)
-  // Migrate legacy capitalized comment sort values ('Hot', 'Top', 'TopAll',
-  // 'Old', ...) persisted by older app versions (or set via env) to valid
-  // lowercase Coves values.
-  loaded.defaultSort.comments = normalizeCommentSort(
-    loaded.defaultSort.comments,
-  )
+  normalizeSettings(loaded)
   const settings = $state(loaded)
   return settings
 }
@@ -236,7 +295,16 @@ export const settings = createSettingsState(defaultSettings)
 
 $effect.root(() => {
   $effect(() => {
-    localStorage.setItem('settings', JSON.stringify(settings))
+    try {
+      localStorage.setItem('settings', JSON.stringify(settings))
+    } catch (err) {
+      // Storage can be unavailable or full (private browsing, blocked
+      // cookies). Losing persistence must not take the reactive graph with it.
+      console.error(
+        '[settings] Failed to persist settings:',
+        err instanceof Error ? err.message : String(err),
+      )
+    }
 
     if (settings.language) {
       locale.set(settings.language)

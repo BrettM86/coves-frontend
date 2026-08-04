@@ -1,6 +1,10 @@
 <script lang="ts">
   import { t } from '$lib/app/i18n'
-  import { defaultSettings, settings } from '$lib/app/settings.svelte'
+  import {
+    importSettings,
+    resetSettings,
+    settings,
+  } from '$lib/app/settings.svelte'
   import { Header, Tabs } from '$lib/ui/layout'
   import { action, Button, Modal, modal, TextArea, toast } from 'mono-svelte'
   import { ArrowDownTray, ArrowPath, ArrowUpTray } from 'svelte-hero-icons/dist'
@@ -15,18 +19,13 @@
     bind:open={importing}
     onaction={() => {
       try {
-        if (importText == '') {
-          throw new Error('import failed')
-        }
-        const parsed = JSON.parse(importText)
-        const merged = { ...defaultSettings, ...parsed }
-
-        Object.assign(settings, merged)
+        importSettings(importText)
 
         toast({ content: $t('toast.settingsImport'), type: 'success' })
         importing = false
       } catch (err) {
-        toast({ content: err as string, type: 'error' })
+        console.error('[settings] Import failed:', err)
+        toast({ content: $t('toast.settingsImportFailed'), type: 'error' })
       }
     }}
     title={$t('settings.import')}
@@ -93,7 +92,7 @@
             body: $t('toast.resetSettings'),
             actions: [
               action({
-                action: () => Object.assign(settings, defaultSettings),
+                action: resetSettings,
                 close: true,
                 type: 'danger',
                 content: $t('settings.reset'),

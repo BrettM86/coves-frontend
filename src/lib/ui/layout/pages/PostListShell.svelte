@@ -2,8 +2,16 @@
   import { browser } from '$app/environment'
   import { page } from '$app/state'
   import type { FeedPaginationParams, FeedViewPost } from '$lib/api/coves/types'
+  import { t } from '$lib/app/i18n'
   import { settings } from '$lib/app/settings.svelte'
-  import Sort from '$lib/feature/filter/Sort.svelte'
+  import {
+    mapSort,
+    TIMEFRAME_OPTIONS,
+    type CovesSortParams,
+    type CovesSortType,
+    type CovesTimeframe,
+  } from '$lib/app/sort'
+  import SortMenu from '$lib/feature/filter/SortMenu.svelte'
   import ViewSelect from '$lib/feature/filter/ViewSelect.svelte'
   import PostFeed from '$lib/feature/post/feed/PostFeed.svelte'
   import VirtualFeed from '$lib/feature/post/feed/VirtualFeed.svelte'
@@ -15,8 +23,10 @@
   interface Props {
     posts: FeedViewPost[]
     cursor?: string
+    /** Raw sort params from the route's `load()`; validated before display. */
     params: {
       sort?: string
+      timeframe?: string
     }
     title?: string
     extended?: Snippet
@@ -38,12 +48,23 @@
     loadFeed,
   }: Props = $props()
 
-  $effect(() => {
-    if (filters.sort) settings.defaultSort.sort = filters.sort
-  })
+  function resolveSort(sort?: string, timeframe?: string): CovesSortParams {
+    return sort ? mapSort(sort, timeframe) : { sort: 'hot' }
+  }
 
-  let filters = $state({
-    sort: params.sort,
+  const routeSort = $derived(resolveSort(params.sort, params.timeframe))
+
+  const initialSort = resolveSort(params.sort, params.timeframe)
+  let filters = $state<{
+    sort: CovesSortType
+    timeframe: CovesTimeframe | undefined
+  }>({ sort: initialSort.sort, timeframe: initialSort.timeframe })
+
+  // SortMenu navigates, which re-runs load() and hands down new params; the
+  // route stays the source of truth so back/forward navigation stays in sync.
+  $effect(() => {
+    filters.sort = routeSort.sort
+    filters.timeframe = routeSort.timeframe
   })
 
   const FeedComponent = $derived(
@@ -61,29 +82,54 @@
       {/if}
       {#snippet extended()}
         {@render passedExtended?.()}
-        <form class="" method="get" action={page.url.pathname}>
-          <div class="flex flex-row gap-2">
-            {#if filters.sort}
-              <Sort
-                placement="bottom"
-                name="sort"
-                navigate
-                bind:selected={filters.sort}
-              />
-            {/if}
-            <ViewSelect placement="bottom" />
+        <div class="flex flex-row gap-2 items-center">
+          <SortMenu
+            bind:sort={filters.sort}
+            bind:timeframe={filters.timeframe}
+          />
+          <ViewSelect placement="bottom" showLabel={false} />
 
-            <noscript>
-              <Button
-                class="self-end h-[34px] aspect-square"
-                size="custom"
-                submit
+          <noscript>
+            <form
+              class="flex flex-row gap-2 items-end"
+              method="get"
+              action={page.url.pathname}
+            >
+              <select
+                name="sort"
+                class="btn btn-secondary btn-md rounded-xl"
+                aria-label={$t('filter.sort.label')}
               >
+                <option value="hot" selected={filters.sort == 'hot'}>
+                  {$t('filter.sort.hot')}
+                </option>
+                <option value="top" selected={filters.sort == 'top'}>
+                  {$t('filter.sort.top.label')}
+                </option>
+                <option value="new" selected={filters.sort == 'new'}>
+                  {$t('filter.sort.new')}
+                </option>
+              </select>
+              <select
+                name="timeframe"
+                class="btn btn-secondary btn-md rounded-xl"
+                aria-label={$t('filter.sort.top.time.label')}
+              >
+                {#each TIMEFRAME_OPTIONS as option (option.value)}
+                  <option
+                    value={option.value}
+                    selected={(filters.timeframe ?? 'all') == option.value}
+                  >
+                    {$t(option.labelKey)}
+                  </option>
+                {/each}
+              </select>
+              <Button class="h-[34px] aspect-square" size="custom" submit>
                 <Icon src={ArrowRight} size="16" micro />
               </Button>
-            </noscript>
-          </div>
-        </form>
+            </form>
+          </noscript>
+        </div>
       {/snippet}
     </Header>
   {/if}

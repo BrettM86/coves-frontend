@@ -2,10 +2,16 @@
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import { t } from '$lib/app/i18n'
-  import type { CovesSortType, CovesTimeframe } from '$lib/app/sort'
+  import { settings } from '$lib/app/settings.svelte'
+  import {
+    normalizeTimeframe,
+    TIMEFRAME_OPTIONS,
+    type CovesSortType,
+    type CovesTimeframe,
+  } from '$lib/app/sort'
   import Menu from '$lib/ui/shared/popover/Menu.svelte'
   import MenuButton from '$lib/ui/shared/popover/MenuButton.svelte'
-  import { Button } from 'mono-svelte'
+  import { Button, toast } from 'mono-svelte'
   import {
     Check,
     ChevronDown,
@@ -40,24 +46,23 @@
     new: { icon: Star, labelKey: 'filter.sort.new' },
   }
 
-  const timeframeConfig: {
-    value: CovesTimeframe
-    labelKey: string
-  }[] = [
-    { value: 'day', labelKey: 'filter.sort.top.time.day' },
-    { value: 'week', labelKey: 'filter.sort.top.time.week' },
-    { value: 'month', labelKey: 'filter.sort.top.time.month' },
-    { value: 'all', labelKey: 'filter.sort.top.time.all' },
-  ]
-
   let currentIcon = $derived(sortConfig[sort]?.icon ?? sortConfig.hot.icon)
   let currentLabel = $derived(
     $t(sortConfig[sort]?.labelKey ?? sortConfig.hot.labelKey),
   )
 
-  async function selectSort(
+  /**
+   * Navigates to the chosen sort, then saves it as the viewer's default.
+   *
+   * @param timeframeChosen whether the viewer picked this period, as opposed
+   * to it being filled in so `sort=top` has one. Only a real choice is saved:
+   * otherwise every click on Top would overwrite the saved period with
+   * whatever happened to be on screen.
+   */
+  async function applySort(
     newSort: CovesSortType,
-    newTimeframe?: CovesTimeframe,
+    newTimeframe: CovesTimeframe | undefined,
+    timeframeChosen: boolean,
   ): Promise<void> {
     const url = new URL(page.url)
     url.searchParams.set('sort', newSort)
@@ -80,13 +85,36 @@
       await goto(url, { invalidateAll: true })
     } catch (err) {
       console.error('[SortMenu] Navigation failed:', err)
+      toast({ content: t.get('toast.sortFailed'), type: 'error' })
       sort = prevSort
       timeframe = prevTimeframe
+      return
+    }
+
+    // Saved only once the navigation lands: feed load()s read these when a URL
+    // carries no sort of its own.
+    settings.defaultSort.sort = newSort
+    if (newSort === 'top' && timeframeChosen && newTimeframe) {
+      settings.defaultSort.timeframe = newTimeframe
     }
   }
 
+  function selectSort(newSort: CovesSortType): void {
+    if (newSort !== 'top') {
+      void applySort(newSort, undefined, false)
+      return
+    }
+    // `sort=top` needs a period in the URL; reuse the one on screen, else the
+    // viewer's saved default rather than a blanket 'all'.
+    void applySort(
+      'top',
+      timeframe ?? normalizeTimeframe(settings.defaultSort.timeframe),
+      false,
+    )
+  }
+
   function selectTimeframe(newTimeframe: CovesTimeframe): void {
-    selectSort('top', newTimeframe)
+    void applySort('top', newTimeframe, true)
   }
 </script>
 
@@ -118,10 +146,7 @@
     {/snippet}
   </MenuButton>
 
-  <MenuButton
-    icon={Trophy}
-    onclick={() => selectSort('top', timeframe ?? 'all')}
-  >
+  <MenuButton icon={Trophy} onclick={() => selectSort('top')}>
     {$t('filter.sort.top.label')}
     {#snippet suffix()}
       {#if sort === 'top'}
@@ -136,7 +161,7 @@
   </MenuButton>
 
   {#if sort === 'top'}
-    {#each timeframeConfig as tf (tf.value)}
+    {#each TIMEFRAME_OPTIONS as tf (tf.value)}
       <MenuButton
         icon={Clock}
         class="pl-4"

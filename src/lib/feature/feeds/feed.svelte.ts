@@ -23,9 +23,28 @@ export class Feed<Params, Response> {
   #data = $state<Response>()
   #fetch: FetchFn<Params, Response>
   #lastParams?: Params
+  /**
+   * Monotonic load counter. Loads overlap routinely on a cached instance —
+   * rapid client-side navigations, and sort changes that `goto` +
+   * `invalidateAll` — and their fetches can settle out of order. Only the
+   * newest load may commit to `#data`/`error`; a superseded fetch still
+   * settles its own caller's promise, but must never write state that by then
+   * describes a later load.
+   */
+  #generation = 0
   error = $state<unknown>()
 
   constructor(fetch: FetchFn<Params, Response>) {
+    this.#fetch = fetch
+  }
+
+  /**
+   * Replaces the fetcher on a cached instance. Each load() run builds a fresh
+   * init closure (over that run's `fetch`, and potentially that run's route
+   * params); keeping the newest one means a cached feed can never refetch
+   * using a previous navigation's captured values.
+   */
+  setFetch(fetch: FetchFn<Params, Response>): void {
     this.#fetch = fetch
   }
 
@@ -36,13 +55,22 @@ export class Feed<Params, Response> {
     }
     this.#lastParams = params
 
+    const generation = ++this.#generation
+
     if (this.#data == null) {
       try {
-        this.#data = await this.#fetch(params)
+        const result = await this.#fetch(params)
+        // A newer load started while this fetch was in flight: hand the result
+        // back to this caller (it is coherent with the params *it* asked for)
+        // but leave the cache to the newer load, which now owns `#lastParams`.
+        if (generation !== this.#generation) return result
+        this.#data = result
         this.error = undefined
       } catch (err) {
         console.error('[Feed] fetch failed:', err)
-        this.error = err
+        // Superseded failures still reject their own caller, but must not
+        // raise an error banner over whatever the newer load rendered.
+        if (generation === this.#generation) this.error = err
         throw err
       }
     }
@@ -164,7 +192,11 @@ export function feed<Type extends keyof FeedTypes>(
   const existing = feeds.get(id)
   // The map erases per-route type info; the cast is safe because each route ID
   // is only ever written with its matching Feed<P, R>.
-  if (browser && existing) return existing as Feed<P, R>
+  if (browser && existing) {
+    const cached = existing as Feed<P, R>
+    cached.setFetch(init as unknown as FetchFn<P, R>)
+    return cached
+  }
 
   const feedData = new Feed<P, R>(init as unknown as FetchFn<P, R>)
   feeds.set(id, feedData as Feed<unknown, unknown>)

@@ -84,6 +84,7 @@
                 "time": {
                     "label": "Period",
                     "all": "All time",
+                    "year": "Past year",
                     "9months": "9 months",
                     "6months": "6 months",
                     "3months": "3 months",
@@ -103,6 +104,7 @@
             "newcomments": "New Replies"
         },
         "feed": {
+            "label": "Feed",
             "discover": "Discover",
             "forYou": "For You"
         },
@@ -815,7 +817,9 @@
         "unblockUser": "Unblocked that user.",
         "purgeUser": "Purged that user.",
         "settingsImport": "Successfully imported settings",
+        "settingsImportFailed": "Couldn't import those settings. Paste the JSON object from a settings export.",
         "settingsImportWarning": "The imported settings don't seem valid. Are you sure you want to import this?",
+        "sortFailed": "Couldn't change the sort. Please try again.",
         "userLoading": "Still loading your user data...",
         "sessionExpired": "Your session has expired. Please log in again.",
         "serverUnreachable": "Can't reach the server right now. You may appear logged out, but your session is preserved."

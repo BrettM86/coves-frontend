@@ -17,12 +17,9 @@
 
   let { data = $bindable() } = $props()
 
-  $effect(() => {
-    if (data.filters.value.sort)
-      settings.defaultSort.sort = data.filters.value.sort
-    if (data.filters.value.type_)
-      settings.defaultSort.feed = data.filters.value.type_
-  })
+  // Defaults are saved by the controls themselves (SortMenu, FeedTabs) on a
+  // real selection. Persisting from here instead would rewrite them for anyone
+  // who merely *opened* a link that named a sort or feed.
 
   const FeedComponent = $derived(
     settings.infiniteScroll && browser && !settings.posts.noVirtualize

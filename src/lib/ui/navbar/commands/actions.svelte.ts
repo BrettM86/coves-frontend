@@ -6,15 +6,12 @@ import {
 } from '$lib/app/auth.svelte'
 import { t } from '$lib/app/i18n'
 import { settings } from '$lib/app/settings.svelte'
+import { TIMEFRAME_OPTIONS } from '$lib/app/sort'
 import { theme, type ThemeData } from '$lib/app/theme/theme.svelte'
 import type { ResumableItem } from '$lib/feature/legacy/item.svelte'
 import {
   ArrowRightOnRectangle,
-  ArrowTrendingDown,
-  ArrowTrendingUp,
   ChartBar,
-  ChatBubbleLeftRight,
-  ChatBubbleOvalLeftEllipsis,
   Clock,
   Cog6Tooth,
   ComputerDesktop,
@@ -22,13 +19,12 @@ import {
   GlobeAlt,
   GlobeAmericas,
   Home,
-  MapPin,
   Moon,
   Newspaper,
   PaintBrush,
   PencilSquare,
   Plus,
-  Scale,
+  Sparkles,
   Star,
   Sun,
   Swatch,
@@ -90,23 +86,18 @@ export function getGroups(
       name: t.get('nav.commands.feeds'),
       actions: [
         {
-          name: t.get('filter.location.label'),
+          name: t.get('filter.feed.label'),
           icon: GlobeAmericas,
           subActions: [
             {
-              name: t.get('filter.location.all'),
+              name: t.get('filter.feed.discover'),
               icon: GlobeAmericas,
-              href: '/?type=All',
+              href: '/?type=discover',
             },
             {
-              name: t.get('filter.location.local'),
-              icon: MapPin,
-              href: '/?type=Local',
-            },
-            {
-              name: t.get('filter.location.subscribed'),
-              icon: Newspaper,
-              href: '/?type=Subscribed',
+              name: t.get('filter.feed.forYou'),
+              icon: Sparkles,
+              href: '/?type=timeline',
             },
           ],
         },
@@ -115,95 +106,23 @@ export function getGroups(
           icon: ChartBar,
           subActions: [
             {
-              name: t.get('filter.sort.top.label'),
-              icon: Trophy,
-              subActions: [
-                {
-                  name: t.get('filter.sort.top.time.all'),
-                  icon: ChartBar,
-                  href: '/?sort=TopAll',
-                },
-                {
-                  name: t.get('filter.sort.top.time.9months'),
-                  icon: ChartBar,
-                  href: '/?sort=TopNineMonths',
-                },
-                {
-                  name: t.get('filter.sort.top.time.6months'),
-                  icon: ChartBar,
-                  href: '/?sort=TopSixMonths',
-                },
-                {
-                  name: t.get('filter.sort.top.time.3months'),
-                  icon: ChartBar,
-                  href: '/?sort=TopThreeMonths',
-                },
-                {
-                  name: t.get('filter.sort.top.time.month'),
-                  icon: ChartBar,
-                  href: '/?sort=TopMonth',
-                },
-                {
-                  name: t.get('filter.sort.top.time.week'),
-                  icon: ChartBar,
-                  href: '/?sort=TopWeek',
-                },
-                {
-                  name: t.get('filter.sort.top.time.day'),
-                  icon: ChartBar,
-                  href: '/?sort=TopDay',
-                },
-                {
-                  name: t.get('filter.sort.top.time.6hours'),
-                  icon: ChartBar,
-                  href: '/?sort=TopSixHour',
-                },
-                {
-                  name: t.get('filter.sort.top.time.hour'),
-                  icon: ChartBar,
-                  href: '/?sort=TopHour',
-                },
-              ],
-            },
-            {
-              name: t.get('filter.sort.active'),
-              icon: ArrowTrendingUp,
-              href: '/?sort=Active',
-            },
-            {
               name: t.get('filter.sort.hot'),
               icon: Fire,
-              href: '/?sort=Hot',
+              href: '/?sort=hot',
             },
             {
-              name: t.get('filter.sort.scaled'),
-              icon: Scale,
-              href: '/?sort=Scaled',
+              name: t.get('filter.sort.top.label'),
+              icon: Trophy,
+              subActions: TIMEFRAME_OPTIONS.map((timeframe) => ({
+                name: t.get(timeframe.labelKey),
+                icon: Clock,
+                href: `/?sort=top&timeframe=${timeframe.value}`,
+              })),
             },
             {
               name: t.get('filter.sort.new'),
               icon: Star,
-              href: '/?sort=New',
-            },
-            {
-              name: t.get('filter.sort.old'),
-              icon: Clock,
-              href: '/?sort=Old',
-            },
-            {
-              name: t.get('filter.sort.controversial'),
-              icon: ArrowTrendingDown,
-              href: '/?sort=Controversial',
-            },
-            {
-              name: t.get('filter.sort.mostcomments'),
-              icon: ChatBubbleOvalLeftEllipsis,
-              href: '/?sort=MostComments',
-            },
-            {
-              name: t.get('filter.sort.newcomments'),
-              icon: ChatBubbleLeftRight,
-              href: '/?sort=NewComments',
+              href: '/?sort=new',
             },
           ],
         },

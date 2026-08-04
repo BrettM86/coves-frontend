@@ -2,6 +2,7 @@
   import { page } from '$app/state'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
+  import { settings } from '$lib/app/settings.svelte'
   import type { CovesListingType } from '$lib/app/sort'
   import { searchParam } from '$lib/app/util.svelte'
 
@@ -16,6 +17,9 @@
 
   function select(value: CovesListingType): void {
     selected = value
+    // Saved on selection only: merely opening a `?type=` link shouldn't
+    // rewrite which feed the viewer lands on next time.
+    settings.defaultSort.feed = value
     searchParam(page.url, 'type', value, 'page', 'cursor')
   }
 </script>

@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  isValidTimeframe,
   mapListing,
   mapSort,
   normalizeCommentSort,
+  normalizeListing,
+  normalizeSort,
+  normalizeTimeframe,
+  resolveFeedSort,
+  TIMEFRAME_OPTIONS,
   toLemmyCommentSort,
 } from './sort'
 
@@ -22,6 +28,10 @@ describe('mapSort', () => {
   })
 
   describe('top sort with timeframes', () => {
+    it('maps "top" with timeframe "hour"', () => {
+      expect(mapSort('top', 'hour')).toEqual({ sort: 'top', timeframe: 'hour' })
+    })
+
     it('maps "top" with timeframe "day"', () => {
       expect(mapSort('top', 'day')).toEqual({ sort: 'top', timeframe: 'day' })
     })
@@ -35,6 +45,10 @@ describe('mapSort', () => {
         sort: 'top',
         timeframe: 'month',
       })
+    })
+
+    it('maps "top" with timeframe "year"', () => {
+      expect(mapSort('top', 'year')).toEqual({ sort: 'top', timeframe: 'year' })
     })
 
     it('maps "top" with timeframe "all"', () => {
@@ -77,6 +91,102 @@ describe('mapSort', () => {
     it('maps empty string to { sort: "hot" }', () => {
       expect(mapSort('')).toEqual({ sort: 'hot' })
     })
+  })
+})
+
+describe('resolveFeedSort', () => {
+  const feedUrl = (query = ''): URL => new URL(`https://coves.test/${query}`)
+  const defaults = { sort: 'top', timeframe: 'week' }
+
+  describe('URL params win', () => {
+    it('uses the URL sort and timeframe over the saved defaults', () => {
+      expect(
+        resolveFeedSort(feedUrl('?sort=top&timeframe=day'), defaults),
+      ).toEqual({ sort: 'top', timeframe: 'day' })
+    })
+
+    it('uses the URL timeframe even when the sort came from settings', () => {
+      expect(resolveFeedSort(feedUrl('?timeframe=month'), defaults)).toEqual({
+        sort: 'top',
+        timeframe: 'month',
+      })
+    })
+
+    it('does not inherit the saved timeframe for an explicit URL sort', () => {
+      // A shared link means the same thing to everyone who opens it.
+      expect(resolveFeedSort(feedUrl('?sort=top'), defaults)).toEqual({
+        sort: 'top',
+        timeframe: 'all',
+      })
+    })
+  })
+
+  describe('settings defaults', () => {
+    it('applies the saved timeframe when the sort also came from settings', () => {
+      expect(resolveFeedSort(feedUrl(), defaults)).toEqual({
+        sort: 'top',
+        timeframe: 'week',
+      })
+    })
+
+    it('ignores the saved timeframe for non-top saved sorts', () => {
+      const result = resolveFeedSort(feedUrl(), {
+        sort: 'hot',
+        timeframe: 'week',
+      })
+      expect(result).toEqual({ sort: 'hot' })
+      expect(result).not.toHaveProperty('timeframe')
+    })
+
+    it('falls back to "all" for an invalid saved timeframe', () => {
+      expect(
+        resolveFeedSort(feedUrl(), { sort: 'top', timeframe: 'TopWeek' }),
+      ).toEqual({ sort: 'top', timeframe: 'all' })
+    })
+  })
+
+  describe('legacy URL sorts', () => {
+    it('salvages a Lemmy-era bookmark to the nearest Coves sort', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      expect(resolveFeedSort(feedUrl('?sort=TopWeek'), defaults)).toEqual({
+        sort: 'top',
+        timeframe: 'all',
+      })
+      expect(resolveFeedSort(feedUrl('?sort=Hot'), defaults)).toEqual({
+        sort: 'hot',
+      })
+      expect(warn).toHaveBeenCalled()
+
+      warn.mockRestore()
+    })
+
+    it('falls back to "hot" for sorts with no Coves equivalent', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      expect(resolveFeedSort(feedUrl('?sort=Controversial'), defaults)).toEqual(
+        { sort: 'hot' },
+      )
+
+      warn.mockRestore()
+    })
+
+    it('treats an empty ?sort= as an explicit sort, not a missing one', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      // Present-but-empty means the saved 'top'/'week' pair is not inherited.
+      expect(resolveFeedSort(feedUrl('?sort='), defaults)).toEqual({
+        sort: 'hot',
+      })
+
+      warn.mockRestore()
+    })
+  })
+
+  it('keeps other query params out of the result', () => {
+    expect(
+      resolveFeedSort(feedUrl('?cursor=abc&type=timeline'), defaults),
+    ).toEqual({ sort: 'top', timeframe: 'week' })
   })
 })
 
@@ -142,6 +252,101 @@ describe('normalizeCommentSort', () => {
     expect(normalizeCommentSort('Old')).toBe('hot')
     expect(normalizeCommentSort('Controversial')).toBe('hot')
     expect(normalizeCommentSort('')).toBe('hot')
+  })
+})
+
+describe('normalizeListing', () => {
+  it('passes through valid listing types regardless of auth state', () => {
+    expect(normalizeListing('discover')).toBe('discover')
+    expect(normalizeListing('timeline')).toBe('timeline')
+  })
+
+  it('migrates legacy Lemmy listing types persisted by the old selector', () => {
+    expect(normalizeListing('All')).toBe('discover')
+    expect(normalizeListing('Local')).toBe('discover')
+    expect(normalizeListing('ModeratorView')).toBe('discover')
+  })
+
+  it('maps the legacy subscribed feed to the timeline', () => {
+    expect(normalizeListing('Subscribed')).toBe('timeline')
+    expect(normalizeListing('subscribed')).toBe('timeline')
+  })
+
+  it('coerces non-string values instead of throwing', () => {
+    expect(normalizeListing(undefined)).toBe('discover')
+    expect(normalizeListing(null)).toBe('discover')
+    expect(normalizeListing(42)).toBe('discover')
+    expect(normalizeListing({ sort: 'timeline' })).toBe('discover')
+  })
+
+  it('accepts capitalized Coves values', () => {
+    expect(normalizeListing('Timeline')).toBe('timeline')
+  })
+
+  it('falls back to "discover" for unrecognized values', () => {
+    expect(normalizeListing('bogus')).toBe('discover')
+    expect(normalizeListing('')).toBe('discover')
+  })
+})
+
+describe('normalizeSort', () => {
+  it('passes through valid lowercase values', () => {
+    expect(normalizeSort('hot')).toBe('hot')
+    expect(normalizeSort('top')).toBe('top')
+    expect(normalizeSort('new')).toBe('new')
+  })
+
+  it('migrates legacy capitalized feed sorts persisted by the old selector', () => {
+    expect(normalizeSort('New')).toBe('new')
+    expect(normalizeSort('TopWeek')).toBe('top')
+  })
+
+  it('falls back to "hot" for sorts the Coves API does not support', () => {
+    expect(normalizeSort('Active')).toBe('hot')
+    expect(normalizeSort('MostComments')).toBe('hot')
+    expect(normalizeSort('')).toBe('hot')
+  })
+
+  it('coerces non-string values instead of throwing', () => {
+    // Corrupted localStorage and hand-edited imports reach these during boot.
+    expect(normalizeSort(undefined)).toBe('hot')
+    expect(normalizeSort(null)).toBe('hot')
+    expect(normalizeSort(42)).toBe('hot')
+    expect(normalizeSort(['top'])).toBe('hot')
+  })
+})
+
+describe('normalizeTimeframe', () => {
+  it('passes through valid timeframes', () => {
+    expect(normalizeTimeframe('hour')).toBe('hour')
+    expect(normalizeTimeframe('year')).toBe('year')
+    expect(normalizeTimeframe('week')).toBe('week')
+  })
+
+  it('falls back to "all" for unsupported values', () => {
+    expect(normalizeTimeframe('9months')).toBe('all')
+    expect(normalizeTimeframe('')).toBe('all')
+  })
+
+  it('coerces non-string values instead of throwing', () => {
+    expect(normalizeTimeframe(undefined)).toBe('all')
+    expect(normalizeTimeframe(null)).toBe('all')
+    expect(normalizeTimeframe(7)).toBe('all')
+  })
+})
+
+describe('TIMEFRAME_OPTIONS', () => {
+  it('is the single source of truth for timeframe validation', () => {
+    for (const option of TIMEFRAME_OPTIONS) {
+      expect(isValidTimeframe(option.value)).toBe(true)
+      expect(normalizeTimeframe(option.value)).toBe(option.value)
+    }
+  })
+
+  it('gives every timeframe a label key', () => {
+    for (const option of TIMEFRAME_OPTIONS) {
+      expect(option.labelKey).toMatch(/^filter\.sort\.top\.time\./)
+    }
   })
 })
 

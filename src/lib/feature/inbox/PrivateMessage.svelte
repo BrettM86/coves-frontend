@@ -17,20 +17,10 @@
   {#if meta}
     <div class="flex flex-row gap-2 items-center flex-wrap">
       <span class="font-medium text-xs">From</span>
-      <UserLink
-        showInstance={false}
-        user={message.creator}
-        avatar
-        avatarSize={20}
-      />
+      <UserLink user={message.creator} avatar avatarSize={20} />
       <!-- TODO: Show recipient when we can compare with current user DID -->
       to
-      <UserLink
-        showInstance={false}
-        user={message.recipient}
-        avatar
-        avatarSize={20}
-      />
+      <UserLink user={message.recipient} avatar avatarSize={20} />
     </div>
   {/if}
   <Markdown

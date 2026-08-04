@@ -202,12 +202,7 @@
             creatorIsOp && 'text-blue-600 dark:text-blue-400 font-bold',
           ]}
         >
-          <UserLink
-            inComment
-            avatarSize={20}
-            avatar
-            user={node.comment.author}
-          />
+          <UserLink avatarSize={20} avatar user={node.comment.author} />
         </span>
         {#if creatorIsOp}
           <Icon

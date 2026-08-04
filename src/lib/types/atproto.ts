@@ -21,6 +21,25 @@ export type Handle = string & { readonly __brand: 'Handle' }
 export type InstanceURL = string & { readonly __brand: 'InstanceURL' }
 
 // ============================================================================
+// Handle Resolution
+// ============================================================================
+
+/**
+ * ATProto's sentinel for a handle that could not be resolved. Treat it as
+ * "no handle": it is not routable, so building links or display text from it
+ * produces dead ends (`/c/handle.invalid` always 404s).
+ */
+export const INVALID_HANDLE = 'handle.invalid'
+
+/**
+ * Returns the handle when it is present and resolvable, otherwise undefined,
+ * so callers can fall back to a DID for both links and labels.
+ */
+export function usableHandle(handle: string | undefined): Handle | undefined {
+  return handle && handle !== INVALID_HANDLE ? (handle as Handle) : undefined
+}
+
+// ============================================================================
 // Type Guards (Validators)
 // ============================================================================
 

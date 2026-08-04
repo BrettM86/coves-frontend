@@ -2,7 +2,6 @@ import { browser } from '$app/environment'
 import { goto } from '$app/navigation'
 import { client } from '$lib/api/client.svelte'
 import type {
-  AuthorView,
   CommunityRef,
   CommunityView as CovesCommunityView,
 } from '$lib/api/coves/types'
@@ -229,9 +228,14 @@ export function communityLink(
 
 /**
  * Generate a link path for a user profile.
- * Accepts a Coves AuthorView.
+ *
+ * Takes any user-shaped view: `handle` is optional on some of them
+ * (`ProfileViewDetailed`) and the DID route is the fallback either way.
  */
-export function userLink(user: AuthorView, prefix: string = ''): string {
+export function userLink(
+  user: { did: string; handle?: string },
+  prefix: string = '',
+): string {
   if (user.handle) {
     return `${prefix}/profile/${encodeURIComponent(user.handle)}`
   }

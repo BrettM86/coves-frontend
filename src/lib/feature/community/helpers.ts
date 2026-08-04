@@ -1,19 +1,11 @@
 import type { CommunityRef, CommunityView } from '$lib/api/coves/types'
 import { communitySlug } from '$lib/app/util.svelte'
+import { usableHandle } from '$lib/types/atproto'
 
-/**
- * ATProto's sentinel for a handle that could not be resolved. Treat it as
- * "no handle": building URLs or display text from it produces dead links
- * (`/c/handle.invalid` always 404s).
- */
-const INVALID_HANDLE = 'handle.invalid'
-
-function usableHandle(
+function communityHandle(
   community: CommunityView | CommunityRef,
 ): string | undefined {
-  return community.handle && community.handle !== INVALID_HANDLE
-    ? community.handle
-    : undefined
+  return usableHandle(community.handle)
 }
 
 /**
@@ -27,7 +19,7 @@ function usableHandle(
 export function communityIdentifier(
   community: CommunityView | CommunityRef,
 ): string {
-  const handle = usableHandle(community)
+  const handle = communityHandle(community)
   return handle ? communitySlug(handle) : community.did
 }
 
@@ -43,7 +35,7 @@ export function communityIdentifier(
 export function communityHandleOrName(
   community: CommunityView | CommunityRef,
 ): string {
-  const handle = usableHandle(community)
+  const handle = communityHandle(community)
   return handle ? communitySlug(handle) : community.name
 }
 

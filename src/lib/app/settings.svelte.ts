@@ -1,6 +1,7 @@
 import { browser } from '$app/environment'
 import { env } from '$env/dynamic/public'
 import { locale } from './i18n'
+import { mergeDeep } from './merge'
 import { normalizeCommentSort } from './sort'
 
 /**
@@ -37,11 +38,6 @@ interface Settings {
   expandableImages: boolean
   /** When true, read posts are visually faded in the feed. */
   markReadPosts: boolean
-  showInstances: {
-    user: boolean
-    community: boolean
-    comments: boolean
-  }
 
   view: View
 
@@ -65,7 +61,6 @@ interface Settings {
     team: boolean
     accounts: boolean
   }
-  displayNames: boolean
   nsfwBlur: boolean
   moderation: {
     presets: Preset[]
@@ -119,11 +114,6 @@ export const defaultSettings: Settings = {
   settingsVer: 7,
   expandableImages: toBool(env.PUBLIC_EXPANDABLE_IMAGES) ?? true,
   markReadPosts: toBool(env.PUBLIC_MARK_READ_POSTS) ?? true,
-  showInstances: {
-    user: toBool(env.PUBLIC_SHOW_INSTANCES_USER) ?? true,
-    community: toBool(env.PUBLIC_SHOW_INSTANCES_COMMUNITY) ?? true,
-    comments: toBool(env.PUBLIC_SHOW_INSTANCES_COMMENTS) ?? true,
-  },
   defaultSort: {
     sort: (env.PUBLIC_DEFAULT_FEED_SORT ?? 'hot') as SortType,
     feed: (env.PUBLIC_DEFAULT_FEED ?? 'discover') as ListingType,
@@ -144,7 +134,6 @@ export const defaultSettings: Settings = {
     team: false,
     accounts: true,
   },
-  displayNames: toBool(env.PUBLIC_DISPLAY_NAMES) ?? true,
   nsfwBlur: toBool(env.PUBLIC_NSFW_BLUR) ?? true,
   moderation: {
     presets: [
@@ -195,25 +184,39 @@ export const defaultSettings: Settings = {
   voteRatioBar: false,
 }
 
+/**
+ * Clones the defaults so callers can mutate the result freely.
+ *
+ * Must be `structuredClone`, never a JSON round-trip: JSON drops keys whose
+ * value is `undefined` (`modlogCardView`, `embeds.invidious`, `embeds.piped`),
+ * and mergeDeep only keeps keys the target defines — so a JSON clone would
+ * make those settings unknown and silently discard the user's stored values.
+ */
+function cloneDefaults(defaultValue: Settings): Settings {
+  return structuredClone(defaultValue)
+}
+
 function getInitialSettings(defaultValue: Settings): Settings {
   if (!browser) {
-    return defaultValue
+    return cloneDefaults(defaultValue)
   }
   try {
     const localSettings = JSON.parse(
       localStorage.getItem('settings') ?? '{}',
     ) as unknown
-    const cloned = structuredClone(defaultValue) as unknown as Record<
+    const cloned = cloneDefaults(defaultValue) as unknown as Record<
       string,
       unknown
     >
+    // Layering over the defaults also prunes settings removed in later
+    // versions — mergeDeep keeps only keys the defaults still define.
     return mergeDeep(cloned, localSettings) as unknown as Settings
   } catch (err) {
     console.error(
       '[settings] Failed to parse settings from localStorage:',
       err instanceof Error ? err.message : String(err),
     )
-    return defaultValue
+    return cloneDefaults(defaultValue)
   }
 }
 
@@ -229,9 +232,7 @@ function createSettingsState(initial: Settings): Settings {
   return settings
 }
 
-export const settings = createSettingsState(
-  JSON.parse(JSON.stringify(defaultSettings)),
-)
+export const settings = createSettingsState(defaultSettings)
 
 $effect.root(() => {
   $effect(() => {
@@ -246,40 +247,3 @@ $effect.root(() => {
 
   return () => {}
 })
-
-function isObject(item: unknown): item is Record<string, unknown> {
-  return item !== null && typeof item === 'object' && !Array.isArray(item)
-}
-
-/**
- * Deep merge two objects.
- * @param target - The target object to merge into
- * @param sources - Source objects to merge from
- * @returns The merged target object
- */
-export function mergeDeep<T extends Record<string, unknown>>(
-  target: T,
-  ...sources: unknown[]
-): T {
-  if (!sources.length) return target
-  const source = sources.shift()
-
-  if (isObject(target) && isObject(source)) {
-    for (const key in source) {
-      const sourceValue = source[key]
-      if (isObject(sourceValue)) {
-        if (!target[key]) {
-          Object.assign(target, { [key]: {} })
-        }
-        const targetValue = target[key]
-        if (isObject(targetValue)) {
-          mergeDeep(targetValue, sourceValue)
-        }
-      } else {
-        Object.assign(target, { [key]: sourceValue })
-      }
-    }
-  }
-
-  return mergeDeep(target, ...sources)
-}

@@ -1,11 +1,11 @@
 <script lang="ts" module>
   import { env } from '$env/dynamic/public'
-  import type { AuthorView } from '$lib/api/coves/types'
-  import { settings } from '$lib/app/settings.svelte'
+  import type { AuthorView, ProfileViewDetailed } from '$lib/api/coves/types'
   import { userLink } from '$lib/app/util.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import Logo from '$lib/ui/generic/Logo.svelte'
   import { Icon, type IconSource, Language } from 'svelte-hero-icons/dist'
+  import { userLabel } from './helpers'
 
   function parseBadge(): Record<string, string[]> {
     try {
@@ -53,14 +53,15 @@
 
 <script lang="ts">
   interface Props {
-    user: AuthorView
+    /**
+     * Any user-shaped view. `ProfileViewDetailed` omits `handle`, so the
+     * label and link both fall back to the DID rather than rendering
+     * `@undefined`.
+     */
+    user: AuthorView | ProfileViewDetailed
     avatar?: boolean
     avatarSize?: number
     badges?: boolean
-    inComment?: boolean
-    showInstance?: boolean
-    displayName?: boolean
-    instanceClass?: string
     class?: string
     children?: import('svelte').Snippet
     extraBadges?: import('svelte').Snippet
@@ -71,25 +72,23 @@
     avatar = false,
     avatarSize = 24,
     badges = true,
-    inComment = false,
-    showInstance = settings.showInstances.user ||
-      (settings.showInstances.comments && inComment),
-    displayName = settings.displayNames,
-    instanceClass = '',
     class: clazz = '',
     children,
     extraBadges,
   }: Props = $props()
 
   let envBadge = $derived(getEnvBadge(user.did))
-  let shownName = $derived(
-    displayName ? user.displayName || user.handle : user.handle,
-  )
-  // Without a displayName the primary text already IS the handle — appending
-  // "@handle" would render it twice (e.g. "mari.dev@mari.dev").
-  let showHandleSuffix = $derived(showInstance && shownName !== user.handle)
+  let label = $derived(userLabel(user))
 </script>
 
+<!--
+  @component
+  Links to a user, labelled by their handle. The handle is the account's
+  identity in atproto and the only part of it that can't be spoofed, so it is
+  always the label — display names are freeform and, on bridged accounts,
+  usually just restate the handle's username ("Alice" vs `@alice.example.io`).
+  Display names still appear on the profile page, where there is room for both.
+-->
 <a
   class="items-center inline-flex flex-row gap-1 hover:underline max-w-full min-w-0 {clazz}"
   href={userLink(user)}
@@ -97,31 +96,14 @@
 >
   {@render children?.()}
   {#if avatar}
-    <Avatar
-      url={user.avatar}
-      alt={user.handle}
-      width={avatarSize}
-      class="shrink-0"
-    />
+    <Avatar url={user.avatar} alt={label} width={avatarSize} class="shrink-0" />
   {/if}
   <span
-    class="flex gap-0 items-center shrink max-w-full min-w-0"
+    class="font-medium handle-text shrink min-w-0 {envBadge &&
+      envBadge.classes}"
     class:ml-0.5={avatar}
   >
-    <span
-      class:font-medium={showInstance}
-      class="username-text {envBadge && envBadge.classes}"
-    >
-      {shownName}
-    </span>
-    {#if showHandleSuffix}
-      <span
-        class="text-slate-500 dark:text-zinc-500 font-normal instance-text shrink {instanceClass ??
-          ''}"
-      >
-        @{user.handle}
-      </span>
-    {/if}
+    {label}
   </span>
   {#if badges}
     {#if envBadge}
@@ -141,18 +123,10 @@
 </a>
 
 <style>
-  .instance-text {
+  .handle-text {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0;
     max-width: 100%;
-    flex: 1;
-  }
-
-  .username-text {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 </style>

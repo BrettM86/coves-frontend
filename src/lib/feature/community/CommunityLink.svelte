@@ -1,20 +1,15 @@
 <script lang="ts">
   import type { CommunityRef, CommunityView } from '$lib/api/coves/types'
-  import { settings } from '$lib/app/settings.svelte'
-  import { communitySlug } from '$lib/app/util.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import type { HTMLAnchorAttributes } from 'svelte/elements'
-  import { communityDisplayName, communityIdentifier } from './helpers'
+  import { communityHandleOrName, communityIdentifier } from './helpers'
 
   interface Props extends HTMLAnchorAttributes {
     community: CommunityRef | CommunityView
     avatar?: boolean
     name?: boolean
     avatarSize?: number
-    showInstance?: boolean
-    displayName?: boolean
     class?: string
-    instanceClass?: string
   }
 
   let {
@@ -22,14 +17,18 @@
     avatar = false,
     name = true,
     avatarSize = 24,
-    showInstance = settings.showInstances.community,
-    displayName = true,
     class: clazz = '',
-    instanceClass = '',
     ...rest
   }: Props = $props()
 </script>
 
+<!--
+  @component
+  Links to a community, labelled by its handle. The handle is the community's
+  identity in atproto — it is what the URL resolves and what a user types to
+  find the community — so it is always the label. Display names are freeform
+  and usually just restate the handle ("nba" vs `!nba.coves.social`).
+-->
 <a
   {...rest}
   class={[
@@ -44,34 +43,17 @@
   {/if}
 
   {#if name}
-    <span class="flex gap-0 items-center max-w-full min-w-0 shrink">
-      <span class="font-medium username-text">
-        {displayName ? communityDisplayName(community) : community.name}
-      </span>
-      {#if showInstance && community.handle}
-        <span
-          class="text-slate-500 dark:text-zinc-500 font-normal
-          instance-text shrink {instanceClass || ''}"
-        >
-          !{communitySlug(community.handle)}
-        </span>
-      {/if}
+    <span class="font-medium handle-text shrink min-w-0">
+      !{communityHandleOrName(community)}
     </span>
   {/if}
 </a>
 
 <style>
-  .instance-text {
+  .handle-text {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
-    flex: 1;
-  }
-
-  .username-text {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 </style>

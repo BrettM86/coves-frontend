@@ -1,6 +1,5 @@
 <script lang="ts">
   import { page } from '$app/state'
-  import type { AuthorView } from '$lib/api/coves/types'
   import { t } from '$lib/app/i18n'
   import { deletedContentPlaceholder } from '$lib/feature/comment/comments.svelte'
   import PostFeed from '$lib/feature/post/feed/PostFeed.svelte'
@@ -74,13 +73,7 @@
         >
           {#snippet nameDetail()}
             <span class="text-sm flex gap-0 items-center w-max">
-              @
-              <UserLink
-                showInstance
-                user={profile as unknown as AuthorView}
-                displayName={false}
-                class="font-normal"
-              />
+              <UserLink user={profile} class="font-normal" />
             </span>
           {/snippet}
           {#snippet actions()}

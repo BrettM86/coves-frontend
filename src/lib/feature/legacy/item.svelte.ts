@@ -144,7 +144,6 @@ export const resumables = new ResumableStore()
 /**
  * @deprecated Legacy Lemmy code - needs Coves API replacement
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function addFavorite(_community: CommunityView, _add = true): void {
   toast({
     content: 'Favorites management is not yet available',

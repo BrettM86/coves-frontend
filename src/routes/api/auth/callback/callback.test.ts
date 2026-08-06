@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, type Mock, beforeEach } from 'vitest'
+import {
+  createMockCookies,
+  createMockEvent,
+} from '$lib/test-utils/request-event'
 
 // Mock CSRF validation - control per test
 let mockValidateOAuthState: Mock
@@ -6,20 +10,6 @@ let mockValidateOAuthState: Mock
 vi.mock('$lib/server/csrf', () => ({
   validateOAuthState: (...args: unknown[]) => mockValidateOAuthState(...args),
 }))
-
-// Helper to create mock cookies
-function createMockCookies(initialCookies: Record<string, string> = {}) {
-  const store = new Map(Object.entries(initialCookies))
-  return {
-    get: vi.fn((name: string) => store.get(name)),
-    set: vi.fn((name: string, value: string) => {
-      store.set(name, value)
-    }),
-    delete: vi.fn((name: string) => {
-      store.delete(name)
-    }),
-  }
-}
 
 // Helper to create mock URL with optional state parameter
 function createMockUrl(state?: string): URL {
@@ -43,10 +33,9 @@ describe('GET /api/auth/callback', () => {
       const cookies = createMockCookies({})
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl('some-state'),
-        } as never)
+        await GET(
+          createMockEvent({ cookies, url: createMockUrl('some-state') }),
+        )
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -65,10 +54,9 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl('some-state'),
-        } as never)
+        await GET(
+          createMockEvent({ cookies, url: createMockUrl('some-state') }),
+        )
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -91,10 +79,9 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl('some-state'),
-        } as never)
+        await GET(
+          createMockEvent({ cookies, url: createMockUrl('some-state') }),
+        )
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -115,10 +102,9 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl('some-state'),
-        } as never)
+        await GET(
+          createMockEvent({ cookies, url: createMockUrl('some-state') }),
+        )
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -139,10 +125,9 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl('some-state'),
-        } as never)
+        await GET(
+          createMockEvent({ cookies, url: createMockUrl('some-state') }),
+        )
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -163,10 +148,9 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl('some-state'),
-        } as never)
+        await GET(
+          createMockEvent({ cookies, url: createMockUrl('some-state') }),
+        )
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -190,10 +174,9 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl('some-state'),
-        } as never)
+        await GET(
+          createMockEvent({ cookies, url: createMockUrl('some-state') }),
+        )
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -219,10 +202,8 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl(), // No state parameter
-        } as never)
+        // No state parameter in the URL
+        await GET(createMockEvent({ cookies, url: createMockUrl() }))
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -242,10 +223,9 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl('url-state-value'),
-        } as never)
+        await GET(
+          createMockEvent({ cookies, url: createMockUrl('url-state-value') }),
+        )
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -265,10 +245,9 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl('url-state-value'),
-        } as never)
+        await GET(
+          createMockEvent({ cookies, url: createMockUrl('url-state-value') }),
+        )
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -292,10 +271,12 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl('different-state-bbbb'),
-        } as never)
+        await GET(
+          createMockEvent({
+            cookies,
+            url: createMockUrl('different-state-bbbb'),
+          }),
+        )
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -325,10 +306,7 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl(testState),
-        } as never)
+        await GET(createMockEvent({ cookies, url: createMockUrl(testState) }))
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -351,10 +329,7 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl(testState),
-        } as never)
+        await GET(createMockEvent({ cookies, url: createMockUrl(testState) }))
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -379,10 +354,7 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl(testState),
-        } as never)
+        await GET(createMockEvent({ cookies, url: createMockUrl(testState) }))
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -405,10 +377,7 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl(testState),
-        } as never)
+        await GET(createMockEvent({ cookies, url: createMockUrl(testState) }))
         expect.fail('Expected redirect to be thrown')
       } catch (error: unknown) {
         const redirect = error as { status: number; location: string }
@@ -433,10 +402,7 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl(testState),
-        } as never)
+        await GET(createMockEvent({ cookies, url: createMockUrl(testState) }))
       } catch {
         // Expected redirect
       }
@@ -459,10 +425,9 @@ describe('GET /api/auth/callback', () => {
       })
 
       try {
-        await GET({
-          cookies: cookies as never,
-          url: createMockUrl('different-state'),
-        } as never)
+        await GET(
+          createMockEvent({ cookies, url: createMockUrl('different-state') }),
+        )
       } catch {
         // Expected redirect
       }

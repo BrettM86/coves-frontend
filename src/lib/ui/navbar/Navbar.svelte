@@ -5,7 +5,7 @@
   import { Bars3, GlobeAlt, Icon, PencilSquare } from 'svelte-hero-icons/dist'
   import type { ClassValue } from 'svelte/elements'
   import Avatar from '../generic/Avatar.svelte'
-  import CommandsWrapper, { chords } from './commands/CommandsHost.svelte'
+  import CommandsWrapper from './commands/CommandsHost.svelte'
   import NavButton from './NavButton.svelte'
 
   interface Props {

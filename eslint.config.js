@@ -41,6 +41,17 @@ export default ts.config(
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'svelte/no-navigation-without-resolve': 'off',
+      // _-prefix marks intentionally-unused bindings (exhaustiveness checks,
+      // stubbed params, discarded destructures)
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+        },
+      ],
     },
   },
   {

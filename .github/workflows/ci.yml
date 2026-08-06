@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Manual trigger for a ref that missed push CI
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Never cancel main runs — deploys gate on a completed run for the deployed SHA
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Least privilege — don't inherit the repo default token scope
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version comes from the "packageManager" field in package.json
+      # (keep the Dockerfile's pinned pnpm in sync when bumping it).
+      # Third-party action — pinned to a commit SHA, not the mutable v4 tag.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Match the Dockerfile's node:22-alpine so CI validates what ships
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm check
+
+      - name: Test
+        run: pnpm test:ci
+
+      - name: Build (node adapter, same as the Docker image)
+        run: ADAPTER=node pnpm build

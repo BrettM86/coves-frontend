@@ -214,6 +214,7 @@ export function createOptimisticCommentView(
   parentRef: StrongRef,
   author: { did: string; handle: string; avatar?: string },
 ): NormalizedCommentView {
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one-shot timestamp, never held as reactive state
   const now = new Date().toISOString()
   return {
     uri: output.uri,

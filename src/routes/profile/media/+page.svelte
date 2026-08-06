@@ -14,19 +14,7 @@
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
   {#each data.images.value as image (image.local_image.pictrs_delete_token)}
     <div animate:flip={{ duration: 500, easing: expoInOut }}>
-      <PictrsImage
-        image={image.local_image}
-        ondelete={() => {
-          data.images.value = data.images.value.toSpliced(
-            data.images.value.findIndex(
-              (i) =>
-                i.local_image.pictrs_delete_token ==
-                image.local_image.pictrs_delete_token,
-            ),
-            1,
-          )
-        }}
-      />
+      <PictrsImage image={image.local_image} />
     </div>
   {/each}
 </div>

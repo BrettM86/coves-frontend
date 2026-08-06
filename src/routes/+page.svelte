@@ -33,9 +33,7 @@
 </svelte:head>
 
 <Header pageHeader>
-  {#snippet children()}
-    <FeedTabs bind:selected={data.filters.value.type_} />
-  {/snippet}
+  <FeedTabs bind:selected={data.filters.value.type_} />
   {#snippet extended()}
     <div class="flex flex-row gap-2 items-center">
       <SortMenu

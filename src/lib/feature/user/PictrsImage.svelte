@@ -34,10 +34,9 @@
   interface Props {
     image: PictrsLocalImage
     user?: AuthorView
-    ondelete?: (res: boolean) => void
   }
 
-  let { image, user, ondelete }: Props = $props()
+  let { image, user }: Props = $props()
 </script>
 
 <div class="flex flex-col gap-1">

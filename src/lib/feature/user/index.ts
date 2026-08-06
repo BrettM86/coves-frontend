@@ -27,7 +27,6 @@ let _warnedAddSubscription = false
  * @deprecated Legacy Lemmy code - needs Coves API replacement
  * This is a no-op stub to maintain compilation
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function addSubscription(_community: unknown, _subscribe = true): void {
   if (!_warnedAddSubscription) {
     console.warn(
@@ -44,9 +43,7 @@ let _warnedHasFavorite = false
  * Always returns false as favorites are not yet implemented
  */
 export function hasFavorite(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _profile: unknown,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _id: number,
 ): boolean {
   if (!_warnedHasFavorite) {

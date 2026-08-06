@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { Cookies, Redirect, RequestEvent } from '@sveltejs/kit'
+import type { RequestEvent } from '@sveltejs/kit'
+import {
+  createMockCookies,
+  createMockEvent,
+  isRedirect,
+} from '$lib/test-utils/request-event'
 
 // Variable to control the mocked instance URL
 let mockPublicInternalInstance: string | undefined = 'http://localhost:4000'
@@ -36,65 +41,6 @@ const { handle, handleError } = await import('./hooks.server')
 // Mock global fetch
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
-
-// Helper to create mock cookies
-function createMockCookies(
-  initialCookies: Record<string, string> = {},
-): Cookies {
-  const store = new Map(Object.entries(initialCookies))
-  return {
-    get: vi.fn((name: string) => store.get(name)),
-    getAll: vi.fn(() =>
-      Array.from(store.entries()).map(([name, value]) => ({ name, value })),
-    ),
-    set: vi.fn((name: string, value: string) => {
-      store.set(name, value)
-    }),
-    delete: vi.fn((name: string) => {
-      store.delete(name)
-    }),
-    serialize: vi.fn(),
-  } as unknown as Cookies
-}
-
-/**
- * Creates a mock request event for testing.
- */
-function createMockEvent(options: {
-  cookies?: Cookies
-  locals?: App.Locals
-  url?: string
-}): RequestEvent {
-  const url = new URL(options.url ?? 'http://localhost:5173/')
-  const defaultLocals: App.Locals = { auth: { authenticated: false } }
-  return {
-    request: new Request(url),
-    cookies: options.cookies ?? createMockCookies(),
-    url,
-    locals: options.locals ?? defaultLocals,
-    params: {},
-    platform: undefined,
-    route: { id: '/' },
-    getClientAddress: () => '127.0.0.1',
-    fetch: vi.fn(),
-    isDataRequest: false,
-    isSubRequest: false,
-    setHeaders: vi.fn(),
-  } as unknown as RequestEvent
-}
-
-/**
- * Checks if a thrown value is a SvelteKit Redirect.
- * SvelteKit's `redirect()` throws an object with `status` and `location` properties.
- */
-function isRedirect(err: unknown): err is Redirect {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'status' in err &&
-    'location' in err
-  )
-}
 
 /**
  * Creates a mock resolve function that returns a Response

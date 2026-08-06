@@ -67,7 +67,6 @@
    * Purge a community by DID.
    * Not yet available in the Coves API.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   export async function purgeCommunity(_did: DID): Promise<void> {
     toast({
       content: 'Purging communities is not yet available',

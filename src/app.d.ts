@@ -106,7 +106,6 @@ declare global {
 }
 
 export {}
-// eslint-disable-next-line
 declare const __VERSION__: string
 
 declare module 'markdown-it-sub'

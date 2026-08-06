@@ -62,7 +62,21 @@ Show the user:
 2. The proposed commit message
 3. Ask for confirmation or modifications
 
-### Step 5: Execute Merge
+### Step 5: Run the CI Gate Locally (mandatory)
+
+Run the exact gate that `.github/workflows/ci.yml` enforces, on the code about to merge:
+
+```sh
+pnpm lint && pnpm check && pnpm test:ci && ADAPTER=node pnpm build
+```
+
+- Any failure is a hard stop: fix it (or ask the user) before merging. Never merge red.
+- This is the fast local mirror of CI; the authoritative gate re-runs on GitHub
+  (mirror repo `BrettM86/coves-frontend`) when main is pushed. Before deploying,
+  verify that run is green for the deployed SHA:
+  `gh run list -R BrettM86/coves-frontend --workflow ci.yml --commit <sha>`.
+
+### Step 6: Execute Merge
 
 Based on the current state, offer appropriate options:
 
@@ -86,7 +100,7 @@ Based on the current state, offer appropriate options:
 **If on main with uncommitted changes:**
 1. Commit directly with the comprehensive message
 
-### Step 6: Cleanup (Optional)
+### Step 7: Cleanup (Optional)
 
 After successful merge, offer to:
 - Delete the feature branch locally: `git branch -d <branch>`

@@ -1,90 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { Cookies, RequestEvent } from '@sveltejs/kit'
-import type { Redirect } from '@sveltejs/kit'
 import { POST as loginHandler } from './login/+server'
 import { GET as callbackHandler } from './callback/+server'
 import { POST as logoutHandler } from './logout/+server'
 import { generateOAuthState } from '$lib/server/csrf'
-
-// Type alias for any RequestEvent to simplify testing
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyRequestEvent = RequestEvent<Record<string, string>, any>
-
-/**
- * Helper to check if an error is a SvelteKit Redirect
- */
-function isRedirect(error: unknown): error is Redirect {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'status' in error &&
-    'location' in error &&
-    (error as Redirect).status >= 300 &&
-    (error as Redirect).status < 400
-  )
-}
+import {
+  createMockCookies,
+  createMockEvent,
+  isRedirect,
+} from '$lib/test-utils/request-event'
 
 // Mock environment variables (needed by login endpoint)
 vi.mock('$env/dynamic/private', () => ({
   env: {},
 }))
-
-// Helper to create mock cookies
-function createMockCookies(
-  initialCookies: Record<string, string> = {},
-): Cookies {
-  const store = new Map(Object.entries(initialCookies))
-  return {
-    get: vi.fn((name: string) => store.get(name)),
-    getAll: vi.fn(() =>
-      Array.from(store.entries()).map(([name, value]) => ({ name, value })),
-    ),
-    set: vi.fn((name: string, value: string) => {
-      store.set(name, value)
-    }),
-    delete: vi.fn((name: string) => {
-      store.delete(name)
-    }),
-    serialize: vi.fn(),
-  } as unknown as Cookies
-}
-
-/**
- * Creates a mock request event for testing.
- */
-function createMockEvent(options: {
-  method?: string
-  body?: unknown
-  cookies?: Cookies
-  url?: string
-  locals?: App.Locals
-  headers?: Record<string, string>
-}): AnyRequestEvent {
-  const url = new URL(options.url ?? 'http://localhost:5173/api/auth/test')
-  // Default to unauthenticated state
-  const defaultLocals: App.Locals = { auth: { authenticated: false } }
-  return {
-    request: new Request(url, {
-      method: options.method ?? 'GET',
-      body: options.body ? JSON.stringify(options.body) : undefined,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    }),
-    cookies: options.cookies ?? createMockCookies(),
-    url,
-    locals: options.locals ?? defaultLocals,
-    params: {},
-    platform: undefined,
-    route: { id: '/api/auth/test' },
-    getClientAddress: () => '127.0.0.1',
-    fetch: vi.fn(),
-    isDataRequest: false,
-    isSubRequest: false,
-    setHeaders: vi.fn(),
-  } as unknown as AnyRequestEvent
-}
 
 /**
  * Helper to create authenticated App.Locals with the new shape.

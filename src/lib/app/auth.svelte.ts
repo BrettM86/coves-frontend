@@ -409,7 +409,6 @@ class Profile {
   /**
    * @deprecated Legacy Lemmy compatibility - will be replaced with Coves roles
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isMod(_community?: unknown): boolean {
     if (!this.#warnedIsMod) {
       console.warn(

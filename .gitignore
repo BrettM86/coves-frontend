@@ -31,3 +31,4 @@ network-*.txt
 *-snapshot.md
 # Claude agent memory (local review-agent scratch state)
 .claude/agent-memory/
+coverage/

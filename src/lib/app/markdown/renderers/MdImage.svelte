@@ -11,6 +11,7 @@
   import { showImage } from '$lib/ui/generic/ExpandableImage.svelte'
   import { getContext } from 'svelte'
   import { ArrowDownTray, Icon } from 'svelte-hero-icons/dist'
+  import { isSafeHref } from './plugins'
 
   let loaded: boolean = $state(
     (getContext('options') as { autoloadImages: boolean })?.autoloadImages ??
@@ -33,10 +34,14 @@
     return 'none'
   }
 
-  let type = $derived(href ? urlMediaType(href) : 'none')
+  // The href comes straight from untrusted markdown, so enforce the protocol
+  // allowlist before picking a media branch — every branch below ends in a
+  // URL-bearing sink, and this component owns the untrusted input.
+  let safe = $derived(isSafeHref(href ?? ''))
+  let type = $derived(href && safe ? urlMediaType(href) : 'none')
 </script>
 
-{#if href}
+{#if href && safe}
   <div
     class="w-auto h-auto max-h-96 rounded-2xl border border-slate-200 dark:border-zinc-800 inline-block group"
   >
@@ -86,4 +91,12 @@
       </button>
     {/if}
   </div>
+{:else if text}
+  <!--
+    Blocked, or no href at all. Degrade the way MdLink does — it renders its
+    children as plain text rather than dropping them — so the alt text of
+    `![alt](vbscript:…)` survives instead of the image vanishing silently.
+    Text only: no URL and no media element, so the gate above is unaffected.
+  -->
+  {text}
 {/if}

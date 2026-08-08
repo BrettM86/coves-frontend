@@ -1,13 +1,28 @@
 <script lang="ts">
-  // @ts-nocheck
   import type { Tokens } from 'marked'
+  import type { Component } from 'svelte'
   import type { Renderer } from './Markdown.svelte'
   import Self from './MdTree.svelte'
+
+  // Keys are checked against the Renderer union — a typo'd renderer name or a
+  // name missing from Markdown.svelte's maps is now a type error. Partial<>
+  // because inlineRenderers and linklessInlineRenderers are subsets of the
+  // full map.
+  //
+  // The props position stays `any`, and cannot be narrowed as things stand:
+  // the map has to be a supertype of all 26 concrete components (whose Props
+  // are contravariant, and mutually incompatible — MdList requires
+  // `ordered`/`start`, MdCodespan requires `children`, MdTableCell requires
+  // `header`), while the call site below spreads an arbitrary bag of token
+  // fields. `Component<{}>` fails the first requirement, `Component<never>`
+  // fails the second, and no type satisfies both. Narrowing it means changing
+  // how renderers receive their props, not just relabelling this line.
+  type RendererMap = Partial<Record<Renderer, Component<any>>>
 
   interface Props {
     type?: Renderer
     raw?: string
-    renderers: any
+    renderers: RendererMap
     tokens?: Tokens.Generic[]
     text?: string
     align?: string
@@ -27,11 +42,21 @@
   if (header) {
     type = 'tablecell'
   }
+
+  // Token types that are deliberately invisible, so falling back to their
+  // source text would be a regression rather than a rescue. `def` is a
+  // reference link definition ("[tag]: https://…"), which carries the whole
+  // declaration in `raw` and is never meant to be shown.
+  //
+  // Declared as string[] because `type` is only a Renderer by assertion — the
+  // {:else} branch below casts token.type, so at runtime it can be any token
+  // name marked emits, including ones absent from the renderer map.
+  const INVISIBLE_TOKEN_TYPES: readonly string[] = ['def']
 </script>
 
 {#if type}
-  {#if renderers[type]}
-    {@const Renderer = renderers[type]}
+  {@const Renderer = renderers[type]}
+  {#if Renderer}
     <Renderer {...rest} {raw} {text}>
       {#each tokens as token}
         {#if type != 'list' && type != 'table'}
@@ -90,6 +115,15 @@
         {/if}
       {/each}
     </Renderer>
+  {:else if !INVISIBLE_TOKEN_TYPES.includes(type)}
+    <!--
+      No renderer for this token type. The inline maps omit heading, list and
+      blockquote, and PostMeta renders post titles with <Markdown inline
+      noLinks> — without this branch a title like "# 1 pick" dropped the token
+      and its whole subtree, rendering as an empty string in the feed.
+      Fall back to the author's source text so content degrades visibly.
+    -->
+    {raw ?? text}
   {/if}
 {:else}
   {#each tokens as token}

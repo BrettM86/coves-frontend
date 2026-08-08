@@ -1,5 +1,4 @@
 <script lang="ts">
-  // @ts-nocheck
   interface Props {
     header: boolean
     align?: 'left' | 'center' | 'right' | 'justify' | 'char' | null | undefined

@@ -1,5 +1,4 @@
 <script lang="ts">
-  // @ts-nocheck
   import { getContext } from 'svelte'
 
   interface Props {

@@ -1,5 +1,4 @@
 <script>
-  // @ts-nocheck
   import { getContext } from 'svelte'
 
   let { children } = $props()

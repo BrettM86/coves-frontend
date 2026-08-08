@@ -1,5 +1,4 @@
 <script lang="ts">
-  // @ts-nocheck
   import { t } from '$lib/app/i18n'
   import { Button, Material, toast } from 'mono-svelte'
   import { ClipboardDocument, Icon } from 'svelte-hero-icons/dist'

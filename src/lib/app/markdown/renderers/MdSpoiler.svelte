@@ -1,5 +1,4 @@
 <script lang="ts">
-  // @ts-nocheck
   import { Expandable } from 'mono-svelte'
   import type { Snippet } from 'svelte'
 

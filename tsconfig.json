@@ -28,7 +28,9 @@
   // Exclude legacy code that will be replaced:
   // - piefed: Using Coves backend instead
   // - lemmy/adapter.ts: API adapter to be replaced
-  // - markdown: Switching to RTF
+  //
+  // src/lib/app/markdown is deliberately NOT excluded: it renders untrusted
+  // post and comment bodies, so it is the last place that should go unchecked.
   "exclude": [
     "node_modules/**",
     "src/service-worker.js",
@@ -36,7 +38,6 @@
     "src/service-worker.d.ts",
     "src/service-worker/**",
     "src/lib/api/piefed/**",
-    "src/lib/api/lemmy/adapter.ts",
-    "src/lib/app/markdown/**"
+    "src/lib/api/lemmy/adapter.ts"
   ]
 }

@@ -1,5 +1,4 @@
 <script>
-  // @ts-nocheck
   let { children } = $props()
 </script>
 

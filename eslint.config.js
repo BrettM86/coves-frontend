@@ -10,13 +10,13 @@ const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url))
 
 export default ts.config(
   includeIgnoreFile(gitignorePath),
-  // Ignore legacy code that will be replaced
+  // Ignore legacy code that will be replaced.
+  //
+  // src/lib/app/markdown is deliberately NOT ignored: it renders untrusted
+  // post and comment bodies, and svelte/no-at-html-tags below is the tripwire
+  // for XSS sinks there. A directory-wide ignore would switch that off silently.
   {
-    ignores: [
-      'src/lib/api/piefed/**',
-      'src/lib/api/lemmy/adapter.ts',
-      'src/lib/app/markdown/**',
-    ],
+    ignores: ['src/lib/api/piefed/**', 'src/lib/api/lemmy/adapter.ts'],
   },
   js.configs.recommended,
   ...ts.configs.recommended,

@@ -1,5 +1,4 @@
 <script lang="ts">
-  // @ts-nocheck
   interface Props {
     text: string
   }

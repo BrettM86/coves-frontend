@@ -1,5 +1,4 @@
 <script lang="ts">
-  // @ts-nocheck
   import ImageAttachForm from '$lib/ui/form/ImageAttachForm.svelte'
   import MultiSelect from '$lib/ui/form/Switch.svelte'
   import { Button, Label, Modal, TextArea } from 'mono-svelte'
@@ -57,7 +56,13 @@
   let uploadingImage = $state(false)
   let image = $state<FileList | null | undefined>(null)
 
-  const shortcuts = {
+  // Indexed by the raw KeyboardEvent.key, so the lookup is a plain string and
+  // may miss. Handlers ignore the event; the parameter is declared so the call
+  // site can pass it without the map claiming zero-arity.
+  const shortcuts: Record<
+    string,
+    ((event: KeyboardEvent) => void) | undefined
+  > = {
     b: () => wrapSelection('**', '**'),
     i: () => wrapSelection('*', '*'),
     s: () => wrapSelection('~~', '~~'),
@@ -303,8 +308,7 @@
           if (disabled) return
           if (e.ctrlKey || e.metaKey) {
             handleKeydown(e)
-            // @ts-expect-error yes it can
-            let shortcut = shortcuts[e.key]
+            const shortcut = shortcuts[e.key]
             if (shortcut) {
               e.preventDefault()
               shortcut?.(e)

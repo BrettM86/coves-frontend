@@ -1,6 +1,5 @@
 <script lang="ts" module>
-  // @ts-nocheck
-  import { marked } from 'marked'
+  import { marked, type TokenizerAndRendererExtension } from 'marked'
   import { setContext } from 'svelte'
   import type { ClassValue } from 'svelte/elements'
   import MdTree from './MdTree.svelte'
@@ -19,8 +18,17 @@
   import MdSubscript from './renderers/MdSubscript.svelte'
   import MdSuperscript from './renderers/MdSuperscript.svelte'
   import MdText from './renderers/MdText.svelte'
-  import { linkify, subSupscriptExtension } from './renderers/plugins'
-  import containerExtension from './renderers/spoiler/spoiler'
+  import {
+    linkify,
+    subSupscriptExtension,
+    type SubSupParams,
+    type SubSupToken,
+  } from './renderers/plugins'
+  import containerExtension, {
+    type ContainerOptions,
+    type ContainerParams,
+    type ContainerToken,
+  } from './renderers/spoiler/spoiler'
   import MdCodespan from './renderers/subtext/MdCodespan.svelte'
   import MdDel from './renderers/subtext/MdDel.svelte'
   import MdEm from './renderers/subtext/MdEm.svelte'
@@ -42,38 +50,57 @@
     breaks: false,
   })
 
-  marked.use(linkify, {
-    extensions: [
-      containerExtension((params: any) => {
-        if (params.type == 'spoiler') {
-          return {
-            type: 'spoiler',
-            raw: params.raw,
-            title: params.options,
-            tokens: [],
-          }
+  interface SpoilerToken extends ContainerToken {
+    title: ContainerOptions
+  }
+
+  interface SubSupTextToken extends SubSupToken {
+    text: string
+  }
+
+  const spoilerExtension = containerExtension(
+    (params: ContainerParams): SpoilerToken | undefined => {
+      if (params.type == 'spoiler') {
+        return {
+          type: 'spoiler',
+          raw: params.raw,
+          title: params.options,
+          tokens: [],
         }
-        return null
-      }),
-      subSupscriptExtension((params: any) => {
-        if (params.type == 'subscript') {
-          return {
-            type: 'subscript',
-            raw: params.raw,
-            text: params.content,
-          }
+      }
+      return undefined
+    },
+  )
+
+  const subSupExtension = subSupscriptExtension(
+    (params: SubSupParams): SubSupTextToken | undefined => {
+      if (params.type == 'subscript') {
+        return {
+          type: 'subscript',
+          raw: params.raw,
+          text: params.content,
         }
-        if (params.type == 'superscript') {
-          return {
-            type: 'superscript',
-            raw: params.raw,
-            text: params.content,
-          }
+      }
+      if (params.type == 'superscript') {
+        return {
+          type: 'superscript',
+          raw: params.raw,
+          text: params.content,
         }
-        return null
-      }),
-    ],
-  })
+      }
+      return undefined
+    },
+  )
+
+  // Both extensions assign to marked's own type with no assertion: they
+  // decline with `undefined` (not `null`) and type their nested-token array as
+  // marked's `Token[]`, which is what the lexer actually puts there.
+  const extensions: TokenizerAndRendererExtension[] = [
+    spoilerExtension,
+    subSupExtension,
+  ]
+
+  marked.use(linkify, { extensions })
 
   export const renderers = {
     heading: MdHeading,
@@ -127,7 +154,6 @@
 </script>
 
 <script lang="ts">
-  // @ts-nocheck
   interface RendererOptions {
     autoloadImages: boolean
   }

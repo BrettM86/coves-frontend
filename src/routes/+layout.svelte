@@ -38,35 +38,8 @@
     showSpinner: false,
   })
 
-  /**
-   * Reads and clears the kelp_flash cookie for session expiration messages.
-   * This cookie is set by the server when session decryption fails.
-   */
-  function handleFlashMessage() {
-    const cookies = document.cookie.split(';')
-    const flashCookie = cookies.find((c) => c.trim().startsWith('kelp_flash='))
-    if (!flashCookie) return
-
-    try {
-      const value = decodeURIComponent(flashCookie.split('=')[1])
-      const flash = JSON.parse(value) as { type: string; message: string }
-
-      if (flash.type === 'session_expired') {
-        toast({ content: $t('toast.sessionExpired'), type: 'warning' })
-      }
-    } catch (e) {
-      console.warn('Failed to parse flash cookie:', e)
-    }
-
-    // Clear the cookie regardless of success/failure
-    document.cookie = 'kelp_flash=; path=/; max-age=0'
-  }
-
   onMount(() => {
     if (browser) {
-      // Handle flash messages from server (e.g., session expiration)
-      handleFlashMessage()
-
       if (window.location.hash == 'main') {
         history.replaceState(
           null,
@@ -113,8 +86,32 @@
     profile.syncFromServer(page.data.session ?? undefined)
   })
 
+  // Tell the user their session ended rather than letting them discover it by
+  // being silently logged out. hooks.server.ts deletes the stale cookie and
+  // sets locals.sessionExpired on a 401 from /api/me; +layout.server.ts
+  // forwards it as page.data.sessionExpired.
+  //
+  // The latch is REQUIRED, not defensive. The root layout's server load reads
+  // only `request` and `locals` — no params, no url, no depends() — so plain
+  // client-side navigations never re-run it: page.data.sessionExpired stays
+  // true (and this effect re-runs on each one) until something re-runs the
+  // load — an invalidateAll navigation (every sort/search change via
+  // searchParam()), a form action, or a full reload. Without the latch that
+  // is a toast on every navigation in between.
+  let notifiedSessionExpired = false
+  $effect(() => {
+    if (page.data.sessionExpired) {
+      if (!notifiedSessionExpired) {
+        notifiedSessionExpired = true
+        toast({ content: $t('toast.sessionExpired'), type: 'warning' })
+      }
+    } else {
+      notifiedSessionExpired = false
+    }
+  })
+
   // Surface auth infrastructure failures from hooks.server.ts (mirrors the
-  // sessionExpired flash handling above): the backend couldn't be reached to
+  // sessionExpired handling above): the backend couldn't be reached to
   // validate the session, so the user may appear logged out even though their
   // session cookie is preserved. Warn once per outage rather than on every
   // navigation while the backend stays unreachable.

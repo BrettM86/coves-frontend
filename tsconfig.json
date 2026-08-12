@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "sourceMap": true,
     "strict": true,
-    "types": ["vite-plugin-pwa/client", "node"]
+    "types": ["node"]
   },
   // Must copy include from base config since TypeScript doesn't merge arrays
   "include": [

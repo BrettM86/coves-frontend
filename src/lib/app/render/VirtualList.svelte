@@ -55,9 +55,16 @@
 
   let virtualListEl = $state<HTMLElement>()
 
-  let itemHeights = $state<(number | null)[]>([
-    ...(restore?.itemHeights ?? Array(items.length).fill(null)),
-  ])
+  // One-time sizing of the height cache: re-seeding on every `items` change
+  // would throw away every measured height. The $effect.pre below keeps the
+  // cache's length in sync — appending nulls when `items` grows, dropping the
+  // stale tail when it shrinks; the ResizeObserver then fills individual
+  // entries in as rows are measured.
+  let itemHeights = $state<(number | null)[]>(
+    untrack(() => [
+      ...(restore?.itemHeights ?? Array(items.length).fill(null)),
+    ]),
+  )
 
   let cumulativeItemHeights = $derived.by<number[]>(() => {
     let cumulation = new Array(itemHeights.length)
@@ -80,6 +87,11 @@
     if (items.length > itemHeights.length) {
       const missing = items.length - itemHeights.length
       itemHeights = [...itemHeights, ...Array(missing).fill(null)]
+    } else if (items.length < itemHeights.length) {
+      // Without this, stale trailing entries keep counting toward
+      // cumulativeItemHeights — inflating the scroll height — and the binary
+      // search can land on an index past the end of `items`.
+      itemHeights = itemHeights.slice(0, items.length)
     }
   })
 
@@ -88,6 +100,11 @@
       untrack(() => {
         visibleItems = updateVisibleItems()
       })
+    } else {
+      // An emptied list must also empty the viewport: keeping the previous
+      // visibleItems would render rows that index into items that no longer
+      // exist.
+      visibleItems = []
     }
   })
 
@@ -148,20 +165,26 @@
     }
   }
 
-  const debouncedUpdate = debounce((entries: ResizeObserverEntry[]) => {
-    for (const entry of entries) {
-      const indexAttr = entry.target.getAttribute('data-index')
-      if (indexAttr === null) continue
-      const index = Number(indexAttr)
-      if (isNaN(index)) continue
+  // The debounce interval is fixed when the wrapper is created: rebuilding it
+  // to pick up a new `debounceResize` would drop any in-flight resize entries,
+  // so the prop is read once here on purpose.
+  const debouncedUpdate = debounce(
+    (entries: ResizeObserverEntry[]) => {
+      for (const entry of entries) {
+        const indexAttr = entry.target.getAttribute('data-index')
+        if (indexAttr === null) continue
+        const index = Number(indexAttr)
+        if (isNaN(index)) continue
 
-      const newHeight = entry.contentRect.height
-      if (itemHeights[index] !== newHeight) {
-        itemHeights[index] = newHeight
-        if (!initialRender) visibleItems = updateVisibleItems()
+        const newHeight = entry.contentRect.height
+        if (itemHeights[index] !== newHeight) {
+          itemHeights[index] = newHeight
+          if (!initialRender) visibleItems = updateVisibleItems()
+        }
       }
-    }
-  }, debounceResize)
+    },
+    untrack(() => debounceResize),
+  )
 
   const observer = new ResizeObserver((entries) => {
     debouncedUpdate(entries)

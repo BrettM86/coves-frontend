@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { expoOut } from 'svelte/easing'
   import { Tween } from 'svelte/motion'
 
@@ -8,7 +9,12 @@
 
   let { progress = 0 }: Props = $props()
 
-  let tween = new Tween(progress, { easing: expoOut })
+  // Only the starting point of the tween; the effect below animates it to
+  // every subsequent value.
+  let tween = new Tween(
+    untrack(() => progress),
+    { easing: expoOut },
+  )
 
   $effect(() => {
     tween.set(progress)

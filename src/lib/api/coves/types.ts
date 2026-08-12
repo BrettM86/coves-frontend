@@ -108,10 +108,27 @@ export interface CommunityRef {
   avatar?: string
 }
 
-export interface PostStats {
+/**
+ * The vote counters shared by `PostStats` and `CommentStats`.
+ *
+ * Declared here rather than alongside the vote arithmetic in
+ * `$lib/feature/post/vote.ts` so that this module does not have to import from
+ * a feature module to express `extends` — `vote.ts` already imports `AtUri`
+ * from here, and the reverse edge would close a cycle. `vote.ts` re-exports it
+ * so vote logic can keep importing it from the module that operates on it.
+ *
+ * The `extends` below is the point: it makes the subset relation a compile
+ * error to break. `stats = { ...base, ...counts }` in the vote components has
+ * no other guard, because TypeScript does not excess-property-check properties
+ * arriving via spread.
+ */
+export interface VoteCounts {
   upvotes: number
   downvotes: number
   score: number
+}
+
+export interface PostStats extends VoteCounts {
   commentCount: number
   shareCount?: number
   tagCounts?: Record<string, number>
@@ -119,8 +136,14 @@ export interface PostStats {
 
 // TODO: Refactor to a discriminated union to enforce vote/voteUri correlation:
 //   { vote: 'up' | 'down'; voteUri: AtUri } | { vote?: undefined; voteUri?: undefined }
-// Blocked by PostVote.svelte castVote() which independently mutates vote and voteUri
-// on a spread copy, which is incompatible with discriminated union assignment rules.
+// Still blocked, though no longer by mutation: castVote() now assigns a whole
+// new viewer object, but it builds that object as one spread literal whose
+// `vote` ('up' | undefined) and `voteUri` (AtUri | undefined) are typed
+// independently, so neither union arm accepts it.
+// Note the union as sketched is also wrong for this domain — between the
+// optimistic write and the server response the viewer legitimately holds
+// vote: 'up' with no voteUri yet, which the sketch declares impossible.
+// A faithful version needs a third "pending" arm.
 export interface PostViewerState {
   saved: boolean
   vote?: 'up' | 'down'
@@ -263,17 +286,20 @@ export interface CommentRef {
   cid: CID
 }
 
-export interface CommentStats {
-  upvotes: number
-  downvotes: number
-  score: number
+export interface CommentStats extends VoteCounts {
   replyCount: number
 }
 
 // TODO: Refactor to a discriminated union to enforce vote/voteUri correlation:
 //   { vote: 'up' | 'down'; voteUri: AtUri } | { vote?: undefined; voteUri?: undefined }
-// Blocked by CommentVote.svelte castVote() which independently mutates vote and voteUri
-// on a spread copy, which is incompatible with discriminated union assignment rules.
+// Still blocked, though no longer by mutation: castVote() now assigns a whole
+// new viewer object, but it builds that object as one spread literal whose
+// `vote` ('up' | undefined) and `voteUri` (AtUri | undefined) are typed
+// independently, so neither union arm accepts it.
+// Note the union as sketched is also wrong for this domain — between the
+// optimistic write and the server response the viewer legitimately holds
+// vote: 'up' with no voteUri yet, which the sketch declares impossible.
+// A faithful version needs a third "pending" arm.
 export interface CommentViewerState {
   vote?: 'up' | 'down'
   voteUri?: AtUri
@@ -558,9 +584,21 @@ export interface CreateVoteInput {
   direction: 'up' | 'down'
 }
 
+/**
+ * `uri` and `cid` are ABSENT when the create toggled an existing same-direction
+ * vote back off. The backend's create endpoint is itself a toggle: given a vote
+ * that already matches the requested direction it deletes that vote and answers
+ * 200 with the fields omitted (backend `internal/core/votes/service_impl.go`,
+ * and `internal/api/handlers/vote/create_vote.go`, where both are tagged
+ * `omitempty` with that case called out).
+ *
+ * Optional here so the compiler forces callers to handle it: an absent `uri`
+ * means the viewer's vote is now GONE server-side, which is the opposite of
+ * what a caller assuming success would render.
+ */
 export interface CreateVoteOutput {
-  uri: AtUri
-  cid: CID
+  uri?: AtUri
+  cid?: CID
 }
 
 export interface DeleteVoteInput {

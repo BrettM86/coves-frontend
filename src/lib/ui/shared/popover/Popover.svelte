@@ -58,10 +58,13 @@
     'top-start': 'bottom',
   }
 
+  // Only `onComputed` is fixed for the lifetime of the component. The
+  // positioning options are handed to `floatingContent` as its action argument
+  // instead of being baked in here, so a change to any of them re-runs the
+  // action's update() with the new values. Baking them in would capture them at
+  // init, and createFloatingActions' autoUpdate loop would keep recomputing
+  // against that captured config on every scroll and resize.
   const [floatingRef, floatingContent] = createFloatingActions({
-    strategy: strategy,
-    placement: placement,
-    middleware: middleware,
     onComputed: ({ placement }) => {
       if (popoverEl) {
         popoverEl.style.transformOrigin = origins[placement]
@@ -145,7 +148,7 @@
         easing: expoOut,
       }}
       class={['z-150', popoverClass]}
-      use:floatingContent
+      use:floatingContent={{ strategy, placement, middleware }}
       use:trapFocus
       bind:this={popoverEl}
     >

@@ -765,6 +765,7 @@
         "noComments": "The API returned no comments.",
         "commentNotFound": "That comment could not be found.",
         "loginVoteGate": "You must be logged in to vote.",
+        "voteOutOfSync": "Your vote was already recorded elsewhere and has been withdrawn. Please try again.",
         "blockedCommunity": "Blocked that community.",
         "unblockedCommunity": "Unblocked that community.",
         "purgedCommunity": "Purged that community.",

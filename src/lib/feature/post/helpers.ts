@@ -1,9 +1,4 @@
-import type {
-  AtUri,
-  PostEmbed,
-  PostStats,
-  PostViewerState,
-} from '$lib/api/coves/types'
+import type { AtUri, PostEmbed } from '$lib/api/coves/types'
 import { parseAtUri } from '$lib/api/coves/types'
 import {
   canParseUrl,
@@ -324,54 +319,6 @@ export function extractEmbedAlt(embed?: PostEmbed): string | undefined {
       return undefined
     }
   }
-}
-
-// ---------------------------------------------------------------------------
-// Vote state calculation
-// ---------------------------------------------------------------------------
-
-export interface VoteState {
-  stats: PostStats
-  viewer: PostViewerState
-}
-
-/**
- * Computes the new vote state after a user likes or unlikes.
- *
- * Pure function: takes the current stats + viewer state and a vote direction,
- * returns the new stats + viewer state without mutating the inputs.
- * Only handles direction 'up' (like/unlike toggle).
- */
-export function computeVoteState(
-  currentStats: PostStats | undefined,
-  currentViewer: PostViewerState | undefined,
-  direction: 'up',
-): VoteState {
-  const stats = {
-    ...(currentStats ?? {
-      upvotes: 0,
-      downvotes: 0,
-      score: 0,
-      commentCount: 0,
-    }),
-  }
-  const viewer = { ...(currentViewer ?? { saved: false }) }
-
-  const currentVote = currentViewer?.vote
-
-  if (currentVote === 'up') {
-    // Unlike: toggle off existing like
-    stats.upvotes--
-    viewer.vote = undefined
-    viewer.voteUri = undefined
-  } else {
-    // Like: add upvote
-    stats.upvotes++
-    viewer.vote = direction
-  }
-  stats.score = stats.upvotes
-
-  return { stats, viewer }
 }
 
 // ---------------------------------------------------------------------------

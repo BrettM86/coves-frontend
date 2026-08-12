@@ -158,6 +158,17 @@
     autoloadImages: boolean
   }
 
+  /**
+   * The value published on the 'options' context, read by MdParagraph,
+   * MdHeading and MdImage. Declaring it explicitly means a field added to
+   * RendererOptions is a compile error here rather than a silently missing
+   * option downstream.
+   */
+  interface MarkdownContext extends RendererOptions {
+    inline: boolean
+    noStyle: boolean
+  }
+
   interface Props {
     source?: string
     inline?: boolean
@@ -180,11 +191,27 @@
     },
   }: Props = $props()
 
-  setContext('options', {
-    ...rendererOptions,
-    inline: inline,
-    noStyle: noStyle,
-  })
+  // Context is set once at init, so spreading the prop values here would pin
+  // them to whatever they were when this instance mounted — a `noStyle` or
+  // `inline` toggle on a mounted Markdown would never reach the renderers.
+  // Getters keep the consumers (all of which read plain properties, none of
+  // which spread or serialize the object) on the live values. Caveat: MdImage
+  // copies `autoloadImages` into local $state once at init, so already-mounted
+  // images still don't follow a toggle — the live context benefits MdParagraph
+  // and MdHeading today.
+  const options: MarkdownContext = {
+    get autoloadImages() {
+      return rendererOptions.autoloadImages
+    },
+    get inline() {
+      return inline
+    },
+    get noStyle() {
+      return noStyle
+    },
+  }
+
+  setContext('options', options)
 
   let tokens = $derived(marked.lexer(preprocess(source)))
 </script>

@@ -21,7 +21,7 @@
   import { postLink } from '$lib/feature/post'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { Button, Option, Select } from 'mono-svelte'
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import {
     ArrowPath,
     ChatBubbleOvalLeft,
@@ -57,7 +57,11 @@
 
   const postRef: StrongRef = $derived({ uri: post.uri, cid: post.cid })
 
-  let tree = $state(buildCommentsTree(comments))
+  // `tree` has to stay $state, not $derived: insertCommentIntoTree() mutates it
+  // in place for optimistic replies and CommentTree takes it via bind:nodes.
+  // The effect rebuilds it whenever the loaded comments change; the untracked
+  // seed is what the server-rendered first paint shows, before effects run.
+  let tree = $state(untrack(() => buildCommentsTree(comments)))
   $effect(() => {
     tree = buildCommentsTree(comments)
   })

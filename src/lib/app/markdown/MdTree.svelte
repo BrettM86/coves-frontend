@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Tokens } from 'marked'
-  import type { Component } from 'svelte'
+  import { untrack, type Component } from 'svelte'
   import type { Renderer } from './Markdown.svelte'
   import Self from './MdTree.svelte'
 
@@ -39,7 +39,13 @@
     ...rest
   }: Props = $props()
 
-  if (header) {
+  // A token's `header` flag is fixed at parse time — marked never re-labels
+  // an already-parsed cell — so the one-time read is deliberate (untrack()
+  // silences state_referenced_locally). The flag only coerces the node type
+  // here; the <th>/<td> choice lives in MdTableCell. No current call site
+  // passes `header` (the table branches below pass an explicit
+  // type="tablecell" instead), so this is support for direct callers only.
+  if (untrack(() => header)) {
     type = 'tablecell'
   }
 

@@ -16,7 +16,7 @@
   import PostFeed from '$lib/feature/post/feed/PostFeed.svelte'
   import VirtualFeed from '$lib/feature/post/feed/VirtualFeed.svelte'
   import { Button } from 'mono-svelte'
-  import type { Snippet } from 'svelte'
+  import { untrack, type Snippet } from 'svelte'
   import { ArrowRight, Icon } from 'svelte-hero-icons/dist'
   import { Header, Pageination } from '..'
 
@@ -54,11 +54,15 @@
 
   const routeSort = $derived(resolveSort(params.sort, params.timeframe))
 
-  const initialSort = resolveSort(params.sort, params.timeframe)
+  // Seeded from `routeSort` rather than a second resolveSort() call so the
+  // derived stays the single source of truth for route params. A seed is
+  // needed because effects don't run during SSR, so the first paint can't wait
+  // for the $effect below; init reads are never reactive, so untrack() marks
+  // this as a deliberate one-time seed and silences state_referenced_locally.
   let filters = $state<{
     sort: CovesSortType
     timeframe: CovesTimeframe | undefined
-  }>({ sort: initialSort.sort, timeframe: initialSort.timeframe })
+  }>(untrack(() => ({ sort: routeSort.sort, timeframe: routeSort.timeframe })))
 
   // SortMenu navigates, which re-runs load() and hands down new params; the
   // route stays the source of truth so back/forward navigation stays in sync.

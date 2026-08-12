@@ -18,7 +18,7 @@
     TextArea,
     TextInput,
   } from 'mono-svelte'
-  import type { Snippet } from 'svelte'
+  import { untrack, type Snippet } from 'svelte'
   import {
     ChatBubbleBottomCenterText,
     Photo,
@@ -34,7 +34,9 @@
 
   let { init, title, onsubmit }: Props = $props()
 
-  let form = $state<PostFormState>(init ?? new PostFormState())
+  // `init` is by contract the initial form state only — the form owns its
+  // contents from here on, and re-seeding would discard the user's edits.
+  let form = $state<PostFormState>(untrack(() => init) ?? new PostFormState())
 
   let loading = $state<boolean>(false)
   let uploadImage = $state(false)

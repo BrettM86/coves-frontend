@@ -19,7 +19,6 @@
   } from 'svelte-hero-icons/dist'
   import InfiniteScroll from 'svelte-infinite-scroll'
   import { expoOut } from 'svelte/easing'
-  import { SvelteSet } from 'svelte/reactivity'
   import { fly } from 'svelte/transition'
   import { Post } from '..'
 
@@ -56,11 +55,58 @@
       (error.status === 401 || error.status === 403),
   )
   let loading = $state(false)
-  let hasMore = $state(!!loadFeed)
 
-  let seenUris = new SvelteSet<string>(
-    (posts ?? []).map((fp) => fp.post.uri as string),
-  )
+  // A plain Set: `seenUris` is only ever read and written inside loadMore(),
+  // never from the template, so it carries no reactivity.
+  function seedSeenUris(feed: FeedViewPost[] | undefined): Set<string> {
+    return new Set((feed ?? []).map((fp) => fp.post.uri as string))
+  }
+
+  // Neither of these can become a $derived: `hasMore` latches false once the
+  // API runs out of pages, and `seenUris` accumulates every URI loadMore() has
+  // appended. But this component is reused across client-side navigation, so
+  // carrying either into a different feed is wrong — the new feed would start
+  // with the old one's end-of-feed latch and silently drop any post whose URI
+  // the old feed had already shown.
+  //
+  // A feed switch is exactly a new `posts` array identity: loadMore() appends
+  // with posts.push(), which mutates in place and leaves identity untouched
+  // (the same property the {#key posts} block below relies on to avoid
+  // rebuilding the virtual list after every page).
+  //
+  // The identity comparison is REQUIRED, not an optimisation. The effect
+  // re-runs whenever route data is rebuilt, while Feed.load returns its SAME
+  // cached array when the params are unchanged — so a navigation or
+  // invalidation that lands back on the same feed re-runs this effect with an
+  // identical array. Re-seeding then would un-latch `hasMore` on an
+  // already-exhausted feed, replacing the end-of-feed placeholder with the
+  // spinner sentinel and firing a redundant fetch with a stale cursor.
+  //
+  // The untrack() inside the effect keeps its secondary reads (`loadFeed`,
+  // the seed iteration) out of the dependency set, so only a change of
+  // `posts` identity re-runs it. The init-time untrack()s below are one-time
+  // seeds: init reads are never reactive, so untrack() there documents the
+  // intent and silences state_referenced_locally. `lastPosts` is a plain
+  // `let`, not $state, so updating it here cannot re-trigger the effect.
+  let hasMore = $state(untrack(() => !!loadFeed))
+  let seenUris = untrack(() => seedSeenUris(posts))
+  let lastPosts = untrack(() => posts)
+
+  $effect(() => {
+    const feed = posts
+    untrack(() => {
+      if (feed === lastPosts) return
+      lastPosts = feed
+      seenUris = seedSeenUris(feed)
+      hasMore = !!loadFeed
+      // `error` is per-feed state too. The markup is an if/else chain —
+      // {#if error} … {:else if hasMore} is what mounts the sentinel — so
+      // carrying a failure from the previous feed would report an error about
+      // a feed the user has left AND permanently stall the new one, because
+      // the sentinel that triggers page 2 never gets mounted.
+      error = undefined
+    })
+  })
 
   const SCROLL_THRESHOLD = 300
 
@@ -84,12 +130,22 @@
   async function loadMore(): Promise<void> {
     if (!hasMore || loading || !loadFeed) return
 
+    // Captured before the await: a navigation can swap the feed while a page
+    // is in flight, and every write below targets live bindables. A settlement
+    // that arrives for a feed the user has left must be discarded wholesale —
+    // the reset $effect above has already re-seeded the per-feed state, and
+    // committing would splice the old feed's page into the new feed's array
+    // and overwrite its cursor with the old feed's continuation.
+    const feed = posts
+
     try {
       loading = true
 
       const response = await loadFeed(params)
 
-      error = null
+      if (posts !== feed) return
+
+      error = undefined
 
       hasMore = response.feed.length !== 0 && !!response.cursor
 
@@ -106,9 +162,20 @@
         }),
       )
     } catch (e) {
+      if (posts !== feed) {
+        // Not `error = e`: that would raise an error banner on the new feed
+        // about a request the old feed made.
+        console.warn(
+          'Discarding failed page load for a feed no longer shown:',
+          e,
+        )
+        return
+      }
       console.error('Failed to load more posts:', e)
       error = e
     } finally {
+      // Released unconditionally: `loading` belongs to the request, not the
+      // feed, and leaving it latched would block the new feed's first page.
       loading = false
     }
 

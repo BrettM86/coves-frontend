@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
+
   interface Props {
     liked: boolean
     size?: number
@@ -14,7 +16,11 @@
   }: Props = $props()
 
   let animating = $state(false)
-  let wasLiked = liked
+  // The previous-value latch the effect below compares against to fire the
+  // burst on a false -> true edge; a plain `let`, so writing it from the effect
+  // can't re-trigger it. Init reads are never reactive; untrack() marks this
+  // seed as deliberately one-time and silences state_referenced_locally.
+  let wasLiked = untrack(() => liked)
 
   $effect(() => {
     const currentLiked = liked

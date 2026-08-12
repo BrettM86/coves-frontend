@@ -1,50 +1,48 @@
 import { error } from '@sveltejs/kit'
 import { coves } from '$lib/api/client.svelte'
+import { XrpcError } from '$lib/api/coves/xrpc'
 import { isValidDID, isValidHandle } from '$lib/types/atproto'
 import { ReactiveState } from '$lib/app/util.svelte'
 import { feed } from '$lib/feature/feeds/feed.svelte'
 
 export async function load({ params, url, fetch, route }) {
   const cursor = url.searchParams.get('cursor') ?? undefined
-  const sort = url.searchParams.get('sort') ?? 'new'
 
   const feedData = await feed(route.id, async (p) => {
     if (!isValidHandle(p.actor) && !isValidDID(p.actor)) {
       error(400, 'Invalid user identifier')
     }
     const actor = p.actor
+    const api = coves({ func: fetch })
 
-    try {
-      const [profileData, postsData, commentsData] = await Promise.all([
-        coves({ func: fetch }).getProfile({ actor }),
-        coves({ func: fetch }).getActorPosts({
-          actor,
-          limit: p.limit,
-          cursor: p.cursor,
-        }),
-        coves({ func: fetch }).getActorComments({
-          actor,
-          limit: p.limit,
-          cursor: p.cursor,
-        }),
-      ])
+    const [profileData, postsData, commentsData] = await Promise.all([
+      api.getProfile({ actor }).catch((e: unknown) => {
+        // Scoped to this call deliberately: of the three, only getProfile
+        // answers "does this account exist?". A 404 from the posts or comments
+        // call is an infrastructure fault — a stale AppView, a proxy misroute —
+        // and telling the viewer the account is gone would turn an outage into
+        // a deleted-account story. Those propagate untouched.
+        //
+        // Bare i18n key, not prose: `errorMessage` in $lib/app/error.ts only
+        // translates messages matching /^[\w-]+$/.
+        if (e instanceof XrpcError && e.status === 404) {
+          error(404, 'couldnt_find_person')
+        }
+        throw e
+      }),
+      api.getActorPosts({ actor, limit: p.limit, cursor: p.cursor }),
+      api.getActorComments({ actor, limit: p.limit, cursor: p.cursor }),
+    ])
 
-      return {
-        profile: profileData,
-        posts: postsData,
-        comments: commentsData,
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message.includes('not found')) {
-        error(404, 'couldnt_find_person')
-      }
-      error(500, 'Failed to load profile')
+    return {
+      profile: profileData,
+      posts: postsData,
+      comments: commentsData,
     }
   }).load({
     actor: params.handle,
     limit: 20,
     cursor,
-    sort,
   })
 
   return {

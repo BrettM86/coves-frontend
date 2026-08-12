@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  export let chords = $state({
+  export const chords = $state({
     commands: false,
   })
 </script>

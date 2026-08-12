@@ -109,7 +109,7 @@ export interface FeedTypes {
     },
   ]
   '/profile/[handle=handle]': [
-    { actor: string; limit?: number; cursor?: string; sort?: string },
+    { actor: string; limit?: number; cursor?: string },
     {
       profile: ProfileViewDetailed
       posts: GetActorPostsResponse

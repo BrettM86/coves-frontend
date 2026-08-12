@@ -6,9 +6,11 @@
     PostViewerState,
   } from '$lib/api/coves/types'
   import { coves } from '$lib/api/client.svelte'
+  import { XrpcError } from '$lib/api/coves/xrpc'
   import { profile } from '$lib/app/auth.svelte'
+  import { errorMessage } from '$lib/app/error'
   import { t } from '$lib/app/i18n'
-  import { computeVoteState } from './helpers'
+  import { nextVoteState, toggleUpvote } from './vote'
   import FormattedNumber from '$lib/ui/util/FormattedNumber.svelte'
   import { toast } from 'mono-svelte'
   import { backOut } from 'svelte/easing'
@@ -39,12 +41,16 @@
   let vote = $derived(viewer?.vote)
   let liked = $derived(vote === 'up')
 
+  let voting = $state(false)
+
   const castVote = async () => {
     if (navigator.vibrate) navigator.vibrate(1)
     if (!profile.current?.jwt) {
       toast({ content: $t('toast.loginVoteGate'), type: 'warning' })
       return
     }
+    if (voting) return
+    voting = true
 
     const isToggleOff = viewer?.vote === 'up'
 
@@ -52,31 +58,117 @@
     const prevStats = stats ? { ...stats } : undefined
     const prevViewer = viewer ? { ...viewer } : undefined
 
-    // Optimistically update local state via pure function
-    const newState = computeVoteState(stats, viewer, 'up')
-    const newStats = newState.stats
-    const newViewer = newState.viewer
+    // Captured before the awaits: route components are reused, so by the time
+    // a response settles this component can already represent a different
+    // post, with `stats`/`viewer` rebound to it. Every post-await write below
+    // must be skipped when the subject has changed — committing would write
+    // the old post's outcome into the new post's state.
+    const subjectUri = uri
+    const subjectCid = cid
 
-    stats = newStats
-    viewer = newViewer
+    // Optimistically update local state. `toggleUpvote` owns the three vote
+    // counters only, so spread it over a `PostStats`-shaped base to carry
+    // commentCount/shareCount/tagCounts through untouched.
+    const base: PostStats = stats ?? {
+      upvotes: 0,
+      downvotes: 0,
+      score: 0,
+      commentCount: 0,
+    }
+    const { counts } = toggleUpvote(base, viewer?.vote)
+    const { vote: newVote, voteUri } = nextVoteState(viewer?.vote)
+
+    const nextViewer: PostViewerState = {
+      ...(viewer ?? { saved: false }),
+      vote: newVote,
+      voteUri,
+    }
+
+    stats = { ...base, ...counts }
+    viewer = nextViewer
 
     try {
       if (isToggleOff) {
-        await coves().deleteVote({ subject: { uri, cid } })
-        newViewer.voteUri = undefined
+        await coves().deleteVote({
+          subject: { uri: subjectUri, cid: subjectCid },
+        })
       } else {
         const result = await coves().createVote({
-          subject: { uri, cid },
+          subject: { uri: subjectUri, cid: subjectCid },
           direction: 'up',
         })
-        newViewer.voteUri = result.uri
+        if (uri !== subjectUri) {
+          console.warn(
+            '[vote] discarding createVote result — component now shows a different post',
+            { subject: subjectUri, current: uri },
+          )
+          return
+        }
+        if (!result.uri) {
+          // Create is itself a toggle: handed a vote that already matches the
+          // requested direction the backend DELETES it and returns 200 with no
+          // uri. Our `viewer.vote` was stale, so the optimistic +1 was wrong in
+          // both directions — resync from the pre-press state rather than
+          // guess. Best-effort: `stats` and `viewer` arrive in one response,
+          // so a vote `prevViewer` never saw is also uncounted in `prevStats`;
+          // only a stale 'down' leaves the restored counts off until the next
+          // refetch, and the toast tells the user the view is out of sync.
+          console.warn(
+            '[vote] createVote toggled off an unseen existing vote',
+            { uri: subjectUri },
+          )
+          stats = prevStats
+          viewer = prevViewer
+          toast({ content: $t('toast.voteOutOfSync'), type: 'warning' })
+          return
+        }
+        // A fresh object, not a field write on `nextViewer`: that local is the
+        // raw object, not the `$state` proxy `$bindable` wrapped it in, so
+        // mutating it would never reach the parent.
+        viewer = { ...nextViewer, voteUri: result.uri }
       }
     } catch (err) {
-      // Rollback on error
-      stats = prevStats
-      viewer = prevViewer
-      const errorMsg = err instanceof Error ? err.message : String(err)
-      toast({ content: errorMsg, type: 'error' })
+      if (
+        isToggleOff &&
+        err instanceof XrpcError &&
+        err.status === 404 &&
+        err.errorName === 'VoteNotFound'
+      ) {
+        // Deleting a vote that is already absent is the outcome the user asked
+        // for. Rolling back would restore the filled heart and leave them
+        // unable to ever reach un-voted. Scoped by errorName: the backend
+        // names this case `VoteNotFound`, while an infrastructure 404 (proxy
+        // misroute, stale AppView) arrives as `UnknownError` and is NOT
+        // confirmation the vote is gone — that falls through to the rollback.
+        console.warn(
+          '[vote] deleteVote 404 — vote already absent, keeping optimistic state',
+          { uri: subjectUri },
+        )
+        return
+      }
+
+      console.error(
+        '[PostVote] castVote failed',
+        { uri: subjectUri, isToggleOff },
+        err,
+      )
+
+      // Rollback on error — unless the component has moved to a different
+      // post, in which case `stats`/`viewer` now belong to the new post and
+      // the old post's snapshot must not be written into them. The toast is
+      // global, so the failure still surfaces either way.
+      if (uri === subjectUri) {
+        stats = prevStats
+        viewer = prevViewer
+      }
+
+      if (err instanceof XrpcError && err.status === 401) {
+        toast({ content: $t('toast.sessionExpired'), type: 'warning' })
+      } else {
+        toast({ content: errorMessage(err), type: 'error' })
+      }
+    } finally {
+      voting = false
     }
   }
 </script>

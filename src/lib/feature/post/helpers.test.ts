@@ -3,9 +3,7 @@ import type {
   CommunityRef,
   ExternalEmbed,
   ImageEmbed,
-  PostStats,
   PostView,
-  PostViewerState,
   RecordEmbed,
   VideoEmbed,
 } from '$lib/api/coves/types'
@@ -15,7 +13,6 @@ import {
   bestImageURL,
   buildPostAtUri,
   commentLink,
-  computeVoteState,
   decodeCrosspostDraft,
   encodeCrosspostDraft,
   extractEmbedAlt,
@@ -470,69 +467,6 @@ describe('extractEmbedAlt', () => {
 
   it('returns undefined for post#view embed', () => {
     expect(extractEmbedAlt(postViewEmbed)).toBeUndefined()
-  })
-})
-
-// ---------------------------------------------------------------------------
-// computeVoteState()
-// ---------------------------------------------------------------------------
-
-describe('computeVoteState', () => {
-  const baseStats: PostStats = {
-    upvotes: 10,
-    downvotes: 2,
-    score: 8,
-    commentCount: 5,
-  }
-  const noVoteViewer: PostViewerState = { saved: false }
-
-  it('like from no vote increments upvotes and sets score to upvotes', () => {
-    const result = computeVoteState(baseStats, noVoteViewer, 'up')
-    expect(result.stats.upvotes).toBe(11)
-    expect(result.stats.score).toBe(11)
-    expect(result.viewer.vote).toBe('up')
-  })
-
-  it('toggling off like decrements upvotes and sets score to upvotes', () => {
-    const upViewer: PostViewerState = { saved: false, vote: 'up' }
-    const result = computeVoteState(baseStats, upViewer, 'up')
-    expect(result.stats.upvotes).toBe(9)
-    expect(result.stats.score).toBe(9)
-    expect(result.viewer.vote).toBeUndefined()
-  })
-
-  it('handles undefined stats gracefully', () => {
-    const result = computeVoteState(undefined, undefined, 'up')
-    expect(result.stats.upvotes).toBe(1)
-    expect(result.stats.downvotes).toBe(0)
-    expect(result.stats.score).toBe(1)
-    expect(result.viewer.vote).toBe('up')
-  })
-
-  it('does not mutate the original stats', () => {
-    const originalStats = { ...baseStats }
-    const originalViewer = { ...noVoteViewer }
-    computeVoteState(originalStats, originalViewer, 'up')
-    expect(originalStats.upvotes).toBe(10)
-    expect(originalViewer.vote).toBeUndefined()
-  })
-
-  it('preserves saved state from viewer', () => {
-    const savedViewer: PostViewerState = { saved: true }
-    const result = computeVoteState(baseStats, savedViewer, 'up')
-    expect(result.viewer.saved).toBe(true)
-  })
-
-  it('clears voteUri when toggling off a vote', () => {
-    const upViewer: PostViewerState = {
-      saved: false,
-      vote: 'up',
-      voteUri:
-        'at://did:plc:abc/social.coves.community.vote/rkey1' as import('$lib/api/coves/types').AtUri,
-    }
-    const result = computeVoteState(baseStats, upViewer, 'up')
-    expect(result.viewer.vote).toBeUndefined()
-    expect(result.viewer.voteUri).toBeUndefined()
   })
 })
 

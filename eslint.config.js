@@ -16,7 +16,12 @@ export default ts.config(
   // post and comment bodies, and svelte/no-at-html-tags below is the tripwire
   // for XSS sinks there. A directory-wide ignore would switch that off silently.
   {
-    ignores: ['src/lib/api/piefed/**', 'src/lib/api/lemmy/adapter.ts'],
+    ignores: [
+      'src/lib/api/piefed/**',
+      'src/lib/api/lemmy/adapter.ts',
+      // Local git worktrees created by Claude Code sessions
+      '.claude/**',
+    ],
   },
   js.configs.recommended,
   ...ts.configs.recommended,

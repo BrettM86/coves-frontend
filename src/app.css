@@ -1,7 +1,5 @@
 @import 'tailwindcss';
 
-@plugin '@tailwindcss/container-queries';
-
 @custom-variant dark (&:is(.dark *));
 
 @theme {

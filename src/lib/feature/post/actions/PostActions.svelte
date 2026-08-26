@@ -1,10 +1,10 @@
 <script lang="ts">
   import type { PostView } from '$lib/api/coves/types'
-  import { profile } from '$lib/app/auth.svelte'
-  import { t } from '$lib/app/i18n'
-  import { settings, type View } from '$lib/app/settings.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { settings, type View } from '$lib/app/state/settings.svelte'
   import FormattedNumber from '$lib/ui/util/FormattedNumber.svelte'
-  import { Button, Menu, Spinner, toast } from 'mono-svelte'
+  import { Button, Menu, Spinner, toast } from '$lib/ui/kit'
   import {
     Bookmark,
     BookmarkSlash,

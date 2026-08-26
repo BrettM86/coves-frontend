@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { isImage, isVideo } from '$lib/app/util.svelte'
-  import { TextInput } from 'mono-svelte'
+  import { isImage, isVideo } from '$lib/app/util/url'
+  import { TextInput } from '$lib/ui/kit'
 
   let imageInput = $state('')
   let inputIsImage = $derived(isImage(imageInput))

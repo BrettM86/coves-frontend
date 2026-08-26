@@ -1,11 +1,11 @@
 <script lang="ts" module>
   import type { DID } from '$lib/types/atproto'
   import { coves } from '$lib/api/client.svelte'
-  import { profile } from '$lib/app/auth.svelte'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
-  import Markdown from '$lib/app/markdown/Markdown.svelte'
-  import { settings } from '$lib/app/settings.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
+  import Markdown from '$lib/feature/markdown/Markdown.svelte'
+  import { settings } from '$lib/app/state/settings.svelte'
   import LabelStat from '$lib/ui/info/LabelStat.svelte'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import SidebarButton from '$lib/ui/sidebar/SidebarButton.svelte'
@@ -18,7 +18,7 @@
     removeToast,
     Spinner,
     toast,
-  } from 'mono-svelte'
+  } from '$lib/ui/kit'
   import { Cog6Tooth, EllipsisHorizontal, Fire } from 'svelte-hero-icons/dist'
 
   /**
@@ -74,7 +74,7 @@
     CommunityView as CovesCommunityView,
     CommunityViewDetailed,
   } from '$lib/api/coves/types'
-  import EntityHeader from '$lib/ui/generic/EntityHeader.svelte'
+  import EntityHeader from '$lib/feature/shell/EntityHeader.svelte'
   import SubscribeButton from './SubscribeButton.svelte'
   import {
     communityDisplayName,

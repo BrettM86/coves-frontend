@@ -1,9 +1,9 @@
 <script lang="ts">
   import { coves } from '$lib/api/client.svelte'
-  import { profile } from '$lib/app/auth.svelte'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
-  import { Button, toast } from 'mono-svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
+  import { Button, toast } from '$lib/ui/kit'
   import { Check, Plus } from 'svelte-hero-icons/dist'
   import {
     isSubscribed,

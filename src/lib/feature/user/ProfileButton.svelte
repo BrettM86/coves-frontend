@@ -1,8 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
-  import { profile, type ProfileInfo } from '$lib/app/auth.svelte'
-  import { LINKED_INSTANCE_URL } from '$lib/app/instance.svelte'
+  import { profile, type ProfileInfo } from '$lib/app/state/auth.svelte'
+  import { LINKED_INSTANCE_URL } from '$lib/app/state/instance.svelte'
   import SidebarButton from '$lib/ui/sidebar/SidebarButton.svelte'
   import { Icon, QuestionMarkCircle } from 'svelte-hero-icons/dist'
   import ProfileAvatar from '../legacy/ProfileAvatar.svelte'
@@ -38,10 +38,7 @@
   class="w-full font-normal"
 >
   {#snippet customIcon()}
-    <ProfileAvatar
-      profile={prof}
-      selected={profile.current?.id == prof.id}
-    />
+    <ProfileAvatar profile={prof} selected={profile.current?.id == prof.id} />
   {/snippet}
   <span
     class="inline-flex flex-col gap-0 {profile.current?.id == prof.id

@@ -1,5 +1,5 @@
 import type { RequestHandler } from './$types'
-import { normalizeInstanceUrl } from '$lib/app/instance/resolve'
+import { normalizeInstanceUrl } from '$lib/app/state/instance/resolve'
 import {
   upstreamInstanceUrl,
   upstreamSchemeAllowed,
@@ -116,7 +116,7 @@ async function handler({
 
   // In production, only allow HTTPS URLs to prevent MITM attacks, unless the
   // operator opted a specific private-network origin into plaintext via
-  // ALLOW_HTTP_INTERNAL_INSTANCE (policy in $lib/app/instance/resolve).
+  // ALLOW_HTTP_INTERNAL_INSTANCE (policy in $lib/app/state/instance/resolve).
   if (import.meta.env.PROD && !upstreamSchemeAllowed(baseUrl)) {
     return new Response(
       JSON.stringify({

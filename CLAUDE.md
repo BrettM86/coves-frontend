@@ -107,14 +107,24 @@ pnpm test         # Vitest
 ```
 src/
 ├── lib/
-│   ├── api/        # API clients (Lemmy, PieFed)
-│   ├── feature/    # Feature modules (post, comment, community, etc.)
-│   ├── ui/         # UI components
-│   │   └── shared/ # mono-svelte component library
-│   └── settings/   # App settings and theme
-├── routes/         # SvelteKit routes
-└── app.html        # HTML template
+│   ├── api/          # Coves API client, sort/image-proxy mappings (bottom layer)
+│   ├── app/
+│   │   ├── state/    # auth, settings, instance, session, theme, i18n
+│   │   └── util/     # pure helpers, one concern per file (links, url, text…)
+│   ├── ui/           # presentational components; may use app/ + api/, never feature/
+│   │   └── kit/      # hard fork of mono-svelte — imports nothing from app/feature/api
+│   ├── feature/      # feature modules (post, comment, community, markdown, shell…)
+│   ├── server/       # server-only code
+│   └── types/        # shared types, importable from every layer
+├── routes/           # SvelteKit routes
+└── app.html          # HTML template
 ```
+
+**Layering** (enforced by `no-restricted-imports` in `eslint.config.js`):
+`routes → feature → ui → app → api`, with `ui/kit` as a leaf below `ui`.
+Kit components take app state via props/snippets (e.g. `ToastContainer`'s
+`content` snippet, `ModalContainer`'s `closeLabel`), never by importing it.
+Import the kit as `$lib/ui/kit` — there is no `mono-svelte` alias.
 
 ## Browser Testing (Playwright MCP)
 - Always use **Firefox** as the browser — Chrome is not installed

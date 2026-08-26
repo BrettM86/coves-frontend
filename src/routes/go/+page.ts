@@ -1,4 +1,4 @@
-import { localizeLink } from '$lib/app/markdown/renderers/plugins'
+import { localizeLink } from '$lib/feature/markdown/renderers/plugins'
 import { redirect } from '@sveltejs/kit'
 
 export async function load({ url }) {

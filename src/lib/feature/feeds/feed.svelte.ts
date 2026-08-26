@@ -12,9 +12,9 @@ import type {
   ProfileViewDetailed,
   ThreadViewComment,
 } from '$lib/api/coves/types'
-import type { CommunitySortType } from '$lib/app/sort'
-import { profile } from '$lib/app/auth.svelte'
-import { recursiveEqual } from '$lib/app/util.svelte'
+import type { CommunitySortType } from '$lib/api/coves/sort'
+import { profile } from '$lib/app/state/auth.svelte'
+import { recursiveEqual } from '$lib/app/util/array'
 import { SvelteMap } from 'svelte/reactivity'
 
 type FetchFn<P, R> = (params: P) => R

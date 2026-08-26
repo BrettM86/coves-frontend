@@ -6,9 +6,9 @@
     StrongRef,
     ThreadViewComment,
   } from '$lib/api/coves/types'
-  import { profile } from '$lib/app/auth.svelte'
-  import { t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
   import CommentForm from '$lib/feature/comment/CommentForm.svelte'
   import CommentListVirtualizer from '$lib/feature/comment/CommentListVirtualizer.svelte'
   import {
@@ -20,7 +20,7 @@
   import CommentTree from '$lib/feature/comment/CommentTree.svelte'
   import { postLink } from '$lib/feature/post'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
-  import { Button, Option, Select } from 'mono-svelte'
+  import { Button, Option, Select } from '$lib/ui/kit'
   import { onMount, untrack } from 'svelte'
   import {
     ArrowPath,

@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
-  import { Option, Select } from 'mono-svelte'
-  import { type SelectProps } from 'mono-svelte/forms/select/Select.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
+  import { Option, Select } from '$lib/ui/kit'
+  import { type SelectProps } from '$lib/ui/kit/forms/select/Select.svelte'
   import {
     Bars3,
     Icon,

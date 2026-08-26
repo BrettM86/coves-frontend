@@ -37,12 +37,8 @@ vi.mock('$lib/feature/feeds/feed.svelte', () => ({
 
 // `ReactiveState` is a `$state`-backed wrapper; in a plain `.test.ts` (node env,
 // no runes transform) we stub it with a trivial value holder.
-vi.mock('$lib/app/util.svelte', async () => {
-  const actual = await vi.importActual<typeof import('$lib/app/util.svelte')>(
-    '$lib/app/util.svelte',
-  )
+vi.mock('$lib/app/util/reactive.svelte', () => {
   return {
-    ...actual,
     ReactiveState: class<T> {
       value: T
       constructor(initialValue: T) {
@@ -54,11 +50,11 @@ vi.mock('$lib/app/util.svelte', async () => {
 
 // `settings.svelte` and `sort` pull in env/runes side effects unrelated to the
 // branches under test; stub them to the minimum the loader touches.
-vi.mock('$lib/app/settings.svelte', () => ({
+vi.mock('$lib/app/state/settings.svelte', () => ({
   settings: { defaultSort: { comments: 'hot' } },
 }))
 
-vi.mock('$lib/app/sort', () => ({
+vi.mock('$lib/api/coves/sort', () => ({
   mapSort: () => ({ sort: 'hot' }),
 }))
 

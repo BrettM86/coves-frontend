@@ -11,7 +11,7 @@ vi.mock('$app/environment', () => ({
   version: 'test',
 }))
 
-vi.mock('$lib/app/auth.svelte', () => ({
+vi.mock('$lib/app/state/auth.svelte', () => ({
   profile: { meta: { profile: undefined } },
 }))
 

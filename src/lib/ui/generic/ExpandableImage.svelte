@@ -1,8 +1,8 @@
 <script lang="ts" module>
   import { pushState } from '$app/navigation'
   import { page } from '$app/state'
-  import { t } from '$lib/app/i18n'
-  import { Button, Material, toast } from 'mono-svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { Button, Material, toast } from '$lib/ui/kit'
   import { Share, XMark } from 'svelte-hero-icons/dist'
   import { backOut } from 'svelte/easing'
   import { fade, scale } from 'svelte/transition'

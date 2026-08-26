@@ -5,9 +5,9 @@
     CommunityView,
     CommunityViewDetailed,
   } from '$lib/api/coves/types'
-  import { t } from '$lib/app/i18n'
-  import { getSessionStorage, setSessionStorage } from '$lib/app/session'
-  import { communitySlug } from '$lib/app/util.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { getSessionStorage, setSessionStorage } from '$lib/app/state/session'
+  import { communitySlug } from '$lib/app/util/links'
   import PostForm from '$lib/feature/post/form/PostForm.svelte'
   import {
     PostFormState,
@@ -15,7 +15,7 @@
   } from '$lib/feature/post/form/post-form.svelte'
   import { stashFreshPost } from '$lib/feature/post/fresh-post'
   import { decodeCrosspostDraft, postLink } from '$lib/feature/post/helpers'
-  import { toast } from 'mono-svelte'
+  import { toast } from '$lib/ui/kit'
   import { onDestroy } from 'svelte'
 
   let community = getSessionStorage('lastSeenCommunity') as

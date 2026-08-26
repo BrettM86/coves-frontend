@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import { toast } from 'mono-svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { toast } from '$lib/ui/kit'
   import { modals } from './moderation.svelte'
 
   // Chunk loads can fail (e.g. a stale deploy); log, surface an error, and

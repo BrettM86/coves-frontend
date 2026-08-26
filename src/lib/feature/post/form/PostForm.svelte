@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
-  import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
-  import { communitySlug, placeholders } from '$lib/app/util.svelte'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
+  import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
+  import { communitySlug } from '$lib/app/util/links'
+  import { placeholders } from '$lib/app/util/placeholders'
   import FreeTextInput from '$lib/ui/form/FreeTextInput.svelte'
   import ImageInputModal from '$lib/ui/form/ImageInputModal.svelte'
   import ObjectAutocomplete from '$lib/ui/form/ObjectAutocomplete.svelte'
@@ -17,7 +18,7 @@
     Switch,
     TextArea,
     TextInput,
-  } from 'mono-svelte'
+  } from '$lib/ui/kit'
   import { untrack, type Snippet } from 'svelte'
   import {
     ChatBubbleBottomCenterText,

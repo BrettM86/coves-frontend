@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
+  import { t } from '$lib/app/state/i18n'
   import LilDude from '$lib/ui/generic/LilDude.svelte'
   import LabelStat from '$lib/ui/info/LabelStat.svelte'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import SidebarButton from '$lib/ui/sidebar/SidebarButton.svelte'
-  import { Spinner } from 'mono-svelte'
+  import { Spinner } from '$lib/ui/kit'
   import { onMount } from 'svelte'
   import { BuildingOffice, GlobeAlt } from 'svelte-hero-icons/dist'
   import type { ClassValue } from 'svelte/elements'

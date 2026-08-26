@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { withPreset } from '$lib/feature/post/image-proxy'
+  import { withPreset } from '$lib/api/coves/image-proxy'
   import { createAvatar } from '@dicebear/core'
   import * as initials from '@dicebear/initials'
   import type { ClassValue } from 'svelte/elements'

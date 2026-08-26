@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { placeholders } from '$lib/app/util.svelte'
-  import { Button } from 'mono-svelte'
+  import { placeholders } from '$lib/app/util/placeholders'
+  import { Button } from '$lib/ui/kit'
 
   let post = $state(placeholders.get('post'))
   let comment = $state(placeholders.get('comment'))

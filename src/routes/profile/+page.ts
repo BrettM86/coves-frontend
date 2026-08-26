@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit'
-import { profile } from '$lib/app/auth.svelte'
+import { profile } from '$lib/app/state/auth.svelte'
 
 export function load() {
   if (profile.current.type === 'authenticated') {

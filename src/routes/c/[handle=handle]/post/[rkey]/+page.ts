@@ -5,9 +5,9 @@ import {
   isHydratedPost,
 } from '$lib/api/coves/types'
 import type { Handle } from '$lib/types/atproto'
-import { settings } from '$lib/app/settings.svelte'
-import { mapSort } from '$lib/app/sort'
-import { ReactiveState } from '$lib/app/util.svelte'
+import { settings } from '$lib/app/state/settings.svelte'
+import { mapSort } from '$lib/api/coves/sort'
+import { ReactiveState } from '$lib/app/util/reactive.svelte'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
 import {
   type Feed,

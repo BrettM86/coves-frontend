@@ -4,7 +4,7 @@ import type {
   PostView,
   ProfileViewDetailed,
 } from '$lib/api/coves/types'
-import { toast } from 'mono-svelte'
+import { toast } from '$lib/ui/kit'
 
 /**
  * Union of all result types that can appear in search results, feeds, etc.

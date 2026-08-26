@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
-  import { settings } from '$lib/app/settings.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
+  import { settings } from '$lib/app/state/settings.svelte'
 
   import { CommonList } from '$lib/ui/layout'
-  import { Button, Expandable, TextInput } from 'mono-svelte'
+  import { Button, Expandable, TextInput } from '$lib/ui/kit'
   import { Icon, Plus, Trash } from 'svelte-hero-icons/dist'
   import { removalTemplate } from '$lib/feature/moderation/moderation.svelte'
   import Setting from '../Setting.svelte'

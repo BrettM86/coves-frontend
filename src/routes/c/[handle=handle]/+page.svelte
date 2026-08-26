@@ -1,11 +1,11 @@
 <script lang="ts">
   import { browser } from '$app/environment'
   import { navigating, page } from '$app/state'
-  import { setSessionStorage } from '$lib/app/session'
+  import { setSessionStorage } from '$lib/app/state/session'
   import { communityDisplayName } from '$lib/feature/community/helpers'
   import CommunityHeader from '$lib/feature/community/CommunityHeader.svelte'
   import { resumables } from '$lib/feature/legacy/item.svelte'
-  import { PostListShell } from '$lib/ui/layout'
+  import PostListShell from '$lib/feature/shell/PostListShell.svelte'
   import { onDestroy, onMount } from 'svelte'
 
   let { data } = $props()

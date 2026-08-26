@@ -1,9 +1,9 @@
 <script lang="ts">
   import { page } from '$app/state'
-  import { t } from '$lib/app/i18n'
-  import { searchParam } from '$lib/app/util.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { searchParam } from '$lib/app/util/navigation'
   import { Header, SearchBar } from '$lib/ui/layout'
-  import { Option, Select } from 'mono-svelte'
+  import { Option, Select } from '$lib/ui/kit'
   import { untrack } from 'svelte'
   import {
     ChartBar,

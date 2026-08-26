@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button } from 'mono-svelte'
+  import { Button } from '$lib/ui/kit'
   import type { Snippet } from 'svelte'
   import { CommonList } from '../layout'
   import Avatar from './Avatar.svelte'

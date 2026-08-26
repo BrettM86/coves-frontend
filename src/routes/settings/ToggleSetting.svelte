@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import { Badge, Switch } from 'mono-svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { Badge, Switch } from '$lib/ui/kit'
   import {
     ComputerDesktop,
     DevicePhoneMobile,

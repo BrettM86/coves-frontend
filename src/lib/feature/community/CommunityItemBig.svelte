@@ -3,10 +3,10 @@
     CommunityView,
     CommunityViewDetailed,
   } from '$lib/api/coves/types'
-  import { t } from '$lib/app/i18n'
+  import { t } from '$lib/app/state/i18n'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import Blobs from '$lib/ui/generic/Blobs.svelte'
-  import { Button, modal } from 'mono-svelte'
+  import { Button, modal } from '$lib/ui/kit'
   import type { Snippet } from 'svelte'
   import { Icon, InformationCircle } from 'svelte-hero-icons/dist'
   import CommunityCard from './CommunityCard.svelte'
@@ -16,7 +16,7 @@
     communityHandleOrName,
     communityIdentifier,
   } from './helpers'
-  import { withPreset } from '$lib/feature/post/image-proxy'
+  import { withPreset } from '$lib/api/coves/image-proxy'
 
   interface Props {
     community: CommunityView

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Markdown from '$lib/app/markdown/Markdown.svelte'
+  import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import { Header } from '$lib/ui/layout'
 
   import guidelinesSource from '$lib/assets/community-guidelines.md?raw'

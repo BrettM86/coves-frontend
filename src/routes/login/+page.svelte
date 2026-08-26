@@ -2,18 +2,18 @@
   import { browser } from '$app/environment'
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
-  import { t } from '$lib/app/i18n'
+  import { t } from '$lib/app/state/i18n'
   import {
     DEFAULT_INSTANCE_URL,
     LINKED_INSTANCE_URL,
-  } from '$lib/app/instance.svelte'
-  import { DOMAIN_REGEX_FORMS } from '$lib/app/util.svelte'
+  } from '$lib/app/state/instance.svelte'
+  import { DOMAIN_REGEX_FORMS } from '$lib/app/util/url'
   import ErrorContainer, {
     clearErrorScope,
     pushError,
   } from '$lib/ui/info/ErrorContainer.svelte'
   import { Header } from '$lib/ui/layout'
-  import { Button, Note, Spinner, TextInput } from 'mono-svelte'
+  import { Button, Note, Spinner, TextInput } from '$lib/ui/kit'
   import { Icon, UserCircle } from 'svelte-hero-icons/dist'
 
   /**
@@ -34,10 +34,8 @@
     children?: import('svelte').Snippet
   }
 
-  let {
-    ref = page.url.searchParams.get('redirect') ?? '/',
-    children,
-  }: Props = $props()
+  let { ref = page.url.searchParams.get('redirect') ?? '/', children }: Props =
+    $props()
 
   let form = $state<{
     instance: string
@@ -111,8 +109,7 @@
       window.location.href = redirectUrl
     } catch (error) {
       pushError({
-        message:
-          error instanceof Error ? error.message : $t('error.unknown'),
+        message: error instanceof Error ? error.message : $t('error.unknown'),
         scope: page.route.id!,
       })
       form.loading = false

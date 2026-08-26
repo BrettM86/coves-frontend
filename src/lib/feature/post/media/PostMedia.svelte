@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PostEmbed } from '$lib/api/coves/types'
-  import { type View } from '$lib/app/settings.svelte'
+  import { type View } from '$lib/app/state/settings.svelte'
   import { PostIframe, PostImage, PostLink } from '..'
   import {
     extractEmbedThumbnail,

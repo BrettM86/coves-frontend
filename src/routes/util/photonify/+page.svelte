@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { localizeLink } from '$lib/app/markdown/renderers/plugins'
-  import { TextInput } from 'mono-svelte'
+  import { localizeLink } from '$lib/feature/markdown/renderers/plugins'
+  import { TextInput } from '$lib/ui/kit'
 
   let link = $state('')
 

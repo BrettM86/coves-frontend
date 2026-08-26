@@ -2,10 +2,10 @@
   import { coves } from '$lib/api/client.svelte'
   import type { ProfileViewDetailed } from '$lib/api/coves/types'
   import { XrpcError } from '$lib/api/coves/xrpc'
-  import { profile as authProfile } from '$lib/app/auth.svelte'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
-  import { Button, Menu, MenuButton, toast } from 'mono-svelte'
+  import { profile as authProfile } from '$lib/app/state/auth.svelte'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
+  import { Button, Menu, MenuButton, toast } from '$lib/ui/kit'
   import { untrack } from 'svelte'
   import {
     EllipsisHorizontal,

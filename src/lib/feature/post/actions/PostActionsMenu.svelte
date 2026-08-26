@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { PostView } from '$lib/api/coves/types'
   import { coves } from '$lib/api/client.svelte'
-  import { profile } from '$lib/app/auth.svelte'
-  import { t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
   import { report } from '$lib/feature/moderation/moderation.svelte'
   import { encodeCrosspostDraft } from '$lib/feature/post/helpers'
-  import { action, MenuButton, modal, toast } from 'mono-svelte'
+  import { action, MenuButton, modal, toast } from '$lib/ui/kit'
   import { ArrowTopRightOnSquare, Flag, Trash } from 'svelte-hero-icons/dist'
 
   interface Props {

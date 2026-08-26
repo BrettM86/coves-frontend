@@ -1,5 +1,5 @@
 import type { CommunityViewDetailed } from '$lib/api/coves/types'
-import type { ReactiveState } from '$lib/app/util.svelte'
+import type { ReactiveState } from '$lib/app/util/reactive.svelte'
 import { error } from '@sveltejs/kit'
 
 // TODO(coves-migration): The community settings pages under this layout are

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { page } from '$app/state'
-  import { profile } from '$lib/app/auth.svelte'
-  import { t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
-  import type { CovesListingType } from '$lib/app/sort'
-  import { searchParam } from '$lib/app/util.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
+  import type { CovesListingType } from '$lib/api/coves/sort'
+  import { searchParam } from '$lib/app/util/navigation'
 
   interface Props {
     selected: CovesListingType

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import { getDefaultColors } from '$lib/app/theme/presets'
-  import { theme as themeData } from '$lib/app/theme/theme.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { getDefaultColors } from '$lib/app/state/theme/presets'
+  import { theme as themeData } from '$lib/app/state/theme/theme.svelte'
   import { Header } from '$lib/ui/layout'
   import {
     action,
@@ -12,7 +12,7 @@
     Note,
     TextArea,
     toast,
-  } from 'mono-svelte'
+  } from '$lib/ui/kit'
   import {
     ArrowDownTray,
     ArrowPath,

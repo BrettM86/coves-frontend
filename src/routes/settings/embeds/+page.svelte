@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
-  import { DOMAIN_REGEX_FORMS } from '$lib/app/util.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
+  import { DOMAIN_REGEX_FORMS } from '$lib/app/util/url'
   import { CommonList } from '$lib/ui/layout'
-  import { Option, Select, TextInput } from 'mono-svelte'
+  import { Option, Select, TextInput } from '$lib/ui/kit'
   import { CursorArrowRays, VideoCamera } from 'svelte-hero-icons/dist'
   import Setting from '../Setting.svelte'
   import ToggleSetting from '../ToggleSetting.svelte'

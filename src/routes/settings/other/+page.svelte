@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
   import { CommonList } from '$lib/ui/layout'
   import { Bars3, BugAnt } from 'svelte-hero-icons/dist'
   import ToggleSetting from '../ToggleSetting.svelte'

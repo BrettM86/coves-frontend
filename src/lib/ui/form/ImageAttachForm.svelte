@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { profile } from '$lib/app/auth.svelte'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
-  import { uploadImage } from '$lib/app/util.svelte'
-  import { Button, toast } from 'mono-svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
+  import { uploadImage } from '$lib/api/upload'
+  import { Button, toast } from '$lib/ui/kit'
   import { DocumentPlus, Icon } from 'svelte-hero-icons/dist'
   import { expoOut } from 'svelte/easing'
   import { slide } from 'svelte/transition'
@@ -43,14 +43,13 @@
                 return uploaded
               })
               .catch((err) => {
+                console.error('[ImageAttachForm] upload failed', err)
                 toast({ content: errorMessage(err), type: 'error' })
-                return 'Failed to upload'
+                return undefined
               }),
           ),
         )
-      ).filter((i) => i != undefined)
-
-      if (!uploaded) throw new Error('Image upload returned undefined')
+      ).filter((i): i is string => i != undefined)
 
       onupload?.(uploaded)
       progress = 1

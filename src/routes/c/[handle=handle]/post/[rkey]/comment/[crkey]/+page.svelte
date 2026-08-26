@@ -1,13 +1,13 @@
 <script lang="ts">
   import { page } from '$app/state'
   import { coves } from '$lib/api/client.svelte'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
-  import { mapSort } from '$lib/app/sort'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
+  import { mapSort } from '$lib/api/coves/sort'
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
   import { commentLink, Post, postLink } from '$lib/feature/post'
-  import { Button, Material, Spinner, toast } from 'mono-svelte'
+  import { Button, Material, Spinner, toast } from '$lib/ui/kit'
   import { ArrowUturnUp, QueueList } from 'svelte-hero-icons/dist'
   import type { PageData } from './$types'
 

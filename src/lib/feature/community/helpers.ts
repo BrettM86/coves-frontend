@@ -1,5 +1,5 @@
 import type { CommunityRef, CommunityView } from '$lib/api/coves/types'
-import { communitySlug } from '$lib/app/util.svelte'
+import { communitySlug } from '$lib/app/util/links'
 import { usableHandle } from '$lib/types/atproto'
 
 function communityHandle(

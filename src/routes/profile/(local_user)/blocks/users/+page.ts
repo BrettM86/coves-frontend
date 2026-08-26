@@ -3,7 +3,7 @@ import type {
   BlockedUserEntry,
   ProfileViewDetailed,
 } from '$lib/api/coves/types'
-import { ReactiveState } from '$lib/app/util.svelte'
+import { ReactiveState } from '$lib/app/util/reactive.svelte'
 
 export interface BlockedUserRow {
   block: BlockedUserEntry

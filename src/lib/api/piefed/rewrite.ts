@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { Search } from 'mono-svelte'
+import { Search } from '$lib/ui/kit'
 import type {
   Comment,
   CommentReplyView,

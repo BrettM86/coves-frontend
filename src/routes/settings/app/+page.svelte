@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { locale, t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
-  import { TIMEFRAME_OPTIONS } from '$lib/app/sort'
+  import { locale, t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
+  import { TIMEFRAME_OPTIONS } from '$lib/api/coves/sort'
   import ViewSelect from '$lib/feature/filter/ViewSelect.svelte'
   import Switch from '$lib/ui/form/Switch.svelte'
   import { CommonList } from '$lib/ui/layout'
-  import { Option, Select } from 'mono-svelte'
+  import { Option, Select } from '$lib/ui/kit'
   import {
     ArrowsPointingOut,
     ArrowsRightLeft,

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Label, TextInput } from 'mono-svelte'
+  import { Label, TextInput } from '$lib/ui/kit'
   import { DocumentPlus, Icon } from 'svelte-hero-icons/dist'
 
   interface Props {

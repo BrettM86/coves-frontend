@@ -9,8 +9,8 @@
     isCommentView,
     MAX_REPORT_EXPLANATION_LENGTH,
   } from '$lib/api/coves/types'
-  import { t } from '$lib/app/i18n'
-  import { Button, Modal, TextArea, toast } from 'mono-svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { Button, Modal, TextArea, toast } from '$lib/ui/kit'
   import {
     buildReportInput,
     REPORT_REASONS,

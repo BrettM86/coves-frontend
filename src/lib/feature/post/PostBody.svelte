@@ -1,8 +1,8 @@
 <script lang="ts">
-  import Markdown from '$lib/app/markdown/Markdown.svelte'
-  import RichText from '$lib/app/richtext/RichText.svelte'
-  import { hasFacets } from '$lib/app/richtext/facets'
-  import { Button } from 'mono-svelte'
+  import Markdown from '$lib/feature/markdown/Markdown.svelte'
+  import RichText from '$lib/feature/richtext/RichText.svelte'
+  import { hasFacets } from '$lib/feature/richtext/facets'
+  import { Button } from '$lib/ui/kit'
   import { ChevronDoubleDown, Icon } from 'svelte-hero-icons/dist'
   import type { ClassValue } from 'svelte/elements'
 

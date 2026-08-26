@@ -1,15 +1,15 @@
 <script lang="ts">
   import { page } from '$app/state'
-  import { t } from '$lib/app/i18n'
+  import { locale, t } from '$lib/app/state/i18n'
   import { deletedContentPlaceholder } from '$lib/feature/comment/comments.svelte'
   import PostFeed from '$lib/feature/post/feed/PostFeed.svelte'
   import UserLink from '$lib/feature/user/UserLink.svelte'
-  import EntityHeader from '$lib/ui/generic/EntityHeader.svelte'
+  import EntityHeader from '$lib/feature/shell/EntityHeader.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Header } from '$lib/ui/layout'
   import { publishedToDate } from '$lib/ui/util/date'
-  import { Option, Select } from 'mono-svelte'
-  import { formatRelativeDate } from 'mono-svelte/util/RelativeDate.svelte'
+  import { Option, Select } from '$lib/ui/kit'
+  import { formatRelativeDate } from '$lib/ui/util/RelativeDate.svelte'
   import {
     AdjustmentsHorizontal,
     ChatBubbleOvalLeft,
@@ -64,9 +64,13 @@
             },
             {
               name: $t('stats.joined'),
-              value: formatRelativeDate(publishedToDate(profile.createdAt), {
-                style: 'short',
-              }).toString(),
+              value: formatRelativeDate(
+                publishedToDate(profile.createdAt),
+                {
+                  style: 'short',
+                },
+                $locale,
+              ).toString(),
               format: false,
             },
           ]}
@@ -144,9 +148,13 @@
                   <span class="italic">{$t('comment.deletedAuthor')}</span>
                 {/if}
                 <span class="text-xs">
-                  {formatRelativeDate(publishedToDate(comment.createdAt), {
-                    style: 'short',
-                  })}
+                  {formatRelativeDate(
+                    publishedToDate(comment.createdAt),
+                    {
+                      style: 'short',
+                    },
+                    $locale,
+                  )}
                 </span>
               </div>
               <p class="text-sm text-slate-700 dark:text-zinc-300">

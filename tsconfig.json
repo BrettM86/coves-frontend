@@ -29,7 +29,7 @@
   // - piefed: Using Coves backend instead
   // - lemmy/adapter.ts: API adapter to be replaced
   //
-  // src/lib/app/markdown is deliberately NOT excluded: it renders untrusted
+  // src/lib/feature/markdown is deliberately NOT excluded: it renders untrusted
   // post and comment bodies, so it is the last place that should go unchecked.
   "exclude": [
     "node_modules/**",

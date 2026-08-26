@@ -1,15 +1,15 @@
 <script lang="ts" module>
   import type { AuthorView, CommunityRef } from '$lib/api/coves/types'
-  import { t } from '$lib/app/i18n'
-  import Markdown from '$lib/app/markdown/Markdown.svelte'
-  import { type View, settings } from '$lib/app/settings.svelte'
-  import { communitySlug } from '$lib/app/util.svelte'
+  import { locale, t } from '$lib/app/state/i18n'
+  import Markdown from '$lib/feature/markdown/Markdown.svelte'
+  import { type View, settings } from '$lib/app/state/settings.svelte'
+  import { communitySlug } from '$lib/app/util/links'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
-  import { Badge, Material, modal, Popover } from 'mono-svelte'
+  import { Badge, Material, modal, Popover } from '$lib/ui/kit'
   import RelativeDate, {
     formatRelativeDate,
-  } from 'mono-svelte/util/RelativeDate.svelte'
+  } from '$lib/ui/util/RelativeDate.svelte'
   import {
     type IconSource,
     Bookmark,
@@ -233,17 +233,25 @@
     {#if edited}
       <button
         title={$t('post.meta.lastEdited', {
-          default: formatRelativeDate(publishedToDate(edited), {
-            style: 'long',
-          }),
+          default: formatRelativeDate(
+            publishedToDate(edited),
+            {
+              style: 'long',
+            },
+            $locale,
+          ),
         })}
         onclick={() =>
           modal({
             title: $t('common.info'),
             body: $t('post.meta.lastEdited', {
-              default: formatRelativeDate(publishedToDate(edited), {
-                style: 'long',
-              }),
+              default: formatRelativeDate(
+                publishedToDate(edited),
+                {
+                  style: 'long',
+                },
+                $locale,
+              ),
             }),
           })}
       >

@@ -1,7 +1,7 @@
 # Environment variables
 
 The single reference for every variable the frontend reads. Code resolves
-instance URLs in exactly one place — `src/lib/app/instance/resolve.ts` — and
+instance URLs in exactly one place — `src/lib/app/state/instance/resolve.ts` — and
 the tables below describe that behaviour. If you change a default or add a
 variable, update this file; `Dockerfile`, `.github/README.md` and
 `.env.development` only point here.
@@ -43,7 +43,7 @@ Resolution precedence:
 ## Appearance and default settings
 
 All optional. Booleans accept `true`/`false`. They seed a new user's settings
-(`src/lib/app/settings.svelte.ts`); users can change them afterwards.
+(`src/lib/app/state/settings.svelte.ts`); users can change them afterwards.
 
 | Variable | Default | Description |
 | --- | --- | --- |

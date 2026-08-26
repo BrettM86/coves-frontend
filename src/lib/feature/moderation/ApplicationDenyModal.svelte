@@ -1,9 +1,9 @@
 <script lang="ts">
   // @ts-nocheck TODO(coves-migration): Needs Coves registration application API
   import type { Person } from '$lib/api/types'
-  import { t } from '$lib/app/i18n'
-  import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
-  import { Button, Modal } from 'mono-svelte'
+  import { t } from '$lib/app/state/i18n'
+  import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
+  import { Button, Modal } from '$lib/ui/kit'
   import UserLink from '../user/UserLink.svelte'
 
   interface Props {

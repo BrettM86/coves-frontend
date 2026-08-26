@@ -1,7 +1,7 @@
 <script lang="ts">
   import { navigating, page } from '$app/state'
-  import { t } from '$lib/app/i18n'
-  import { Button, TextInput } from 'mono-svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { Button, TextInput } from '$lib/ui/kit'
   import { MagnifyingGlass } from 'svelte-hero-icons/dist'
 
   interface Props {

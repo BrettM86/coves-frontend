@@ -3,7 +3,7 @@ import {
   type PostView,
   parseAtUri,
 } from '$lib/api/coves/types'
-import { profile } from '$lib/app/auth.svelte'
+import { profile } from '$lib/app/state/auth.svelte'
 import { EMPTY_POST_STATS } from '$lib/feature/vote/subjects'
 import type { DID, Handle } from '$lib/types/atproto'
 

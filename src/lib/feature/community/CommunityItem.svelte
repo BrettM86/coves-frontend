@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { CommunityView } from '$lib/api/coves/types'
-  import { locale, t } from '$lib/app/i18n'
+  import { locale, t } from '$lib/app/state/i18n'
   import CommonItem from '$lib/ui/layout/CommonItem.svelte'
-  import { Button, modal } from 'mono-svelte'
+  import { Button, modal } from '$lib/ui/kit'
   import type { Snippet } from 'svelte'
   import { Icon, InformationCircle } from 'svelte-hero-icons/dist'
   import CommunityCard from './CommunityCard.svelte'

@@ -1,7 +1,10 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import { type Theme, theme as themeData } from '$lib/app/theme/theme.svelte'
-  import { action, Button, Material, modal, TextInput } from 'mono-svelte'
+  import { t } from '$lib/app/state/i18n'
+  import {
+    type Theme,
+    theme as themeData,
+  } from '$lib/app/state/theme/theme.svelte'
+  import { action, Button, Material, modal, TextInput } from '$lib/ui/kit'
   import { CheckCircle, Icon, Trash } from 'svelte-hero-icons/dist'
 
   interface Props {

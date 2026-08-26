@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { CommentView } from '$lib/api/coves/types'
-  import { t } from '$lib/app/i18n'
+  import { t } from '$lib/app/state/i18n'
   import type { ClassValue } from 'svelte/elements'
   import Comment from './Comment.svelte'
   import {

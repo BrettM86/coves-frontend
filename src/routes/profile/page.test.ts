@@ -14,7 +14,7 @@ const mockProfile = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('$lib/app/auth.svelte', () => ({
+vi.mock('$lib/app/state/auth.svelte', () => ({
   profile: mockProfile,
 }))
 

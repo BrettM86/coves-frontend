@@ -2,9 +2,9 @@
   // @ts-nocheck TODO(coves-migration): Needs Coves user settings API
   import { getClient, site } from '$lib/api/client.svelte'
   import type { SaveUserSettings } from '$lib/api/types'
-  import { profile } from '$lib/app/auth.svelte'
-  import { t } from '$lib/app/i18n'
-  import MarkdownEditor from '$lib/app/markdown/MarkdownEditor.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import ImageInputUpload from '$lib/ui/form/ImageInputUpload.svelte'
   import { Header } from '$lib/ui/layout'
   import {
@@ -17,7 +17,7 @@
     Switch,
     TextInput,
     toast,
-  } from 'mono-svelte'
+  } from '$lib/ui/kit'
   import { Icon, Plus } from 'svelte-hero-icons/dist'
   import type { PageData } from './$types'
 

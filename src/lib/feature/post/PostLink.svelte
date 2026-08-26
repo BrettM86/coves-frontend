@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { View } from '$lib/app/settings.svelte'
+  import type { View } from '$lib/app/state/settings.svelte'
   import { parseURL } from '$lib/ui/form/Link.svelte'
-  import { Material } from 'mono-svelte'
+  import { Material } from '$lib/ui/kit'
   import { ArrowTopRightOnSquare, Icon, Link } from 'svelte-hero-icons/dist'
-  import { withPreset } from './image-proxy'
+  import { withPreset } from '$lib/api/coves/image-proxy'
 
   interface Props {
     url: string

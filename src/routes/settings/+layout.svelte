@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
+  import { t } from '$lib/app/state/i18n'
   import {
     importSettings,
     resetSettings,
     settings,
-  } from '$lib/app/settings.svelte'
+  } from '$lib/app/state/settings.svelte'
   import { Header, Tabs } from '$lib/ui/layout'
-  import { action, Button, Modal, modal, TextArea, toast } from 'mono-svelte'
+  import { action, Button, Modal, modal, TextArea, toast } from '$lib/ui/kit'
   import { ArrowDownTray, ArrowPath, ArrowUpTray } from 'svelte-hero-icons/dist'
 
   let { children } = $props()

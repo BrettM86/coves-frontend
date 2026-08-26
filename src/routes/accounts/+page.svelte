@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { type ProfileInfo, profile } from '$lib/app/auth.svelte'
-  import { t } from '$lib/app/i18n'
+  import { type ProfileInfo, profile } from '$lib/app/state/auth.svelte'
+  import { t } from '$lib/app/state/i18n'
   import {
     DEFAULT_INSTANCE_URL,
     LINKED_INSTANCE_URL,
-  } from '$lib/app/instance.svelte'
-  import { settings } from '$lib/app/settings.svelte'
+  } from '$lib/app/state/instance.svelte'
+  import { settings } from '$lib/app/state/settings.svelte'
   import ProfileAvatar from '$lib/feature/legacy/ProfileAvatar.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { CommonList, Header } from '$lib/ui/layout'
   import DebugObject from '$lib/ui/util/debug/DebugObject.svelte'
-  import { toast } from '$lib/ui/shared/toast/toasts'
-  import { Badge, Button, Menu, MenuButton, Modal } from 'mono-svelte'
+  import { toast } from '$lib/ui/kit/toast/toasts'
+  import { Badge, Button, Menu, MenuButton, Modal } from '$lib/ui/kit'
   import {
     ArrowLeftOnRectangle,
     ArrowRightOnRectangle,

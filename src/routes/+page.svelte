@@ -2,8 +2,8 @@
   import { browser } from '$app/environment'
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
-  import { t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
   import FeedTabs from '$lib/feature/filter/FeedTabs.svelte'
   import SortMenu from '$lib/feature/filter/SortMenu.svelte'
   import ViewSelect from '$lib/feature/filter/ViewSelect.svelte'
@@ -12,7 +12,7 @@
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import Skeleton from '$lib/ui/generic/Skeleton.svelte'
   import { Header, Pageination } from '$lib/ui/layout'
-  import { Button } from 'mono-svelte'
+  import { Button } from '$lib/ui/kit'
   import { ArchiveBox, ArrowTopRightOnSquare } from 'svelte-hero-icons/dist'
 
   let { data = $bindable() } = $props()

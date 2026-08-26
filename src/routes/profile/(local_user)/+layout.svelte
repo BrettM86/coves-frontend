@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { profile } from '$lib/app/auth.svelte'
-  import { t } from '$lib/app/i18n'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { t } from '$lib/app/state/i18n'
   import { Tabs } from '$lib/ui/layout'
 
   let { children } = $props()

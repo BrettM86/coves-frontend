@@ -1,17 +1,17 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
-  import { t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
   import {
     normalizeTimeframe,
     TIMEFRAME_OPTIONS,
     type CovesSortType,
     type CovesTimeframe,
-  } from '$lib/app/sort'
-  import Menu from '$lib/ui/shared/popover/Menu.svelte'
-  import MenuButton from '$lib/ui/shared/popover/MenuButton.svelte'
-  import { Button, toast } from 'mono-svelte'
+  } from '$lib/api/coves/sort'
+  import Menu from '$lib/ui/kit/popover/Menu.svelte'
+  import MenuButton from '$lib/ui/kit/popover/MenuButton.svelte'
+  import { Button, toast } from '$lib/ui/kit'
   import {
     Check,
     ChevronDown,

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { hexToRgb } from '$lib/app/theme/theme.svelte'
+  import { hexToRgb } from '$lib/app/state/theme/theme.svelte'
 
   interface Props {
     value: string

@@ -37,7 +37,7 @@ vi.mock('$lib/api/client.svelte', () => ({
 
 // `feed.svelte.ts` imports `profile` purely for its cache-clearing effect; the
 // real module reads localStorage at import time, which node has no notion of.
-vi.mock('$lib/app/auth.svelte', () => ({
+vi.mock('$lib/app/state/auth.svelte', () => ({
   profile: { meta: { profile: undefined } },
 }))
 
@@ -46,9 +46,9 @@ const mockSettings = vi.hoisted(() => ({
   defaultSort: { sort: 'hot', timeframe: 'all' },
 }))
 
-vi.mock('$lib/app/settings.svelte', () => ({ settings: mockSettings }))
+vi.mock('$lib/app/state/settings.svelte', () => ({ settings: mockSettings }))
 
-// `$lib/app/sort` is deliberately NOT mocked: `resolveFeedSort` is pure and
+// `$lib/api/coves/sort` is deliberately NOT mocked: `resolveFeedSort` is pure and
 // dependency-free, so running the real one exercises the URL-vs-saved-defaults
 // precedence end to end rather than re-implementing it here.
 

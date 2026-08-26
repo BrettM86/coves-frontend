@@ -4,10 +4,10 @@
   import { parseAtUri } from '$lib/api/coves/types'
   import { XrpcError } from '$lib/api/coves/xrpc'
   import type { DID } from '$lib/types/atproto'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
   import { commentLink, type PostLinkRef } from '$lib/feature/post'
-  import { Button, toast } from 'mono-svelte'
+  import { Button, toast } from '$lib/ui/kit'
   import { ArrowDownCircle, ArrowRightCircle } from 'svelte-hero-icons/dist'
   import Comment from './Comment.svelte'
   import {

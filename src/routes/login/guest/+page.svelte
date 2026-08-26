@@ -6,14 +6,14 @@
     type ClientType,
     DEFAULT_CLIENT_TYPE,
   } from '$lib/api/base'
-  import { profile } from '$lib/app/auth.svelte'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
-  import { LINKED_INSTANCE_URL } from '$lib/app/instance.svelte'
-  import { DOMAIN_REGEX_FORMS, instanceToURL } from '$lib/app/util.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
+  import { LINKED_INSTANCE_URL } from '$lib/app/state/instance.svelte'
+  import { DOMAIN_REGEX_FORMS, instanceToURL } from '$lib/app/util/url'
   import { Header } from '$lib/ui/layout'
-  import { Button, Spinner, TextInput, toast } from 'mono-svelte'
-  import { debounce } from 'mono-svelte/util/time'
+  import { Button, Spinner, TextInput, toast } from '$lib/ui/kit'
+  import { debounce } from '$lib/ui/kit/util/time'
   import { expoOut } from 'svelte/easing'
   import { preventDefault } from 'svelte/legacy'
   import { fly } from 'svelte/transition'
@@ -151,7 +151,10 @@
       color="primary"
       size="lg"
       loading={form.loading}
-      disabled={form.loading || (!!form.instance && detectedClient === undefined && !LINKED_INSTANCE_URL)}
+      disabled={form.loading ||
+        (!!form.instance &&
+          detectedClient === undefined &&
+          !LINKED_INSTANCE_URL)}
     >
       {$t('form.submit')}
     </Button>

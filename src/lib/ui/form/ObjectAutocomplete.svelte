@@ -1,8 +1,8 @@
 <script lang="ts">
   import { coves } from '$lib/api/client.svelte'
   import type { CommunityView } from '$lib/api/coves/types'
-  import { communitySlug } from '$lib/app/util.svelte'
-  import { MenuButton, Search, toast } from 'mono-svelte'
+  import { communitySlug } from '$lib/app/util/links'
+  import { MenuButton, Search, toast } from '$lib/ui/kit'
   import { Icon, XCircle } from 'svelte-hero-icons/dist'
   import { fly } from 'svelte/transition'
   import Avatar from '../generic/Avatar.svelte'

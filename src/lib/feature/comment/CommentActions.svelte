@@ -1,17 +1,17 @@
 <script lang="ts">
   import type { CommentView } from '$lib/api/coves/types'
   import { coves } from '$lib/api/client.svelte'
-  import { profile } from '$lib/app/auth.svelte'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
   import { report } from '$lib/feature/moderation/moderation.svelte'
   import {
     commentLink,
     postLinkRefFromUri,
     type PostLinkRef,
   } from '$lib/feature/post'
-  import { action, Button, Menu, MenuButton, modal, toast } from 'mono-svelte'
+  import { action, Button, Menu, MenuButton, modal, toast } from '$lib/ui/kit'
   import {
     ChatBubbleOvalLeft,
     EllipsisHorizontal,

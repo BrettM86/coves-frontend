@@ -2,7 +2,7 @@
   import type { StrongRef } from '$lib/api/coves/types'
   import type { PostLinkRef } from '$lib/feature/post'
   import type { DID } from '$lib/types/atproto'
-  import VirtualList from '$lib/app/render/VirtualList.svelte'
+  import VirtualList from '$lib/ui/generic/VirtualList.svelte'
   import { onMount } from 'svelte'
   import { expoOut } from 'svelte/easing'
   import { fly } from 'svelte/transition'

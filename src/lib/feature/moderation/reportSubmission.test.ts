@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AtUri } from '$lib/api/coves/types'
 import { MAX_REPORT_EXPLANATION_LENGTH } from '$lib/api/coves/types'
 import { XrpcError } from '$lib/api/coves/xrpc'
-import en from '$lib/app/i18n/en.json'
+import en from '$lib/app/state/i18n/en.json'
 import {
   buildReportInput,
   REPORT_REASONS,

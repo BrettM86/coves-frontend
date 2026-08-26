@@ -3,7 +3,7 @@
   import { getClient } from '$lib/api/client.svelte'
   import type { ListingType, Person } from '$lib/api/types'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
-  import { MenuButton, Search } from 'mono-svelte'
+  import { MenuButton, Search } from '$lib/ui/kit'
   import { createEventDispatcher } from 'svelte'
   import { Icon, XCircle } from 'svelte-hero-icons/dist'
   import { fly } from 'svelte/transition'

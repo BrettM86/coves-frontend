@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { PENDING_AUTH_COOKIE_OPTIONS } from '$lib/server/cookies'
 import { generateOAuthState } from '$lib/server/csrf'
-import { normalizeInstanceUrl } from '$lib/app/instance/resolve'
+import { normalizeInstanceUrl } from '$lib/app/state/instance/resolve'
 
 interface LoginRequest {
   handle: string

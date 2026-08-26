@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state'
-  import { Button } from 'mono-svelte'
-  import type { ButtonProps } from 'mono-svelte/button/Button.svelte'
+  import { Button } from '$lib/ui/kit'
+  import type { ButtonProps } from '$lib/ui/kit/button/Button.svelte'
   import type { Snippet } from 'svelte'
   import { Icon, type IconSource } from 'svelte-hero-icons/dist'
   import type { ClassValue } from 'svelte/elements'

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PostView } from '$lib/api/coves/types'
-  import { type View, settings } from '$lib/app/settings.svelte'
+  import { type View, settings } from '$lib/app/state/settings.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import type { ClassValue } from 'svelte/elements'
   import {

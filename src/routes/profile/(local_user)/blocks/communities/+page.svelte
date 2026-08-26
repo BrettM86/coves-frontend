@@ -1,11 +1,11 @@
 <script lang="ts">
   // @ts-nocheck TODO(coves-migration): Needs Coves community block API
   import { client } from '$lib/api/client.svelte'
-  import { t } from '$lib/app/i18n'
-  import { communityLink } from '$lib/app/util.svelte.js'
+  import { t } from '$lib/app/state/i18n'
+  import { communityLink } from '$lib/app/util/links'
   import ItemList from '$lib/ui/generic/ItemList.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
-  import { Button } from 'mono-svelte'
+  import { Button } from '$lib/ui/kit'
   import { ArrowUturnUp, Check, Trash } from 'svelte-hero-icons/dist'
 
   let { data } = $props()

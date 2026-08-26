@@ -1,10 +1,10 @@
 <script lang="ts">
   import type { CommunityViewDetailed } from '$lib/api/coves/types'
-  import { profile } from '$lib/app/auth.svelte'
-  import { t } from '$lib/app/i18n'
-  import EntityHeader from '$lib/ui/generic/EntityHeader.svelte'
-  import { action, Button, Menu, MenuButton, modal, toast } from 'mono-svelte'
-  import { formatRelativeDate } from 'mono-svelte/util/RelativeDate.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { locale, t } from '$lib/app/state/i18n'
+  import EntityHeader from '$lib/feature/shell/EntityHeader.svelte'
+  import { action, Button, Menu, MenuButton, modal, toast } from '$lib/ui/kit'
+  import { formatRelativeDate } from '$lib/ui/util/RelativeDate.svelte'
   import {
     Cog6Tooth,
     EllipsisHorizontal,
@@ -55,9 +55,13 @@
     {
       name: $t('stats.created'),
       format: false,
-      value: formatRelativeDate(new Date(community.createdAt), {
-        style: 'short',
-      }).toString(),
+      value: formatRelativeDate(
+        new Date(community.createdAt),
+        {
+          style: 'short',
+        },
+        $locale,
+      ).toString(),
     },
   ]}
   bio={community.description}

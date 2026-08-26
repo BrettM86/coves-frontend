@@ -3,10 +3,10 @@
   // gate — unmigrated Lemmy code kept for reference until an instance-block
   // API exists (or the route is deleted).
   import { client } from '$lib/api/client.svelte'
-  import { t } from '$lib/app/i18n'
+  import { t } from '$lib/app/state/i18n'
   import ItemList from '$lib/ui/generic/ItemList.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
-  import { Button } from 'mono-svelte'
+  import { Button } from '$lib/ui/kit'
   import { Check, Trash } from 'svelte-hero-icons/dist'
 
   let { data } = $props()

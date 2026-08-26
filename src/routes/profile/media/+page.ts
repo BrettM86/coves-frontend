@@ -1,5 +1,5 @@
 import type { ListMediaResponse } from '$lib/api/types'
-import type { ReactiveState } from '$lib/app/util.svelte'
+import type { ReactiveState } from '$lib/app/util/reactive.svelte'
 import { error } from '@sveltejs/kit'
 
 // TODO(coves-migration): This page is unmigrated Lemmy code — it called the

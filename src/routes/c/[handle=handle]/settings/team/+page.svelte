@@ -1,13 +1,13 @@
 <script lang="ts">
   // @ts-nocheck TODO(coves-migration): Needs Coves community team management API
   import { getClient } from '$lib/api/client.svelte'
-  import { profile } from '$lib/app/auth.svelte'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
   import UserAutocomplete from '$lib/feature/user/UserAutocomplete.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { CommonList, Header } from '$lib/ui/layout'
-  import { action, Button, modal, toast } from 'mono-svelte'
+  import { action, Button, modal, toast } from '$lib/ui/kit'
   import { Icon, Plus, Trash } from 'svelte-hero-icons/dist'
   import type { PageData } from '../$types'
 

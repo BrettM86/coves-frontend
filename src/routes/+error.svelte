@@ -1,9 +1,9 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
-  import { Button, Material } from 'mono-svelte'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
+  import { Button, Material } from '$lib/ui/kit'
 
   function getError(message: string): { string: string; code: boolean } {
     try {

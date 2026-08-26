@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import { Button, Modal, TextInput } from 'mono-svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { Button, Modal, TextInput } from '$lib/ui/kit'
   import ImageAttachForm from './ImageAttachForm.svelte'
   import Switch from './Switch.svelte'
 

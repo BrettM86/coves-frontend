@@ -1,23 +1,24 @@
 <script lang="ts">
   import { browser } from '$app/environment'
   import { navigating, page } from '$app/state'
-  import { profile } from '$lib/app/auth.svelte'
-  import { locale, t } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
-  import { getDefaultColors } from '$lib/app/theme/presets'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { locale, t } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
+  import { getDefaultColors } from '$lib/app/state/theme/presets'
   import {
     inDarkColorScheme,
     rgbToHex,
     theme,
-  } from '$lib/app/theme/theme.svelte'
+  } from '$lib/app/state/theme/theme.svelte'
   import CovesSidebar from '$lib/feature/instance/CovesSidebar.svelte'
+  import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import ModerationModals from '$lib/feature/moderation/ModerationModals.svelte'
 
   import ExpandableImage from '$lib/ui/generic/ExpandableImage.svelte'
   import { Shell } from '$lib/ui/layout'
-  import Navbar from '$lib/ui/navbar/Navbar.svelte'
-  import Sidebar from '$lib/ui/sidebar/Sidebar.svelte'
-  import { Button, ModalContainer, toast, ToastContainer } from 'mono-svelte'
+  import Navbar from '$lib/feature/shell/navbar/Navbar.svelte'
+  import Sidebar from '$lib/feature/shell/Sidebar.svelte'
+  import { Button, ModalContainer, toast, ToastContainer } from '$lib/ui/kit'
   import nProgress from 'nprogress'
   import 'nprogress/nprogress.css'
   import { onMount } from 'svelte'
@@ -170,9 +171,16 @@
 </Button>
 
 <Shell>
-  <ToastContainer />
+  <ToastContainer>
+    {#snippet content(toast)}
+      <Markdown
+        source={toast.content}
+        class={toast.long ? 'text-[15px]' : 'text-sm font-medium'}
+      />
+    {/snippet}
+  </ToastContainer>
   <ExpandableImage />
-  <ModalContainer />
+  <ModalContainer closeLabel={$t('common.back')} />
   <ModerationModals />
 
   {#snippet sidebar({ style: s, class: c })}

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import { settings } from '$lib/app/settings.svelte'
+  import { settings } from '$lib/app/state/settings.svelte'
   import Blobs from '$lib/ui/generic/Blobs.svelte'
   import {
     Icon,
@@ -9,7 +9,7 @@
     VideoCamera,
   } from 'svelte-hero-icons/dist'
   import { type IframeType } from '../helpers'
-  import { withPreset } from '../image-proxy'
+  import { withPreset } from '$lib/api/coves/image-proxy'
 
   const youtubeDomain = (place: 'youtube' | 'invidious' | 'piped') => {
     switch (place) {

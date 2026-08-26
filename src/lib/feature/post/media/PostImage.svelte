@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { PostEmbed } from '$lib/api/coves/types'
-  import { settings } from '$lib/app/settings.svelte'
+  import { settings } from '$lib/app/state/settings.svelte'
   import { showImage } from '$lib/ui/generic/ExpandableImage.svelte'
-  import { Button, modal } from 'mono-svelte'
+  import { Button, modal } from '$lib/ui/kit'
   import { onMount } from 'svelte'
   import { bestImageURL, extractEmbedAlt } from '../helpers'
 

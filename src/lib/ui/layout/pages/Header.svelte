@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
+  import { t } from '$lib/app/state/i18n'
 
   const sizes = {
     sm: 'text-2xl',

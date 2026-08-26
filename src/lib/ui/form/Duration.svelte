@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import { Option, Select, TextInput } from 'mono-svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { Option, Select, TextInput } from '$lib/ui/kit'
 
   const multipliers = {
     minute: 60,

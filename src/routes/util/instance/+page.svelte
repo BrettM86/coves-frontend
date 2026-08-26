@@ -3,7 +3,7 @@
   import {
     DEFAULT_INSTANCE_URL,
     LINKED_INSTANCE_URL,
-  } from '$lib/app/instance.svelte'
+  } from '$lib/app/state/instance.svelte'
   import { Header } from '$lib/ui/layout'
 </script>
 

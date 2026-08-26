@@ -23,9 +23,7 @@ const config = {
           ? node()
           : auto(),
     alias: {
-      'mono-svelte': 'src/lib/ui/shared',
       'svelte-hero-icons': 'node_modules/@xylightdev/svelte-hero-icons',
-      $comp: 'src/lib/components',
     },
     csp: {
       directives: {

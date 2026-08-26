@@ -2,7 +2,7 @@
  * Server-side instance resolution, bound to the real runtime env.
  *
  * This is the only module that reads `$env/dynamic/private`; every rule lives
- * in `$lib/app/instance/resolve` so browser and server agree on precedence.
+ * in `$lib/app/state/instance/resolve` so browser and server agree on precedence.
  */
 import { env as privateEnv } from '$env/dynamic/private'
 import { env as publicEnv } from '$env/dynamic/public'
@@ -11,7 +11,7 @@ import {
   isUpstreamSchemeAllowed,
   MISSING_INSTANCE_MESSAGE,
   resolveInstanceUrl,
-} from '$lib/app/instance/resolve'
+} from '$lib/app/state/instance/resolve'
 
 /**
  * The backend URL server-side code should talk to

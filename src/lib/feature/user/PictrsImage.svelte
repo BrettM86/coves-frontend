@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { AuthorView } from '$lib/api/coves/types'
-  import { profile } from '$lib/app/auth.svelte'
-  import { t } from '$lib/app/i18n'
-  import { instanceToURL } from '$lib/app/util.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { instanceToURL } from '$lib/app/util/url'
   import { showImage } from '$lib/ui/generic/ExpandableImage.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
-  import { action, Button, modal, toast } from 'mono-svelte'
-  import RelativeDate from 'mono-svelte/util/RelativeDate.svelte'
+  import { action, Button, modal, toast } from '$lib/ui/kit'
+  import RelativeDate from '$lib/ui/util/RelativeDate.svelte'
   import { ArrowDownTray, Trash } from 'svelte-hero-icons/dist'
   import UserLink from './UserLink.svelte'
 

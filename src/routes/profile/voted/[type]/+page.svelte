@@ -1,6 +1,6 @@
 <script lang="ts">
   // @ts-nocheck TODO(coves-migration): Needs Coves vote history API
-  import { t } from '$lib/app/i18n'
+  import { t } from '$lib/app/state/i18n'
   import CommentItem from '$lib/feature/comment/CommentItem.svelte'
   import { isCommentView } from '$lib/feature/legacy/item.svelte'
   import { PostItem } from '$lib/feature/post'

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { invalidate } from '$app/navigation'
   import { page as pageData } from '$app/state'
-  import { t } from '$lib/app/i18n'
-  import { Button } from 'mono-svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { Button } from '$lib/ui/kit'
   import { ChevronLeft, ChevronRight, Icon } from 'svelte-hero-icons/dist'
   import { backOut } from 'svelte/easing'
   import { SvelteURLSearchParams } from 'svelte/reactivity'

@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit'
 import { coves } from '$lib/api/client.svelte'
 import { XrpcError } from '$lib/api/coves/xrpc'
 import { isValidDID, isValidHandle } from '$lib/types/atproto'
-import { ReactiveState } from '$lib/app/util.svelte'
+import { ReactiveState } from '$lib/app/util/reactive.svelte'
 import { feed } from '$lib/feature/feeds/feed.svelte'
 
 export async function load({ params, url, fetch, route }) {
@@ -23,7 +23,7 @@ export async function load({ params, url, fetch, route }) {
         // and telling the viewer the account is gone would turn an outage into
         // a deleted-account story. Those propagate untouched.
         //
-        // Bare i18n key, not prose: `errorMessage` in $lib/app/error.ts only
+        // Bare i18n key, not prose: `errorMessage` in $lib/app/util/error.ts only
         // translates messages matching /^[\w-]+$/.
         if (e instanceof XrpcError && e.status === 404) {
           error(404, 'couldnt_find_person')

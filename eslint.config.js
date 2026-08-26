@@ -12,7 +12,7 @@ export default ts.config(
   includeIgnoreFile(gitignorePath),
   // Ignore legacy code that will be replaced.
   //
-  // src/lib/app/markdown is deliberately NOT ignored: it renders untrusted
+  // src/lib/feature/markdown is deliberately NOT ignored: it renders untrusted
   // post and comment bodies, and svelte/no-at-html-tags below is the tripwire
   // for XSS sinks there. A directory-wide ignore would switch that off silently.
   {
@@ -75,4 +75,96 @@ export default ts.config(
       },
     },
   },
+  // ---------------------------------------------------------------------------
+  // Layering. Each layer may import only from the layers below it:
+  //
+  //   routes/  →  feature/  →  ui/  →  app/ (state, util)  →  api/
+  //                                    ui/kit/ (imports none of the above)
+  //
+  // `$lib/types` is shared by every layer, and `$lib/server` is off-limits to
+  // every client-shipped layer (type-only imports of it are allowed — they are
+  // erased). `api/client.svelte.ts` reaching into `app/state` for the active
+  // profile is a known, tolerated exception — it is why `api/` is not
+  // restricted from `app/` here.
+  //
+  // Known limits: the rule is lexical, so `./../x` or `$lib/../x` spellings
+  // and dynamic `import()` expressions are not caught. Nothing in the tree
+  // uses either; src/lib/ui/kit/layering.test.ts pins the covered cases.
+  // ---------------------------------------------------------------------------
+  ...layerRules([
+    {
+      files: ['src/lib/ui/kit/**'],
+      forbid: ['app', 'feature', 'api', 'server'],
+      // The kit may only import itself: no non-kit ui/ via the alias, and no
+      // parent-relative path at all (kit-internal imports are `./` or `$lib/ui/kit`).
+      alsoForbid: ['^\\$lib/ui/(?!kit(/|$))', '^\\.\\.(/|$)'],
+      why: 'the kit is the leaf UI layer; pass app state in via props or snippets',
+    },
+    {
+      files: ['src/lib/ui/**'],
+      ignores: ['src/lib/ui/kit/**'],
+      forbid: ['feature', 'server'],
+      why: 'ui/ is below feature/; page compositions belong in feature/shell',
+    },
+    {
+      files: ['src/lib/app/**'],
+      forbid: ['feature', 'ui', 'server'],
+      why: 'app/ holds state and utilities only',
+    },
+    {
+      files: ['src/lib/api/**'],
+      forbid: ['feature', 'ui', 'server'],
+      why: 'api/ is the bottom layer',
+    },
+    {
+      files: ['src/lib/feature/**'],
+      forbid: ['server'],
+      why: 'feature/ ships to the client',
+    },
+    {
+      files: ['src/routes/**'],
+      ignores: [
+        'src/routes/**/*.server.ts',
+        'src/routes/**/+server.ts',
+        // API routes are server-only end to end, helpers included.
+        'src/routes/api/**',
+        'src/routes/**/*.test.ts',
+      ],
+      forbid: ['server'],
+      why: 'only server-side route files (*.server.ts, +server.ts, routes/api) may use $lib/server',
+    },
+  ]),
 )
+
+/**
+ * Builds a `no-restricted-imports` config block per layer. `forbid` lists
+ * top-level `src/lib` directories; each is blocked both as `$lib/<dir>` and as
+ * a parent-relative path (`../../<dir>/x`). `alsoForbid` takes raw regex
+ * sources for anything finer-grained. The typescript-eslint flavour of the
+ * rule is used so `import type` from a forbidden layer stays legal.
+ */
+function layerRules(layers) {
+  return layers.map(({ files, ignores, forbid, alsoForbid = [], why }) => ({
+    files,
+    ...(ignores ? { ignores } : {}),
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: [
+                `^(\\$lib/|(\\.\\./)+)(${forbid.join('|')})(/|$)`,
+                ...alsoForbid,
+              ]
+                .map((source) => `(?:${source})`)
+                .join('|'),
+              message: `Layering violation: ${why}.`,
+              allowTypeImports: true,
+            },
+          ],
+        },
+      ],
+    },
+  }))
+}

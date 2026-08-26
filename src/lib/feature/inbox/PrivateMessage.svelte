@@ -1,7 +1,7 @@
 <script lang="ts">
   // @ts-nocheck TODO(coves-migration): Needs Coves direct messaging API
   import type { PrivateMessageView } from '$lib/api/types'
-  import Markdown from '$lib/app/markdown/Markdown.svelte'
+  import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import UserLink from '../user/UserLink.svelte'
 
   interface Props {

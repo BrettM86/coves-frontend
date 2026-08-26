@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import { communityLink } from '$lib/app/util.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { communityLink } from '$lib/app/util/links'
   import { Tabs } from '$lib/ui/layout'
   import type { PageData } from './$types'
 

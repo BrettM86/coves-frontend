@@ -3,7 +3,7 @@
     CommunityView,
     CommunityViewDetailed,
   } from '$lib/api/coves/types'
-  import { communitySlug } from '$lib/app/util.svelte'
+  import { communitySlug } from '$lib/app/util/links'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
 
   interface Props {

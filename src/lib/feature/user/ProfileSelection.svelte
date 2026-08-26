@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { profile, type ProfileInfo } from '$lib/app/auth.svelte'
-  import { t } from '$lib/app/i18n'
-  import { LINKED_INSTANCE_URL } from '$lib/app/instance.svelte'
+  import { profile, type ProfileInfo } from '$lib/app/state/auth.svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { LINKED_INSTANCE_URL } from '$lib/app/state/instance.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
-  import { Badge, Button, Menu, MenuButton } from 'mono-svelte'
+  import { Badge, Button, Menu, MenuButton } from '$lib/ui/kit'
   import {
     CheckCircle,
     ChevronUpDown,

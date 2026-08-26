@@ -1,4 +1,4 @@
-import { aliases, loadTranslations, locales } from '$lib/app/i18n'
+import { aliases, loadTranslations, locales } from '$lib/app/state/i18n'
 import { get } from 'svelte/store'
 import { toClientSession, type ClientSession } from '$lib/server/session'
 

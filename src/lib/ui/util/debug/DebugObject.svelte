@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Modal } from 'mono-svelte'
+  import { Modal } from '$lib/ui/kit'
   import DebugTree from './DebugTree.svelte'
 
   interface Props {

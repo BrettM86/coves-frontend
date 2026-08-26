@@ -2,13 +2,13 @@
   import { browser } from '$app/environment'
   import { XrpcError } from '$lib/api/coves/xrpc'
   import type { FeedViewPost, FeedPaginationParams } from '$lib/api/coves/types'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
-  import VirtualList from '$lib/app/render/VirtualList.svelte'
-  import { settings } from '$lib/app/settings.svelte'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
+  import VirtualList from '$lib/ui/generic/VirtualList.svelte'
+  import { settings } from '$lib/app/state/settings.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
-  import { Button, Material, Spinner } from 'mono-svelte'
+  import { Button, Material, Spinner } from '$lib/ui/kit'
   import { onMount, tick, untrack } from 'svelte'
   import {
     ArchiveBox,

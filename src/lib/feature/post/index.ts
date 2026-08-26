@@ -18,4 +18,3 @@ export {
 } from './PostMeta.svelte'
 
 export * from './helpers'
-export * from './image-proxy'

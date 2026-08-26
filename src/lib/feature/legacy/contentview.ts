@@ -5,7 +5,7 @@ import type {
   PostView,
 } from '$lib/api/coves/types'
 import { coves } from '$lib/api/client.svelte'
-import { toast } from 'mono-svelte'
+import { toast } from '$lib/ui/kit'
 import { isCommentView } from './item.svelte'
 
 export type SubmissionView = PostView | CommentView

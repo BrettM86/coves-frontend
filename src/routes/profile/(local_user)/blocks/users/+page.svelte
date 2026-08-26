@@ -1,11 +1,11 @@
 <script lang="ts">
   import { coves } from '$lib/api/client.svelte'
   import type { DID } from '$lib/types/atproto'
-  import { errorMessage } from '$lib/app/error'
-  import { t } from '$lib/app/i18n'
+  import { errorMessage } from '$lib/app/util/error'
+  import { t } from '$lib/app/state/i18n'
   import ItemList from '$lib/ui/generic/ItemList.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
-  import { Button, toast } from 'mono-svelte'
+  import { Button, toast } from '$lib/ui/kit'
   import { ArrowUturnUp, Check, Trash } from 'svelte-hero-icons/dist'
   import type { PageData } from './$types'
 

@@ -25,7 +25,7 @@ vi.mock('$lib/api/client.svelte', () => ({
 
 // `feed.svelte.ts` imports `profile` purely for its cache-clearing effect; the
 // real module reads localStorage at import time, which node has no notion of.
-vi.mock('$lib/app/auth.svelte', () => ({
+vi.mock('$lib/app/state/auth.svelte', () => ({
   profile: { meta: { profile: undefined } },
 }))
 
@@ -117,7 +117,7 @@ describe('profile loader', () => {
 
   // B1 — an upstream 404 must reach the router as a 404 whose message is the
   // i18n key `couldnt_find_person`. The key shape is load-bearing: `errorMessage`
-  // in src/lib/app/error.ts only translates messages matching /^[\w-]+$/, so a
+  // in src/lib/app/util/error.ts only translates messages matching /^[\w-]+$/, so a
   // prose message would silently ship untranslated to every locale.
   //
   // Parameterised over the 404 shapes the client can actually produce, because

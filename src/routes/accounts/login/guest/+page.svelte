@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { t } from '$lib/app/i18n'
-  import { Button } from 'mono-svelte'
+  import { t } from '$lib/app/state/i18n'
+  import { Button } from '$lib/ui/kit'
   import { ArrowLeft, Icon } from 'svelte-hero-icons/dist'
   import LoginPage from '../../../login/guest/+page.svelte'
 </script>

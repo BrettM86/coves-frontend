@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state'
-  import { t } from '$lib/app/i18n'
+  import { t } from '$lib/app/state/i18n'
   import PictrsImage from '$lib/feature/user/PictrsImage.svelte'
   import Fixate from '$lib/ui/generic/Fixate.svelte'
   import { Header, Pageination } from '$lib/ui/layout'

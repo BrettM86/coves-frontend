@@ -1,88 +1,46 @@
 <script lang="ts" module>
-  import { locale } from '$lib/app/i18n'
-  import { settings } from '$lib/app/settings.svelte'
+  import { locale } from '$lib/app/state/i18n'
+  import { settings } from '$lib/app/state/settings.svelte'
+  import KitRelativeDate, {
+    formatRelativeDate as formatKitRelativeDate,
+  } from '$lib/ui/kit/util/RelativeDate.svelte'
 
+  /**
+   * The kit's `formatRelativeDate`, bound to the "absolute dates" setting.
+   *
+   * `locale` is a parameter rather than read from the store here so that a
+   * template call site (`{formatRelativeDate(d, opts, $locale)}`) re-renders
+   * on a language switch — a store read inside this function would not
+   * register a dependency for the caller.
+   */
   export function formatRelativeDate(
     date: Date,
     options: Intl.RelativeTimeFormatOptions,
-    locale?: string,
+    locale: string | null | undefined,
     relativeTo?: Date,
-    absolute?: boolean,
-  ) {
-    try {
-      const now = relativeTo?.getTime() ?? Date.now()
-
-      const diffInMillis = now - date.getTime()
-
-      const thresholds = [
-        { unit: 'second', threshold: 1000 },
-        { unit: 'minute', threshold: 60 * 1000 },
-        { unit: 'hour', threshold: 60 * 60 * 1000 },
-        { unit: 'day', threshold: 24 * 60 * 60 * 1000 },
-        { unit: 'week', threshold: 7 * 24 * 60 * 60 * 1000 },
-        { unit: 'month', threshold: 30 * 24 * 60 * 60 * 1000 },
-        { unit: 'year', threshold: 365 * 24 * 60 * 60 * 1000 },
-      ]
-
-      for (let i = thresholds.length - 1; i >= 0; i--) {
-        if (Math.abs(diffInMillis) >= thresholds[i].threshold) {
-          const value = Math.round(diffInMillis / thresholds[i].threshold)
-
-          let language = locale ?? 'en'
-
-          if (absolute) {
-            const rtf = new Intl.DateTimeFormat(language, {
-              ...options,
-              timeStyle: 'short',
-              dateStyle: 'short',
-            })
-            return rtf.format(date)
-          } else {
-            const rtf = new Intl.RelativeTimeFormat(language, options)
-            return rtf.format(-value, thresholds[i].unit as 'second')
-          }
-        }
-      }
-      return 'Now'
-    } catch {
-      return 'Invalid Date'
-    }
+  ): string {
+    return formatKitRelativeDate(
+      date,
+      options,
+      locale ?? undefined,
+      relativeTo,
+      settings.absoluteDates,
+    )
   }
 </script>
 
 <script lang="ts">
-  const toLocaleDateString = (date: Date): string => {
-    try {
-      return date.toLocaleString()
-    } catch {
-      return 'Invalid Date'
-    }
-  }
+  import type { ComponentProps } from 'svelte'
 
-  interface Props {
-    date: Date
-    relativeTo?: Date | undefined
-    options?: Intl.RelativeTimeFormatOptions
-    absolute?: boolean
-    style?: string
-    class?: string
-  }
+  type Props = Omit<ComponentProps<typeof KitRelativeDate>, 'locale'>
 
-  let {
-    date,
-    relativeTo = undefined,
-    options = {
-      numeric: 'always',
-      style: 'narrow',
-    },
-    absolute = settings.absoluteDates,
-    style = '',
-    class: clazz = '',
-  }: Props = $props()
-
-  let dateTime = $derived(toLocaleDateString(date))
+  // `absolute` falls back in the template, not in `$props()`: a prop fallback
+  // is evaluated once and untracked, so it would never follow the setting.
+  let { absolute, ...rest }: Props = $props()
 </script>
 
-<time datetime={dateTime} title={dateTime} class={clazz} {style}>
-  {formatRelativeDate(date, options, $locale, relativeTo, absolute)}
-</time>
+<KitRelativeDate
+  {...rest}
+  absolute={absolute ?? settings.absoluteDates}
+  locale={$locale ?? undefined}
+/>

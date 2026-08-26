@@ -1,17 +1,13 @@
 import type { AtUri, PostEmbed } from '$lib/api/coves/types'
 import { parseAtUri } from '$lib/api/coves/types'
-import {
-  canParseUrl,
-  communitySlug,
-  isImage,
-  isVideo,
-} from '$lib/app/util.svelte'
+import { canParseUrl, isImage, isVideo } from '$lib/app/util/url'
+import { communitySlug } from '$lib/app/util/links'
 import {
   type ImagePreset,
   type ImageVariant,
   imageUrl,
   withPreset,
-} from './image-proxy'
+} from '$lib/api/coves/image-proxy'
 
 /**
  * Returns the best image URL for a post embed.
@@ -58,7 +54,7 @@ export const bestImageURL = (
 }
 
 /**
- * @deprecated Use `withPreset` from `./image-proxy` directly.
+ * @deprecated Use `withPreset` from `$lib/api/coves/image-proxy` directly.
  */
 export const optimizeImageURL = (
   url: string,

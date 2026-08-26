@@ -1,7 +1,7 @@
 <script lang="ts" module>
   import { env } from '$env/dynamic/public'
   import type { AuthorView, ProfileViewDetailed } from '$lib/api/coves/types'
-  import { userLink } from '$lib/app/util.svelte'
+  import { userLink } from '$lib/app/util/links'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import Logo from '$lib/ui/generic/Logo.svelte'
   import { Icon, type IconSource, Language } from 'svelte-hero-icons/dist'

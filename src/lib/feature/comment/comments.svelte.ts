@@ -8,7 +8,7 @@ import type {
 } from '$lib/api/coves/types'
 import { parseAtUri } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
-import { t } from '$lib/app/i18n'
+import { t } from '$lib/app/state/i18n'
 import { EMPTY_COMMENT_STATS } from '$lib/feature/vote/subjects'
 
 /**

@@ -1,11 +1,11 @@
 // ---------------------------------------------------------------------------
 // Optimistic vote state
 //
-// Shared by PostVote.svelte and CommentVote.svelte, whose stats types differ
-// only in the counter they carry alongside (`commentCount` vs `replyCount`).
-// This module owns the three vote counters and the viewer's vote; callers
-// spread the result over their own typed base to keep the fields it does not
-// know about.
+// Pure counter math for an upvote press; `cast.ts` sequences it with the
+// request. Post and comment stats differ only in the counter they carry
+// alongside (`commentCount` vs `replyCount`), so this module owns the three
+// vote counters and the viewer's vote and callers spread the result over
+// their own typed base to keep the fields it does not know about.
 // ---------------------------------------------------------------------------
 
 import type { AtUri, VoteCounts } from '$lib/api/coves/types'
@@ -90,8 +90,8 @@ export function toggleUpvote(
  * from a downvote deletes it too and creates a new one under a different rkey;
  * a first vote never had one. In all three cases the URI the caller was holding
  * is stale the moment the press is made, and the replacement is not knowable
- * until the server answers. Carrying the old one forward — which both
- * components did inline — leaves the optimistic state claiming an upvote backed
+ * until the server answers. Carrying the old one forward — which the
+ * pre-extraction components did inline — leaves the optimistic state claiming an upvote backed
  * by a record the backend has already deleted, and that is the URI a subsequent
  * toggle-off would send.
  *

@@ -59,7 +59,7 @@
     {#snippet extended()}
       {#if data.community}
         <CommunityHeader
-          bind:community={data.community}
+          community={data.community}
           class="w-full relative"
           compact="lg"
           avatarCircle={false}

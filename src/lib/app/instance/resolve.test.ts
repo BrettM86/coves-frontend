@@ -1,0 +1,128 @@
+import { describe, expect, it } from 'vitest'
+import {
+  canonicalPublicHost,
+  hasRequiredInstanceConfig,
+  instanceOrigin,
+  isUpstreamSchemeAllowed,
+  normalizeInstanceUrl,
+  resolveInstanceUrl,
+} from './resolve'
+
+const BOTH = {
+  PUBLIC_INSTANCE_URL: 'https://coves.social',
+  PUBLIC_INTERNAL_INSTANCE: 'http://appview:8080',
+}
+
+describe('resolveInstanceUrl', () => {
+  it('browser only ever sees PUBLIC_INSTANCE_URL', () => {
+    expect(resolveInstanceUrl(BOTH, 'browser')).toBe('https://coves.social')
+  })
+
+  it('server prefers PUBLIC_INTERNAL_INSTANCE', () => {
+    expect(resolveInstanceUrl(BOTH, 'server')).toBe('http://appview:8080')
+  })
+
+  it('server falls back to PUBLIC_INSTANCE_URL', () => {
+    expect(
+      resolveInstanceUrl({ PUBLIC_INSTANCE_URL: 'https://a.b' }, 'server'),
+    ).toBe('https://a.b')
+  })
+
+  it('returns empty string when nothing is configured', () => {
+    expect(resolveInstanceUrl({}, 'server')).toBe('')
+    expect(resolveInstanceUrl({}, 'browser')).toBe('')
+  })
+
+  it('treats empty-string env as unset', () => {
+    expect(
+      resolveInstanceUrl(
+        { PUBLIC_INTERNAL_INSTANCE: '', PUBLIC_INSTANCE_URL: 'https://a.b' },
+        'server',
+      ),
+    ).toBe('https://a.b')
+  })
+})
+
+describe('hasRequiredInstanceConfig', () => {
+  it('requires the public URL even when the internal one is set', () => {
+    expect(hasRequiredInstanceConfig(BOTH)).toBe(true)
+    expect(
+      hasRequiredInstanceConfig({ PUBLIC_INTERNAL_INSTANCE: 'http://x' }),
+    ).toBe(false)
+  })
+})
+
+describe('normalizeInstanceUrl', () => {
+  it('adds https:// to a bare host', () => {
+    expect(normalizeInstanceUrl('coves.social')).toBe('https://coves.social')
+  })
+
+  it('keeps an explicit http:// scheme', () => {
+    expect(normalizeInstanceUrl('http://127.0.0.1:8081')).toBe(
+      'http://127.0.0.1:8081',
+    )
+  })
+
+  it('preserves a path prefix', () => {
+    expect(normalizeInstanceUrl('coves.social/api')).toBe(
+      'https://coves.social/api',
+    )
+  })
+
+  it('trims whitespace', () => {
+    expect(normalizeInstanceUrl('  coves.social ')).toBe('https://coves.social')
+  })
+
+  it('returns null for empty or unparseable input', () => {
+    expect(normalizeInstanceUrl(undefined)).toBeNull()
+    expect(normalizeInstanceUrl('')).toBeNull()
+    expect(normalizeInstanceUrl('   ')).toBeNull()
+    expect(normalizeInstanceUrl('http://')).toBeNull()
+  })
+})
+
+describe('instanceOrigin', () => {
+  it('strips paths and defaults the scheme', () => {
+    expect(instanceOrigin('coves.social/x')).toBe('https://coves.social')
+    expect(instanceOrigin('http://appview:8080/')).toBe('http://appview:8080')
+    expect(instanceOrigin(undefined)).toBeNull()
+  })
+})
+
+describe('canonicalPublicHost', () => {
+  it('returns host with port', () => {
+    expect(
+      canonicalPublicHost({ PUBLIC_INSTANCE_URL: 'http://127.0.0.1:8080' }),
+    ).toBe('127.0.0.1:8080')
+  })
+
+  it('returns null when unset or invalid', () => {
+    expect(canonicalPublicHost({})).toBeNull()
+    expect(canonicalPublicHost({ PUBLIC_INSTANCE_URL: 'nope' })).toBeNull()
+  })
+})
+
+describe('isUpstreamSchemeAllowed', () => {
+  it('always allows https', () => {
+    expect(isUpstreamSchemeAllowed('https://anything', {})).toBe(true)
+  })
+
+  it('rejects http without the opt-in', () => {
+    expect(isUpstreamSchemeAllowed('http://appview:8080', BOTH)).toBe(false)
+  })
+
+  it('allows http only for the configured internal origin', () => {
+    const env = { ...BOTH, ALLOW_HTTP_INTERNAL_INSTANCE: 'true' }
+    expect(isUpstreamSchemeAllowed('http://appview:8080', env)).toBe(true)
+    expect(isUpstreamSchemeAllowed('http://appview:8080/xrpc', env)).toBe(true)
+    expect(isUpstreamSchemeAllowed('http://evil:8080', env)).toBe(false)
+  })
+
+  it('rejects http when the internal instance has no http scheme', () => {
+    const env = {
+      PUBLIC_INTERNAL_INSTANCE: 'appview:8080',
+      ALLOW_HTTP_INTERNAL_INSTANCE: 'true',
+    }
+    expect(isUpstreamSchemeAllowed('http://appview:8080', env)).toBe(false)
+  })
+})

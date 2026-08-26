@@ -18,8 +18,7 @@ pnpm build        # production build (ADAPTER=node for the Docker image)
 Built with [SvelteKit](https://svelte.dev/docs/kit), Svelte 5, and Tailwind CSS.
 
 Configuration (environment variables) is documented in
-[.github/README.md](.github/README.md); the production container's required
-runtime env is documented in the [Dockerfile](Dockerfile).
+[docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
 
 ## License
 

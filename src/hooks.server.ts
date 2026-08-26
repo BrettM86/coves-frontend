@@ -1,35 +1,15 @@
 import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit'
 import { dev } from '$app/environment'
-import { env } from '$env/dynamic/public'
+import {
+  canonicalHost,
+  publicInstanceUrl,
+  upstreamInstanceUrl,
+} from '$lib/server/instance'
 import {
   parseApiMeResponse,
   asInstanceURL,
   asSealedToken,
 } from '$lib/server/session'
-
-function getInstanceUrl(): string {
-  return env.PUBLIC_INTERNAL_INSTANCE || env.PUBLIC_INSTANCE_URL || ''
-}
-
-/**
- * Returns the canonical hostname (with port) from PUBLIC_INSTANCE_URL, if configured.
- *
- * In development, the ATProto OAuth spec (RFC 8252) requires the callback redirect_uri
- * to use 127.0.0.1 rather than "localhost". The Go backend sets APPVIEW_PUBLIC_URL to
- * http://127.0.0.1:8080, so the coves_session cookie is set on the 127.0.0.1 domain.
- * If a user navigates to localhost:8080 instead, the cookie is invisible and the user
- * appears unauthenticated. This function extracts the canonical host so we can redirect
- * mismatched hostnames to the correct origin.
- */
-function getCanonicalHost(): string | null {
-  const publicUrl = env.PUBLIC_INSTANCE_URL
-  if (!publicUrl) return null
-  try {
-    return new URL(publicUrl).host
-  } catch {
-    return null
-  }
-}
 
 /**
  * Checks whether an error is a network-level failure (DNS, TLS, connection refused, etc.).
@@ -76,11 +56,13 @@ export const handle: Handle = async ({ event, resolve }) => {
   // coves_session cookie is set on 127.0.0.1. If the user accesses the app via
   // "localhost" instead, the cookie is invisible and auth silently fails.
   // Redirect to the canonical host from PUBLIC_INSTANCE_URL to ensure consistency.
+  // (RFC 8252 requires 127.0.0.1 in the OAuth redirect_uri, so the Go backend
+  // sets APPVIEW_PUBLIC_URL to http://127.0.0.1:8080 and the coves_session
+  // cookie lands on that host; visiting via "localhost" would hide it.)
   if (dev) {
-    const canonicalHost = getCanonicalHost()
-    if (canonicalHost && event.url.host !== canonicalHost) {
+    const canonical = publicInstanceUrl()
+    if (canonical && event.url.host !== canonicalHost()) {
       const canonicalUrl = new URL(event.url)
-      const canonical = new URL(env.PUBLIC_INSTANCE_URL!)
       canonicalUrl.hostname = canonical.hostname
       canonicalUrl.port = canonical.port
       canonicalUrl.protocol = canonical.protocol
@@ -95,16 +77,9 @@ export const handle: Handle = async ({ event, resolve }) => {
     return resolve(event)
   }
 
-  const instanceUrl = getInstanceUrl()
-  if (!instanceUrl) {
-    throw new Error(
-      '[hooks] No instance URL configured. Set PUBLIC_INTERNAL_INSTANCE or PUBLIC_INSTANCE_URL.',
-    )
-  }
-
   // Validate configuration eagerly — these throw on invalid input and must
   // NOT be caught so that misconfiguration surfaces immediately on the first request.
-  const instance = asInstanceURL(instanceUrl)
+  const instance = asInstanceURL(upstreamInstanceUrl())
   const sealedToken = asSealedToken(covesSession)
 
   // TODO: Consider caching /api/me responses or skipping validation for proxy

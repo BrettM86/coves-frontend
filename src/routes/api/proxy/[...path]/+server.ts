@@ -1,7 +1,9 @@
 import type { RequestHandler } from './$types'
-import { env } from '$env/dynamic/private'
-import { env as publicEnv } from '$env/dynamic/public'
-import { DEFAULT_INSTANCE_URL } from '$lib/app/instance.svelte'
+import { normalizeInstanceUrl } from '$lib/app/instance/resolve'
+import {
+  upstreamInstanceUrl,
+  upstreamSchemeAllowed,
+} from '$lib/server/instance'
 import { enforceSameOrigin, validateProxyPath } from '../validate'
 
 /**
@@ -47,25 +49,6 @@ import { enforceSameOrigin, validateProxyPath } from '../validate'
  */
 
 /**
- * Resolves an instance value (which may lack a scheme) to a URL origin,
- * applying the same https:// protocol-defaulting used when deriving the
- * proxy target from the session instance. Returns null when the value is
- * empty or unparseable.
- */
-function toOrigin(instance: string | undefined): string | null {
-  if (!instance) return null
-  const withProtocol =
-    instance.startsWith('http://') || instance.startsWith('https://')
-      ? instance
-      : `https://${instance}`
-  try {
-    return new URL(withProtocol).origin
-  } catch {
-    return null
-  }
-}
-
-/**
  * Handles proxying requests to the upstream Coves server.
  * Injects the Authorization header from the session if available.
  */
@@ -103,12 +86,22 @@ async function handler({
     )
   }
 
-  // Determine target instance (from session or default)
-  // Instance may already include protocol (e.g., "https://coves.social") or be just the hostname
-  const instance = locals.auth.authenticated
-    ? locals.auth.account.instance
-    : DEFAULT_INSTANCE_URL
-  if (!instance) {
+  // Determine target instance: the session's registered instance for
+  // authenticated users, else the operator-configured upstream. Either may be
+  // a bare hostname, so both are normalised to an absolute https:// URL.
+  let baseUrl: string | null
+  if (locals.auth.authenticated) {
+    baseUrl = normalizeInstanceUrl(locals.auth.account.instance)
+  } else {
+    try {
+      // Normalised like the session branch: the operator may configure a bare
+      // hostname, which must still reach the upstream as an absolute URL.
+      baseUrl = normalizeInstanceUrl(upstreamInstanceUrl())
+    } catch {
+      baseUrl = null
+    }
+  }
+  if (!baseUrl) {
     return new Response(
       JSON.stringify({
         error: 'Internal Server Error',
@@ -120,45 +113,21 @@ async function handler({
       },
     )
   }
-  let baseUrl: string
-  if (instance.startsWith('http://') || instance.startsWith('https://')) {
-    // Instance already has protocol, use as-is
-    baseUrl = instance
-  } else {
-    // Instance is just hostname, add https://
-    baseUrl = `https://${instance}`
-  }
 
-  // In production, only allow HTTPS URLs to prevent MITM attacks.
-  // ALLOW_HTTP_INTERNAL_INSTANCE=true is an explicit operator opt-in for
-  // deployments that reach the backend over a private network (e.g. the
-  // Docker service `http://appview:8080`), where plaintext is the norm.
-  // The exemption is scoped: plaintext is permitted ONLY when the target
-  // origin equals the operator-configured PUBLIC_INTERNAL_INSTANCE (which
-  // must carry an explicit http:// scheme to match) — a session-derived
-  // instance can never downgrade the proxy to http://.
-  if (import.meta.env.PROD && baseUrl.startsWith('http://')) {
-    const allowedHttpOrigin =
-      env.ALLOW_HTTP_INTERNAL_INSTANCE === 'true'
-        ? toOrigin(publicEnv.PUBLIC_INTERNAL_INSTANCE)
-        : null
-    const targetOrigin = toOrigin(baseUrl)
-    if (
-      allowedHttpOrigin === null ||
-      targetOrigin === null ||
-      targetOrigin !== allowedHttpOrigin
-    ) {
-      return new Response(
-        JSON.stringify({
-          error: 'Bad Request',
-          message: 'HTTP URLs are not allowed in production',
-        }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      )
-    }
+  // In production, only allow HTTPS URLs to prevent MITM attacks, unless the
+  // operator opted a specific private-network origin into plaintext via
+  // ALLOW_HTTP_INTERNAL_INSTANCE (policy in $lib/app/instance/resolve).
+  if (import.meta.env.PROD && !upstreamSchemeAllowed(baseUrl)) {
+    return new Response(
+      JSON.stringify({
+        error: 'Bad Request',
+        message: 'HTTP URLs are not allowed in production',
+      }),
+      {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    )
   }
   // Remove trailing slash from baseUrl if present to avoid double slashes
   // Preserve query parameters from the original request

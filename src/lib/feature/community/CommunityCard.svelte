@@ -11,7 +11,6 @@
   import SidebarButton from '$lib/ui/sidebar/SidebarButton.svelte'
   import {
     action,
-    Button,
     Expandable,
     Menu,
     MenuButton,
@@ -20,13 +19,7 @@
     Spinner,
     toast,
   } from 'mono-svelte'
-  import {
-    Check,
-    Cog6Tooth,
-    EllipsisHorizontal,
-    Fire,
-    Plus,
-  } from 'svelte-hero-icons/dist'
+  import { Cog6Tooth, EllipsisHorizontal, Fire } from 'svelte-hero-icons/dist'
 
   /**
    * Block or unblock a community by DID.
@@ -82,6 +75,7 @@
     CommunityViewDetailed,
   } from '$lib/api/coves/types'
   import EntityHeader from '$lib/ui/generic/EntityHeader.svelte'
+  import SubscribeButton from './SubscribeButton.svelte'
   import {
     communityDisplayName,
     communityHandleOrName,
@@ -100,41 +94,12 @@
     return 'subscriberCount' in c
   }
 
-  let loading = $state({
-    subscribing: false,
-  })
-
-  async function subscribe(community: HydratedCommunity): Promise<void> {
-    if (!profile.current?.jwt) return
-    loading.subscribing = true
-    const wasSubscribed = community.viewer?.subscribed === true
-
-    try {
-      if (wasSubscribed) {
-        await coves().unsubscribe({ community: community.did })
-      } else {
-        await coves().subscribe({ community: community.did })
-      }
-
-      // Toggle state only on success
-      if (community.viewer) {
-        community.viewer.subscribed = !wasSubscribed
-      } else {
-        community.viewer = { subscribed: !wasSubscribed }
-      }
-    } catch (err) {
-      toast({ content: errorMessage(err), type: 'error' })
-    }
-
-    loading.subscribing = false
-  }
-
   interface Props {
     community: CommunityType | Promise<CommunityType>
     class?: string
   }
 
-  let { community = $bindable(), class: clazz = '' }: Props = $props()
+  let { community, class: clazz = '' }: Props = $props()
 
   function hasDescription(c: CommunityType): c is CommunityViewDetailed {
     return 'description' in c && c.description !== undefined
@@ -174,23 +139,8 @@
     <EndPlaceholder size="xs" margin="sm">
       {$t('form.post.community')}
     </EndPlaceholder>
-    {#if profile.current?.jwt && isHydratedCommunity(community)}
-      {@const hydrated = community}
-      {@const subscribed = hydrated.viewer?.subscribed === true}
-      <Button
-        disabled={loading.subscribing}
-        loading={loading.subscribing}
-        size="md"
-        color={subscribed ? 'secondary' : 'primary'}
-        onclick={() => subscribe(hydrated)}
-        class="px-4 relative z-[inherit]"
-        alignment="left"
-        icon={subscribed ? Check : Plus}
-      >
-        {subscribed
-          ? $t('cards.community.subscribed')
-          : $t('cards.community.subscribe')}
-      </Button>
+    {#if isHydratedCommunity(community)}
+      <SubscribeButton {community} variant="card" />
     {/if}
     {#if isHydratedCommunity(community) && profile.isMod(community)}
       <SidebarButton

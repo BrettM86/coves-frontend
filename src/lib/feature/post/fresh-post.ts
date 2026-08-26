@@ -4,6 +4,7 @@ import {
   parseAtUri,
 } from '$lib/api/coves/types'
 import { profile } from '$lib/app/auth.svelte'
+import { EMPTY_POST_STATS } from '$lib/feature/vote/subjects'
 import type { DID, Handle } from '$lib/types/atproto'
 
 /**
@@ -79,7 +80,7 @@ export function buildFreshPostView(args: {
     embed: args.url
       ? { $type: 'social.coves.embed.external', external: { uri: args.url } }
       : undefined,
-    stats: { upvotes: 0, downvotes: 0, score: 0, commentCount: 0 },
+    stats: { ...EMPTY_POST_STATS },
     viewer: { saved: false },
   }
 }

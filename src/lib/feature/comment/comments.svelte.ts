@@ -9,6 +9,7 @@ import type {
 import { parseAtUri } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import { t } from '$lib/app/i18n'
+import { EMPTY_COMMENT_STATS } from '$lib/feature/vote/subjects'
 
 /**
  * Maximum depth CommentTree renders inline. Nodes deeper than this continue
@@ -236,12 +237,7 @@ export function createOptimisticCommentView(
       avatar: author.avatar,
     },
     post: postRef,
-    stats: {
-      upvotes: 0,
-      downvotes: 0,
-      score: 0,
-      replyCount: 0,
-    },
+    stats: { ...EMPTY_COMMENT_STATS },
     viewer: undefined,
     parent: parentRef,
   }

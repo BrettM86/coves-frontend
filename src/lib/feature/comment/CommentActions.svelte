@@ -21,7 +21,11 @@
     Trash,
   } from 'svelte-hero-icons/dist'
   import { deletedContentPlaceholder } from './comments.svelte'
-  import CommentVote from './CommentVote.svelte'
+  import {
+    EMPTY_COMMENT_STATS,
+    EMPTY_COMMENT_VIEWER,
+    VoteButton,
+  } from '$lib/feature/vote'
 
   interface Props {
     comment: CommentView
@@ -93,11 +97,14 @@
     settings.posts.reverseActions && 'flex-row-reverse',
   ]}
 >
-  <CommentVote
+  <VoteButton
     uri={comment.uri}
     cid={comment.cid}
     bind:stats={comment.stats}
     bind:viewer={comment.viewer}
+    emptyStats={EMPTY_COMMENT_STATS}
+    emptyViewer={EMPTY_COMMENT_VIEWER}
+    variant="comment"
   />
   <Button
     color="tertiary"

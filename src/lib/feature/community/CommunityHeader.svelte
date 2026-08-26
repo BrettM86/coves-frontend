@@ -1,20 +1,18 @@
 <script lang="ts">
   import type { CommunityViewDetailed } from '$lib/api/coves/types'
-  import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import EntityHeader from '$lib/ui/generic/EntityHeader.svelte'
   import { action, Button, Menu, MenuButton, modal, toast } from 'mono-svelte'
   import { formatRelativeDate } from 'mono-svelte/util/RelativeDate.svelte'
   import {
-    Check,
     Cog6Tooth,
     EllipsisHorizontal,
     Fire,
     Icon,
-    Plus,
   } from 'svelte-hero-icons/dist'
   import { purgeCommunity } from './CommunityCard.svelte'
+  import SubscribeButton from './SubscribeButton.svelte'
   import {
     communityDisplayName,
     communityHandleOrName,
@@ -30,41 +28,12 @@
   }
 
   let {
-    community = $bindable(),
+    community,
     banner = true,
     class: clazz = '',
     compact,
     ...rest
   }: Props = $props()
-
-  let subscribing = $state(false)
-
-  async function handleSubscribe(): Promise<void> {
-    if (!profile.current?.jwt) return
-    subscribing = true
-
-    const wasSubscribed = community.viewer?.subscribed === true
-
-    try {
-      if (wasSubscribed) {
-        await coves().unsubscribe({ community: community.did })
-      } else {
-        await coves().subscribe({ community: community.did })
-      }
-
-      // Toggle state only on success
-      if (community.viewer) {
-        community.viewer.subscribed = !wasSubscribed
-      } else {
-        community.viewer = { subscribed: !wasSubscribed }
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err)
-      toast({ content: errorMsg, type: 'error' })
-    }
-
-    subscribing = false
-  }
 </script>
 
 <EntityHeader
@@ -113,22 +82,7 @@
       compact == 'lg' && 'lg:hidden',
     ]}
   >
-    {#if profile.current?.jwt}
-      {@const subscribed = community.viewer?.subscribed === true}
-      <Button
-        disabled={subscribing}
-        loading={subscribing}
-        color={!subscribed ? 'primary' : 'secondary'}
-        onclick={handleSubscribe}
-        class="relative z-[inherit]"
-        size="lg"
-        icon={subscribed ? Check : Plus}
-      >
-        {subscribed
-          ? $t('cards.community.subscribed')
-          : $t('cards.community.subscribe')}
-      </Button>
-    {/if}
+    <SubscribeButton {community} variant="header" />
 
     {#if profile.isMod(community)}
       <Button

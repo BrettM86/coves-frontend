@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { PENDING_AUTH_COOKIE_OPTIONS } from '$lib/server/cookies'
 import { generateOAuthState } from '$lib/server/csrf'
+import { normalizeInstanceUrl } from '$lib/app/instance/resolve'
 
 interface LoginRequest {
   handle: string
@@ -37,22 +38,12 @@ export const POST: RequestHandler = async ({ request, cookies, url }) => {
     return json({ error: 'Missing or invalid instance' }, { status: 400 })
   }
 
-  // Normalize and validate instance URL
-  // If the instance doesn't have a protocol, prepend https://
-  let normalizedInstance = instance.trim()
-  if (
-    !normalizedInstance.startsWith('http://') &&
-    !normalizedInstance.startsWith('https://')
-  ) {
-    normalizedInstance = `https://${normalizedInstance}`
-  }
-
-  let instanceUrl: URL
-  try {
-    instanceUrl = new URL(normalizedInstance)
-  } catch {
+  // Normalize (https:// default) and validate the instance URL
+  const normalizedInstance = normalizeInstanceUrl(instance)
+  if (normalizedInstance === null) {
     return json({ error: 'Invalid instance URL' }, { status: 400 })
   }
+  const instanceUrl = new URL(normalizedInstance)
 
   // Validate redirect URL to prevent open redirect attacks
   // Only allow relative URLs (starting with /) or same-origin URLs

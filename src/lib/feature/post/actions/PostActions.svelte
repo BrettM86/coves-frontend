@@ -14,7 +14,11 @@
     Icon,
     Share,
   } from 'svelte-hero-icons/dist'
-  import { PostVote } from '..'
+  import {
+    EMPTY_POST_STATS,
+    EMPTY_POST_VIEWER,
+    VoteButton,
+  } from '$lib/feature/vote'
   import { postLink } from '../helpers'
 
   let saving = $state(false)
@@ -57,11 +61,14 @@
   class:flex-row-reverse={settings.posts.reverseActions}
   {style}
 >
-  <PostVote
+  <VoteButton
     uri={post.uri}
     cid={post.cid}
     bind:stats={post.stats}
     bind:viewer={post.viewer}
+    emptyStats={EMPTY_POST_STATS}
+    emptyViewer={EMPTY_POST_VIEWER}
+    variant="post"
   />
 
   <Button

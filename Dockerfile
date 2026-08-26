@@ -11,15 +11,8 @@ RUN pnpm prune --prod
 
 # Runtime stage
 #
-# Required runtime environment (set in docker-compose / orchestrator):
-#   ORIGIN                       - public URL of this frontend (e.g. https://coves.social);
-#                                  adapter-node needs it behind a proxy for correct
-#                                  origin/form-action checks
-#   PUBLIC_INSTANCE_URL          - public URL of the Coves backend
-#   PUBLIC_INTERNAL_INSTANCE     - internal backend URL for SSR/proxy hops
-#                                  (e.g. http://appview:8080)
-#   ALLOW_HTTP_INTERNAL_INSTANCE - "true" only if PUBLIC_INTERNAL_INSTANCE is plaintext
-#                                  http:// on a private network
+# Runtime environment (ORIGIN, PUBLIC_INSTANCE_URL, PUBLIC_INTERNAL_INSTANCE,
+# ALLOW_HTTP_INTERNAL_INSTANCE, ...) is documented in docs/ENVIRONMENT.md.
 FROM node:22-alpine AS node
 ENV NODE_ENV=production
 WORKDIR /app

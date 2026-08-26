@@ -136,7 +136,7 @@ export interface PostStats extends VoteCounts {
 
 // TODO: Refactor to a discriminated union to enforce vote/voteUri correlation:
 //   { vote: 'up' | 'down'; voteUri: AtUri } | { vote?: undefined; voteUri?: undefined }
-// Still blocked, though no longer by mutation: castVote() now assigns a whole
+// Still blocked, though no longer by mutation: castUpvote() now assigns a whole
 // new viewer object, but it builds that object as one spread literal whose
 // `vote` ('up' | undefined) and `voteUri` (AtUri | undefined) are typed
 // independently, so neither union arm accepts it.
@@ -292,7 +292,7 @@ export interface CommentStats extends VoteCounts {
 
 // TODO: Refactor to a discriminated union to enforce vote/voteUri correlation:
 //   { vote: 'up' | 'down'; voteUri: AtUri } | { vote?: undefined; voteUri?: undefined }
-// Still blocked, though no longer by mutation: castVote() now assigns a whole
+// Still blocked, though no longer by mutation: castUpvote() now assigns a whole
 // new viewer object, but it builds that object as one spread literal whose
 // `vote` ('up' | undefined) and `voteUri` (AtUri | undefined) are typed
 // independently, so neither union arm accepts it.

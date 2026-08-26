@@ -3,15 +3,14 @@
     CommunityView,
     CommunityViewDetailed,
   } from '$lib/api/coves/types'
-  import { coves } from '$lib/api/client.svelte'
-  import { profile } from '$lib/app/auth.svelte'
   import { t } from '$lib/app/i18n'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import Blobs from '$lib/ui/generic/Blobs.svelte'
-  import { Button, modal, toast } from 'mono-svelte'
+  import { Button, modal } from 'mono-svelte'
   import type { Snippet } from 'svelte'
-  import { Check, Icon, InformationCircle, Plus } from 'svelte-hero-icons/dist'
+  import { Icon, InformationCircle } from 'svelte-hero-icons/dist'
   import CommunityCard from './CommunityCard.svelte'
+  import SubscribeButton from './SubscribeButton.svelte'
   import {
     communityDisplayName,
     communityHandleOrName,
@@ -24,7 +23,7 @@
     children?: Snippet
   }
 
-  let { community = $bindable(), children }: Props = $props()
+  let { community, children }: Props = $props()
 
   function getBanner(c: CommunityView): string | undefined {
     return (c as CommunityViewDetailed).banner
@@ -32,29 +31,6 @@
 
   let banner = $derived(getBanner(community))
   let bannerError = $state(false)
-
-  // Optimistic subscribe state lives locally instead of mutating the
-  // `community` prop, which this component does not own (the list passes it
-  // unbound). Server state wins again on the next load.
-  let subscribedOverride = $state<boolean | undefined>(undefined)
-  let subscribed = $derived(
-    subscribedOverride ?? community.viewer?.subscribed === true,
-  )
-
-  async function toggleSubscribe(): Promise<void> {
-    const wasSubscribed = subscribed
-    try {
-      if (wasSubscribed) {
-        await coves().unsubscribe({ community: community.did })
-      } else {
-        await coves().subscribe({ community: community.did })
-      }
-      subscribedOverride = !wasSubscribed
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err)
-      toast({ content: errorMsg, type: 'error' })
-    }
-  }
 </script>
 
 {#snippet communityInfo()}
@@ -126,26 +102,7 @@
     >
       <Icon src={InformationCircle} size="16" mini />
     </Button>
-    {#if profile.current?.jwt}
-      <Button
-        disabled={!profile.current?.jwt}
-        onclick={toggleSubscribe}
-        title={subscribed
-          ? $t('cards.community.subscribed')
-          : $t('cards.community.subscribe')}
-        color={subscribed ? 'secondary' : 'primary'}
-        class={[subscribed && 'text-slate-600 dark:text-zinc-400']}
-        icon={subscribed ? Check : Plus}
-      >
-        <span class={['@md:block']}>
-          {#if subscribed}
-            {$t('cards.community.subscribed')}
-          {:else}
-            {$t('cards.community.subscribe')}
-          {/if}
-        </span>
-      </Button>
-    {/if}
+    <SubscribeButton {community} variant="tile" />
   </div>
   {#if children}
     <div class="flex flex-row gap-2 items-center">

@@ -1,5 +1,10 @@
+# Base image pinned by digest (multi-arch index — covers linux/amd64 + linux/arm64).
+# Dependabot (.github/dependabot.yml) bumps it; to bump manually:
+#   docker buildx imagetools inspect node:22-alpine   # copy the top-level Digest
+ARG NODE_IMAGE=node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
+
 # Build stage — installs with the committed pnpm lockfile for reproducible builds
-FROM node:22-alpine AS builder
+FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
 RUN npm install -g pnpm@10.28.2
 COPY package.json pnpm-lock.yaml ./
@@ -13,7 +18,7 @@ RUN pnpm prune --prod
 #
 # Runtime environment (ORIGIN, PUBLIC_INSTANCE_URL, PUBLIC_INTERNAL_INSTANCE,
 # ALLOW_HTTP_INTERNAL_INSTANCE, ...) is documented in docs/ENVIRONMENT.md.
-FROM node:22-alpine AS node
+FROM ${NODE_IMAGE} AS node
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=builder /app/build ./build

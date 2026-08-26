@@ -1,13 +1,49 @@
+# Only package.json, pnpm-lock.yaml, src/, static/ and the build configs are
+# needed in the build context. Everything else is noise (or a leak risk).
+
+# VCS + CI
 .git
-node_modules
-.eslint*
-.prettier*
 .git*
-.vscode
-README.md
-Dockerfile*
-docker-compose.yml
-public
+.github
+
+# Dependencies / build outputs (rebuilt inside the image)
+node_modules
 .svelte-kit
 build
+dev-dist
+stats.html
+coverage
+
+# Local tooling / agent scratch state (worktrees can be 100+ MB)
+.claude
+.agents
+.codex
+.cursor
+.idea
+.vscode
+.DS_Store
+
+# Test + browser-automation artifacts
+.playwright-mcp
+.playwright-output
+playwright-report
+test-results
+*.png
+console-*.txt
+network-*.txt
+*-snapshot.md
+
+# Secrets / local env — runtime env is injected by the container
 .env*
+.dev_env
+
+# Docs, lint/format config, Docker files themselves
+docs
+README.md
+CLAUDE.md
+LICENSE
+*.local.md
+.eslint*
+.prettier*
+Dockerfile*
+docker-compose.yml

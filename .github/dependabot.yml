@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # Keeps the SHA-pinned actions (and their "# vX.Y.Z" comments) current
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  # Keeps the node:22-alpine digest in the Dockerfile current
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

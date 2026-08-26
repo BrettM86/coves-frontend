@@ -129,6 +129,21 @@ describe('mediaType', () => {
     expect(mediaType(embed)).toBe('embed')
   })
 
+  it.each([
+    ['javascript:', 'javascript:alert(1)//.mp4'],
+    ['data:', 'data:video/mp4;base64,AAAA#.mp4'],
+    ['blob:', 'blob:https://x.test/abc'],
+    ['empty', ''],
+  ])('returns "none" for video embed with %s source', (_label, video) => {
+    expect(
+      mediaType({
+        $type: 'social.coves.embed.video',
+        video,
+        thumbnail: 'https://cdn.example.com/thumb.jpg',
+      }),
+    ).toBe('none')
+  })
+
   it('returns "none" for external embed with empty URI', () => {
     const embed: ExternalEmbed = {
       $type: 'social.coves.embed.external#view',
@@ -141,6 +156,23 @@ describe('mediaType', () => {
     const embed: ExternalEmbed = {
       $type: 'social.coves.embed.external#view',
       external: { uri: 'not a url' },
+    }
+    expect(mediaType(embed)).toBe('none')
+  })
+
+  it.each([
+    ['javascript:', 'javascript:alert(1)'],
+    ['javascript: with image extension', 'javascript:alert(1)//.png'],
+    ['data: with image extension', 'data:text/html,x#.png'],
+    ['data: with video extension', 'data:text/html,x#.mp4'],
+    ['file:', 'file:///etc/passwd'],
+    ['blob:', 'blob:https://x.test/abc'],
+    ['ftp:', 'ftp://example.com/a.png'],
+    ['mailto:', 'mailto:a@b.c'],
+  ])('returns "none" for external embed with %s URI', (_label, uri) => {
+    const embed: ExternalEmbed = {
+      $type: 'social.coves.embed.external#view',
+      external: { uri },
     }
     expect(mediaType(embed)).toBe('none')
   })

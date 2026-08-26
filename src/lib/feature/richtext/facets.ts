@@ -22,6 +22,7 @@
  *   record must not be able to stall rendering.
  */
 
+import { parseWebUrl } from '$lib/app/util/url'
 import { isValidDID } from '$lib/types/atproto'
 
 const FACET_NS = 'social.coves.richtext.facet'
@@ -173,12 +174,7 @@ function clampLevel(
  * `javascript:`) degrades to plain text. */
 function safeExternalHref(uri: unknown): string | null {
   if (typeof uri !== 'string') return null
-  try {
-    const url = new URL(uri)
-    return url.protocol === 'http:' || url.protocol === 'https:' ? uri : null
-  } catch {
-    return null
-  }
+  return parseWebUrl(uri) ? uri : null
 }
 
 function mentionHref(did: unknown, mentionText: string): string | null {

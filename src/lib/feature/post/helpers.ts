@@ -1,6 +1,6 @@
 import type { AtUri, PostEmbed } from '$lib/api/coves/types'
 import { parseAtUri } from '$lib/api/coves/types'
-import { canParseUrl, isImage, isVideo } from '$lib/app/util/url'
+import { isImage, isVideo, isWebUrl } from '$lib/app/util/url'
 import { communitySlug } from '$lib/app/util/links'
 import {
   type ImagePreset,
@@ -174,23 +174,22 @@ export function mediaType(embed?: PostEmbed): MediaType {
       return 'image'
     case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
-      return 'iframe'
+      // Normally a blob-proxy URL hydrated by the AppView, but hydration is
+      // all-or-nothing: a record whose `video` is not a blob is served with
+      // the raw string intact, so it needs the same gate as an external URI.
+      return isWebUrl(embed.video) ? 'iframe' : 'none'
     case 'social.coves.embed.external':
     case 'social.coves.embed.external#view': {
+      // External URIs are untrusted: records written directly to a PDS never
+      // pass the AppView's scheme check, so anything that is not a plain web
+      // link is treated as no embed at all rather than reaching an href sink.
       const uri = embed.external.uri
-      if (!uri) return 'none'
-
-      try {
-        new URL(uri)
-      } catch {
-        return 'none'
-      }
+      if (!uri || !isWebUrl(uri)) return 'none'
 
       if (isImage(uri)) return 'image'
       if (isVideo(uri)) return 'iframe'
       if (isYoutubeLink(uri)) return 'iframe'
-      if (canParseUrl(uri)) return 'embed'
-      return 'none'
+      return 'embed'
     }
     case 'social.coves.embed.post':
     case 'social.coves.embed.post#view':

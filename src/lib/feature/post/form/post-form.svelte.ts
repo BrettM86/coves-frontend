@@ -1,4 +1,5 @@
 import { coves } from '$lib/api/client.svelte'
+import { isWebUrl } from '$lib/app/util/url'
 import type {
   CommunityRef,
   CommunityView,
@@ -56,7 +57,8 @@ export class PostFormState {
 
   validate(): string | null {
     if (!this.community) return 'Community is required'
-    if (this.url && !URL.canParse(this.url)) return 'Invalid URL'
+    if (this.url && !isWebUrl(this.url))
+      return 'URL must start with http:// or https://'
 
     return null
   }

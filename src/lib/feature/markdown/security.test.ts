@@ -7,7 +7,8 @@ import Markdown from './Markdown.svelte'
 // No matter what a post or comment author writes, the HTML we emit must never
 // carry a non-allowlisted URL scheme into a navigation or fetch sink
 // (href=, src=, iframe src=). The allowlist lives in
-// ./renderers/plugins.ts as SAFE_PROTOCOLS / isSafeHref.
+// $lib/app/util/url as SAFE_PROTOCOLS / isSafeHref (re-exported from
+// ./renderers/plugins.ts for renderer callers).
 //
 // COVERAGE MAP — read before adding anything to the corpus below.
 //

@@ -4,6 +4,7 @@
   import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import { type View, settings } from '$lib/app/state/settings.svelte'
   import { communitySlug } from '$lib/app/util/links'
+  import { parseWebUrl } from '$lib/app/util/url'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import { Badge, Material, modal, Popover } from '$lib/ui/kit'
@@ -300,7 +301,9 @@
   </div>
 </header>
 {#if title && uri}
-  {@const useAttachedUrl = settings.posts.titleOpensUrl && postUrl}
+  {@const attachedUrl =
+    settings.posts.titleOpensUrl && postUrl ? parseWebUrl(postUrl) : null}
+  {@const useAttachedUrl = attachedUrl !== null}
   <h3
     class={[
       'font-medium max-sm:mt-0! font-display',
@@ -310,8 +313,8 @@
     style="grid-area: title;"
   >
     <a
-      href={useAttachedUrl
-        ? postUrl
+      href={attachedUrl
+        ? attachedUrl.href
         : community
           ? postLink({ uri, community })
           : undefined}

@@ -31,14 +31,5 @@
       "url": "/profile"
     }
   ],
-  "share_target": {
-    "action": "/go",
-    "method": "GET",
-    "params": {
-      "title": "post_name",
-      "text": "post_body",
-      "url": "localize"
-    }
-  },
   "categories": ["entertainment", "news", "social"]
 }

@@ -1,13 +1,3 @@
-<script lang="ts" module>
-  export const parseURL = (href: string) => {
-    try {
-      return new URL(href)
-    } catch {
-      return undefined
-    }
-  }
-</script>
-
 <script lang="ts">
   import type { HTMLAnchorAttributes } from 'svelte/elements'
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { View } from '$lib/app/state/settings.svelte'
-  import { parseURL } from '$lib/ui/form/Link.svelte'
+  import { parseWebUrl } from '$lib/app/util/url'
   import { Material } from '$lib/ui/kit'
   import { ArrowTopRightOnSquare, Icon, Link } from 'svelte-hero-icons/dist'
   import { withPreset } from '$lib/api/coves/image-proxy'
@@ -15,14 +15,25 @@
   let { url, thumbnail_url, embed_title, view = 'cozy' }: Props = $props()
 
   let imgError = $state(false)
-  let richURL = $derived(parseURL(url))
+  // The URL is untrusted post content. Only an absolute http(s) link ever
+  // becomes an href; anything else renders as inert text so a stored
+  // javascript:/data: URI cannot become a navigation.
+  let richURL = $derived(parseWebUrl(url))
 </script>
 
 <!--
   @component
   For embed-type posts. Displays embed card or a compact link.
 -->
-{#if (embed_title || thumbnail_url) && view == 'cozy'}
+{#if !richURL}
+  <span
+    class="post-link-compact post-link-inert"
+    title="Link not opened: only http and https addresses are supported"
+  >
+    <Icon src={Link} size="16" micro class="shrink-0" />
+    {url}
+  </span>
+{:else if (embed_title || thumbnail_url) && view == 'cozy'}
   <Material
     color="default"
     class={[
@@ -31,16 +42,14 @@
     rounding="xl"
     element="a"
     padding="none"
-    href={url}
+    href={richURL.href}
     target="_blank"
-    rel="noopener"
+    rel="noopener noreferrer"
   >
     <div class={['post-link-url', thumbnail_url && '-mt-2 sm:mt-0']}>
-      {#if richURL}
-        <div class="link-hostname">
-          {richURL.hostname}
-        </div>
-      {/if}
+      <div class="link-hostname">
+        {richURL.hostname}
+      </div>
       {#if embed_title}
         <p class="post-link-title">{embed_title}</p>
       {/if}
@@ -73,24 +82,20 @@
   </Material>
 {:else}
   <a
-    href={url}
+    href={richURL.href}
     target="_blank"
     rel="noopener noreferrer"
     class="post-link-compact"
   >
     <Icon src={Link} size="16" micro class="shrink-0" />
-    {#if richURL}
-      <div class="post-link-url">
-        {richURL.hostname}
-        {#if richURL.pathname != '/'}
-          <span class="post-link-extended">
-            {richURL.pathname}
-          </span>
-        {/if}
-      </div>
-    {:else}
-      {url}
-    {/if}
+    <div class="post-link-url">
+      {richURL.hostname}
+      {#if richURL.pathname != '/'}
+        <span class="post-link-extended">
+          {richURL.pathname}
+        </span>
+      {/if}
+    </div>
   </a>
 {/if}
 
@@ -186,8 +191,10 @@
       color: var(--color-zinc-400);
     }
 
-    @variant hover {
-      text-decoration-line: underline;
+    &:not(.post-link-inert) {
+      @variant hover {
+        text-decoration-line: underline;
+      }
     }
 
     .post-link-url {

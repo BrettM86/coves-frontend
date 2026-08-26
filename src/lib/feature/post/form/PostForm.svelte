@@ -4,6 +4,7 @@
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { communitySlug } from '$lib/app/util/links'
   import { placeholders } from '$lib/app/util/placeholders'
+  import { isWebUrl } from '$lib/app/util/url'
   import FreeTextInput from '$lib/ui/form/FreeTextInput.svelte'
   import ImageInputModal from '$lib/ui/form/ImageInputModal.svelte'
   import ObjectAutocomplete from '$lib/ui/form/ObjectAutocomplete.svelte'
@@ -171,7 +172,7 @@
       >
         {$t('form.post.uploadImage')}
       </Button>
-      {#if form.url && URL.canParse(form.url)}
+      {#if form.url && isWebUrl(form.url)}
         <Button
           class="animate-pop-in"
           color={(form.altText ?? '') != '' ? 'primary' : 'secondary'}

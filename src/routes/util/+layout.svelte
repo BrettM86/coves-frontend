@@ -20,10 +20,6 @@
         name: 'Kelp instance',
       },
       {
-        href: '/util/photonify',
-        name: 'Localize Links',
-      },
-      {
         href: '/util/placeholder',
         name: 'Placeholders',
       },

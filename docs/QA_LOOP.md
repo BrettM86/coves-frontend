@@ -186,7 +186,7 @@ round-trip behave.
 ## Section 8 — Settings, Theme & Shell
 
 **Scope**: `src/routes/settings/`, `src/routes/theme/`, `src/lib/settings/`,
-app shell (navbar/sidebar in `src/lib/ui/`), `src/routes/go/`, `src/routes/error/`, `src/routes/legal/`
+app shell (navbar/sidebar in `src/lib/ui/`), `src/routes/error/`, `src/routes/legal/`
 
 **Scenarios**:
 - Every `/settings/*` page (`app`, `embeds`, `moderation`, `other`) loads without
@@ -195,8 +195,7 @@ app shell (navbar/sidebar in `src/lib/ui/`), `src/routes/go/`, `src/routes/error
   contrast in either light or dark mode.
 - Shell: navbar/sidebar links all route correctly at desktop and mobile
   (~375px) viewport widths; mobile menu opens/closes.
-- `/go/<link>` redirects resolve correctly; `/legal` renders; a garbage URL
-  shows the designed error page.
+- `/legal` renders; a garbage URL shows the designed error page.
 - Keyboard: tab order reaches nav and primary actions; focus is visible.
 
 **Pass when**: all settings persist, theming works both modes, shell navigation

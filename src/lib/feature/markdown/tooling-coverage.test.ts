@@ -78,7 +78,7 @@ const WHY_HTML_SINK =
 
 const WHY_SANITIZER =
   `sanitize-markdown was removed deliberately: allowlisting at the render ` +
-  `boundary (isSafeHref in renderers/plugins) is the defense, and a sanitizer ` +
+  `boundary (isSafeHref in $lib/app/util/url, re-exported via renderers/plugins) is the defense, and a sanitizer ` +
   `dependency invites the "it is already sanitized" assumption that lets ` +
   `unguarded sinks back in.`
 

@@ -1,11 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('$env/dynamic/private', () => ({ env: {} }))
 vi.mock('$env/dynamic/public', () => ({
   env: { PUBLIC_INSTANCE_URL: 'https://coves.social' },
 }))
 
-const { GET } = await import('./[...path]/+server')
+const { GET, POST } = await import('./[...path]/+server')
 
 /**
  * These exercise the REAL exported handler rather than a test-local copy, so a
@@ -88,5 +88,135 @@ describe('proxy response framing', () => {
 
     const response = await GET(createEvent(upstream))
     expect(await response.text()).toBe(UPSTREAM_JSON)
+  })
+})
+
+/**
+ * Asserts a console spy received exactly one call with exactly one string
+ * argument — the structured log line — and returns it raw and parsed.
+ * Local to this file on purpose: test helpers are not shared across suites.
+ */
+function singleJsonLine(calls: unknown[][]): {
+  raw: string
+  line: Record<string, unknown>
+} {
+  expect(calls).toHaveLength(1)
+  expect(calls[0]).toHaveLength(1)
+  const raw = calls[0][0]
+  expect(typeof raw).toBe('string')
+  expect(raw).toMatch(/^\{[\s\S]*\}$/)
+  return {
+    raw: raw as string,
+    line: JSON.parse(raw as string) as Record<string, unknown>,
+  }
+}
+
+function spyOnError() {
+  return vi.spyOn(console, 'error').mockImplementation(() => {})
+}
+
+function spyOnWarn() {
+  return vi.spyOn(console, 'warn').mockImplementation(() => {})
+}
+
+const PROXY_URL =
+  'http://localhost/api/proxy/xrpc/social.coves.community.get?community=linux.lemmy-ml.tdpl.io'
+
+/**
+ * An authenticated event whose upstream fetch rejects, carrying a request id
+ * minted by hooks.server.ts as a real request would.
+ */
+function createFailingEvent(error: Error) {
+  return {
+    params: { path: 'xrpc/social.coves.community.get' },
+    request: new Request(PROXY_URL, {
+      method: 'GET',
+      headers: { origin: 'http://localhost' },
+    }),
+    url: new URL(PROXY_URL),
+    locals: {
+      auth: {
+        authenticated: true,
+        account: {
+          did: 'did:plc:tqa2ago3uxir2kdn44zdslxs',
+          handle: 'user1.example.com',
+          instance: 'https://coves.social',
+          sealedToken: 'sealed-token-value',
+        },
+        authToken: 'sealed-token-value',
+      },
+      requestId: 'req-proxy-1',
+    },
+    fetch: vi.fn().mockRejectedValue(error),
+  } as unknown as Parameters<typeof GET>[0]
+}
+
+describe('proxy error logging', () => {
+  // Spies are created and restored per test rather than inline, so a failing
+  // assertion cannot skip its restore and leak calls into the next test.
+  let errorSpy: ReturnType<typeof spyOnError>
+  let warnSpy: ReturnType<typeof spyOnWarn>
+
+  beforeEach(() => {
+    errorSpy = spyOnError()
+    warnSpy = spyOnWarn()
+  })
+
+  afterEach(() => {
+    errorSpy.mockRestore()
+    warnSpy.mockRestore()
+  })
+
+  it('returns the full request id from locals in the 502 body', async () => {
+    const response = await GET(
+      createFailingEvent(
+        new Error('ECONNREFUSED to http://backend/xrpc?access_token=SECRETTOK'),
+      ),
+    )
+
+    expect(response.status).toBe(502)
+    const body = (await response.json()) as { requestId?: unknown }
+    // The full id, not an 8-char slice — it must correlate with the hooks log.
+    expect(body.requestId).toBe('req-proxy-1')
+  })
+
+  it('logs one scrubbed JSON line carrying the request context', async () => {
+    await GET(
+      createFailingEvent(
+        new Error('ECONNREFUSED to http://backend/xrpc?access_token=SECRETTOK'),
+      ),
+    )
+
+    const { raw, line } = singleJsonLine(errorSpy.mock.calls)
+    expect(line.level).toBe('error')
+    expect(line.requestId).toBe('req-proxy-1')
+    expect(line.method).toBe('GET')
+    expect(line.path).toContain('xrpc/social.coves.community.get')
+    const err = line.err as Record<string, unknown>
+    expect(typeof err.message).toBe('string')
+    expect(err.message).toContain('[REDACTED]')
+    expect(raw).not.toContain('SECRETTOK')
+  })
+
+  it('logs a blocked cross-origin request as one JSON warn line', async () => {
+    const event = {
+      params: { path: 'xrpc/social.coves.community.create' },
+      request: new Request(PROXY_URL, {
+        method: 'POST',
+        headers: { origin: 'https://evil.example.com' },
+      }),
+      url: new URL(PROXY_URL),
+      locals: { auth: { authenticated: false }, requestId: 'req-proxy-2' },
+      fetch: vi.fn(),
+    } as unknown as Parameters<typeof POST>[0]
+
+    const response = await POST(event)
+
+    expect(response.status).toBe(403)
+    const { line } = singleJsonLine(warnSpy.mock.calls)
+    expect(line.level).toBe('warn')
+    expect(line.msg).toContain('Cross-origin')
+    // A blocked request is still a request: it must be correlatable.
+    expect(line.requestId).toBe('req-proxy-2')
   })
 })

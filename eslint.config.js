@@ -134,6 +134,24 @@ export default ts.config(
       why: 'only server-side route files (*.server.ts, +server.ts, routes/api) may use $lib/server',
     },
   ]),
+  // Server-side code must log through $lib/server/log — never console.*
+  // directly. The logger emits one JSON line per event with the request id,
+  // scrubs secrets out of error messages, and gates stack traces behind
+  // dev / LOG_STACKS=1. A raw console.error(err) anywhere in these files is a
+  // credential-to-stderr leak waiting to happen, so it is a lint error.
+  {
+    files: [
+      'src/hooks.server.ts',
+      'src/lib/server/**/*.ts',
+      'src/routes/**/+server.ts',
+      'src/routes/**/+page.server.ts',
+      'src/routes/**/+layout.server.ts',
+      'src/routes/**/*.server.ts',
+      'src/routes/api/**/*.ts',
+    ],
+    ignores: ['src/lib/server/log.ts', '**/*.test.ts'],
+    rules: { 'no-console': 'error' },
+  },
 )
 
 /**

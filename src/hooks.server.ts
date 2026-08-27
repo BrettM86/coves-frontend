@@ -1,15 +1,37 @@
-import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit'
+import {
+  redirect,
+  type Handle,
+  type HandleServerError,
+  type RequestEvent,
+} from '@sveltejs/kit'
 import { dev } from '$app/environment'
 import {
   canonicalHost,
   publicInstanceUrl,
   upstreamInstanceUrl,
 } from '$lib/server/instance'
+import { log, type LogContext } from '$lib/server/log'
 import {
   parseApiMeResponse,
   asInstanceURL,
   asSealedToken,
 } from '$lib/server/session'
+
+/**
+ * The safe subset of a request to attach to a log line. Deliberately excludes
+ * the event itself, which carries the session cookie and the sealed auth token.
+ *
+ * `requestId` collapses to undefined — and so drops out of the line entirely —
+ * when it is missing or empty: `handleError` can fire on a failure raised
+ * before `handle()` ran, and an empty string would read as a real id.
+ */
+function requestContext(event: RequestEvent): LogContext {
+  return {
+    requestId: event.locals.requestId || undefined,
+    method: event.request.method,
+    path: event.url.pathname,
+  }
+}
 
 /**
  * Checks whether an error is a network-level failure (DNS, TLS, connection refused, etc.).
@@ -41,6 +63,14 @@ function isNetworkError(error: unknown): boolean {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
+  // Minted before any branch below can return, so log lines from anywhere in
+  // this request can be correlated. setHeaders only reaches the response
+  // resolve() returns: the manual /util 404 below carries the header itself,
+  // while the dev redirect and Kit's own fatal-error responses do not.
+  const requestId = crypto.randomUUID()
+  event.locals.requestId = requestId
+  event.setHeaders({ 'x-request-id': requestId })
+
   // The /util/* debug pages are dev-only. Their +layout.ts guard only runs
   // client-side when SSR is disabled, which still serves a 200 app shell —
   // return a real HTTP 404 at the server edge instead.
@@ -48,7 +78,11 @@ export const handle: Handle = async ({ event, resolve }) => {
     !dev &&
     (event.url.pathname === '/util' || event.url.pathname.startsWith('/util/'))
   ) {
-    return new Response('Not found', { status: 404 })
+    // This Response bypasses resolve(), so setHeaders never reaches it.
+    return new Response('Not found', {
+      status: 404,
+      headers: { 'x-request-id': requestId },
+    })
   }
 
   // DEV MODE: Normalize hostname to match the OAuth callback domain.
@@ -102,19 +136,26 @@ export const handle: Handle = async ({ event, resolve }) => {
         // Flag so the layout can show "Your session has expired" to the user
         event.locals.sessionExpired = true
       } else {
-        console.warn(
+        log.warn(
           `[hooks] /api/me returned ${response.status} - treating as unauthenticated`,
+          { ...requestContext(event), status: response.status },
         )
       }
       return resolve(event)
     }
 
     const data: unknown = await response.json()
-    const account = parseApiMeResponse(data, instance, sealedToken)
+    const account = parseApiMeResponse(
+      data,
+      instance,
+      sealedToken,
+      requestContext(event),
+    )
 
     if (!account) {
-      console.warn(
+      log.warn(
         '[hooks] /api/me response failed validation - treating as unauthenticated',
+        requestContext(event),
       )
       event.locals.authError = 'validation_error'
       return resolve(event)
@@ -130,22 +171,25 @@ export const handle: Handle = async ({ event, resolve }) => {
     // Network errors (DNS, TLS, timeouts, connection refused) are likely
     // temporary — preserve the cookie so the user can retry.
     if (isNetworkError(error)) {
-      console.warn(
-        '[hooks] Network error calling /api/me - backend may be unreachable:',
+      log.warn(
+        '[hooks] Network error calling /api/me - backend may be unreachable',
+        requestContext(event),
         error,
       )
       event.locals.authError = 'network_error'
     } else if (error instanceof SyntaxError) {
       // JSON parse error from response.json() — the server returned
       // non-JSON content (e.g. HTML error page, empty body)
-      console.warn(
-        '[hooks] /api/me returned invalid JSON - treating as unauthenticated:',
+      log.warn(
+        '[hooks] /api/me returned invalid JSON - treating as unauthenticated',
+        requestContext(event),
         error,
       )
       event.locals.authError = 'validation_error'
     } else {
-      console.warn(
-        '[hooks] Unexpected error calling /api/me - treating as unauthenticated:',
+      log.warn(
+        '[hooks] Unexpected error calling /api/me - treating as unauthenticated',
+        requestContext(event),
         error,
       )
       event.locals.authError = 'network_error'
@@ -165,12 +209,14 @@ export const handleError: HandleServerError = async ({
     return { message: 'Not found' }
   }
 
-  // Log only safe request context — never the full event, which contains the
-  // session cookie and sealed auth token (locals.auth.authToken).
-  console.error(
-    `[hooks] Error captured: ${event.request.method} ${event.url.pathname} (status ${status}): ${message}`,
+  // One structured line. Method, path and status ride as fields rather than in
+  // the message, and the error goes through log's `err` parameter — never as a
+  // raw console argument — so it is scrubbed and its stack is policy-gated.
+  log.error(
+    `[hooks] Error captured: ${message}`,
+    { ...requestContext(event), status },
+    error,
   )
-  console.error(error instanceof Error ? (error.stack ?? error.message) : error)
 
   return { message: 'An unexpected error occurred' }
 }

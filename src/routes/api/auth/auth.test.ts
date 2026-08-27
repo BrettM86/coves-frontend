@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { POST as loginHandler } from './login/+server'
 import { GET as callbackHandler } from './callback/+server'
 import { POST as logoutHandler } from './logout/+server'
@@ -866,5 +866,139 @@ describe('POST /api/auth/logout', () => {
       }),
     )
     expect(cookies.delete).toHaveBeenCalledWith('coves_session', { path: '/' })
+  })
+})
+
+/**
+ * Asserts a console spy received exactly one call with exactly one string
+ * argument — the structured log line — and returns it raw and parsed.
+ * Local to this file: test helpers are not shared between suites.
+ */
+function singleJsonLine(calls: unknown[][]): {
+  raw: string
+  line: Record<string, unknown>
+} {
+  expect(calls).toHaveLength(1)
+  expect(calls[0]).toHaveLength(1)
+  const raw = calls[0][0]
+  expect(typeof raw).toBe('string')
+  expect(raw).toMatch(/^\{[\s\S]*\}$/)
+  return {
+    raw: raw as string,
+    line: JSON.parse(raw as string) as Record<string, unknown>,
+  }
+}
+
+function spyOnWarn() {
+  return vi.spyOn(console, 'warn').mockImplementation(() => {})
+}
+
+describe('POST /api/auth/login structured logging', () => {
+  // Spies are created and restored per test rather than inline, so a failing
+  // assertion cannot skip its restore and leak calls into the next test.
+  let warnSpy: ReturnType<typeof spyOnWarn>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    warnSpy = spyOnWarn()
+  })
+
+  afterEach(() => {
+    warnSpy.mockRestore()
+  })
+
+  /** Drives the login handler with a redirect the policy should reject. */
+  async function loginWithRedirect(redirectUrl: string): Promise<void> {
+    await loginHandler(
+      createMockEvent({
+        method: 'POST',
+        body: {
+          handle: 'user.example.com',
+          instance: 'https://coves.example.com',
+          redirect: redirectUrl,
+        },
+        cookies: createMockCookies(),
+        url: 'http://localhost:5173/api/auth/login',
+      }),
+    )
+  }
+
+  const rejected: ReadonlyArray<readonly [string, string]> = [
+    ['backslash prefix', '\\evil.com/steal'],
+    ['protocol-relative', '//evil.com/steal'],
+    ['external origin', 'https://evil.com/steal-tokens'],
+    ['invalid URL', 'http://[::1 broken'],
+  ]
+
+  for (const [label, redirectUrl] of rejected) {
+    it(`logs a rejected ${label} redirect as one JSON warn line`, async () => {
+      await loginWithRedirect(redirectUrl)
+
+      const { line } = singleJsonLine(warnSpy.mock.calls)
+      expect(line.level).toBe('warn')
+      expect(line.msg).toContain('Rejected')
+    })
+  }
+})
+
+describe('POST /api/auth/logout structured logging', () => {
+  // Put a session cookie value in the thrown message: it must never survive
+  // into the log line.
+  const SESSION_VALUE = 'coves_session=SEALEDLOGOUT123'
+
+  let warnSpy: ReturnType<typeof spyOnWarn>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    warnSpy = spyOnWarn()
+  })
+
+  afterEach(() => {
+    warnSpy.mockRestore()
+  })
+
+  function logoutEvent() {
+    return createMockEvent({
+      method: 'POST',
+      body: {},
+      cookies: createMockCookies({ coves_session: 'my-sealed-token' }),
+      locals: createAuthenticatedLocals({
+        did: 'did:plc:user1',
+        handle: 'user1.example.com',
+        instance: 'https://coves.example.com',
+        sealedToken: 'token-1',
+      }),
+    })
+  }
+
+  it('logs a backend rejection as one JSON warn line carrying the error', async () => {
+    mockFetch.mockRejectedValueOnce(
+      new Error(`connection refused sending ${SESSION_VALUE}`),
+    )
+
+    await logoutHandler(logoutEvent())
+
+    const { raw, line } = singleJsonLine(warnSpy.mock.calls)
+    expect(line.level).toBe('warn')
+    expect(line.msg).toContain('Failed to call backend logout endpoint')
+    expect(line.err).toBeTypeOf('object')
+    expect(raw).not.toContain('SEALEDLOGOUT123')
+  })
+
+  it('logs a non-OK backend status as one JSON warn line', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+        status: 500,
+      }),
+    )
+
+    await logoutHandler(logoutEvent())
+
+    const { raw, line } = singleJsonLine(warnSpy.mock.calls)
+    expect(line.level).toBe('warn')
+    expect(line.msg).toContain('Backend returned non-OK status')
+    expect(raw).toContain('500')
+    // Queryable field, not only prose.
+    expect(line.status).toBe(500)
   })
 })

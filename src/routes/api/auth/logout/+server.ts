@@ -1,6 +1,20 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { validateRequestOrigin } from '$lib/server/csrf'
+import { log, type LogContext } from '$lib/server/log'
+
+/** The safe request context shared by every log line in this handler. */
+function logContext(
+  locals: App.Locals,
+  request: Request,
+  url: URL,
+): LogContext {
+  return {
+    requestId: locals.requestId,
+    method: request.method,
+    path: url.pathname,
+  }
+}
 
 /**
  * POST /api/auth/logout
@@ -18,9 +32,9 @@ export const POST: RequestHandler = async ({
   // Validate Origin header (defense-in-depth against CSRF)
   const originResult = validateRequestOrigin(request, url.origin)
   if (!originResult.valid) {
-    console.warn(
-      '[auth/logout] Cross-origin request blocked:',
-      originResult.reason,
+    log.warn(
+      `[auth/logout] Cross-origin request blocked: ${originResult.reason}`,
+      logContext(locals, request, url),
     )
     return json({ error: 'Cross-origin requests not allowed' }, { status: 403 })
   }
@@ -54,15 +68,19 @@ export const POST: RequestHandler = async ({
     if (!logoutResponse.ok) {
       remoteLogoutFailed = true
       // Log full details server-side for debugging, but don't expose to client
-      console.warn(
-        '[auth/logout] Backend returned non-OK status:',
-        logoutResponse.status,
+      log.warn(
+        `[auth/logout] Backend returned non-OK status: ${logoutResponse.status}`,
+        { ...logContext(locals, request, url), status: logoutResponse.status },
       )
     }
   } catch (error) {
     remoteLogoutFailed = true
     // Log the full error server-side for debugging
-    console.warn('[auth/logout] Failed to call backend logout endpoint:', error)
+    log.warn(
+      '[auth/logout] Failed to call backend logout endpoint',
+      logContext(locals, request, url),
+      error,
+    )
   }
 
   // Clear the coves_session cookie

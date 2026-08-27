@@ -1,4 +1,12 @@
-import { describe, it, expect, vi, type Mock, beforeEach } from 'vitest'
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  type Mock,
+  beforeEach,
+  afterEach,
+} from 'vitest'
 import {
   createMockCookies,
   createMockEvent,
@@ -436,5 +444,99 @@ describe('GET /api/auth/callback', () => {
         path: '/',
       })
     })
+  })
+})
+
+/**
+ * Asserts a console spy received exactly one call with exactly one string
+ * argument — the structured log line — and returns it raw and parsed.
+ * Local to this file: test helpers are not shared between suites.
+ */
+function singleJsonLine(calls: unknown[][]): {
+  raw: string
+  line: Record<string, unknown>
+} {
+  expect(calls).toHaveLength(1)
+  expect(calls[0]).toHaveLength(1)
+  const raw = calls[0][0]
+  expect(typeof raw).toBe('string')
+  expect(raw).toMatch(/^\{[\s\S]*\}$/)
+  return {
+    raw: raw as string,
+    line: JSON.parse(raw as string) as Record<string, unknown>,
+  }
+}
+
+function spyOnWarn() {
+  return vi.spyOn(console, 'warn').mockImplementation(() => {})
+}
+
+describe('GET /api/auth/callback structured logging', () => {
+  // The OAuth state is a CSRF token; the full value must never reach the log.
+  const EXPECTED_STATE = 'EXPECTEDSTATE1234567890'
+  const RECEIVED_STATE = 'RECEIVEDSTATE0987654321'
+
+  // Spies are created and restored per test rather than inline, so a failing
+  // assertion cannot skip its restore and leak calls into the next test.
+  let warnSpy: ReturnType<typeof spyOnWarn>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockValidateOAuthState = vi.fn(() => true)
+    warnSpy = spyOnWarn()
+  })
+
+  afterEach(() => {
+    warnSpy.mockRestore()
+  })
+
+  it('logs a cookie parse failure as one JSON warn line', async () => {
+    const { GET } = await import('./+server')
+
+    // Engines differ on whether a JSON.parse error quotes the offending input
+    // back, which made the earlier version of this test vacuous. Throw the
+    // message ourselves so the secret definitely reaches the logger.
+    vi.spyOn(JSON, 'parse').mockImplementationOnce(() => {
+      throw new SyntaxError(
+        'Unexpected token in "{\\"state\\":\\"SECRETSTATE\\"}"',
+      )
+    })
+
+    const cookies = createMockCookies({
+      kelp_pending_auth: '{"state":"placeholder","redirect":"/feed"}',
+    })
+
+    await expect(
+      GET(createMockEvent({ cookies, url: createMockUrl('some-state') })),
+    ).rejects.toBeDefined()
+
+    const { raw, line } = singleJsonLine(warnSpy.mock.calls)
+    expect(line.level).toBe('warn')
+    expect(line.msg).toContain('Failed to parse pending auth cookie')
+    expect(line.err).toBeTypeOf('object')
+    expect(raw).not.toContain('SECRETSTATE')
+  })
+
+  it('logs a state mismatch as one JSON warn line without the full states', async () => {
+    const { GET } = await import('./+server')
+
+    mockValidateOAuthState = vi.fn(() => false)
+    const cookies = createMockCookies({
+      kelp_pending_auth: JSON.stringify({
+        state: EXPECTED_STATE,
+        redirect: '/feed',
+      }),
+    })
+
+    await expect(
+      GET(createMockEvent({ cookies, url: createMockUrl(RECEIVED_STATE) })),
+    ).rejects.toBeDefined()
+
+    const { raw, line } = singleJsonLine(warnSpy.mock.calls)
+    expect(line.level).toBe('warn')
+    expect(line.msg).toContain('State mismatch')
+    // 8-char prefixes are fine for correlation; the full tokens are not.
+    expect(raw).not.toContain(EXPECTED_STATE)
+    expect(raw).not.toContain(RECEIVED_STATE)
   })
 })

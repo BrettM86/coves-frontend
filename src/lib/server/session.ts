@@ -18,6 +18,7 @@ export {
 // Import for local use within this module
 import { isValidDID, isValidHandle } from '$lib/types/atproto'
 import type { DID, Handle, InstanceURL } from '$lib/types/atproto'
+import { log, type LogContext } from '$lib/server/log'
 
 // ============================================================================
 // Server-Only Branded Types
@@ -95,8 +96,7 @@ interface AuthenticatedClientSession {
  * both `activeAccountId` and `account` are non-null, and vice-versa.
  */
 export type ClientSession =
-  | UnauthenticatedClientSession
-  | AuthenticatedClientSession
+  UnauthenticatedClientSession | AuthenticatedClientSession
 
 /**
  * Response from Go backend's /api/me endpoint.
@@ -166,31 +166,32 @@ export function parseApiMeResponse(
   data: unknown,
   instance: InstanceURL,
   sealedToken: SealedToken,
+  ctx?: LogContext,
 ): AccountSession | null {
   if (typeof data !== 'object' || data === null) {
-    console.error(
-      '[parseApiMeResponse] Invalid input: expected object, got',
-      typeof data,
+    log.error(
+      `[parseApiMeResponse] Invalid input: expected object, got ${typeof data}`,
+      ctx,
     )
     return null
   }
   const obj = data as Record<string, unknown>
 
   if (typeof obj.did !== 'string') {
-    console.error('[parseApiMeResponse] Missing or non-string "did" field')
+    log.error('[parseApiMeResponse] Missing or non-string "did" field', ctx)
     return null
   }
   if (!isValidDID(obj.did)) {
-    console.error('[parseApiMeResponse] Invalid DID format:', obj.did)
+    log.error(`[parseApiMeResponse] Invalid DID format: ${obj.did}`, ctx)
     return null
   }
 
   if (typeof obj.handle !== 'string') {
-    console.error('[parseApiMeResponse] Missing or non-string "handle" field')
+    log.error('[parseApiMeResponse] Missing or non-string "handle" field', ctx)
     return null
   }
   if (!isValidHandle(obj.handle)) {
-    console.error('[parseApiMeResponse] Invalid handle format:', obj.handle)
+    log.error(`[parseApiMeResponse] Invalid handle format: ${obj.handle}`, ctx)
     return null
   }
 
@@ -199,9 +200,9 @@ export function parseApiMeResponse(
     if (isSafeAvatarUrl(obj.avatar)) {
       avatar = obj.avatar
     } else {
-      console.warn(
-        '[parseApiMeResponse] Avatar URL rejected (unsafe protocol or invalid URL):',
-        obj.avatar,
+      log.warn(
+        `[parseApiMeResponse] Avatar URL rejected (unsafe protocol or invalid URL): ${obj.avatar}`,
+        ctx,
       )
       avatar = undefined
     }

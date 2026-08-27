@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { validateOAuthState } from '$lib/server/csrf'
+import { log } from '$lib/server/log'
 
 interface PendingAuth {
   redirect: string
@@ -31,7 +32,19 @@ function validatePendingAuth(parsed: unknown): PendingAuth | null {
  * The Go backend has already set the coves_session cookie during OAuth.
  * This endpoint just validates the CSRF state and redirects.
  */
-export const GET: RequestHandler = async ({ cookies, url }) => {
+export const GET: RequestHandler = async ({
+  cookies,
+  locals,
+  request,
+  url,
+}) => {
+  // Built once: every logged rejection below shares this request context.
+  const logContext = {
+    requestId: locals.requestId,
+    method: request.method,
+    path: url.pathname,
+  }
+
   const pendingAuthCookie = cookies.get('kelp_pending_auth')
 
   if (!pendingAuthCookie) {
@@ -43,9 +56,9 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
     const parsed: unknown = JSON.parse(pendingAuthCookie)
     const validated = validatePendingAuth(parsed)
     if (!validated) {
-      console.warn(
-        '[auth/callback] Pending auth cookie has invalid shape:',
-        typeof parsed,
+      log.warn(
+        `[auth/callback] Pending auth cookie has invalid shape: ${typeof parsed}`,
+        logContext,
       )
       cookies.delete('kelp_pending_auth', { path: '/' })
       throw redirect(302, '/login?error=invalid_pending_auth')
@@ -61,7 +74,11 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
     ) {
       throw error
     }
-    console.warn('[auth/callback] Failed to parse pending auth cookie', error)
+    log.warn(
+      '[auth/callback] Failed to parse pending auth cookie',
+      logContext,
+      error,
+    )
     cookies.delete('kelp_pending_auth', { path: '/' })
     throw redirect(302, '/login?error=no_pending_auth')
   }
@@ -72,17 +89,21 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
   // Validate CSRF state parameter (RFC 6749 section 10.12)
   const callbackState = url.searchParams.get('state')
   if (!callbackState || !pendingAuth.state) {
-    console.warn(
+    log.warn(
       '[auth/callback] Missing state parameter - possible CSRF attack',
+      logContext,
     )
     throw redirect(302, '/login?error=invalid_state')
   }
 
   if (!validateOAuthState(pendingAuth.state, callbackState)) {
-    console.warn('[auth/callback] State mismatch - possible CSRF attack', {
-      expected: `${pendingAuth.state.substring(0, 8)}...`,
-      received: `${callbackState.substring(0, 8)}...`,
-    })
+    // 8-char prefixes only. The state is 64 hex chars, so a prefix exposes 32
+    // of its 256 bits — enough to correlate the two halves of one flow, far
+    // short of enough to replay the CSRF token.
+    log.warn(
+      `[auth/callback] State mismatch - possible CSRF attack (expected ${pendingAuth.state.substring(0, 8)}..., received ${callbackState.substring(0, 8)}...)`,
+      logContext,
+    )
     throw redirect(302, '/login?error=invalid_state')
   }
 

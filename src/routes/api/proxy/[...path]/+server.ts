@@ -1,4 +1,5 @@
 import type { RequestHandler } from './$types'
+import { log } from '$lib/server/log'
 import { normalizeInstanceUrl } from '$lib/app/state/instance/resolve'
 import {
   upstreamInstanceUrl,
@@ -69,7 +70,12 @@ async function handler({
 
   // CSRF defense-in-depth: reject cross-origin state-changing requests
   // (see enforceSameOrigin for the full policy rationale).
-  const csrfRejection = enforceSameOrigin(request, url.origin, path)
+  const csrfRejection = enforceSameOrigin(
+    request,
+    url.origin,
+    path,
+    locals.requestId,
+  )
   if (csrfRejection) {
     return csrfRejection
   }
@@ -194,12 +200,16 @@ async function handler({
       headers: responseHeaders,
     })
   } catch (error) {
-    // Generate a unique request ID for error correlation
-    const requestId = crypto.randomUUID().slice(0, 8) // Short ID for easier reference
+    // The per-request id minted in hooks.server.ts, in full. Three things carry
+    // it — the `x-request-id` response header, the 502/504 body below, and this
+    // log line — so a report of "502, id abc" can be traced across all three.
+    const requestId = locals.requestId
 
-    // Connection error to upstream - include request context for debugging
-    console.error(
-      `Proxy error [${request.method} /${path}] [requestId: ${requestId}]:`,
+    // Connection error to upstream. Only safe request context is logged; the
+    // error travels through log's `err` parameter so it is scrubbed.
+    log.error(
+      `[proxy] Proxy error ${request.method} /${path}`,
+      { requestId, method: request.method, path: `/${path}` },
       error,
     )
     // Name-based check rather than `instanceof DOMException`: under other

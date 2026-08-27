@@ -93,7 +93,14 @@ export function createMockEvent(
       ? options.url
       : new URL(options.url ?? 'http://localhost:5173/')
   const hasBody = options.body !== undefined
-  const defaultLocals: App.Locals = { auth: { authenticated: false } }
+  // The requestId default is deliberately NOT uuid-shaped: hooks.server.ts is
+  // what mints the real per-request id, so a uuid here would let request-id
+  // tests pass without handle() ever having run. Tests that pass their own
+  // `locals` replace this wholesale (see `options.locals ?? defaultLocals`).
+  const defaultLocals: App.Locals = {
+    auth: { authenticated: false },
+    requestId: 'test-request-id',
+  }
   const event: MockRequestEvent = {
     request: new Request(url, {
       method: options.method ?? (hasBody ? 'POST' : 'GET'),

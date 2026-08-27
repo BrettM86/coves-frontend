@@ -13,6 +13,9 @@ let mockPublicInstanceUrl: string | undefined = undefined
 // Variable to control dev mode (default false to avoid hostname redirects in most tests)
 let mockDev = false
 
+// Variable to control the mocked LOG_STACKS private env var
+let mockLogStacks: string | undefined = undefined
+
 // Mock $app/environment
 vi.mock('$app/environment', () => ({
   get dev() {
@@ -35,6 +38,15 @@ vi.mock('$env/dynamic/public', () => ({
   },
 }))
 
+// Mock private environment variables (LOG_STACKS gates stack inclusion)
+vi.mock('$env/dynamic/private', () => ({
+  env: {
+    get LOG_STACKS() {
+      return mockLogStacks
+    },
+  },
+}))
+
 // Import handle and handleError after mocking
 const { handle, handleError } = await import('./hooks.server')
 
@@ -49,12 +61,65 @@ function createMockResolve() {
   return vi.fn().mockResolvedValue(new Response('OK'))
 }
 
+/**
+ * Asserts a console spy received exactly one call carrying exactly one string
+ * argument — the structured log line — and returns it raw and parsed. The raw
+ * form is what secret-leak assertions must run against.
+ */
+function singleJsonLine(calls: unknown[][]): {
+  raw: string
+  line: Record<string, unknown>
+} {
+  expect(calls).toHaveLength(1)
+  expect(calls[0]).toHaveLength(1)
+  const raw = calls[0][0]
+  expect(typeof raw).toBe('string')
+  // Assert JSON shape before parsing so a legacy plain-text log line fails
+  // with a readable diff rather than an opaque JSON.parse SyntaxError.
+  expect(raw).toMatch(/^\{[\s\S]*\}$/)
+  return {
+    raw: raw as string,
+    line: JSON.parse(raw as string) as Record<string, unknown>,
+  }
+}
+
+/** Narrows the `err` member of a parsed log line to an object. */
+function errOf(line: Record<string, unknown>): Record<string, unknown> {
+  expect(line.err).toBeTypeOf('object')
+  expect(line.err).not.toBeNull()
+  return line.err as Record<string, unknown>
+}
+
+function spyOnWarn() {
+  return vi.spyOn(console, 'warn').mockImplementation(() => {})
+}
+
+function spyOnError() {
+  return vi.spyOn(console, 'error').mockImplementation(() => {})
+}
+
+/** Asserts no console call in these paths ever received a raw Error object. */
+function expectOnlyStringArgs(calls: unknown[][]): void {
+  for (const call of calls) {
+    for (const arg of call) {
+      expect(typeof arg).toBe('string')
+      expect(arg).not.toBeInstanceOf(Error)
+    }
+  }
+}
+
 describe('hooks.server handle', () => {
+  // vitest's `restoreMocks` detaches these after each test, so no test needs
+  // its own restore — and a failing assertion can no longer leak spy calls
+  // into the next test by skipping one.
+  let warnSpy: ReturnType<typeof spyOnWarn>
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockPublicInternalInstance = 'http://localhost:4000'
     mockPublicInstanceUrl = undefined
     mockDev = false
+    warnSpy = spyOnWarn()
   })
 
   describe('no coves_session cookie', () => {
@@ -127,8 +192,6 @@ describe('hooks.server handle', () => {
 
   describe('valid cookie and /api/me returns 401', () => {
     it('results in unauthenticated state without console.warn', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
       mockFetch.mockResolvedValue(new Response('Unauthorized', { status: 401 }))
 
       const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
@@ -141,8 +204,6 @@ describe('hooks.server handle', () => {
       // Should NOT log a warning for 401 (expected case)
       expect(warnSpy).not.toHaveBeenCalled()
       expect(resolve).toHaveBeenCalledWith(event)
-
-      warnSpy.mockRestore()
     })
 
     it('deletes the stale coves_session cookie on 401', async () => {
@@ -186,8 +247,6 @@ describe('hooks.server handle', () => {
 
   describe('valid cookie and /api/me returns 500', () => {
     it('results in unauthenticated state and logs warning', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
       mockFetch.mockResolvedValue(
         new Response('Internal Server Error', { status: 500 }),
       )
@@ -199,19 +258,18 @@ describe('hooks.server handle', () => {
       await handle({ event, resolve })
 
       expect(event.locals.auth.authenticated).toBe(false)
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/api/me returned 500'),
-      )
+      const { line } = singleJsonLine(warnSpy.mock.calls)
+      expect(line.level).toBe('warn')
+      expect(line.msg).toContain('/api/me returned 500')
+      expect(line.requestId).toBe(event.locals.requestId)
+      // The upstream status belongs in a queryable field, not only in prose.
+      expect(line.status).toBe(500)
       expect(resolve).toHaveBeenCalledWith(event)
-
-      warnSpy.mockRestore()
     })
   })
 
   describe('valid cookie and fetch throws network error', () => {
     it('sets authError to network_error for connection refused', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
       mockFetch.mockRejectedValue(
         new Error('Network error: connection refused'),
       )
@@ -224,18 +282,15 @@ describe('hooks.server handle', () => {
 
       expect(event.locals.auth.authenticated).toBe(false)
       expect(event.locals.authError).toBe('network_error')
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Network error calling /api/me'),
-        expect.any(Error),
-      )
+      const { line } = singleJsonLine(warnSpy.mock.calls)
+      expect(line.level).toBe('warn')
+      expect(line.msg).toContain('Network error calling /api/me')
+      expect(line.requestId).toBe(event.locals.requestId)
+      expect(errOf(line).name).toBe('Error')
       expect(resolve).toHaveBeenCalledWith(event)
-
-      warnSpy.mockRestore()
     })
 
     it('sets authError to network_error for TypeError (fetch failure)', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
       mockFetch.mockRejectedValue(new TypeError('fetch failed'))
 
       const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
@@ -246,18 +301,15 @@ describe('hooks.server handle', () => {
 
       expect(event.locals.auth.authenticated).toBe(false)
       expect(event.locals.authError).toBe('network_error')
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Network error calling /api/me'),
-        expect.any(TypeError),
-      )
+      const { line } = singleJsonLine(warnSpy.mock.calls)
+      expect(line.level).toBe('warn')
+      expect(line.msg).toContain('Network error calling /api/me')
+      expect(line.requestId).toBe(event.locals.requestId)
+      expect(errOf(line).name).toBe('TypeError')
       expect(resolve).toHaveBeenCalledWith(event)
-
-      warnSpy.mockRestore()
     })
 
     it('classifies TimeoutError and AbortError as network errors by name', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
       for (const name of ['TimeoutError', 'AbortError']) {
         warnSpy.mockClear()
         mockFetch.mockRejectedValue(new DOMException('operation failed', name))
@@ -272,19 +324,18 @@ describe('hooks.server handle', () => {
 
         expect(event.locals.auth.authenticated).toBe(false)
         expect(event.locals.authError).toBe('network_error')
-        expect(warnSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Network error calling /api/me'),
-          expect.any(DOMException),
-        )
+        const { line } = singleJsonLine(warnSpy.mock.calls)
+        expect(line.level).toBe('warn')
+        expect(line.msg).toContain('Network error calling /api/me')
+        expect(line.requestId).toBe(event.locals.requestId)
+        // DOMException carries the discriminating name, so the log line must
+        // preserve it — that is what distinguishes a timeout from an abort.
+        expect(errOf(line).name).toBe(name)
         expect(cookies.delete).not.toHaveBeenCalled()
       }
-
-      warnSpy.mockRestore()
     })
 
     it('does not delete the coves_session cookie on network error', async () => {
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
-
       mockFetch.mockRejectedValue(new TypeError('fetch failed'))
 
       const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
@@ -297,8 +348,6 @@ describe('hooks.server handle', () => {
     })
 
     it('sets authError to network_error for unexpected non-network errors', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
       mockFetch.mockRejectedValue(new Error('some completely unexpected error'))
 
       const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
@@ -309,20 +358,17 @@ describe('hooks.server handle', () => {
 
       expect(event.locals.auth.authenticated).toBe(false)
       expect(event.locals.authError).toBe('network_error')
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Unexpected error calling /api/me'),
-        expect.any(Error),
-      )
+      const { line } = singleJsonLine(warnSpy.mock.calls)
+      expect(line.level).toBe('warn')
+      expect(line.msg).toContain('Unexpected error calling /api/me')
+      expect(line.requestId).toBe(event.locals.requestId)
+      expect(errOf(line).name).toBe('Error')
       expect(resolve).toHaveBeenCalledWith(event)
-
-      warnSpy.mockRestore()
     })
   })
 
   describe('valid cookie and /api/me returns invalid JSON', () => {
     it('sets authError to validation_error and logs warning', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
       mockFetch.mockResolvedValue(
         new Response('not json', {
           status: 200,
@@ -340,20 +386,17 @@ describe('hooks.server handle', () => {
       expect(event.locals.authError).toBe('validation_error')
       // Invalid JSON triggers response.json() to throw as SyntaxError,
       // which is categorized as a validation error
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/api/me returned invalid JSON'),
-        expect.any(SyntaxError),
-      )
+      const { line } = singleJsonLine(warnSpy.mock.calls)
+      expect(line.level).toBe('warn')
+      expect(line.msg).toContain('/api/me returned invalid JSON')
+      expect(line.requestId).toBe(event.locals.requestId)
+      expect(errOf(line).name).toBe('SyntaxError')
       expect(resolve).toHaveBeenCalledWith(event)
-
-      warnSpy.mockRestore()
     })
   })
 
   describe('valid cookie and /api/me returns incomplete data', () => {
     it('sets authError to validation_error when did is missing', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
       mockFetch.mockResolvedValue(
         new Response(JSON.stringify({ handle: 'user1.example.com' }), {
           status: 200,
@@ -368,17 +411,14 @@ describe('hooks.server handle', () => {
 
       expect(event.locals.auth.authenticated).toBe(false)
       expect(event.locals.authError).toBe('validation_error')
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/api/me response failed validation'),
-      )
+      const { line } = singleJsonLine(warnSpy.mock.calls)
+      expect(line.level).toBe('warn')
+      expect(line.msg).toContain('/api/me response failed validation')
+      expect(line.requestId).toBe(event.locals.requestId)
       expect(resolve).toHaveBeenCalledWith(event)
-
-      warnSpy.mockRestore()
     })
 
     it('sets authError to validation_error when handle is missing', async () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
       mockFetch.mockResolvedValue(
         new Response(JSON.stringify({ did: 'did:plc:user1' }), { status: 200 }),
       )
@@ -392,8 +432,6 @@ describe('hooks.server handle', () => {
       expect(event.locals.auth.authenticated).toBe(false)
       expect(event.locals.authError).toBe('validation_error')
       expect(resolve).toHaveBeenCalledWith(event)
-
-      warnSpy.mockRestore()
     })
   })
 
@@ -573,9 +611,69 @@ describe('hooks.server handle', () => {
   })
 })
 
+describe('hooks.server request id', () => {
+  // crypto.randomUUID() emits a v4 UUID; anything else (including the
+  // non-uuid default in createMockEvent) fails this.
+  const UUID_V4 =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPublicInternalInstance = 'http://localhost:4000'
+    mockPublicInstanceUrl = undefined
+    mockDev = false
+  })
+
+  it('assigns a uuid request id to locals on every request', async () => {
+    const event = createMockEvent({ cookies: createMockCookies() })
+
+    await handle({ event, resolve: createMockResolve() })
+
+    expect(typeof event.locals.requestId).toBe('string')
+    expect(event.locals.requestId).toMatch(UUID_V4)
+  })
+
+  it('sets the x-request-id response header to that same id', async () => {
+    const event = createMockEvent({ cookies: createMockCookies() })
+
+    await handle({ event, resolve: createMockResolve() })
+
+    expect(event.setHeaders).toHaveBeenCalledWith({
+      'x-request-id': event.locals.requestId,
+    })
+  })
+
+  it('gives two requests different ids', async () => {
+    const first = createMockEvent({ cookies: createMockCookies() })
+    const second = createMockEvent({ cookies: createMockCookies() })
+
+    await handle({ event: first, resolve: createMockResolve() })
+    await handle({ event: second, resolve: createMockResolve() })
+
+    expect(first.locals.requestId).toMatch(UUID_V4)
+    expect(second.locals.requestId).toMatch(UUID_V4)
+    expect(first.locals.requestId).not.toBe(second.locals.requestId)
+  })
+
+  it('carries the request id on the production /util 404 early return', async () => {
+    const event = createMockEvent({
+      cookies: createMockCookies(),
+      url: 'http://localhost:5173/util/photonify',
+    })
+
+    const response = await handle({ event, resolve: createMockResolve() })
+
+    expect(response.status).toBe(404)
+    expect(event.locals.requestId).toMatch(UUID_V4)
+    expect(response.headers.get('x-request-id')).toBe(event.locals.requestId)
+  })
+})
+
 describe('hooks.server handleError', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockDev = false
+    mockLogStacks = undefined
   })
 
   it('returns "Not found" for 404 errors', async () => {
@@ -656,6 +754,12 @@ describe('hooks.server handleError', () => {
   describe('log sanitization', () => {
     const sealedToken = 'sealed-session-token-v1.super-secret-value'
 
+    let errorSpy: ReturnType<typeof spyOnError>
+
+    beforeEach(() => {
+      errorSpy = spyOnError()
+    })
+
     /**
      * Creates an event carrying the sealed session token in both places it
      * lives on a real authenticated request: the Cookie header and locals.auth.
@@ -675,6 +779,7 @@ describe('hooks.server handleError', () => {
             },
             authToken: sealedToken,
           },
+          requestId: 'req-sanitize-1',
         } as unknown as App.Locals,
       })
       // Replace the bare request with one that includes the session cookie
@@ -698,8 +803,6 @@ describe('hooks.server handleError', () => {
     }
 
     it('never logs the event object or the session token for non-404 errors', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
       const event = createEventWithToken()
       await handleError({
         error: new Error('Internal database connection failed'),
@@ -715,13 +818,9 @@ describe('hooks.server handleError', () => {
           expect(stringifyLoggedArg(arg)).not.toContain(sealedToken)
         }
       }
-
-      errorSpy.mockRestore()
     })
 
     it('does not call console.error for 404 errors', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
       await handleError({
         error: new Error('Page not found'),
         event: createEventWithToken(),
@@ -730,12 +829,10 @@ describe('hooks.server handleError', () => {
       })
 
       expect(errorSpy).not.toHaveBeenCalled()
-
-      errorSpy.mockRestore()
     })
 
-    it('logs the error stack for diagnostics', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    it('logs the error stack for diagnostics in dev', async () => {
+      mockDev = true
 
       const error = new Error('boom')
       await handleError({
@@ -745,10 +842,277 @@ describe('hooks.server handleError', () => {
         message: 'Internal Server Error',
       })
 
+      // The stack now rides inside the single structured line rather than in
+      // a second, raw console.error call.
       expect(error.stack).toBeDefined()
-      expect(errorSpy).toHaveBeenCalledWith(error.stack)
-
-      errorSpy.mockRestore()
+      const { raw, line } = singleJsonLine(errorSpy.mock.calls)
+      const err = errOf(line)
+      expect(typeof err.stack).toBe('string')
+      expect(err.stack).toContain('Error: boom')
+      expect(raw).not.toContain(sealedToken)
     })
+  })
+  describe('structured logging', () => {
+    let errorSpy: ReturnType<typeof spyOnError>
+    let warnSpy: ReturnType<typeof spyOnWarn>
+
+    beforeEach(() => {
+      errorSpy = spyOnError()
+      warnSpy = spyOnWarn()
+    })
+
+    it('writes exactly one JSON line carrying the request context', async () => {
+      const event = createMockEvent({
+        cookies: createMockCookies(),
+        url: 'http://localhost:5173/c/gardening',
+      })
+
+      await handleError({
+        error: new Error('upstream refused password=hunter2'),
+        event,
+        status: 500,
+        message: 'Internal Server Error',
+      })
+
+      expect(warnSpy).not.toHaveBeenCalled()
+      const { raw, line } = singleJsonLine(errorSpy.mock.calls)
+      expect(line).toMatchObject({
+        level: 'error',
+        status: 500,
+        method: 'GET',
+        path: '/c/gardening',
+        requestId: event.locals.requestId,
+      })
+      expect(line.msg).toContain('Internal Server Error')
+      expect(errOf(line)).toMatchObject({
+        name: 'Error',
+        message: 'upstream refused password=[REDACTED]',
+      })
+      expect(raw).not.toContain('hunter2')
+    })
+
+    it('includes the stack in production by default', async () => {
+      await handleError({
+        error: new Error('boom'),
+        event: createMockEvent({ cookies: createMockCookies() }),
+        status: 500,
+        message: 'Internal Server Error',
+      })
+
+      const { line } = singleJsonLine(errorSpy.mock.calls)
+      expect('stack' in errOf(line)).toBe(true)
+      expect(typeof errOf(line).stack).toBe('string')
+    })
+
+    it("omits the stack in production when LOG_STACKS is '0'", async () => {
+      mockLogStacks = '0'
+
+      await handleError({
+        error: new Error('boom'),
+        event: createMockEvent({ cookies: createMockCookies() }),
+        status: 500,
+        message: 'Internal Server Error',
+      })
+
+      const { line } = singleJsonLine(errorSpy.mock.calls)
+      expect('stack' in errOf(line)).toBe(false)
+    })
+
+    it('omits the requestId key entirely when locals carries none', async () => {
+      // handleError can fire before hooks' handle() ran (or outside it), so an
+      // absent id must be an absent key — never an empty string, which would
+      // look like a real correlation id to a log search.
+      await handleError({
+        error: new Error('boom'),
+        event: createMockEvent({
+          cookies: createMockCookies(),
+          locals: {} as unknown as App.Locals,
+        }),
+        status: 500,
+        message: 'Internal Server Error',
+      })
+
+      const { line } = singleJsonLine(errorSpy.mock.calls)
+      expect('requestId' in line).toBe(false)
+    })
+
+    it('includes the stack in dev', async () => {
+      mockDev = true
+
+      await handleError({
+        error: new Error('boom'),
+        event: createMockEvent({ cookies: createMockCookies() }),
+        status: 500,
+        message: 'Internal Server Error',
+      })
+
+      const { line } = singleJsonLine(errorSpy.mock.calls)
+      expect('stack' in errOf(line)).toBe(true)
+      expect(typeof errOf(line).stack).toBe('string')
+    })
+
+    it('writes nothing at all for a 404', async () => {
+      await handleError({
+        error: new Error('Page not found'),
+        event: createMockEvent({ cookies: createMockCookies() }),
+        status: 404,
+        message: 'Not Found',
+      })
+
+      expect(errorSpy).not.toHaveBeenCalled()
+      expect(warnSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  it('emits one scrubbed JSON log line with request context and leaks no secrets', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      const secrets = ['hunter2', 'abc.def.ghi', 'SEALED123'] as const
+      const error = new Error(
+        'db connect failed: password=hunter2 authorization=Bearer abc.def.ghi coves_session=SEALED123',
+      )
+      // Overwrite the stack so it definitely carries the secrets too.
+      error.stack = [
+        'Error: db connect failed: password=hunter2 authorization=Bearer abc.def.ghi coves_session=SEALED123',
+        '    at connect (src/lib/server/db.ts:10:5) password=hunter2',
+        '    at handler (src/routes/+page.server.ts:3:1) Bearer abc.def.ghi coves_session=SEALED123',
+      ].join('\n')
+
+      const event = createMockEvent({
+        cookies: createMockCookies(),
+        locals: {
+          auth: { authenticated: false },
+          requestId: 'req-outer-1',
+        } as unknown as App.Locals,
+      })
+
+      const result = await handleError({
+        error,
+        event,
+        status: 500,
+        message: 'Internal Server Error',
+      })
+
+      expect(result).toEqual({ message: 'An unexpected error occurred' })
+
+      // Nothing written to either console channel may contain a secret.
+      const logged = [...errorSpy.mock.calls, ...warnSpy.mock.calls]
+        .flat()
+        .map((arg) => {
+          if (typeof arg === 'string') return arg
+          try {
+            return JSON.stringify(arg) ?? String(arg)
+          } catch {
+            return String(arg)
+          }
+        })
+      for (const written of logged) {
+        for (const secret of secrets) {
+          expect(written).not.toContain(secret)
+        }
+      }
+
+      // Exactly one structured line, carrying the request context.
+      expect(errorSpy).toHaveBeenCalledTimes(1)
+      const call = errorSpy.mock.calls[0]
+      expect(call).toHaveLength(1)
+      expect(typeof call[0]).toBe('string')
+      const line: unknown = JSON.parse(call[0] as string)
+      expect(line).toMatchObject({
+        level: 'error',
+        status: 500,
+        method: 'GET',
+        path: event.url.pathname,
+        requestId: 'req-outer-1',
+      })
+    } finally {
+      errorSpy.mockRestore()
+      warnSpy.mockRestore()
+    }
+  })
+})
+
+describe('hooks.server /api/me failure logging', () => {
+  // Carried inside each thrown error's message, to prove err.message is scrubbed.
+  const SECRET_MESSAGE = 'upstream said Bearer SECRETTOK'
+  const SCRUBBED_MESSAGE = 'upstream said Bearer [REDACTED]'
+
+  let warnSpy: ReturnType<typeof spyOnWarn>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPublicInternalInstance = 'http://localhost:4000'
+    mockPublicInstanceUrl = undefined
+    mockDev = false
+    mockLogStacks = undefined
+    warnSpy = spyOnWarn()
+  })
+
+  it('logs a network failure as one scrubbed JSON line', async () => {
+    mockFetch.mockRejectedValue(
+      new TypeError(`fetch failed - ${SECRET_MESSAGE}`),
+    )
+    const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+    const event = createMockEvent({ cookies })
+
+    await handle({ event, resolve: createMockResolve() })
+
+    const { raw, line } = singleJsonLine(warnSpy.mock.calls)
+    expect(line.level).toBe('warn')
+    expect(line.msg).toContain('Network error calling /api/me')
+    expect(line.requestId).toBe(event.locals.requestId)
+    expect(errOf(line)).toMatchObject({
+      name: 'TypeError',
+      message: `fetch failed - ${SCRUBBED_MESSAGE}`,
+    })
+    expect(raw).not.toContain('SECRETTOK')
+    expectOnlyStringArgs(warnSpy.mock.calls)
+  })
+
+  it('logs a JSON parse failure as one scrubbed JSON line', async () => {
+    // handle() only touches ok/status/json(), so this minimal stand-in lets
+    // the SyntaxError carry a secret of our choosing.
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.reject(new SyntaxError(`Unexpected token - ${SECRET_MESSAGE}`)),
+    } as unknown as Response)
+    const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+    const event = createMockEvent({ cookies })
+
+    await handle({ event, resolve: createMockResolve() })
+
+    const { raw, line } = singleJsonLine(warnSpy.mock.calls)
+    expect(line.level).toBe('warn')
+    expect(line.msg).toContain('/api/me returned invalid JSON')
+    expect(line.requestId).toBe(event.locals.requestId)
+    expect(errOf(line)).toMatchObject({
+      name: 'SyntaxError',
+      message: `Unexpected token - ${SCRUBBED_MESSAGE}`,
+    })
+    expect(raw).not.toContain('SECRETTOK')
+    expectOnlyStringArgs(warnSpy.mock.calls)
+  })
+
+  it('logs an unexpected failure as one scrubbed JSON line', async () => {
+    mockFetch.mockRejectedValue(new Error(`kaboom - ${SECRET_MESSAGE}`))
+    const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+    const event = createMockEvent({ cookies })
+
+    await handle({ event, resolve: createMockResolve() })
+
+    const { raw, line } = singleJsonLine(warnSpy.mock.calls)
+    expect(line.level).toBe('warn')
+    expect(line.msg).toContain('Unexpected error calling /api/me')
+    expect(line.requestId).toBe(event.locals.requestId)
+    expect(errOf(line)).toMatchObject({
+      name: 'Error',
+      message: `kaboom - ${SCRUBBED_MESSAGE}`,
+    })
+    expect(raw).not.toContain('SECRETTOK')
+    expectOnlyStringArgs(warnSpy.mock.calls)
   })
 })

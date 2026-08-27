@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   asDID,
   asHandle,
@@ -15,6 +15,34 @@ import {
   parseApiMeResponse,
   type AccountSession,
 } from './session'
+
+/**
+ * Asserts a console spy received exactly one call with exactly one string
+ * argument — the structured log line — and returns it raw and parsed.
+ * Local to this file: test helpers are not shared between suites.
+ */
+function spyOnError() {
+  return vi.spyOn(console, 'error').mockImplementation(() => {})
+}
+
+function spyOnWarn() {
+  return vi.spyOn(console, 'warn').mockImplementation(() => {})
+}
+
+function singleJsonLine(calls: unknown[][]): {
+  raw: string
+  line: Record<string, unknown>
+} {
+  expect(calls).toHaveLength(1)
+  expect(calls[0]).toHaveLength(1)
+  const raw = calls[0][0]
+  expect(typeof raw).toBe('string')
+  expect(raw).toMatch(/^\{[\s\S]*\}$/)
+  return {
+    raw: raw as string,
+    line: JSON.parse(raw as string) as Record<string, unknown>,
+  }
+}
 
 // ============================================================================
 // Branded Types Tests
@@ -128,6 +156,23 @@ describe('InstanceURL validation', () => {
 describe('parseApiMeResponse', () => {
   const testInstance = asInstanceURL('https://coves.example.com')
   const testToken = asSealedToken('sealed-token-123')
+  // Passed through from hooks.server.ts so a validation failure can be
+  // correlated with the request that produced it.
+  const testContext = {
+    requestId: 'req-session-1',
+    method: 'GET',
+    path: '/',
+  } as const
+
+  // vitest's `restoreMocks` detaches these after each test, so no test needs
+  // its own restore.
+  let errorSpy: ReturnType<typeof spyOnError>
+  let warnSpy: ReturnType<typeof spyOnWarn>
+
+  beforeEach(() => {
+    errorSpy = spyOnError()
+    warnSpy = spyOnWarn()
+  })
 
   it('returns AccountSession for valid response', () => {
     const data = {
@@ -207,109 +252,119 @@ describe('parseApiMeResponse', () => {
   })
 
   it('logs error when did is missing', () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    parseApiMeResponse({ handle: 'user1.example.com' }, testInstance, testToken)
-
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Missing or non-string "did"'),
+    parseApiMeResponse(
+      { handle: 'user1.example.com' },
+      testInstance,
+      testToken,
+      testContext,
     )
-    errorSpy.mockRestore()
+
+    const { line } = singleJsonLine(errorSpy.mock.calls)
+    expect(line.level).toBe('error')
+    expect(line.msg).toContain('Missing or non-string "did"')
+    expect(line.requestId).toBe('req-session-1')
   })
 
   it('logs error when DID format is invalid', () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
     parseApiMeResponse(
       { did: 'not-a-did', handle: 'user1.example.com' },
       testInstance,
       testToken,
+      testContext,
     )
 
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Invalid DID format'),
-      'not-a-did',
-    )
-    errorSpy.mockRestore()
+    const { raw, line } = singleJsonLine(errorSpy.mock.calls)
+    expect(line.level).toBe('error')
+    expect(line.msg).toContain('Invalid DID format')
+    // The rejected value is diagnostic, not secret — it must survive into the
+    // line, just not as a second console argument.
+    expect(raw).toContain('not-a-did')
+    expect(line.requestId).toBe('req-session-1')
   })
 
   it('logs error when handle is missing', () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    parseApiMeResponse({ did: 'did:plc:user1' }, testInstance, testToken)
-
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Missing or non-string "handle"'),
+    parseApiMeResponse(
+      { did: 'did:plc:user1' },
+      testInstance,
+      testToken,
+      testContext,
     )
-    errorSpy.mockRestore()
+
+    const { line } = singleJsonLine(errorSpy.mock.calls)
+    expect(line.level).toBe('error')
+    expect(line.msg).toContain('Missing or non-string "handle"')
+    expect(line.requestId).toBe('req-session-1')
   })
 
   it('logs error when handle format is invalid', () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
     parseApiMeResponse(
       { did: 'did:plc:user1', handle: 'invalid' },
       testInstance,
       testToken,
+      testContext,
     )
 
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Invalid handle format'),
-      'invalid',
-    )
-    errorSpy.mockRestore()
+    const { raw, line } = singleJsonLine(errorSpy.mock.calls)
+    expect(line.level).toBe('error')
+    expect(line.msg).toContain('Invalid handle format')
+    expect(raw).toContain('invalid')
+    expect(line.requestId).toBe('req-session-1')
   })
 
   it('logs error for non-object input', () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    parseApiMeResponse('string', testInstance, testToken, testContext)
 
-    parseApiMeResponse('string', testInstance, testToken)
-
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Invalid input: expected object'),
-      'string',
-    )
-    errorSpy.mockRestore()
+    const { raw, line } = singleJsonLine(errorSpy.mock.calls)
+    expect(line.level).toBe('error')
+    expect(line.msg).toContain('Invalid input: expected object')
+    expect(raw).toContain('string')
+    expect(line.requestId).toBe('req-session-1')
   })
 
   it('rejects javascript: avatar URLs and sets avatar to undefined', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
     const data = {
       did: 'did:plc:user1',
       handle: 'user1.example.com',
       avatar: 'javascript:alert(1)',
     }
 
-    const result = parseApiMeResponse(data, testInstance, testToken)
+    const result = parseApiMeResponse(
+      data,
+      testInstance,
+      testToken,
+      testContext,
+    )
 
     expect(result).not.toBeNull()
     expect(result!.avatar).toBeUndefined()
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Avatar URL rejected'),
-      'javascript:alert(1)',
-    )
-    warnSpy.mockRestore()
+    const { raw, line } = singleJsonLine(warnSpy.mock.calls)
+    expect(line.level).toBe('warn')
+    expect(line.msg).toContain('Avatar URL rejected')
+    expect(raw).toContain('javascript:alert(1)')
+    expect(line.requestId).toBe('req-session-1')
   })
 
   it('rejects data: avatar URLs and sets avatar to undefined', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
     const data = {
       did: 'did:plc:user1',
       handle: 'user1.example.com',
       avatar: 'data:text/html,<script>alert(1)</script>',
     }
 
-    const result = parseApiMeResponse(data, testInstance, testToken)
+    const result = parseApiMeResponse(
+      data,
+      testInstance,
+      testToken,
+      testContext,
+    )
 
     expect(result).not.toBeNull()
     expect(result!.avatar).toBeUndefined()
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Avatar URL rejected'),
-      'data:text/html,<script>alert(1)</script>',
-    )
-    warnSpy.mockRestore()
+    const { raw, line } = singleJsonLine(warnSpy.mock.calls)
+    expect(line.level).toBe('warn')
+    expect(line.msg).toContain('Avatar URL rejected')
+    expect(raw).toContain('data:text/html')
+    expect(line.requestId).toBe('req-session-1')
   })
 
   it('accepts https avatar URLs', () => {

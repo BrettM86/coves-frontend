@@ -1,4 +1,5 @@
 import { validateRequestOrigin } from '$lib/server/csrf'
+import { log } from '$lib/server/log'
 
 /**
  * Validates a proxy path for security issues.
@@ -62,6 +63,7 @@ export function enforceSameOrigin(
   request: Request,
   expectedOrigin: string,
   path: string,
+  requestId?: string,
 ): Response | null {
   if (request.method === 'GET' || request.method === 'HEAD') {
     return null
@@ -72,9 +74,9 @@ export function enforceSameOrigin(
     return null
   }
 
-  console.warn(
-    `[proxy] Cross-origin ${request.method} /${path} blocked:`,
-    originResult.reason,
+  log.warn(
+    `[proxy] Cross-origin ${request.method} /${path} blocked: ${originResult.reason}`,
+    { requestId, method: request.method, path: `/${path}` },
   )
   return new Response(
     JSON.stringify({

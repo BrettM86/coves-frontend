@@ -65,6 +65,14 @@ declare global {
      * - When unauthenticated, no auth fields are present
      */
     interface Locals {
+      /**
+       * Correlation id for this request, minted at the top of `handle()` and
+       * echoed on the response as `x-request-id`, so every log line and error
+       * response can be tied back to a single request. Set by `handle()`;
+       * `handleError` may observe it unset on failures raised before
+       * `handle()` ran.
+       */
+      requestId: string
       auth: AuthState
       /**
        * Set when authentication failed due to an infrastructure or validation error

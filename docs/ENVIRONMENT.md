@@ -33,6 +33,7 @@ Resolution precedence:
 | `ORIGIN` | **yes behind a proxy** | Public URL of this frontend (e.g. `https://coves.social`). adapter-node needs it for correct origin / form-action checks. |
 | `NODE_ENV` | set by the Dockerfile | `production` in the runtime image. |
 | `ADAPTER` | build-time only | `node` (Docker) or `static`; anything else uses adapter-auto. |
+| `LOG_STACKS` | no (default on) | Server log lines (`src/lib/server/log.ts`) are single JSON records with a request id; error messages and stacks pass through a secret scrubber before being written. Set `0` to omit stack traces entirely. Every response also carries an `x-request-id` header matching the `requestId` field in the logs. |
 
 ## Rendering
 

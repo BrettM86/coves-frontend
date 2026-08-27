@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit'
+import { log } from '$lib/server/log'
 import type { RequestHandler } from './$types'
 import { PENDING_AUTH_COOKIE_OPTIONS } from '$lib/server/cookies'
 import { generateOAuthState } from '$lib/server/csrf'
@@ -19,7 +20,12 @@ interface LoginRequest {
  *
  * The client will navigate to this URL to begin OAuth with Coves.
  */
-export const POST: RequestHandler = async ({ request, cookies, url }) => {
+export const POST: RequestHandler = async ({
+  request,
+  cookies,
+  locals,
+  url,
+}) => {
   let body: Partial<LoginRequest>
   try {
     body = await request.json()
@@ -45,6 +51,13 @@ export const POST: RequestHandler = async ({ request, cookies, url }) => {
   }
   const instanceUrl = new URL(normalizedInstance)
 
+  // Built once: all four logged rejections below share this request context.
+  const logContext = {
+    requestId: locals.requestId,
+    method: request.method,
+    path: url.pathname,
+  }
+
   // Validate redirect URL to prevent open redirect attacks
   // Only allow relative URLs (starting with /) or same-origin URLs
   let safeRedirect = '/'
@@ -62,15 +75,15 @@ export const POST: RequestHandler = async ({ request, cookies, url }) => {
       safeRedirect = trimmedRedirect
     } else if (trimmedRedirect.startsWith('\\')) {
       // Reject backslash-prefixed URLs (potential bypass attempt)
-      console.warn(
-        '[auth/login] Rejected redirect URL with backslash prefix:',
-        trimmedRedirect,
+      log.warn(
+        `[auth/login] Rejected redirect URL with backslash prefix: ${trimmedRedirect}`,
+        logContext,
       )
     } else if (trimmedRedirect.startsWith('//')) {
       // Reject protocol-relative URLs
-      console.warn(
-        '[auth/login] Rejected protocol-relative redirect URL:',
-        trimmedRedirect,
+      log.warn(
+        `[auth/login] Rejected protocol-relative redirect URL: ${trimmedRedirect}`,
+        logContext,
       )
     } else {
       // Try to parse as URL and check if same-origin
@@ -80,15 +93,15 @@ export const POST: RequestHandler = async ({ request, cookies, url }) => {
           safeRedirect =
             redirectUrl.pathname + redirectUrl.search + redirectUrl.hash
         } else {
-          console.warn(
-            '[auth/login] Rejected external redirect URL:',
-            trimmedRedirect,
+          log.warn(
+            `[auth/login] Rejected external redirect URL: ${trimmedRedirect}`,
+            logContext,
           )
         }
       } catch {
-        console.warn(
-          '[auth/login] Rejected invalid redirect URL:',
-          trimmedRedirect,
+        log.warn(
+          `[auth/login] Rejected invalid redirect URL: ${trimmedRedirect}`,
+          logContext,
         )
       }
     }

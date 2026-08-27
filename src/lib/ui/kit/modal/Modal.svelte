@@ -4,7 +4,7 @@
   import { Button } from '$lib/ui/kit'
   import Portal from '$lib/ui/kit/popover/Portal.svelte'
   import type { Snippet } from 'svelte'
-  import { XMark } from 'svelte-hero-icons/dist'
+  import { XMark } from '@xylightdev/svelte-hero-icons'
   import { backOut } from 'svelte/easing'
   import type { ClassValue } from 'svelte/elements'
   import { fade, scale } from 'svelte/transition'

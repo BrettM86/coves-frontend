@@ -8,7 +8,7 @@
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { placeholders } from '$lib/app/util/placeholders'
   import { Button, toast } from '$lib/ui/kit'
-  import { Icon, XMark } from 'svelte-hero-icons/dist'
+  import { Icon, XMark } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue, HTMLTextareaAttributes } from 'svelte/elements'
 
   interface Props extends Omit<HTMLTextareaAttributes, 'oncancel'> {

@@ -27,7 +27,7 @@
     Swatch,
     UserCircle,
     UserGroup,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import { chords } from './commands/CommandsHost.svelte'
 </script>
 

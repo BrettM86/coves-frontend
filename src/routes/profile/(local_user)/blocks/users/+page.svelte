@@ -6,7 +6,7 @@
   import ItemList from '$lib/ui/generic/ItemList.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Button, toast } from '$lib/ui/kit'
-  import { ArrowUturnUp, Check, Trash } from 'svelte-hero-icons/dist'
+  import { ArrowUturnUp, Check, Trash } from '@xylightdev/svelte-hero-icons'
   import type { PageData } from './$types'
 
   interface Props {

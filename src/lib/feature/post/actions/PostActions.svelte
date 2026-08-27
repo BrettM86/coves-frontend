@@ -13,7 +13,7 @@
     EllipsisHorizontal,
     Icon,
     Share,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import {
     EMPTY_POST_STATS,
     EMPTY_POST_VIEWER,

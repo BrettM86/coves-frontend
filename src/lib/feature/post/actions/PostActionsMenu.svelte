@@ -7,7 +7,11 @@
   import { report } from '$lib/feature/moderation/moderation.svelte'
   import { encodeCrosspostDraft } from '$lib/feature/post/helpers'
   import { action, MenuButton, modal, toast } from '$lib/ui/kit'
-  import { ArrowTopRightOnSquare, Flag, Trash } from 'svelte-hero-icons/dist'
+  import {
+    ArrowTopRightOnSquare,
+    Flag,
+    Trash,
+  } from '@xylightdev/svelte-hero-icons'
 
   interface Props {
     post: PostView

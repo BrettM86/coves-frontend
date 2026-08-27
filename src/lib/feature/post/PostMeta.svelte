@@ -12,67 +12,21 @@
     formatRelativeDate,
   } from '$lib/ui/util/RelativeDate.svelte'
   import {
-    type IconSource,
     Bookmark,
     Icon,
     Megaphone,
     PaperAirplane,
     Pencil,
-    Tag,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import { SvelteMap } from 'svelte/reactivity'
   import CommunityLink from '../community/CommunityLink.svelte'
   import UserLink from '../user/UserLink.svelte'
   import { postLink } from './helpers'
 
+  import type { IconSource } from '@xylightdev/svelte-hero-icons'
+  import type { MetaTag } from './tags'
+
   type BadgeType = 'saved' | 'featured'
-  export interface MetaTag {
-    content: string
-    color?: string
-    icon?: IconSource | null
-    textColor?: string
-    type: 'flair' | 'custom'
-  }
-
-  // Re-export as Tag for backward compat
-  export type { MetaTag as Tag }
-
-  export const textToTag: Map<string, MetaTag> = new Map<string, MetaTag>([
-    ['OC', { content: 'OC', color: '#03A8F240', type: 'custom' }],
-    ['NSFL', { content: 'NSFL', color: '#ff000040', type: 'custom' }],
-    ['CW', { content: 'CW', color: '#ff000040', type: 'custom' }],
-  ])
-
-  export const parseTags = (
-    title?: string,
-  ): { tags: MetaTag[]; title?: string } => {
-    if (!title) return { tags: [] }
-
-    let extracted: MetaTag[] = []
-
-    const newTitle = title
-      .toString()
-      .replace(/^(\[.[^\]]+\])|(\[.[^\]]+\])$/g, (match) => {
-        const contents = match.split(',').map((part: string) => part.trim())
-
-        contents
-          .map((i) => i.replaceAll(/(\[|\])/g, ''))
-          .forEach((content: string) => {
-            extracted.push(
-              textToTag.get(content) ?? {
-                content: content,
-                type: 'custom',
-              },
-            )
-          })
-        return ''
-      })
-
-    return {
-      tags: extracted,
-      title: newTitle,
-    }
-  }
 </script>
 
 <script lang="ts">
@@ -86,7 +40,7 @@
     edited?: string
     view?: View
     badges?: Record<BadgeType, boolean>
-    tags?: MetaTag[]
+    tags?: readonly MetaTag[]
     style?: string
     titleClass?: string
     extraBadges?: import('svelte').Snippet
@@ -264,27 +218,23 @@
     class="flex flex-row min-sm:justify-end items-center self-center flex-wrap gap-2 *:shrink-0 badges min-sm:ml-2"
     style="grid-area: badges;"
   >
-    {#if tags}
-      {#each tags as tag}
-        <div
-          class="hover:brightness-110"
-          style="{tag.color ? `--tag-color: ${tag.color};` : ''} {tag.textColor
-            ? `--tag-text-color: ${tag.textColor}`
-            : ''}"
-        >
-          <Badge class={tag.color ? 'badge-tag-color' : ''}>
-            {#snippet icon()}
-              {#if tag.icon}
-                <Icon src={tag.icon} micro size="14" />
-              {:else if tag === undefined}
-                <Icon src={Tag} micro size="14" />
-              {/if}
-            {/snippet}
-            {tag.content}
-          </Badge>
-        </div>
-      {/each}
-    {/if}
+    {#each tags as tag}
+      <div
+        class="hover:brightness-110"
+        style="{tag.color ? `--tag-color: ${tag.color};` : ''} {tag.textColor
+          ? `--tag-text-color: ${tag.textColor}`
+          : ''}"
+      >
+        <Badge class={tag.color ? 'badge-tag-color' : ''}>
+          {#snippet icon()}
+            {#if tag.icon}
+              <Icon src={tag.icon} micro size="14" />
+            {/if}
+          {/snippet}
+          {tag.content}
+        </Badge>
+      </div>
+    {/each}
     {#each Object.keys(badges)
       // filter by ones that are true
       .filter((i) => badges[i as BadgeType] == true)

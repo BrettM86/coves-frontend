@@ -4,7 +4,7 @@
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Button } from '$lib/ui/kit'
   import type { Snippet } from 'svelte'
-  import { ArchiveBox, Plus } from 'svelte-hero-icons/dist'
+  import { ArchiveBox, Plus } from '@xylightdev/svelte-hero-icons'
   import { Post } from '..'
 
   interface Props {

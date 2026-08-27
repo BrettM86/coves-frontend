@@ -1,7 +1,7 @@
 <script module lang="ts">
   import { Spinner } from '$lib/ui/kit'
   import type { Snippet } from 'svelte'
-  import { type IconSource, Icon } from 'svelte-hero-icons/dist'
+  import { type IconSource, Icon } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue, HTMLButtonAttributes } from 'svelte/elements'
 
   export type ButtonColor = keyof typeof buttonColor

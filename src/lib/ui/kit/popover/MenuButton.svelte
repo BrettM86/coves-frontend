@@ -6,7 +6,11 @@
     type ButtonProps,
   } from '$lib/ui/kit/button/Button.svelte'
   import type { Snippet } from 'svelte'
-  import { ChevronRight, Icon, type IconSource } from 'svelte-hero-icons/dist'
+  import {
+    ChevronRight,
+    Icon,
+    type IconSource,
+  } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue } from 'svelte/elements'
 
   interface Props extends ButtonProps {

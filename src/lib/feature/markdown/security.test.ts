@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render } from 'svelte/server'
+import { isImage, isSafeHref, isVideo } from '$lib/app/util/url'
 import Markdown from './Markdown.svelte'
 
 // ---------------------------------------------------------------------------
@@ -94,10 +95,14 @@ const renderMarkdown = (source: string): string =>
 // Hostile corpus — every payload verified to reach a renderer
 // ---------------------------------------------------------------------------
 
-/** Reaches the <img src> path: isImage() substring-matches the ".png". */
-const REACHES_IMG = 'data:text/html;base64,PHN2Zz48L3N2Zz4=#.png'
-/** Reaches the <video><source src> path via the same trick on isVideo(). */
-const REACHES_VIDEO = 'data:text/html;base64,PHN2Zz48L3N2Zz4=#.mp4'
+/**
+ * Reaches the <img src> path: a data: HTML document whose pathname genuinely
+ * ends in ".png", so isImage() (which matches only the end of the pathname)
+ * classifies it as an image. Only isSafeHref stands between it and <img src>.
+ */
+const REACHES_IMG = 'data:text/html;charset=utf-8,x.png'
+/** Reaches the <video><source src> path the same way via isVideo(). */
+const REACHES_VIDEO = 'data:text/html;charset=utf-8,x.mp4'
 
 const SAFE_PAGE = 'https://ok.test/p'
 const SAFE_IMAGE = 'https://ok.test/x.png'
@@ -114,6 +119,15 @@ const SINK_REACHING_URLS: readonly string[] = [
   'blob:https://x.test/abc',
   REACHES_IMG,
   REACHES_VIDEO,
+  // The same schemes wearing an image extension. An opaque scheme puts its
+  // whole body in `pathname`, so isImage() says "image" and these take the
+  // <img src> branch instead of falling through to the harmless 'embed' one —
+  // a strictly stronger test of the same guard. (javascript: is not here: it is
+  // stripped upstream by preprocess() in this form and is covered in the
+  // angle-bracket structural case below, where it does reach a renderer.)
+  'vbscript:msgbox(1).png',
+  'file:///etc/passwd.png',
+  'blob:https://x.test/abc.png',
 ]
 
 interface HostileCase {
@@ -156,6 +170,16 @@ const structuralCases: readonly HostileCase[] = [
     label: 'angle-bracket autolink (vbscript:)',
     hostile: '<vbscript:msgbox(1)>',
     benign: `<${SAFE_PAGE}>`,
+  },
+  // preprocess() matches "](javascript:" literally, so "](<javascript:" slips
+  // past it and reaches MdImage — and the ".png" tail makes isImage() classify
+  // it, so it lands on the <img src> branch rather than the inert 'embed' one.
+  // This is the only javascript: payload in the corpus that genuinely exercises
+  // isSafeHref at an image sink.
+  {
+    label: 'angle-bracket image destination (javascript: disguised as .png)',
+    hostile: '![t](<javascript:alert(1)//x.png>)',
+    benign: `![t](<${SAFE_IMAGE}>)`,
   },
   {
     label: 'reference-style image definition',
@@ -240,6 +264,40 @@ describe('Markdown - untrusted URL schemes', () => {
 // pass with every guard removed. These assertions are what stop this corpus
 // from quietly rotting into a suite that proves nothing.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Corpus preconditions
+//
+// The benign twins above prove each markdown SHAPE still renders. They cannot
+// prove each PAYLOAD still reaches the branch it was chosen for. REACHES_IMG
+// and REACHES_VIDEO only exercise isSafeHref because isImage()/isVideo()
+// classify them — those predicates look at the pathname alone, and an opaque
+// scheme puts its whole body there. If that ever changed, every hostile case
+// built on them would route to the inert 'embed' branch and keep passing while
+// asserting nothing.
+// ---------------------------------------------------------------------------
+
+describe('Markdown - hostile corpus preconditions', () => {
+  it('REACHES_IMG reaches the <img> branch', () => {
+    expect(isImage(REACHES_IMG)).toBe(true)
+    expect(isSafeHref(REACHES_IMG)).toBe(false)
+  })
+
+  it('REACHES_VIDEO reaches the <video> branch', () => {
+    expect(isVideo(REACHES_VIDEO)).toBe(true)
+    expect(isSafeHref(REACHES_VIDEO)).toBe(false)
+  })
+
+  it.each([
+    'vbscript:msgbox(1).png',
+    'file:///etc/passwd.png',
+    'blob:https://x.test/abc.png',
+    'javascript:alert(1)//x.png',
+  ])('%j reaches the <img> branch', (url: string) => {
+    expect(isImage(url)).toBe(true)
+    expect(isSafeHref(url)).toBe(false)
+  })
+})
 
 describe('Markdown - hostile corpus scaffolding', () => {
   it.each(HOSTILE_CASES)(

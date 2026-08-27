@@ -2,7 +2,12 @@
   import { profile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
   import { Menu, Spinner } from '$lib/ui/kit'
-  import { Bars3, GlobeAlt, Icon, PencilSquare } from 'svelte-hero-icons/dist'
+  import {
+    Bars3,
+    GlobeAlt,
+    Icon,
+    PencilSquare,
+  } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue } from 'svelte/elements'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import CommandsWrapper from './commands/CommandsHost.svelte'

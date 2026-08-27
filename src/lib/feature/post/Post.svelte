@@ -16,7 +16,7 @@
     mediaType,
     postTextFallback,
   } from './helpers'
-  import { type MetaTag, parseTags } from './PostMeta.svelte'
+  import { type MetaTag, parseTags } from './tags'
 
   interface Props {
     post: PostView
@@ -40,14 +40,11 @@
     extraBadges,
   }: Props = $props()
 
-  let tags = $derived.by<{ title?: string; tags: MetaTag[] }>(() => {
-    const parsed = parseTags(post.record?.title)
-
-    return {
-      title: parsed.title,
-      tags: parsed.tags,
-    }
-  })
+  let tags = $derived(
+    settings.parseTags
+      ? parseTags(post.record?.title)
+      : { tags: [] as readonly MetaTag[], title: post.record?.title },
+  )
   let type = $derived(mediaType(post.embed))
   let embedUrl = $derived(extractEmbedUrl(post.embed))
   let embedTitle = $derived(extractEmbedTitle(post.embed))
@@ -98,10 +95,10 @@
     uri={post.uri}
     title={hideTitle
       ? undefined
-      : tags?.title || post.record?.title || compactExcerpt}
+      : tags.title || post.record?.title || compactExcerpt}
     style="grid-area: meta;"
     edited={post.editedAt}
-    tags={tags?.tags}
+    tags={tags.tags}
     postUrl={embedUrl}
     {view}
     {extraBadges}

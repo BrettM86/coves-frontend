@@ -8,7 +8,7 @@
   import Blobs from '$lib/ui/generic/Blobs.svelte'
   import { Button, modal } from '$lib/ui/kit'
   import type { Snippet } from 'svelte'
-  import { Icon, InformationCircle } from 'svelte-hero-icons/dist'
+  import { Icon, InformationCircle } from '@xylightdev/svelte-hero-icons'
   import CommunityCard from './CommunityCard.svelte'
   import SubscribeButton from './SubscribeButton.svelte'
   import {

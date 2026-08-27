@@ -10,7 +10,7 @@
     EllipsisHorizontal,
     Fire,
     Icon,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import { purgeCommunity } from './CommunityCard.svelte'
   import SubscribeButton from './SubscribeButton.svelte'
   import {

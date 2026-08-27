@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
   import { Button } from '$lib/ui/kit'
-  import { ArrowLeft, Icon } from 'svelte-hero-icons/dist'
+  import { ArrowLeft, Icon } from '@xylightdev/svelte-hero-icons'
   import LoginPage from '../../login/+page.svelte'
 </script>
 

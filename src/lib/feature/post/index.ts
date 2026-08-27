@@ -9,12 +9,6 @@ export { default as PostIframe } from './media/PostIframe.svelte'
 export { default as PostLink } from './PostLink.svelte'
 export { default as PostActions } from './actions/PostActions.svelte'
 
-export {
-  type MetaTag as Tag,
-  type MetaTag,
-  parseTags,
-  textToTag,
-  default as PostsMeta,
-} from './PostMeta.svelte'
+export { type MetaTag, parseTags, textToTag } from './tags'
 
 export * from './helpers'

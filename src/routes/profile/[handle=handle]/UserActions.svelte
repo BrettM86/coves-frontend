@@ -12,7 +12,7 @@
     Envelope,
     Icon,
     NoSymbol,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
 
   interface Props {
     profile: ProfileViewDetailed

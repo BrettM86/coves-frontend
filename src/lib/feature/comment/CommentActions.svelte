@@ -19,7 +19,7 @@
     PencilSquare,
     Share,
     Trash,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import { deletedContentPlaceholder } from './comments.svelte'
   import {
     EMPTY_COMMENT_STATS,

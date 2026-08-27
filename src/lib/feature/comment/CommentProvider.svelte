@@ -30,7 +30,7 @@
     PlusCircle,
     Star,
     Trophy,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
 
   interface Props {
     post: PostView

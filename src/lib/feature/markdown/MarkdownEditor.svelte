@@ -1,6 +1,6 @@
 <script lang="ts">
   import ImageAttachForm from '$lib/ui/form/ImageAttachForm.svelte'
-  import MultiSelect from '$lib/ui/form/Switch.svelte'
+  import SegmentedControl from '$lib/ui/form/SegmentedControl.svelte'
   import { Button, Label, Modal, TextArea } from '$lib/ui/kit'
   import type { TextAreaProps } from '$lib/ui/kit/forms/TextArea.svelte'
   import { tick } from 'svelte'
@@ -15,7 +15,7 @@
     ListBullet,
     Photo,
     Strikethrough,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue } from 'svelte/elements'
   import { t } from '$lib/app/state/i18n'
   import Markdown from './Markdown.svelte'
@@ -335,7 +335,7 @@
         class="p-2 flex flex-row items-center w-full bg-slate-50 border-t border-slate-200 dark:border-zinc-900 dark:bg-zinc-925 gap-1"
       >
         {#if previewButton}
-          <MultiSelect
+          <SegmentedControl
             bind:selected={previewing}
             options={[false, true]}
             optionNames={[$t('form.edit'), $t('form.preview')]}

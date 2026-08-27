@@ -7,7 +7,11 @@
   } from '$lib/app/state/settings.svelte'
   import { Header, Tabs } from '$lib/ui/layout'
   import { action, Button, Modal, modal, TextArea, toast } from '$lib/ui/kit'
-  import { ArrowDownTray, ArrowPath, ArrowUpTray } from 'svelte-hero-icons/dist'
+  import {
+    ArrowDownTray,
+    ArrowPath,
+    ArrowUpTray,
+  } from '@xylightdev/svelte-hero-icons'
 
   let { children } = $props()
   let importing = $state(false)

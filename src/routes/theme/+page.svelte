@@ -19,7 +19,7 @@
     ArrowUpTray,
     Icon,
     Plus,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import ColorSwatch from './ColorSwatch.svelte'
   import ThemePreset from './ThemePreset.svelte'
 

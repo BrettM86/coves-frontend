@@ -1,12 +1,3 @@
-export function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
 export function fuzzySearch(text: string, pattern: string): number {
   const textLower = text.toLowerCase()
   const patternLower = pattern.toLowerCase()

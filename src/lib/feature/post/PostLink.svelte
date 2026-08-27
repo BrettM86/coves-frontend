@@ -2,7 +2,11 @@
   import type { View } from '$lib/app/state/settings.svelte'
   import { parseWebUrl } from '$lib/app/util/url'
   import { Material } from '$lib/ui/kit'
-  import { ArrowTopRightOnSquare, Icon, Link } from 'svelte-hero-icons/dist'
+  import {
+    ArrowTopRightOnSquare,
+    Icon,
+    Link,
+  } from '@xylightdev/svelte-hero-icons'
   import { withPreset } from '$lib/api/coves/image-proxy'
 
   interface Props {

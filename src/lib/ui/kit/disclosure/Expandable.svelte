@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Disclosure } from '$lib/ui/kit'
-  import { Icon, Minus, Plus } from 'svelte-hero-icons/dist'
+  import { Icon, Minus, Plus } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue } from 'svelte/elements'
 
   interface Props {

@@ -22,9 +22,6 @@ const config = {
         : process.env.ADAPTER == 'node'
           ? node()
           : auto(),
-    alias: {
-      'svelte-hero-icons': 'node_modules/@xylightdev/svelte-hero-icons',
-    },
     csp: {
       // Kit must own `script-src` to append its per-request nonce. The other
       // three are here only so an `ADAPTER=static` build (no server hooks)

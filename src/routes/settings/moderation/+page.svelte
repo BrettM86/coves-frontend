@@ -5,7 +5,7 @@
 
   import { CommonList } from '$lib/ui/layout'
   import { Button, Expandable, TextInput } from '$lib/ui/kit'
-  import { Icon, Plus, Trash } from 'svelte-hero-icons/dist'
+  import { Icon, Plus, Trash } from '@xylightdev/svelte-hero-icons'
   import { removalTemplate } from '$lib/feature/moderation/moderation.svelte'
   import Setting from '../Setting.svelte'
 </script>

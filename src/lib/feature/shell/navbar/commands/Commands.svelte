@@ -10,8 +10,8 @@
   import { CommonList } from '$lib/ui/layout'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { TextInput } from '$lib/ui/kit'
-  import { createEventDispatcher, onMount } from 'svelte'
-  import { Home, Icon } from 'svelte-hero-icons/dist'
+  import { onMount } from 'svelte'
+  import { Home, Icon } from '@xylightdev/svelte-hero-icons'
   import {
     type Action,
     type Group,
@@ -39,7 +39,6 @@
 
   let search = $state('')
   let container: HTMLElement | undefined = $state()
-  const dispatch = createEventDispatcher()
   let selectedIndex = $state(0)
   let filteredGroups: Group[] = $state([])
   let breadcrumbs: Action[] = $state([])
@@ -207,7 +206,6 @@
       if (action.href) goto(action.href)
       if (action.handle) action.handle()
       togglePalette()
-      dispatch('select', action)
     }
   }
 

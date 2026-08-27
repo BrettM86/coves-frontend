@@ -11,7 +11,7 @@
     Link,
     Photo,
     VideoCamera,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import {
     bestImageURL,
     extractEmbedAlt,

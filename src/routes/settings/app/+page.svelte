@@ -3,7 +3,7 @@
   import { settings } from '$lib/app/state/settings.svelte'
   import { TIMEFRAME_OPTIONS } from '$lib/api/coves/sort'
   import ViewSelect from '$lib/feature/filter/ViewSelect.svelte'
-  import Switch from '$lib/ui/form/Switch.svelte'
+  import SegmentedControl from '$lib/ui/form/SegmentedControl.svelte'
   import { CommonList } from '$lib/ui/layout'
   import { Option, Select } from '$lib/ui/kit'
   import {
@@ -30,7 +30,7 @@
     Tag,
     Trophy,
     ViewColumns,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import Setting from '../Setting.svelte'
   import ToggleSetting from '../ToggleSetting.svelte'
 
@@ -195,7 +195,7 @@
         {$t('settings.app.thumbnailSide.description')}
       </span>
     {/snippet}
-    <Switch
+    <SegmentedControl
       options={[true, false]}
       optionNames={[
         $t('settings.app.thumbnailSide.left'),

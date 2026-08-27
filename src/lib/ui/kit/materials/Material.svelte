@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Icon, type IconSource } from 'svelte-hero-icons/dist'
+  import { Icon, type IconSource } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue, HTMLAttributes } from 'svelte/elements'
 
   type Elevation = keyof typeof elevationClass

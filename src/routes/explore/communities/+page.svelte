@@ -8,7 +8,7 @@
   import { CommonList } from '$lib/ui/layout'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { Material } from '$lib/ui/kit'
-  import { QuestionMarkCircle } from 'svelte-hero-icons/dist'
+  import { QuestionMarkCircle } from '@xylightdev/svelte-hero-icons'
   import { expoOut } from 'svelte/easing'
   import { fly } from 'svelte/transition'
 

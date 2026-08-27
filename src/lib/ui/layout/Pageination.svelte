@@ -3,7 +3,11 @@
   import { page as pageData } from '$app/state'
   import { t } from '$lib/app/state/i18n'
   import { Button } from '$lib/ui/kit'
-  import { ChevronLeft, ChevronRight, Icon } from 'svelte-hero-icons/dist'
+  import {
+    ChevronLeft,
+    ChevronRight,
+    Icon,
+  } from '@xylightdev/svelte-hero-icons'
   import { backOut } from 'svelte/easing'
   import { SvelteURLSearchParams } from 'svelte/reactivity'
   import { fly } from 'svelte/transition'

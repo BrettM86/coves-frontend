@@ -3,7 +3,7 @@
   import RichText from '$lib/feature/richtext/RichText.svelte'
   import { hasFacets } from '$lib/feature/richtext/facets'
   import { Button } from '$lib/ui/kit'
-  import { ChevronDoubleDown, Icon } from 'svelte-hero-icons/dist'
+  import { ChevronDoubleDown, Icon } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue } from 'svelte/elements'
 
   const MAX_HEIGHT = 192

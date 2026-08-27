@@ -17,7 +17,7 @@
   import VirtualFeed from '$lib/feature/post/feed/VirtualFeed.svelte'
   import { Button } from '$lib/ui/kit'
   import { untrack, type Snippet } from 'svelte'
-  import { ArrowRight, Icon } from 'svelte-hero-icons/dist'
+  import { ArrowRight, Icon } from '@xylightdev/svelte-hero-icons'
   import { Header, Pageination } from '$lib/ui/layout'
 
   interface Props {

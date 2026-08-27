@@ -10,7 +10,11 @@
   import { postTextFallback } from '$lib/feature/post/helpers'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Material, Spinner, toast } from '$lib/ui/kit'
-  import { ChatBubbleOvalLeft, Icon, NoSymbol } from 'svelte-hero-icons/dist'
+  import {
+    ChatBubbleOvalLeft,
+    Icon,
+    NoSymbol,
+  } from '@xylightdev/svelte-hero-icons'
   import { tick } from 'svelte'
   import type { PageData } from './$types'
 

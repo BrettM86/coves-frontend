@@ -22,7 +22,7 @@
     Icon,
     Identification,
     QuestionMarkCircle,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
 
   let debugging = $state(false)
   let debugProfile: ProfileInfo | undefined = $state(undefined)

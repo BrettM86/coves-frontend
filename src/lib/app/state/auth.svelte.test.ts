@@ -16,7 +16,6 @@ vi.mock('$lib/server/session', () => ({
 // Import actual functions AFTER mocks are set up
 import {
   isAuthenticated,
-  isGuest,
   profile,
   type ProfileInfo,
   type GuestProfile,
@@ -66,46 +65,6 @@ describe('isAuthenticated type guard', () => {
   })
 })
 
-describe('isGuest type guard', () => {
-  it('should return true for guest profiles', () => {
-    const profile: GuestProfile = {
-      type: 'guest',
-      id: 'guest',
-      instance: 'https://coves.social',
-    }
-    expect(isGuest(profile)).toBe(true)
-  })
-
-  it('should return false for authenticated profiles', () => {
-    const profile: AuthenticatedProfile = {
-      type: 'authenticated',
-      id: 'test-id',
-      instance: 'https://coves.social' as any,
-      jwt: 'authenticated',
-      did: 'did:plc:abc123' as any,
-      handle: 'test.user' as any,
-    }
-    expect(isGuest(profile)).toBe(false)
-  })
-
-  it('should narrow type to GuestProfile', () => {
-    const profile: ProfileInfo = {
-      type: 'guest',
-      id: 'guest',
-      instance: 'https://coves.social',
-    }
-
-    if (isGuest(profile)) {
-      // TypeScript should narrow to GuestProfile
-      expect(profile.type).toBe('guest')
-      expect(profile.did).toBeUndefined()
-    } else {
-      // This branch should not be reached
-      expect.fail('Expected profile to be guest')
-    }
-  })
-})
-
 describe('ProfileInfo discriminated union', () => {
   it('should correctly narrow type based on type field', () => {
     const guestProfile: ProfileInfo = {
@@ -124,7 +83,7 @@ describe('ProfileInfo discriminated union', () => {
     }
 
     // Type narrowing test using the actual type guards
-    if (isGuest(guestProfile)) {
+    if (!isAuthenticated(guestProfile)) {
       expect(guestProfile.did).toBeUndefined()
     }
 
@@ -204,7 +163,7 @@ describe('Profile.syncFromServer', () => {
 
     expect(profile.meta.profile).toBe('guest')
     expect(profile.meta.profiles).toHaveLength(1)
-    expect(isGuest(profile.meta.profiles[0])).toBe(true)
+    expect(profile.meta.profiles[0].type).toBe('guest')
   })
 
   it('drops a persisted authenticated profile when session data is missing', () => {
@@ -213,7 +172,7 @@ describe('Profile.syncFromServer', () => {
     profile.syncFromServer(undefined)
 
     expect(profile.meta.profile).toBe('guest')
-    expect(isGuest(profile.meta.profiles[0])).toBe(true)
+    expect(profile.meta.profiles[0].type).toBe('guest')
   })
 
   it('leaves an existing guest profile untouched when unauthenticated', () => {

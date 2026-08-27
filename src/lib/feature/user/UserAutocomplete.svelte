@@ -4,8 +4,7 @@
   import type { ListingType, Person } from '$lib/api/types'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { MenuButton, Search } from '$lib/ui/kit'
-  import { createEventDispatcher } from 'svelte'
-  import { Icon, XCircle } from 'svelte-hero-icons/dist'
+  import { Icon, XCircle } from '@xylightdev/svelte-hero-icons'
   import { fly } from 'svelte/transition'
 
   interface Props {
@@ -16,7 +15,7 @@
     /** @deprecated No longer functional - will filter users when Coves API provides DID */
     hideOwnUser?: boolean
     placeholder?: string
-    onselect?: (e?: Person) => void
+    onselect?: (person?: Person) => void
   }
 
   let {
@@ -26,10 +25,9 @@
     showWhenEmpty = false,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     hideOwnUser = false,
+    onselect,
     ...rest
   }: Props = $props()
-
-  const dispatcher = createEventDispatcher<{ select: Person | undefined }>()
 </script>
 
 <Search
@@ -49,12 +47,13 @@
   }}
   extractName={(c) => `${c.name}@${new URL(c.actor_id).hostname}`}
   bind:query={q}
+  {onselect}
   {...rest}
 >
   {#snippet noresults()}
     <div class="w-full h-full">
       {#if showWhenEmpty}
-        <MenuButton onclick={() => dispatcher('select', undefined)}>
+        <MenuButton onclick={() => onselect?.(undefined)}>
           <Icon src={XCircle} size="16" mini />
           <div class="flex flex-col text-left">
             <span>None</span>

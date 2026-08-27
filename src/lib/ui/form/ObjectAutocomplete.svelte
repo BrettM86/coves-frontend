@@ -3,7 +3,7 @@
   import type { CommunityView } from '$lib/api/coves/types'
   import { communitySlug } from '$lib/app/util/links'
   import { MenuButton, Search, toast } from '$lib/ui/kit'
-  import { Icon, XCircle } from 'svelte-hero-icons/dist'
+  import { Icon, XCircle } from '@xylightdev/svelte-hero-icons'
   import { fly } from 'svelte/transition'
   import Avatar from '../generic/Avatar.svelte'
 

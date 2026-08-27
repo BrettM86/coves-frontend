@@ -13,7 +13,10 @@
   import Skeleton from '$lib/ui/generic/Skeleton.svelte'
   import { Header, Pageination } from '$lib/ui/layout'
   import { Button } from '$lib/ui/kit'
-  import { ArchiveBox, ArrowTopRightOnSquare } from 'svelte-hero-icons/dist'
+  import {
+    ArchiveBox,
+    ArrowTopRightOnSquare,
+  } from '@xylightdev/svelte-hero-icons'
 
   let { data = $bindable() } = $props()
 

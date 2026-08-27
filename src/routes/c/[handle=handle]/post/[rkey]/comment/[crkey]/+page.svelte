@@ -8,7 +8,7 @@
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
   import { commentLink, Post, postLink } from '$lib/feature/post'
   import { Button, Material, Spinner, toast } from '$lib/ui/kit'
-  import { ArrowUturnUp, QueueList } from 'svelte-hero-icons/dist'
+  import { ArrowUturnUp, QueueList } from '@xylightdev/svelte-hero-icons'
   import type { PageData } from './$types'
 
   interface Props {

@@ -17,7 +17,7 @@
 
 <script lang="ts">
   import { onDestroy, type Snippet } from 'svelte'
-  import { ExclamationTriangle, Icon } from 'svelte-hero-icons/dist'
+  import { ExclamationTriangle, Icon } from '@xylightdev/svelte-hero-icons'
   import { expoOut } from 'svelte/easing'
   import { fly, slide } from 'svelte/transition'
 

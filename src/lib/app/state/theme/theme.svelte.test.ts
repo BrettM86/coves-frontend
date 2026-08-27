@@ -30,6 +30,36 @@ async function importThemeWith(stored: string | null) {
   return { theme: module.theme, store }
 }
 
+/**
+ * localStorage doesn't merely return null when it's unavailable — Safari's
+ * private mode and blocked-storage contexts throw on access, and a full quota
+ * throws on write. Both have to degrade to "theme isn't persisted", never to a
+ * throw out of module init or out of the persist effect.
+ */
+async function importThemeWithThrowingStorage(err: Error) {
+  vi.resetModules()
+  vi.doMock('$app/environment', () => ({
+    browser: true,
+    dev: true,
+    building: false,
+  }))
+  vi.doMock('$env/dynamic/public', () => ({ env: {} }))
+
+  vi.stubGlobal('localStorage', {
+    getItem: () => {
+      throw err
+    },
+    setItem: () => {
+      throw err
+    },
+    removeItem: () => {
+      throw err
+    },
+  })
+
+  return import('./theme.svelte')
+}
+
 describe('theme initialization from localStorage', () => {
   it('uses presets when nothing is stored', async () => {
     const { theme } = await importThemeWith(null)
@@ -86,5 +116,40 @@ describe('theme initialization from localStorage', () => {
       '{"scheme":"system","themes":[],"currentTheme":"garbage"}',
     )
     expect(theme.data.currentTheme).toBe(0)
+  })
+})
+
+describe('theme persistence when localStorage is unavailable', () => {
+  it('falls back to defaults when reads throw at module init', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    const { theme } = await importThemeWithThrowingStorage(
+      new DOMException('The operation is insecure.', 'SecurityError'),
+    )
+
+    expect(theme.data.themes.length).toBe(presets.length)
+    expect(theme.data.currentTheme).toBe(0)
+    expect(theme.colorScheme).toBe('system')
+    expect(error).toHaveBeenCalled()
+    expect(String(error.mock.calls[0][0])).toContain('[theme]')
+  })
+
+  it('does not throw out of the persist path when writes throw', async () => {
+    const module = await importThemeWithThrowingStorage(
+      new DOMException('Quota exceeded.', 'QuotaExceededError'),
+    )
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    expect(() => module.persistThemeData(module.theme.data)).not.toThrow()
+    expect(() => module.persistColorScheme('dark')).not.toThrow()
+
+    expect(error).toHaveBeenCalledTimes(2)
+    expect(String(error.mock.calls[0][0])).toContain(
+      'will not survive a reload',
+    )
+    expect(String(error.mock.calls[1][0])).toContain(
+      'Failed to persist colorScheme',
+    )
+    expect(String(error.mock.calls[0][1])).toContain('Quota exceeded.')
   })
 })

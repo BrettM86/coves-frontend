@@ -9,7 +9,7 @@
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { Header } from '$lib/ui/layout'
   import { Button, Option, Select, TextInput, toast } from '$lib/ui/kit'
-  import { GlobeAlt, LockClosed, MapPin } from 'svelte-hero-icons/dist'
+  import { GlobeAlt, LockClosed, MapPin } from '@xylightdev/svelte-hero-icons'
 
   interface Props {
     formtitle?: import('svelte').Snippet

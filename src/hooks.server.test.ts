@@ -708,7 +708,7 @@ describe('hooks.server request id', () => {
   it('carries the request id on the production /util 404 early return', async () => {
     const event = createMockEvent({
       cookies: createMockCookies(),
-      url: 'http://localhost:5173/util/photonify',
+      url: 'http://localhost:5173/util/instance',
     })
 
     const response = await handle({ event, resolve: createMockResolve() })
@@ -1301,7 +1301,7 @@ describe('hooks.server security headers', () => {
 
   it('hardens the production /util 404 that bypasses resolve()', async () => {
     const event = createMockEvent({
-      url: 'https://coves.social/util/photonify',
+      url: 'https://coves.social/util/instance',
     })
     const resolve = createMockResolve()
 

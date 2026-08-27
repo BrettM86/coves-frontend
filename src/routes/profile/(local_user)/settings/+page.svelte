@@ -18,7 +18,7 @@
     TextInput,
     toast,
   } from '$lib/ui/kit'
-  import { Icon, Plus } from 'svelte-hero-icons/dist'
+  import { Icon, Plus } from '@xylightdev/svelte-hero-icons'
   import type { PageData } from './$types'
 
   interface Props {
@@ -29,6 +29,9 @@
 
   let { inline = false, data, children }: Props = $props()
 
+  // Intentional: the form is seeded from the loaded data once and then edited
+  // locally; it must not reset when `data` changes.
+  // svelte-ignore state_referenced_locally
   let formData: Omit<SaveUserSettings, 'auth'> | undefined = $state({
     ...data.my_user?.local_user_view?.local_user,
     ...data.my_user?.local_user_view?.person,

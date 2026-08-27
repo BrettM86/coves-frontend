@@ -151,17 +151,13 @@ describe('isSafeHref', () => {
   })
 
   it('rejects a data: URL disguised with an image extension', () => {
-    // isImage() substring-matches the ".png" in the fragment, which is what
-    // routed this to <img src> before MdImage consulted isSafeHref.
-    expect(isSafeHref('data:text/html;base64,PHN2Zz48L3N2Zz4=#.png')).toBe(
-      false,
-    )
+    // The pathname genuinely ends in ".png", so isImage() classifies it as an
+    // image and routes it to <img src>; the scheme check here is what stops it.
+    expect(isSafeHref('data:text/html;charset=utf-8,x.png')).toBe(false)
   })
 
   it('rejects a data: URL disguised with a video extension', () => {
-    expect(isSafeHref('data:text/html;base64,PHN2Zz48L3N2Zz4=#.mp4')).toBe(
-      false,
-    )
+    expect(isSafeHref('data:text/html;charset=utf-8,x.mp4')).toBe(false)
   })
 
   it('rejects data: URLs', () => {
@@ -502,13 +498,11 @@ interface LexerLike {
   blockTokens(src: string, tokens: unknown[]): unknown
 }
 
-const subSup = subSupscriptExtension(
-  (params: SubSupParams): SubSupToken => ({
-    type: params.type,
-    raw: params.raw,
-    text: params.content,
-  }),
-)
+const subSup = subSupscriptExtension((params: SubSupParams): SubSupToken => ({
+  type: params.type,
+  raw: params.raw,
+  text: params.content,
+}))
 
 const tokenize = (src: string): SubSupToken | undefined => {
   const lexer: LexerLike = { blockTokens: () => [] }

@@ -2,7 +2,7 @@
   import { Menu, MenuButton, Spinner, TextInput } from '$lib/ui/kit'
   import type { TextInputProps } from '$lib/ui/kit/forms/TextInput.svelte'
   import { debounce } from '$lib/ui/kit/util/time'
-  import { Icon, MagnifyingGlass } from 'svelte-hero-icons/dist'
+  import { Icon, MagnifyingGlass } from '@xylightdev/svelte-hero-icons'
 
   interface Props<T> extends Omit<TextInputProps, 'onselect' | 'children'> {
     query?: string
@@ -12,6 +12,8 @@
     select?: (item: T) => void
     input?: import('svelte').Snippet
     noresults?: import('svelte').Snippet
+    /** Shown in place of the results when the search callback rejects. */
+    errorLabel?: string
     required?: boolean
     children?: import('svelte').Snippet<
       [
@@ -37,6 +39,7 @@
    */
   let openMenu = $state(false)
   let searching = $state(false)
+  let searchError: string | undefined = $state(undefined)
 
   let {
     query = $bindable(''),
@@ -51,6 +54,7 @@
     required,
     input,
     noresults,
+    errorLabel = 'Search failed.',
     children,
     onselect,
     oninput,
@@ -60,8 +64,19 @@
   const debounceFunc = debounce(async () => {
     searching = true
     openMenu = true
-    items = await search(query)
-    searching = false
+    searchError = undefined
+    try {
+      items = await search(query)
+    } catch (err) {
+      // `debounce` drops the returned promise, so an uncaught rejection here
+      // is an unhandled rejection *and* leaves `searching` true forever — the
+      // menu would spin for the rest of the page's life.
+      items = []
+      searchError = err instanceof Error ? err.message : String(err)
+      console.error('[Search] query failed:', err)
+    } finally {
+      searching = false
+    }
   })
 </script>
 
@@ -99,6 +114,15 @@
     {#if searching}
       <div class="w-full h-24 grid place-items-center">
         <Spinner width={24} />
+      </div>
+    {:else if searchError}
+      <div
+        class="text-center h-24 grid place-items-center px-4 text-slate-600 dark:text-zinc-400"
+      >
+        <div>
+          <p>{errorLabel}</p>
+          <p class="text-xs opacity-80 mt-0.5 break-words">{searchError}</p>
+        </div>
       </div>
     {:else if items.length == 0}
       <div class="text-center h-24 grid place-items-center">

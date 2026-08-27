@@ -5,7 +5,7 @@
     theme as themeData,
   } from '$lib/app/state/theme/theme.svelte'
   import { action, Button, Material, modal, TextInput } from '$lib/ui/kit'
-  import { CheckCircle, Icon, Trash } from 'svelte-hero-icons/dist'
+  import { CheckCircle, Icon, Trash } from '@xylightdev/svelte-hero-icons'
 
   interface Props {
     theme: Theme

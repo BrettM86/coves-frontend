@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Snippet, getContext, onDestroy, untrack } from 'svelte'
-  import type { IconSource } from 'svelte-hero-icons/dist'
+  import type { IconSource } from '@xylightdev/svelte-hero-icons'
   import type { HTMLOptionAttributes } from 'svelte/elements'
   import {
     SELECT_CONTEXT,

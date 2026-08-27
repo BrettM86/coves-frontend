@@ -1,7 +1,5 @@
-<script lang="ts">
+<script lang="ts" generics="T">
   import TabButton from './TabButton.svelte'
-
-  type T = $$Generic
 
   interface Props {
     options: T[]
@@ -22,11 +20,10 @@
   }: Props = $props()
 
   let selectedIndex = $state(0)
+  // Unique per instance, so each fieldset's radios form their own group even
+  // when several segmented controls are on the same page.
   let id = $props.id()
 
-  /* you see id like this to be a super simple
-
-  */
   $effect(() => {
     const newIndex = options.findIndex((i) => i === selected)
     if (newIndex !== -1) {

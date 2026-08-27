@@ -20,37 +20,3 @@ export async function blockUser(block: boolean, did: DID): Promise<void> {
 export function isBlocked(user: ProfileViewDetailed): string | undefined {
   return user.viewer?.blocking
 }
-
-let _warnedAddSubscription = false
-
-/**
- * @deprecated Legacy Lemmy code - needs Coves API replacement
- * This is a no-op stub to maintain compilation
- */
-export function addSubscription(_community: unknown, _subscribe = true): void {
-  if (!_warnedAddSubscription) {
-    console.warn(
-      'addSubscription() is a stub - TODO(coves-migration): implement Coves subscription management',
-    )
-    _warnedAddSubscription = true
-  }
-}
-
-let _warnedHasFavorite = false
-
-/**
- * @deprecated Legacy Lemmy code - needs Coves API replacement
- * Always returns false as favorites are not yet implemented
- */
-export function hasFavorite(
-  _profile: unknown,
-  _id: number,
-): boolean {
-  if (!_warnedHasFavorite) {
-    console.warn(
-      'hasFavorite() is a stub - TODO(coves-migration): implement Coves favorites',
-    )
-    _warnedHasFavorite = true
-  }
-  return false
-}

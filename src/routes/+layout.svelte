@@ -22,7 +22,7 @@
   import nProgress from 'nprogress'
   import 'nprogress/nprogress.css'
   import { onMount } from 'svelte'
-  import { Forward } from 'svelte-hero-icons/dist'
+  import { Forward } from '@xylightdev/svelte-hero-icons'
   import '../app.css'
 
   interface Props {

@@ -1,8 +1,6 @@
 <script lang="ts" module>
   import type { DID } from '$lib/types/atproto'
-  import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/state/auth.svelte'
-  import { errorMessage } from '$lib/app/util/error'
   import { t } from '$lib/app/state/i18n'
   import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import { settings } from '$lib/app/state/settings.svelte'
@@ -15,46 +13,14 @@
     Menu,
     MenuButton,
     modal,
-    removeToast,
     Spinner,
     toast,
   } from '$lib/ui/kit'
-  import { Cog6Tooth, EllipsisHorizontal, Fire } from 'svelte-hero-icons/dist'
-
-  /**
-   * Block or unblock a community by DID.
-   */
-  export async function block(
-    did: DID,
-    shouldBlock: boolean,
-  ): Promise<boolean> {
-    try {
-      const loading = toast({
-        content: ``,
-        loading: true,
-      })
-
-      if (shouldBlock) {
-        await coves().blockCommunity({ community: did })
-      } else {
-        await coves().unblockCommunity({ community: did })
-      }
-
-      removeToast(loading)
-
-      toast({
-        content: !shouldBlock
-          ? t.get('toast.unblockedCommunity')
-          : t.get('toast.blockedCommunity'),
-        type: 'success',
-      })
-
-      return shouldBlock
-    } catch (err) {
-      toast({ content: errorMessage(err), type: 'error' })
-      return !shouldBlock
-    }
-  }
+  import {
+    Cog6Tooth,
+    EllipsisHorizontal,
+    Fire,
+  } from '@xylightdev/svelte-hero-icons'
 
   /**
    * Purge a community by DID.

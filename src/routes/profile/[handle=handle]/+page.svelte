@@ -15,7 +15,7 @@
     ChatBubbleOvalLeft,
     Icon,
     PencilSquare,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import { type PageData } from './$types'
   import UserActions from './UserActions.svelte'
 

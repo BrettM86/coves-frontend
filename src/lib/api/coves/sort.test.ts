@@ -9,7 +9,6 @@ import {
   normalizeTimeframe,
   resolveFeedSort,
   TIMEFRAME_OPTIONS,
-  toLemmyCommentSort,
 } from './sort'
 
 describe('mapSort', () => {
@@ -347,22 +346,5 @@ describe('TIMEFRAME_OPTIONS', () => {
     for (const option of TIMEFRAME_OPTIONS) {
       expect(option.labelKey).toMatch(/^filter\.sort\.top\.time\./)
     }
-  })
-})
-
-describe('toLemmyCommentSort', () => {
-  it('maps Coves values to capitalized Lemmy values', () => {
-    expect(toLemmyCommentSort('hot')).toBe('Hot')
-    expect(toLemmyCommentSort('top')).toBe('Top')
-    expect(toLemmyCommentSort('new')).toBe('New')
-  })
-
-  it('handles already-capitalized legacy values', () => {
-    expect(toLemmyCommentSort('Hot')).toBe('Hot')
-    expect(toLemmyCommentSort('TopAll')).toBe('Top')
-  })
-
-  it('falls back to "Hot" for unknown values', () => {
-    expect(toLemmyCommentSort('bogus')).toBe('Hot')
   })
 })

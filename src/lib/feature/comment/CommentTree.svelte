@@ -8,7 +8,10 @@
   import { t } from '$lib/app/state/i18n'
   import { commentLink, type PostLinkRef } from '$lib/feature/post'
   import { Button, toast } from '$lib/ui/kit'
-  import { ArrowDownCircle, ArrowRightCircle } from 'svelte-hero-icons/dist'
+  import {
+    ArrowDownCircle,
+    ArrowRightCircle,
+  } from '@xylightdev/svelte-hero-icons'
   import Comment from './Comment.svelte'
   import {
     type CommentNodeI,
@@ -37,9 +40,9 @@
   let { nodes = $bindable(), post, postRef, postAuthorDid }: Props = $props()
 
   async function fetchChildren(parent: CommentNodeI) {
-    if (
-      !(parent.comment.stats.replyCount > 0 && parent.children.length === 0)
-    ) {
+    if (!(
+      parent.comment.stats.replyCount > 0 && parent.children.length === 0
+    )) {
       return
     }
 

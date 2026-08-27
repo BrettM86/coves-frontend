@@ -1,19 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findClosestNumber, moveItem, recursiveEqual } from './array'
-
-describe('findClosestNumber', () => {
-  it('rounds up to nearest value at or above target', () => {
-    expect(findClosestNumber([8, 16, 32, 64, 128], 76)).toBe(128)
-  })
-
-  it('returns exact match when present', () => {
-    expect(findClosestNumber([8, 16, 32, 64, 128], 64)).toBe(64)
-  })
-
-  it('returns smallest value above target', () => {
-    expect(findClosestNumber([128, 256, 512, 1024], 200)).toBe(256)
-  })
-})
+import { moveItem, recursiveEqual } from './array'
 
 describe('moveItem', () => {
   it('moves an item forward and backward without mutating the input', () => {

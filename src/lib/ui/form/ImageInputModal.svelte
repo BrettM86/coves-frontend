@@ -2,7 +2,7 @@
   import { t } from '$lib/app/state/i18n'
   import { Button, Modal, TextInput } from '$lib/ui/kit'
   import ImageAttachForm from './ImageAttachForm.svelte'
-  import Switch from './Switch.svelte'
+  import SegmentedControl from './SegmentedControl.svelte'
 
   let {
     open = $bindable(),
@@ -15,7 +15,7 @@
 
 <Modal bind:open title={$t('form.post.uploadImage')}>
   <div class="flex justify-between gap-1 flex-wrap">
-    <Switch
+    <SegmentedControl
       options={[false, true]}
       optionNames={[$t('common.attach'), $t('content.url')]}
       bind:selected={customUrl}

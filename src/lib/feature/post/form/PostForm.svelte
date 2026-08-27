@@ -25,7 +25,7 @@
     ChatBubbleBottomCenterText,
     Photo,
     QrCode,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import { PostFormState, type PostSubmitResult } from './post-form.svelte'
 
   interface Props {

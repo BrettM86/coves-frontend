@@ -142,29 +142,6 @@ export function normalizeCommentSort(sort: unknown): CovesSortType {
   return normalizeSort(sort)
 }
 
-/** Comment sort values accepted by the legacy Lemmy API. */
-export type LemmyCommentSortType =
-  | 'Hot'
-  | 'Top'
-  | 'New'
-  | 'Old'
-  | 'Controversial'
-
-/**
- * Maps a Coves comment sort value back to the capitalized sort expected by
- * the legacy Lemmy client. Unknown values fall back to `'Hot'`.
- */
-export function toLemmyCommentSort(sort: string): LemmyCommentSortType {
-  switch (normalizeCommentSort(sort)) {
-    case 'top':
-      return 'Top'
-    case 'new':
-      return 'New'
-    default:
-      return 'Hot'
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Community sort validation
 // ---------------------------------------------------------------------------

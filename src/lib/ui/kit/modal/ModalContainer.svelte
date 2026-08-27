@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button, Modal } from '$lib/ui/kit'
-  import { Icon } from 'svelte-hero-icons/dist'
+  import { Icon } from '@xylightdev/svelte-hero-icons'
   import { shownModal } from './modal'
 
   interface Props {

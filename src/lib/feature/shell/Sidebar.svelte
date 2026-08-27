@@ -17,7 +17,7 @@
     Swatch,
     UserCircle,
     UserGroup,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue } from 'svelte/elements'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import SidebarButton from '$lib/ui/sidebar/SidebarButton.svelte'

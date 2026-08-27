@@ -68,46 +68,83 @@ export function rgbToHex(rgbString: string): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`
 }
 
-$effect.root(() => {
-  $effect(() => {
-    if (browser) {
-      const filteredThemes = theme.data.themes.filter((t) => t.id > 0)
-      localStorage.setItem(
-        'theme.data',
-        JSON.stringify({
-          ...theme.data,
-          themes: filteredThemes,
-        }),
-      )
-    }
-  })
-  $effect(() => {
-    if (browser) {
-      const prefersDark = window.matchMedia(
-        '(prefers-color-scheme: dark)',
-      ).matches
-
-      const html = document.querySelector('html')
-
-      if (theme.colorScheme == 'system')
-        html?.classList.toggle('dark', prefersDark)
-      else html?.classList.toggle('dark', theme.colorScheme === 'dark')
-
-      localStorage.setItem('colorScheme', theme.colorScheme)
-    }
-  })
-})
-
 const configuredColorScheme = env.PUBLIC_COLORSCHEME ?? 'system'
+
+/**
+ * localStorage throws, it doesn't just fail: Safari's private mode denies
+ * access outright (SecurityError), blocked-storage contexts do the same, and a
+ * full origin quota rejects writes (QuotaExceededError). These wrappers keep
+ * any of that from taking module init or the reactive graph down with it — a
+ * browser that can't persist the theme still has to render one.
+ */
+function readStorage(key: string): string | null {
+  if (!browser) return null
+  try {
+    return localStorage.getItem(key)
+  } catch (err) {
+    console.error(
+      `[theme] Failed to read ${key} from localStorage:`,
+      err instanceof Error ? err.message : String(err),
+    )
+    return null
+  }
+}
+
+function removeStorage(key: string): void {
+  if (!browser) return
+  try {
+    localStorage.removeItem(key)
+  } catch (err) {
+    console.error(
+      `[theme] Failed to clear ${key} from localStorage:`,
+      err instanceof Error ? err.message : String(err),
+    )
+  }
+}
+
+function isColorScheme(value: unknown): value is ColorScheme {
+  return value === 'system' || value === 'light' || value === 'dark'
+}
+
+/**
+ * Persist helpers are exported so the failure paths stay testable: the
+ * module-level effects below never flush outside a browser runtime.
+ */
+export function persistThemeData(data: ThemeData): void {
+  try {
+    localStorage.setItem(
+      'theme.data',
+      JSON.stringify({
+        ...data,
+        themes: data.themes.filter((t) => t.id > 0),
+      }),
+    )
+  } catch (err) {
+    console.error(
+      '[theme] Failed to persist theme.data — theme customizations will not survive a reload:',
+      err instanceof Error ? err.message : String(err),
+    )
+  }
+}
+
+export function persistColorScheme(scheme: ColorScheme): void {
+  try {
+    localStorage.setItem('colorScheme', scheme)
+  } catch (err) {
+    console.error(
+      '[theme] Failed to persist colorScheme:',
+      err instanceof Error ? err.message : String(err),
+    )
+  }
+}
 
 class ThemeState {
   constructor() {
-    const localColorScheme: ColorScheme = browser
-      ? (localStorage.getItem('colorScheme') as ColorScheme) ||
-        configuredColorScheme
-      : (configuredColorScheme as ColorScheme)
+    const stored = readStorage('colorScheme')
 
-    this.#colorScheme = localColorScheme
+    this.#colorScheme = isColorScheme(stored)
+      ? stored
+      : (configuredColorScheme as ColorScheme)
   }
 
   #data = $state<ThemeData>(
@@ -154,6 +191,31 @@ class ThemeState {
 
 export const theme = new ThemeState()
 
+$effect.root(() => {
+  $effect(() => {
+    if (browser) {
+      persistThemeData(theme.data)
+    }
+  })
+  $effect(() => {
+    if (browser) {
+      const prefersDark = window.matchMedia(
+        '(prefers-color-scheme: dark)',
+      ).matches
+
+      const html = document.querySelector('html')
+
+      // The class toggle stays ahead of the write: when persistence fails,
+      // the page must still be in the right color scheme for this session.
+      if (theme.colorScheme == 'system')
+        html?.classList.toggle('dark', prefersDark)
+      else html?.classList.toggle('dark', theme.colorScheme === 'dark')
+
+      persistColorScheme(theme.colorScheme)
+    }
+  })
+})
+
 export function calculateVars(theme: Theme) {
   let cssVariables = ''
 
@@ -188,7 +250,7 @@ function isTheme(value: unknown): value is Theme {
 
 function loadTheme(): ThemeData | undefined {
   if (!browser) return
-  const localTheme = localStorage.getItem('theme.data')
+  const localTheme = readStorage('theme.data')
   if (!localTheme) return
 
   // This runs at module init: a corrupted or malformed value must fall back
@@ -205,7 +267,7 @@ function loadTheme(): ThemeData | undefined {
       !Array.isArray((data as ThemeData).themes)
     ) {
       console.warn('[theme] discarding malformed theme.data:', localTheme)
-      localStorage.removeItem('theme.data')
+      removeStorage('theme.data')
       return
     }
     const parsed = data as ThemeData
@@ -223,7 +285,7 @@ function loadTheme(): ThemeData | undefined {
     return parsed
   } catch (err) {
     console.warn('[theme] discarding unparseable theme.data:', localTheme, err)
-    localStorage.removeItem('theme.data')
+    removeStorage('theme.data')
     return
   }
 }

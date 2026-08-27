@@ -7,7 +7,7 @@
     DeviceTablet,
     Icon,
     type IconSource,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
 
   interface Props {
     title: string

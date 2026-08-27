@@ -7,7 +7,7 @@
   import ItemList from '$lib/ui/generic/ItemList.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Button } from '$lib/ui/kit'
-  import { Check, Trash } from 'svelte-hero-icons/dist'
+  import { Check, Trash } from '@xylightdev/svelte-hero-icons'
 
   let { data } = $props()
 

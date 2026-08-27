@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type IconSource, Icon } from 'svelte-hero-icons/dist'
+  import { type IconSource, Icon } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue } from 'svelte/elements'
 
   interface Props {

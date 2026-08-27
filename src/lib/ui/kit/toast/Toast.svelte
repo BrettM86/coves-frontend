@@ -9,7 +9,7 @@
     Icon,
     InformationCircle,
     XMark,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import { expoOut } from 'svelte/easing'
   import { fly, scale } from 'svelte/transition'
   import { type Toast, toastColors, toasts } from './toasts'

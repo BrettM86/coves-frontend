@@ -1,10 +1,3 @@
-// Finds the smallest number in `numbers` that is >= target.
-// Falls back to the closest number below target if none are >=.
-export const findClosestNumber = (numbers: number[], target: number): number =>
-  numbers.reduce((prev, curr) =>
-    curr >= target && (prev < target || curr < prev) ? curr : prev,
-  )
-
 export function moveItem<T>(
   array: T[],
   currentIndex: number,

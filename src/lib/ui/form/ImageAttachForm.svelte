@@ -4,7 +4,7 @@
   import { t } from '$lib/app/state/i18n'
   import { uploadImage } from '$lib/api/upload'
   import { Button, toast } from '$lib/ui/kit'
-  import { DocumentPlus, Icon } from 'svelte-hero-icons/dist'
+  import { DocumentPlus, Icon } from '@xylightdev/svelte-hero-icons'
   import { expoOut } from 'svelte/easing'
   import { slide } from 'svelte/transition'
   import ProgressBar from '../info/ProgressBar.svelte'

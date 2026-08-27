@@ -2,7 +2,7 @@
   import { page } from '$app/state'
   import { Button } from '$lib/ui/kit'
   import type { ButtonProps } from '$lib/ui/kit/button/Button.svelte'
-  import { Icon, type IconSource } from 'svelte-hero-icons'
+  import { Icon, type IconSource } from '@xylightdev/svelte-hero-icons'
 
   interface Props extends ButtonProps {
     href?: string | undefined

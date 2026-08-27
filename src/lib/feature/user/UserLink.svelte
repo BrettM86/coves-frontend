@@ -4,7 +4,11 @@
   import { userLink } from '$lib/app/util/links'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import Logo from '$lib/ui/generic/Logo.svelte'
-  import { Icon, type IconSource, Language } from 'svelte-hero-icons/dist'
+  import {
+    Icon,
+    type IconSource,
+    Language,
+  } from '@xylightdev/svelte-hero-icons'
   import { userLabel } from './helpers'
 
   function parseBadge(): Record<string, string[]> {

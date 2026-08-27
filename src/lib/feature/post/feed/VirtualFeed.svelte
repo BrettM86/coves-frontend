@@ -16,8 +16,7 @@
     ChevronDoubleUp,
     ExclamationTriangle,
     Icon,
-  } from 'svelte-hero-icons/dist'
-  import InfiniteScroll from 'svelte-infinite-scroll'
+  } from '@xylightdev/svelte-hero-icons'
   import { expoOut } from 'svelte/easing'
   import { fly } from 'svelte/transition'
   import { Post } from '..'
@@ -110,10 +109,9 @@
 
   const SCROLL_THRESHOLD = 300
 
-  // svelte-infinite-scroll only re-dispatches loadMore after the user scrolls
-  // back OUT of the threshold zone, so a fast jump to the bottom (End key,
-  // scrollbar drag, programmatic scroll) permanently stalls the feed. Observe
-  // the loading sentinel directly so entering view always loads the next page.
+  // Load-more trigger: observe the loading sentinel so that entering view
+  // (scroll, End key, scrollbar drag, programmatic scroll) always loads the
+  // next page, independent of how the viewport got there.
   let sentinel = $state<HTMLDivElement>()
   $effect(() => {
     if (!sentinel) return
@@ -127,8 +125,39 @@
     return () => io.disconnect()
   })
 
+  // A plain `let` for the same reason as `seenUris`: only loadMore() reads or
+  // writes it, so it carries no reactivity.
+  //
+  // IntersectionObserver fires on intersection *changes* only, so a trigger
+  // dropped because a request was already in flight is never re-delivered —
+  // the sentinel was and stays intersecting. That is the feed-switch stall:
+  // the user navigates while page N of the old feed is in flight, the new
+  // sentinel's initial callback lands on a busy loadMore() and is lost, and
+  // the old request settles onto a feed it no longer owns. Recording the
+  // dropped trigger lets the settling request re-arm on its way out.
+  let pendingTrigger = false
+
+  /**
+   * Whether the sentinel is within SCROLL_THRESHOLD of the viewport — the same
+   * question the IntersectionObserver above answers, asked on demand.
+   *
+   * Deliberately sentinel-relative rather than document-relative: the sentinel
+   * is not the end of the page (the `children` snippet renders after it), so a
+   * "scrolled to the bottom of the document" test reports false while the
+   * spinner sits in plain view.
+   */
+  function sentinelInView(): boolean {
+    if (!browser || !sentinel) return false
+    const rect = sentinel.getBoundingClientRect()
+    return rect.top - SCROLL_THRESHOLD <= window.innerHeight && rect.bottom >= 0
+  }
+
   async function loadMore(): Promise<void> {
-    if (!hasMore || loading || !loadFeed) return
+    if (loading) {
+      pendingTrigger = true
+      return
+    }
+    if (!hasMore || !loadFeed) return
 
     // Captured before the await: a navigation can swap the feed while a page
     // is in flight, and every write below targets live bindables. A settlement
@@ -147,20 +176,35 @@
 
       error = undefined
 
-      hasMore = response.feed.length !== 0 && !!response.cursor
+      const requestedCursor = params.cursor
 
       if (response.cursor) {
         params = { ...params, cursor: response.cursor }
       }
 
-      posts.push(
-        ...response.feed.filter((feedPost) => {
-          const uri = feedPost.post.uri as string
-          if (seenUris.has(uri)) return false
-          seenUris.add(uri)
-          return true
-        }),
-      )
+      const added = response.feed.filter((feedPost) => {
+        const uri = feedPost.post.uri as string
+        if (seenUris.has(uri)) return false
+        seenUris.add(uri)
+        return true
+      })
+
+      posts.push(...added)
+
+      // `hasMore` is deliberately computed from the post-dedupe count, not
+      // from response.feed.length. A backend whose cursor fails to advance
+      // returns the same page forever: every item is a duplicate, `posts`
+      // never grows, and the re-arm below would refetch it without end. Zero
+      // new posts is the only observable symptom of that, so treat it as the
+      // end of the feed and say why.
+      if (response.feed.length !== 0 && added.length === 0) {
+        console.warn('[feed] page returned no new posts; stopping pagination', {
+          cursor: requestedCursor,
+          returned: response.feed.length,
+        })
+      }
+
+      hasMore = added.length !== 0 && !!response.cursor
     } catch (e) {
       if (posts !== feed) {
         // Not `error = e`: that would raise an error banner on the new feed
@@ -177,20 +221,32 @@
       // Released unconditionally: `loading` belongs to the request, not the
       // feed, and leaving it latched would block the new feed's first page.
       loading = false
-    }
 
-    // svelte-infinite-scroll latches after dispatching loadMore and only
-    // re-arms once the user scrolls back out of the threshold zone. If the
-    // viewport is still at the bottom when this page finishes loading, no
-    // further scroll event will ever fire — chain the next page ourselves.
-    if (!error && hasMore && browser) {
-      await tick()
-      const doc = document.documentElement
-      if (
-        doc.scrollHeight - doc.clientHeight - doc.scrollTop <=
-        SCROLL_THRESHOLD
-      ) {
-        loadMore()
+      // Re-arm on EVERY settle, including the two discard paths above that
+      // return early for a feed the user has left, and the error path. Those
+      // are precisely the cases where a trigger went missing: nothing else
+      // will call loadMore() again, because the observer has already reported
+      // the only intersection change it is ever going to see.
+      //
+      // Two reasons to continue: a trigger arrived while this request held
+      // `loading` (pendingTrigger), or the sentinel is still in view now that
+      // this page has rendered — a short first page under a tall viewport
+      // never leaves the spinner, so it never re-intersects.
+      //
+      // Everything consulted after the await is CURRENT state, never the
+      // captured `feed`: on a discard path the reset $effect has already run
+      // (tick() flushes it) and `hasMore`/`error`/`sentinel` describe the feed
+      // now on screen, which is the feed that needs the next page.
+      const missedTrigger = pendingTrigger
+      pendingTrigger = false
+
+      if (browser) {
+        await tick()
+        if (!error && hasMore && (missedTrigger || sentinelInView())) {
+          // Queued rather than awaited so a run of short pages unwinds this
+          // frame instead of nesting one loadMore() inside the last.
+          queueMicrotask(() => loadMore())
+        }
       }
     }
   }
@@ -360,11 +416,6 @@
         </EndPlaceholder>
       </div>
     {/if}
-    <InfiniteScroll
-      window
-      threshold={SCROLL_THRESHOLD}
-      on:loadMore={loadMore}
-    />
   {/if}
   {@render children?.()}
 </ul>

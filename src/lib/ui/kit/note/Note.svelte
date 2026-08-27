@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Material } from '$lib/ui/kit'
-  import { Icon, InformationCircle } from 'svelte-hero-icons/dist'
+  import { Icon, InformationCircle } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue } from 'svelte/elements'
 
   interface Props {

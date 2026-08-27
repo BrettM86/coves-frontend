@@ -3,7 +3,11 @@
   import { buttonSize } from '$lib/ui/kit/button/Button.svelte'
   import { type Snippet, setContext, tick } from 'svelte'
   import type { Placement } from 'svelte-floating-ui/dom'
-  import { CheckCircle, ChevronUpDown, Icon } from 'svelte-hero-icons/dist'
+  import {
+    CheckCircle,
+    ChevronUpDown,
+    Icon,
+  } from '@xylightdev/svelte-hero-icons'
   import type { Attachment } from 'svelte/attachments'
   import type { ClassValue, HTMLSelectAttributes } from 'svelte/elements'
   import {

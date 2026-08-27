@@ -15,8 +15,6 @@ import {
 
 export type View = 'cozy' | 'compact'
 
-export const SSR_ENABLED = env.PUBLIC_SSR_ENABLED?.toLowerCase() == 'true'
-
 // Returns a proper boolean or null.  Used to set boolean values from env var strings while allowing nullish coalescing to set default values.
 const toBool = (str: string | undefined) => {
   if (!str) {
@@ -314,6 +312,4 @@ $effect.root(() => {
       if (browser) locale.set(navigator?.language)
     }
   })
-
-  return () => {}
 })

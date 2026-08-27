@@ -17,15 +17,47 @@ export function canParseUrl(url: string): boolean {
   }
 }
 
-export const isImage = (url: string | undefined): boolean => {
+const IMAGE_EXTENSIONS = /\.(?:jpeg|jpg|gif|png|svg|bmp|webp|avif)$/i
+const VIDEO_EXTENSIONS = /\.(?:mp4|mov|webm|mkv|avi)$/i
+
+/**
+ * Whether the URL's pathname ends in one of `extensions`.
+ *
+ * This is a CLASSIFIER, not a gate. It answers "which media element should
+ * render this?" and nothing else — it makes no claim that the URL is safe,
+ * fetchable, or even a URL. Callers MUST gate with `isSafeHref` (markdown
+ * hrefs) or `isWebUrl` / `parseWebUrl` (post embed URIs and media sources)
+ * *before* consulting it; every current caller does.
+ *
+ * The reason is the placeholder base: relative paths must classify (markdown
+ * images may be site-relative), so anything that is not an absolute URL is
+ * resolved against `https://base.invalid` and therefore almost always parses.
+ * `isImage('not a url.png')` is true. So is `isImage('mailto:x.png')`. Worse,
+ * an opaque-scheme URL puts its entire body in `pathname`, so
+ * `data:text/html,x.png`, `javascript:alert(1)//x.png` and
+ * `blob:https://x.test/abc.png` all classify as images — the scheme check is
+ * the only thing standing between those and an `<img src>`.
+ *
+ * Only the pathname is consulted, so a query string or fragment containing
+ * ".png" does not make a URL an image.
+ */
+function pathnameHasExtension(
+  url: string | undefined,
+  extensions: RegExp,
+): boolean {
   if (!url) return false
-  return /\.(jpeg|jpg|gif|png|svg|bmp|webp|avif)/i.test(url)
+  try {
+    return extensions.test(new URL(url, 'https://base.invalid').pathname)
+  } catch {
+    return false
+  }
 }
 
-export const isVideo = (url: string | undefined): boolean => {
-  if (!url) return false
-  return /\.(mp4|mov|webm|mkv|avi)/i.test(url)
-}
+export const isImage = (url: string | undefined): boolean =>
+  pathnameHasExtension(url, IMAGE_EXTENSIONS)
+
+export const isVideo = (url: string | undefined): boolean =>
+  pathnameHasExtension(url, VIDEO_EXTENSIONS)
 
 /*
  * URL scheme policy for untrusted link targets.

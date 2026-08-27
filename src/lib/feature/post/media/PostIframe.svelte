@@ -7,13 +7,14 @@
     Play,
     PuzzlePiece,
     VideoCamera,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import { type IframeType } from '../helpers'
   import { withPreset } from '$lib/api/coves/image-proxy'
   import {
     YOUTUBE_EMBED_HOSTS,
     type YouTubeFrontend,
   } from '$lib/app/util/embed-hosts'
+  import { parseWebUrl } from '$lib/app/util/url'
 
   // Fixed allowlist shared with the server's CSP `frame-src`; a host outside
   // it would be blocked by the browser anyway.
@@ -33,13 +34,21 @@
 </script>
 
 <script lang="ts">
-  const urlToEmbed = (inputUrl: string) => {
+  // Total by construction: `url` is untrusted (a markdown href, or an embed URI
+  // written straight to a PDS), and this runs in a $derived the template reads
+  // during SSR — a throw here is a 500 on the whole page, not a broken embed.
+  // `isYoutubeLink`'s regex makes the scheme optional, so `youtu.be/xxxxxxxxxxx`
+  // arrives here as a *relative* string that bare `new URL()` cannot parse.
+  // `parseWebUrl` returns null for that (and for any non-http(s) scheme) instead
+  // of throwing; '' means "no embed", and the template then emits no iframe.
+  const urlToEmbed = (inputUrl: string): string => {
     if (type == 'video') {
       return inputUrl
     }
 
     if (type == 'youtube') {
-      const url = new URL(inputUrl)
+      const url = parseWebUrl(inputUrl)
+      if (!url) return ''
 
       const videoID = youtubeVideoID(inputUrl)
 
@@ -122,15 +131,37 @@
 -->
 <div class={['iframe-container', clazz]}>
   {#if opened}
+    <!--
+      The `embedUrl` guard below is load-bearing: an empty one means urlToEmbed
+      rejected the URL (unparseable, non-web scheme, or no video ID), and we
+      emit nothing rather than an `<iframe src="">`. An empty src loads
+      about:blank, which inherits this page's origin — precisely the frame in
+      which `allow-scripts allow-same-origin` stops being a sandbox at all.
+    -->
     {#if type == 'video'}
       <video {autoplay} controls>
         <source src={url} />
       </video>
-    {:else}
+    {:else if embedUrl}
+      <!--
+        allow-scripts + allow-same-origin together are normally an escape hatch
+        (a framed document can reach into its own sandbox and remove it), but
+        they are safe here because `src` is never user-controlled: the origin
+        always comes from the fixed YOUTUBE_EMBED_HOSTS table, and the only
+        user-derived part is the 11-character video ID matched by
+        youtubeVideoID(). Since that origin is always cross-origin to us,
+        allow-same-origin only grants the player its own storage and cookies,
+        which it needs to play. allow-popups-to-escape-sandbox keeps the
+        player's "watch on YouTube" popup from opening as a sandboxed window
+        (which would leave the user on a page that cannot log in), while
+        withholding allow-top-navigation means the embed can never redirect the
+        Coves tab itself.
+      -->
       <iframe
         src={embedUrl}
         title="Embed player"
         frameborder="0"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowfullscreen
       ></iframe>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
-  import { canParseUrl, isImage, isVideo } from '$lib/app/util/url'
+  import { canParseUrl, isImage, isVideo, isWebUrl } from '$lib/app/util/url'
   import {
     iframeType,
     isYoutubeLink,
@@ -10,7 +10,7 @@
   import { parseProxyUrl, withPreset } from '$lib/api/coves/image-proxy'
   import { showImage } from '$lib/ui/generic/ExpandableImage.svelte'
   import { getContext } from 'svelte'
-  import { ArrowDownTray, Icon } from 'svelte-hero-icons/dist'
+  import { ArrowDownTray, Icon } from '@xylightdev/svelte-hero-icons'
   import { isSafeHref } from './plugins'
 
   let loaded: boolean = $state(
@@ -29,7 +29,15 @@
   function urlMediaType(url: string): MediaType {
     if (isImage(url)) return 'image'
     if (isVideo(url)) return 'iframe'
-    if (isYoutubeLink(url)) return 'iframe'
+    // isYoutubeLink's regex makes the scheme optional, so it matches the bare
+    // relative string `youtu.be/xxxxxxxxxxx` too. Only an absolute web URL can
+    // become a real embed, so gate here rather than handing a string that is
+    // not a URL to PostIframe: it would classify as 'youtube' and then have to
+    // parse the unparseable. (PostIframe is total on its own — see urlToEmbed —
+    // but this component owns the untrusted input, so the decision belongs
+    // here, and a scheme-less href falls through to the plain <img> below
+    // exactly as any other non-media relative path does.)
+    if (isWebUrl(url) && isYoutubeLink(url)) return 'iframe'
     if (canParseUrl(url)) return 'embed'
     return 'none'
   }

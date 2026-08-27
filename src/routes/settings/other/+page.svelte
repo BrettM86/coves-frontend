@@ -2,7 +2,7 @@
   import { t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
   import { CommonList } from '$lib/ui/layout'
-  import { Bars3, BugAnt } from 'svelte-hero-icons/dist'
+  import { Bars3, BugAnt } from '@xylightdev/svelte-hero-icons'
   import ToggleSetting from '../ToggleSetting.svelte'
 </script>
 

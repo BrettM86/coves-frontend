@@ -8,7 +8,7 @@
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { CommonList, Header } from '$lib/ui/layout'
   import { action, Button, modal, toast } from '$lib/ui/kit'
-  import { Icon, Plus, Trash } from 'svelte-hero-icons/dist'
+  import { Icon, Plus, Trash } from '@xylightdev/svelte-hero-icons'
   import type { PageData } from '../$types'
 
   interface Props {
@@ -137,7 +137,7 @@
   <div class="w-full">
     <UserAutocomplete
       listing_type="All"
-      onselect={(p) => p && (formData.newModerator = p.id)}
+      onselect={(p) => (formData.newModerator = p?.id ?? -1)}
     />
   </div>
   <Button

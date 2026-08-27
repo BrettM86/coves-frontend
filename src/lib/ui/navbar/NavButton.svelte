@@ -3,7 +3,7 @@
   import { Button } from '$lib/ui/kit'
   import type { ButtonProps } from '$lib/ui/kit/button/Button.svelte'
   import type { Snippet } from 'svelte'
-  import { Icon, type IconSource } from 'svelte-hero-icons/dist'
+  import { Icon, type IconSource } from '@xylightdev/svelte-hero-icons'
   import type { ClassValue } from 'svelte/elements'
 
   interface Props extends ButtonProps {

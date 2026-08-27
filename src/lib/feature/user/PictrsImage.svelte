@@ -7,7 +7,7 @@
   import { publishedToDate } from '$lib/ui/util/date'
   import { action, Button, modal, toast } from '$lib/ui/kit'
   import RelativeDate from '$lib/ui/util/RelativeDate.svelte'
-  import { ArrowDownTray, Trash } from 'svelte-hero-icons/dist'
+  import { ArrowDownTray, Trash } from '@xylightdev/svelte-hero-icons'
   import UserLink from './UserLink.svelte'
 
   /**

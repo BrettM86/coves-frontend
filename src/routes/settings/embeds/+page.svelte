@@ -3,7 +3,7 @@
   import { settings } from '$lib/app/state/settings.svelte'
   import { CommonList } from '$lib/ui/layout'
   import { Option, Select } from '$lib/ui/kit'
-  import { CursorArrowRays, VideoCamera } from 'svelte-hero-icons/dist'
+  import { CursorArrowRays, VideoCamera } from '@xylightdev/svelte-hero-icons'
   import Setting from '../Setting.svelte'
   import ToggleSetting from '../ToggleSetting.svelte'
 </script>

@@ -12,7 +12,7 @@
     Language,
     Star,
     UserGroup,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
 
   let { data, children } = $props()
 

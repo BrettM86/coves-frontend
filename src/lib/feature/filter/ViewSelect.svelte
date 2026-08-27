@@ -8,7 +8,7 @@
     Icon,
     RectangleGroup,
     ViewColumns,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
 
   interface Props extends SelectProps<string> {
     showLabel?: boolean

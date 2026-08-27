@@ -15,7 +15,13 @@
   import { publishedToDate } from '$lib/ui/util/date'
   import { Button, Modal, toast } from '$lib/ui/kit'
   import RelativeDate from '$lib/ui/util/RelativeDate.svelte'
-  import { Icon, Microphone, Minus, Plus, Trash } from 'svelte-hero-icons/dist'
+  import {
+    Icon,
+    Microphone,
+    Minus,
+    Plus,
+    Trash,
+  } from '@xylightdev/svelte-hero-icons'
   import { expoOut } from 'svelte/easing'
   import type { ClassValue } from 'svelte/elements'
   import { slide } from 'svelte/transition'

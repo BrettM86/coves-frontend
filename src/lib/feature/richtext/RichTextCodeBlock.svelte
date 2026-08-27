@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
   import { Button, Material, toast } from '$lib/ui/kit'
-  import { ClipboardDocument, Icon } from 'svelte-hero-icons/dist'
+  import { ClipboardDocument, Icon } from '@xylightdev/svelte-hero-icons'
 
   interface Props {
     code: string

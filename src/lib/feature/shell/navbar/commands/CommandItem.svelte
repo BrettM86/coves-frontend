@@ -7,7 +7,7 @@
     ArrowUturnDown,
     Icon,
     QuestionMarkCircle,
-  } from 'svelte-hero-icons/dist'
+  } from '@xylightdev/svelte-hero-icons'
   import type { HTMLButtonAttributes } from 'svelte/elements'
   import type { Action } from './actions.svelte'
 

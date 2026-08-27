@@ -145,13 +145,6 @@ export function isAuthenticated(
 }
 
 /**
- * Type guard to check if a profile is a guest.
- */
-export function isGuest(profile: ProfileInfo): profile is GuestProfile {
-  return profile.type === 'guest'
-}
-
-/**
  * What gets stored in localStorage.
  * Note: JWT tokens are no longer stored here for security.
  * They are managed server-side in encrypted session cookies.

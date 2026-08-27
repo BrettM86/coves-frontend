@@ -485,11 +485,6 @@
             },
             "youtube": {
                 "description": "De website om YouTube-inhoud in te embedden."
-            },
-            "instance": {
-                "invidious": "Invidious instantie",
-                "piped": "Piped instantie",
-                "description": "De instantie om YouTube-inhoud in te embedden."
             }
         }
     },
@@ -560,7 +555,6 @@
         "accounts": "Accounts",
         "changeinstance": "Wijzig instantie",
         "resetColor": "Reset kleur",
-        "addGuest": "Voeg gast toe",
         "moveUp": "Omhoog verplaatsen",
         "moveDown": "Omlaag verplaatsen",
         "guest": "Gast",

@@ -112,7 +112,7 @@ describe('mergeDeep', () => {
     // The settings loader clones the defaults before merging. It must use
     // structuredClone: a JSON round trip drops undefined-valued keys, which
     // this allow-list merge would then treat as unknown and discard, silently
-    // wiping stored values like a custom Invidious host.
+    // wiping stored values like `modlogCardView`.
     const defaults = { embeds: { invidious: undefined, youtube: 'youtube' } }
     const stored = { embeds: { invidious: 'https://yewtu.be' } }
 

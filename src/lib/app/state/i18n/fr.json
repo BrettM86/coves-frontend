@@ -54,7 +54,6 @@
         "signup": "S'inscrire",
         "accounts": "Comptes",
         "changeinstance": "Changer d'instance",
-        "addGuest": "Ajouter un Invité",
         "moveUp": "Monter",
         "moveDown": "Descendre",
         "guest": "invité",
@@ -596,11 +595,6 @@
             },
             "youtube": {
                 "description": "Le site web pour charger les liens incorporés de YouTube."
-            },
-            "instance": {
-                "description": "L'instance pour charger les liens incorporés de YouTube.",
-                "piped": "instance de Piped",
-                "invidious": "Instance d'Invidious"
             }
         },
         "moderation": {

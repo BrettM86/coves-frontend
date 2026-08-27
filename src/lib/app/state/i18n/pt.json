@@ -54,7 +54,6 @@
         "accounts": "Contas",
         "changeinstance": "Trocar de instância",
         "resetColor": "Repor cor",
-        "addGuest": "Adicionar convidado",
         "moveUp": "Mover para cima",
         "guest": "Convidado"
     },
@@ -702,11 +701,6 @@
             }
         },
         "embeds": {
-            "instance": {
-                "description": "Instância a usar para pré-visualizar conteúdo do YouTube.",
-                "invidious": "Instância de Invidious",
-                "piped": "Instância de Piped"
-            },
             "title": "Pré-visualizações",
             "clickToView": {
                 "title": "Clicar para ver",

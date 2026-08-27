@@ -2,6 +2,7 @@ import { browser } from '$app/environment'
 import { env } from '$env/dynamic/public'
 import { locale } from './i18n'
 import { mergeDeep } from '../util/merge'
+import { isYouTubeFrontend, type YouTubeFrontend } from '../util/embed-hosts'
 import {
   normalizeCommentSort,
   normalizeListing,
@@ -82,9 +83,7 @@ interface Settings {
 
   embeds: {
     clickToView: boolean
-    youtube: 'youtube' | 'invidious' | 'piped'
-    invidious: string | undefined
-    piped: string | undefined
+    youtube: YouTubeFrontend
   }
   dock: {
     paletteHotkey: string
@@ -158,8 +157,6 @@ export const defaultSettings: Settings = {
   embeds: {
     clickToView: true,
     youtube: 'youtube',
-    invidious: undefined,
-    piped: undefined,
   },
   dock: {
     paletteHotkey: '/',
@@ -189,7 +186,7 @@ export const defaultSettings: Settings = {
  * Clones the defaults so callers can mutate the result freely.
  *
  * Must be `structuredClone`, never a JSON round-trip: JSON drops keys whose
- * value is `undefined` (`modlogCardView`, `embeds.invidious`, `embeds.piped`),
+ * value is `undefined` (`modlogCardView`),
  * and mergeDeep only keeps keys the target defines — so a JSON clone would
  * make those settings unknown and silently discard the user's stored values.
  */
@@ -239,6 +236,11 @@ export function normalizeSettings(target: Settings): void {
     target.defaultSort.timeframe,
   )
   target.defaultSort.feed = normalizeListing(target.defaultSort.feed)
+  // mergeDeep only checks typeof, so a stale or hand-edited stored value
+  // would otherwise index YOUTUBE_EMBED_HOSTS to undefined.
+  if (!isYouTubeFrontend(target.embeds.youtube)) {
+    target.embeds.youtube = defaultSettings.embeds.youtube
+  }
 }
 
 /**

@@ -10,20 +10,14 @@
   } from 'svelte-hero-icons/dist'
   import { type IframeType } from '../helpers'
   import { withPreset } from '$lib/api/coves/image-proxy'
+  import {
+    YOUTUBE_EMBED_HOSTS,
+    type YouTubeFrontend,
+  } from '$lib/app/util/embed-hosts'
 
-  const youtubeDomain = (place: 'youtube' | 'invidious' | 'piped') => {
-    switch (place) {
-      case 'youtube': {
-        return 'www.youtube-nocookie.com'
-      }
-      case 'invidious': {
-        return settings.embeds.invidious || 'yewtu.be'
-      }
-      case 'piped': {
-        return settings.embeds.piped || 'piped.video'
-      }
-    }
-  }
+  // Fixed allowlist shared with the server's CSP `frame-src`; a host outside
+  // it would be blocked by the browser anyway.
+  const youtubeDomain = (place: YouTubeFrontend) => YOUTUBE_EMBED_HOSTS[place]
 
   function youtubeVideoID(url: string): string | null {
     const regex =

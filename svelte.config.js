@@ -26,18 +26,16 @@ const config = {
       'svelte-hero-icons': 'node_modules/@xylightdev/svelte-hero-icons',
     },
     csp: {
+      // Kit must own `script-src` to append its per-request nonce. The other
+      // three are here only so an `ADAPTER=static` build (no server hooks)
+      // keeps them; `$lib/server/security-headers` re-emits identical values
+      // and owns every remaining directive at runtime.
       directives: {
         'script-src': ['self'],
-        // No <base> tag hijacking of relative URLs
         'base-uri': ['self'],
-        // No Flash/plugin embeds
         'object-src': ['none'],
-        // No clickjacking via framing (also enforced by Caddy's X-Frame-Options)
         'frame-ancestors': ['none'],
       },
-      // NOTE: in production behind Caddy, the Caddyfile's `header` directive
-      // REPLACES this header site-wide — keep the two policies in sync
-      // (see Caddyfile in the backend repo).
     },
   },
 }

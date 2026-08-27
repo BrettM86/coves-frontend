@@ -429,7 +429,6 @@
         "accounts": "Käyttäjätilit",
         "changeinstance": "Vaihda instanssia",
         "resetColor": "Palauta oletusväri",
-        "addGuest": "Lisää vieras",
         "moveUp": "Siirrä ylös",
         "moveDown": "Siirrä alas",
         "guest": "Vieras",
@@ -878,11 +877,6 @@
             },
             "youtube": {
                 "description": "Sivusto, jota käytetään YouTube-sisällön upotukseen."
-            },
-            "instance": {
-                "description": "Instanssi, jonka kautta upottaa YouTube-sisältö.",
-                "invidious": "Invidious-instanssi",
-                "piped": "Piped-instanssi"
             }
         },
         "other": {

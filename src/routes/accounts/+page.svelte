@@ -21,7 +21,6 @@
     EllipsisHorizontal,
     Icon,
     Identification,
-    Plus,
     QuestionMarkCircle,
   } from 'svelte-hero-icons/dist'
 
@@ -144,16 +143,6 @@
       >
         {$t('account.login')}
       </Button>
-      {#if !LINKED_INSTANCE_URL}
-        <Button
-          href="/accounts/login/guest"
-          size="lg"
-          rounding="2xl"
-          icon={Plus}
-        >
-          {$t('account.addGuest')}
-        </Button>
-      {/if}
     </div>
   {/snippet}
 </Header>

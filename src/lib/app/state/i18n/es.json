@@ -57,8 +57,7 @@
         "moveUp": "Mover hacia arriba",
         "moveDown": "Mover hacia abajo",
         "guest": "Invitado",
-        "versionGate": "Esta versión de Kelp soporta instancias ejecutando {{version}} o posterior.",
-        "addGuest": "Agregar invitado"
+        "versionGate": "Esta versión de Kelp soporta instancias ejecutando {{version}} o posterior."
     },
     "filter": {
         "location": {
@@ -727,11 +726,6 @@
             },
             "youtube": {
                 "description": "El sitio web para embeber el contenido de YouTube."
-            },
-            "instance": {
-                "invidious": "Instancia de Invidious",
-                "piped": "Instancia de Piped",
-                "description": "La instancia en la que se embeberá el contenido de YouTube."
             }
         },
         "moderation": {

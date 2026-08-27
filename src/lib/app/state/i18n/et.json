@@ -54,8 +54,7 @@
         "moveUp": "Liigu ülesse",
         "moveDown": "Liigu alla",
         "versionGate": "See versioon Kelpist Toetab servereid millel on {{version}} Või üles.",
-        "guest": "Külaline",
-        "addGuest": "Pane külalise kontot"
+        "guest": "Külaline"
     },
     "filter": {
         "location": {

@@ -135,11 +135,6 @@
             "title": "モデレーション"
         },
         "embeds": {
-            "instance": {
-                "piped": "Pipedインスタンス",
-                "description": "YouTube動画を読み込むサイト。",
-                "invidious": "Invidiousインスタンス"
-            },
             "title": "エンベッド",
             "clickToView": {
                 "title": "クリックしてから見る",
@@ -313,7 +308,6 @@
         "moveUp": "上に動かす",
         "moveDown": "下に動かす",
         "guest": "ゲスト",
-        "addGuest": "ゲストを作成",
         "changeinstance": "インスタンスを変える",
         "versionGate": "このKelpバージョンは{{version}}以上のインスタンスバージョンに対応しています。"
     },

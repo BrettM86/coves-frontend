@@ -56,7 +56,6 @@
         "accounts": "Аккаунты",
         "changeinstance": "Сменить инстанс",
         "resetColor": "Сбросить цвет",
-        "addGuest": "Добавить гостя",
         "moveUp": "Переместить вверх",
         "guest": "Гость",
         "moveDown": "Переместить вниз",
@@ -829,11 +828,6 @@
             "clickToView": {
                 "title": "Кликните для просмотра",
                 "description": "Загружать предпросмотр только при клике."
-            },
-            "instance": {
-                "invidious": "инстанс Invidious",
-                "piped": "инстанс Piped",
-                "description": "Инстанс, с которого смотреть контент с YouTube."
             },
             "youtube": {
                 "description": "Сайт, с которого смотреть контент с YouTube."

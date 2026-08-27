@@ -23,7 +23,6 @@ import {
   Newspaper,
   PaintBrush,
   PencilSquare,
-  Plus,
   Sparkles,
   Star,
   Sun,
@@ -148,22 +147,12 @@ export function getGroups(
                 name: t.get('account.login'),
                 icon: ArrowRightOnRectangle,
               },
-              {
-                href: '/login/guest',
-                name: t.get('account.addGuest'),
-                icon: Plus,
-              },
             ]
           : [
               {
                 href: '/login',
                 name: t.get('account.login'),
                 icon: ArrowRightOnRectangle,
-              },
-              {
-                href: '/login/guest',
-                name: t.get('account.addGuest'),
-                icon: Plus,
               },
               {
                 href: '/accounts',

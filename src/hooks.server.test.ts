@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { RequestEvent } from '@sveltejs/kit'
+import type { RequestEvent, ResolveOptions } from '@sveltejs/kit'
 import {
   createMockCookies,
   createMockEvent,
@@ -38,11 +38,16 @@ vi.mock('$env/dynamic/public', () => ({
   },
 }))
 
+let mockCspVideoOrigins: string | undefined = 'https://pds.coves.me'
+
 // Mock private environment variables (LOG_STACKS gates stack inclusion)
 vi.mock('$env/dynamic/private', () => ({
   env: {
     get LOG_STACKS() {
       return mockLogStacks
+    },
+    get CSP_VIDEO_ORIGINS() {
+      return mockCspVideoOrigins
     },
   },
 }))
@@ -133,7 +138,10 @@ describe('hooks.server handle', () => {
       expect(mockFetch).not.toHaveBeenCalled()
       expect(event.locals.auth.authenticated).toBe(false)
       expect(event.locals.authError).toBeUndefined()
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
   })
 
@@ -148,7 +156,10 @@ describe('hooks.server handle', () => {
       // Empty string is falsy, so it's treated the same as no cookie
       expect(event.locals.auth.authenticated).toBe(false)
       expect(mockFetch).not.toHaveBeenCalled()
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
   })
 
@@ -186,7 +197,10 @@ describe('hooks.server handle', () => {
         )
         expect(event.locals.auth.authToken).toBe('sealed-token-value')
       }
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
   })
 
@@ -203,7 +217,10 @@ describe('hooks.server handle', () => {
       expect(event.locals.auth.authenticated).toBe(false)
       // Should NOT log a warning for 401 (expected case)
       expect(warnSpy).not.toHaveBeenCalled()
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
 
     it('deletes the stale coves_session cookie on 401', async () => {
@@ -264,7 +281,10 @@ describe('hooks.server handle', () => {
       expect(line.requestId).toBe(event.locals.requestId)
       // The upstream status belongs in a queryable field, not only in prose.
       expect(line.status).toBe(500)
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
   })
 
@@ -287,7 +307,10 @@ describe('hooks.server handle', () => {
       expect(line.msg).toContain('Network error calling /api/me')
       expect(line.requestId).toBe(event.locals.requestId)
       expect(errOf(line).name).toBe('Error')
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
 
     it('sets authError to network_error for TypeError (fetch failure)', async () => {
@@ -306,7 +329,10 @@ describe('hooks.server handle', () => {
       expect(line.msg).toContain('Network error calling /api/me')
       expect(line.requestId).toBe(event.locals.requestId)
       expect(errOf(line).name).toBe('TypeError')
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
 
     it('classifies TimeoutError and AbortError as network errors by name', async () => {
@@ -363,7 +389,10 @@ describe('hooks.server handle', () => {
       expect(line.msg).toContain('Unexpected error calling /api/me')
       expect(line.requestId).toBe(event.locals.requestId)
       expect(errOf(line).name).toBe('Error')
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
   })
 
@@ -391,7 +420,10 @@ describe('hooks.server handle', () => {
       expect(line.msg).toContain('/api/me returned invalid JSON')
       expect(line.requestId).toBe(event.locals.requestId)
       expect(errOf(line).name).toBe('SyntaxError')
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
   })
 
@@ -415,7 +447,10 @@ describe('hooks.server handle', () => {
       expect(line.level).toBe('warn')
       expect(line.msg).toContain('/api/me response failed validation')
       expect(line.requestId).toBe(event.locals.requestId)
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
 
     it('sets authError to validation_error when handle is missing', async () => {
@@ -431,7 +466,10 @@ describe('hooks.server handle', () => {
 
       expect(event.locals.auth.authenticated).toBe(false)
       expect(event.locals.authError).toBe('validation_error')
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
   })
 
@@ -487,7 +525,10 @@ describe('hooks.server handle', () => {
       await handle({ event, resolve })
 
       expect(resolve).toHaveBeenCalledTimes(1)
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
 
     it('returns the resolve response', async () => {
@@ -573,7 +614,10 @@ describe('hooks.server handle', () => {
       await handle({ event, resolve })
 
       // Should proceed normally without redirect
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
 
     it('does not redirect when dev=false even if hostname mismatches', async () => {
@@ -590,7 +634,10 @@ describe('hooks.server handle', () => {
       await handle({ event, resolve })
 
       // Should proceed normally without redirect
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
 
     it('does not redirect when PUBLIC_INSTANCE_URL is not set', async () => {
@@ -606,7 +653,10 @@ describe('hooks.server handle', () => {
 
       await handle({ event, resolve })
 
-      expect(resolve).toHaveBeenCalledWith(event)
+      expect(resolve).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({ transformPageChunk: expect.any(Function) }),
+      )
     })
   })
 })
@@ -1114,5 +1164,204 @@ describe('hooks.server /api/me failure logging', () => {
     })
     expect(raw).not.toContain('SECRETTOK')
     expectOnlyStringArgs(warnSpy.mock.calls)
+  })
+})
+
+describe('hooks.server security headers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPublicInternalInstance = 'http://localhost:4000'
+    mockPublicInstanceUrl = 'https://coves.social'
+    mockDev = false
+  })
+
+  function csp(response: Response): Record<string, string> {
+    return Object.fromEntries(
+      (response.headers.get('content-security-policy') ?? '')
+        .split(';')
+        .map((d) => d.trim())
+        .filter(Boolean)
+        .map((d) => {
+          const [name, ...rest] = d.split(/\s+/)
+          return [name, rest.join(' ')]
+        }),
+    )
+  }
+
+  /**
+   * Mimics Kit's page renderer: emits the nonce'd CSP and runs the
+   * `transformPageChunk` option the wrapper passes through resolve().
+   */
+  function kitPageResolve(
+    html = '<html></html>',
+    extraHeaders: Record<string, string> = {},
+  ) {
+    return vi.fn(async (_event: unknown, opts?: ResolveOptions) => {
+      const body =
+        (await opts?.transformPageChunk?.({ html, done: true })) ?? html
+      return new Response(body, {
+        headers: {
+          'content-type': 'text/html',
+          'content-security-policy': "script-src 'self' 'nonce-kit123'",
+          ...extraHeaders,
+        },
+      })
+    })
+  }
+
+  it('hardens every response resolve() produces', async () => {
+    const event = createMockEvent({ url: 'https://coves.social/api/whatever' })
+    const resolve = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('{}', { headers: { 'content-type': 'application/json' } }),
+      )
+
+    const response = await handle({ event, resolve })
+
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(response.headers.get('referrer-policy')).toBe(
+      'strict-origin-when-cross-origin',
+    )
+    expect(response.headers.get('x-frame-options')).toBe('DENY')
+    expect(response.headers.get('permissions-policy')).toContain('camera=()')
+    // Not a document: CSP is left to the resource itself.
+    expect(response.headers.get('content-security-policy')).toBeNull()
+  })
+
+  it("completes Kit's nonce'd CSP on a page Kit rendered", async () => {
+    const event = createMockEvent({ url: 'https://coves.social/' })
+    const resolve = kitPageResolve()
+
+    const response = await handle({ event, resolve })
+    const policy = csp(response)
+
+    expect(policy['script-src']).toBe("'self' 'nonce-kit123'")
+    expect(policy['default-src']).toBe("'self'")
+    expect(policy['img-src']).toBe(
+      "'self' data: blob: https: https://coves.social",
+    )
+    expect(policy['media-src']).toBe(
+      "'self' blob: https://coves.social https://pds.coves.me",
+    )
+    expect(policy['connect-src']).toBe("'self' https://coves.social")
+    expect(policy['frame-ancestors']).toBe("'none'")
+    expect(policy['upgrade-insecure-requests']).toBe('')
+    expect(await response.text()).toBe('<html></html>')
+  })
+
+  it('preserves a transformPageChunk the inner handle asked for', async () => {
+    const event = createMockEvent({ url: 'https://coves.social/' })
+    const resolve = kitPageResolve('<p>x</p>')
+    // The wrapper must chain, not replace, a caller-supplied transform.
+    await handle({ event, resolve })
+    const opts = resolve.mock.calls[0][1]
+    expect(await opts?.transformPageChunk?.({ html: '<b>', done: true })).toBe(
+      '<b>',
+    )
+  })
+
+  it('denies all on HTML an endpoint or the proxy produced, whatever CSP it carries', async () => {
+    const event = createMockEvent({ url: 'https://coves.social/api/proxy/x' })
+    // Upstream HTML relayed with a permissive policy and even a forged
+    // x-sveltekit-page header — transformPageChunk never fires, so it is not
+    // a Kit page.
+    const resolve = vi.fn().mockResolvedValue(
+      new Response('<script>alert(1)</script>', {
+        headers: {
+          'content-type': 'text/html',
+          'content-security-policy': "script-src 'self' 'unsafe-inline'",
+          'x-sveltekit-page': 'true',
+        },
+      }),
+    )
+
+    const response = await handle({ event, resolve })
+    const policy = csp(response)
+
+    expect(policy['default-src']).toBe("'none'")
+    expect(policy['script-src']).toBeUndefined()
+    expect(response.headers.get('content-security-policy')).not.toContain(
+      'unsafe-inline',
+    )
+  })
+
+  it('omits upgrade-insecure-requests and opens HMR sources in plaintext dev', async () => {
+    mockDev = true
+    mockPublicInstanceUrl = 'http://127.0.0.1:8080'
+    const event = createMockEvent({ url: 'http://127.0.0.1:8080/' })
+    const resolve = kitPageResolve()
+
+    const policy = csp(await handle({ event, resolve }))
+
+    expect(policy['upgrade-insecure-requests']).toBeUndefined()
+    expect(policy['style-src-elem']).toContain("'unsafe-inline'")
+    expect(policy['connect-src']).toContain('ws:')
+  })
+
+  it('hardens the production /util 404 that bypasses resolve()', async () => {
+    const event = createMockEvent({
+      url: 'https://coves.social/util/photonify',
+    })
+    const resolve = createMockResolve()
+
+    const response = await handle({ event, resolve })
+
+    expect(response.status).toBe(404)
+    expect(resolve).not.toHaveBeenCalled()
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(response.headers.get('x-request-id')).toBeTruthy()
+  })
+
+  it('still lands headers on a response whose Headers are immutable', async () => {
+    const event = createMockEvent({ url: 'https://coves.social/x' })
+    const resolve = vi
+      .fn()
+      .mockResolvedValue(Response.redirect('https://coves.social/y', 302))
+
+    const response = await handle({ event, resolve })
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toBe('https://coves.social/y')
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+  })
+
+  it('re-wraps an immutable HTML response without losing status, cookies or the nonce', async () => {
+    const event = createMockEvent({ url: 'https://coves.social/' })
+    const resolve = kitPageResolve('<html></html>', {
+      'set-cookie': 'a=1',
+    })
+    // First set() on the real response throws like an immutable guard would.
+    const spy = vi
+      .spyOn(Headers.prototype, 'set')
+      .mockImplementationOnce(() => {
+        throw new TypeError('immutable')
+      })
+
+    const response = await handle({ event, resolve })
+    spy.mockRestore()
+
+    expect(response.headers.get('set-cookie')).toBe('a=1')
+    expect(csp(response)['script-src']).toBe("'self' 'nonce-kit123'")
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+  })
+
+  it('lets a TypeError that is not the immutable guard propagate', async () => {
+    const event = createMockEvent({ url: 'https://coves.social/' })
+    const resolve = kitPageResolve()
+    const spy = vi.spyOn(Headers.prototype, 'set').mockImplementation(() => {
+      throw new TypeError('bad header value')
+    })
+
+    await expect(handle({ event, resolve })).rejects.toThrow(/bad header value/)
+    spy.mockRestore()
+  })
+
+  it('refuses to load at all with a malformed CSP_VIDEO_ORIGINS', async () => {
+    mockCspVideoOrigins = 'javascript:alert(1)'
+    vi.resetModules()
+    await expect(import('./hooks.server')).rejects.toThrow(/javascript/)
+    mockCspVideoOrigins = 'https://pds.coves.me'
+    vi.resetModules()
   })
 })

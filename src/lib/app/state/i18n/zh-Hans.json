@@ -379,7 +379,6 @@
         "accounts": "账号",
         "changeinstance": "更改实例",
         "resetColor": "重置颜色",
-        "addGuest": "新增游客账户",
         "moveUp": "上移",
         "moveDown": "下移",
         "guest": "游客",
@@ -699,11 +698,6 @@
             },
             "youtube": {
                 "description": "要嵌入 YouTube 内容的网站。"
-            },
-            "instance": {
-                "invidious": "Invidious 实例",
-                "piped": "Piped 实例",
-                "description": "嵌入 YouTube 内容的实例。"
             }
         },
         "moderation": {

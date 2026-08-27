@@ -5,6 +5,7 @@ import {
   type RequestEvent,
 } from '@sveltejs/kit'
 import { dev } from '$app/environment'
+import { env as privateEnv } from '$env/dynamic/private'
 import {
   addressHeaderConfigWarning,
   canonicalHost,
@@ -12,6 +13,11 @@ import {
   upstreamInstanceUrl,
 } from '$lib/server/instance'
 import { log, type LogContext } from '$lib/server/log'
+import {
+  applySecurityHeaders,
+  parseOriginList,
+  type SecurityHeaderOptions,
+} from '$lib/server/security-headers'
 import {
   parseApiMeResponse,
   asInstanceURL,
@@ -68,7 +74,7 @@ function isNetworkError(error: unknown): boolean {
   return false
 }
 
-export const handle: Handle = async ({ event, resolve }) => {
+const session: Handle = async ({ event, resolve }) => {
   // Minted before any branch below can return, so log lines from anywhere in
   // this request can be correlated. setHeaders only reaches the response
   // resolve() returns: the manual /util 404 below carries the header itself,
@@ -203,6 +209,73 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   return resolve(event)
+}
+
+// Parsed once, at module load: adapter-node imports this module at process
+// start, so a malformed CSP_VIDEO_ORIGINS refuses to boot instead of turning
+// every request into a 500 after its side effects have already run.
+const videoOrigins: readonly string[] = parseOriginList(
+  privateEnv.CSP_VIDEO_ORIGINS,
+)
+
+function securityHeaderOptions(secure: boolean): SecurityHeaderOptions {
+  return {
+    dev,
+    secure,
+    instanceOrigin: publicInstanceUrl()?.origin ?? null,
+    videoOrigins,
+  }
+}
+
+/**
+ * Every response that reaches `handle` — Kit pages, endpoints, and the manual
+ * early returns in `session` above — leaves with the full security header
+ * set. Not covered: static assets and prerendered pages (served by sirv / Vite
+ * ahead of hooks; the edge supplies their baseline headers), and anything
+ * thrown out of `session` (the dev-only host redirect, or Kit's fatal-error
+ * page for an unexpected throw), which Kit builds outside this function.
+ *
+ * Composed by hand rather than with Kit's `sequence()`: as of Kit 2.70,
+ * `sequence.js` calls `get_request_store()` up front, which throws outside
+ * Kit's AsyncLocalStorage context and so cannot run under Vitest. Fine while
+ * `session` passes no resolve options; revisit if a third handle is added.
+ */
+export const handle: Handle = async ({ event, resolve }) => {
+  // Built before any request work so a configuration problem cannot follow a
+  // side effect (e.g. a proxied POST) with a 500.
+  const options = securityHeaderOptions(event.url.protocol === 'https:')
+
+  // `transformPageChunk` fires only when Kit's page renderer produces the
+  // response. That is the one signal an upstream cannot forge through
+  // /api/proxy, which relays its response headers — including any CSP and
+  // content-type — verbatim. Only a Kit page gets its CSP completed; every
+  // other document gets deny-all.
+  let kitPage = false
+  const response = await session({
+    event,
+    resolve: (ev, opts) =>
+      resolve(ev, {
+        ...opts,
+        transformPageChunk: (input) => {
+          kitPage = true
+          return opts?.transformPageChunk?.(input) ?? input.html
+        },
+      }),
+  })
+
+  try {
+    applySecurityHeaders(response.headers, options, kitPage)
+    return response
+  } catch (error) {
+    // A Response built from `fetch()` or `Response.redirect()` carries an
+    // immutable Headers guard: `Headers.set` throws TypeError before touching
+    // anything. Re-wrap and retry; a TypeError for any other reason recurs on
+    // the copy and propagates from there.
+    if (!(error instanceof TypeError)) throw error
+    const copy = new Response(response.body, response)
+    applySecurityHeaders(copy.headers, options, kitPage)
+    return copy
+  }
 }
 
 export const handleError: HandleServerError = async ({

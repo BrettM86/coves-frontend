@@ -473,7 +473,6 @@
         "accounts": "Konta",
         "changeinstance": "Zmień instancję",
         "resetColor": "Resetuj kolor",
-        "addGuest": "Dodaj gościa",
         "moveUp": "Przesuń w górę",
         "moveDown": "Przesuń w dół",
         "guest": "Gość",
@@ -855,11 +854,6 @@
             },
             "youtube": {
                 "description": "Strona internetowa do osadzania treści z YouTube."
-            },
-            "instance": {
-                "invidious": "Instancja Invidious",
-                "piped": "Instancja Piped",
-                "description": "Instancja do osadzania treści z YouTube."
             }
         },
         "moderation": {

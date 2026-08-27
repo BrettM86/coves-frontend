@@ -59,7 +59,6 @@
         "moveUp": "Nach oben",
         "moveDown": "Nach unten",
         "guest": "Gast",
-        "addGuest": "Gast hinzufügen",
         "versionGate": "Diese Version von Kelp unterstützt Instanzen mit {{version}} oder höher."
     },
     "filter": {

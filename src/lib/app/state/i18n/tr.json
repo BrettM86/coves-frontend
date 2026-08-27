@@ -55,7 +55,6 @@
         "accounts": "Hesaplar",
         "changeinstance": "Sunucuyu Değiştir",
         "resetColor": "Rengi Sıfırla",
-        "addGuest": "Misafir Ekle",
         "moveUp": "Yukarı Taşı",
         "moveDown": "Aşağı Taşı",
         "guest": "Misafir",
@@ -784,11 +783,6 @@
             },
             "youtube": {
                 "description": "YouTube içeriğinin yerleştirileceği web sitesi."
-            },
-            "instance": {
-                "invidious": "Invidious sunucusu",
-                "piped": "Piped sunucusu",
-                "description": "YouTube içeriğinin yerleştirileceği sunucu."
             }
         },
         "moderation": {

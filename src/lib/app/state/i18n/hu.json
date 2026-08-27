@@ -48,7 +48,6 @@
         "signup": "Regisztráció",
         "accounts": "Fiókok",
         "changeinstance": "Szerver váltás",
-        "addGuest": "Vendég hozzáadása",
         "guest": "Vendég",
         "logout": "Kijelentkezés"
     },

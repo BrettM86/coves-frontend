@@ -14,7 +14,6 @@
   } from '$lib/ui/info/ErrorContainer.svelte'
   import { Header } from '$lib/ui/layout'
   import { Button, Note, Spinner, TextInput } from '$lib/ui/kit'
-  import { Icon, UserCircle } from 'svelte-hero-icons/dist'
 
   /**
    * Maps OAuth error codes from URL params to user-friendly i18n keys.
@@ -182,16 +181,5 @@
         {$t('account.login')}
       {/if}
     </Button>
-
-    <hr class="border-slate-200 dark:border-zinc-800" />
-
-    <div class="flex flex-row items-center gap-2 overflow-auto *:shrink-0">
-      {#if !LINKED_INSTANCE_URL}
-        <Button rounding="pill" color="ghost" href="/login/guest">
-          <Icon src={UserCircle} mini size="16" />
-          {$t('account.guest')}
-        </Button>
-      {/if}
-    </div>
   </form>
 </div>

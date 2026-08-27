@@ -115,6 +115,11 @@ describe('normalizeSettings', () => {
 })
 
 describe('importSettings', () => {
+  it('coerces an unknown YouTube frontend back to the default', () => {
+    importSettings('{"embeds":{"youtube":"bogus.example"}}')
+    expect(settings.embeds.youtube).toBe('youtube')
+  })
+
   beforeEach(() => {
     resetSettings()
   })

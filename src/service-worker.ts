@@ -40,6 +40,11 @@ self.addEventListener('fetch', (e) => {
   const event = e as FetchEvent
   // ignore POST requests etc
   if (event.request.method !== 'GET') return
+  // Cross-origin resources (image proxy host, PDS video) are left to the
+  // browser. Intercepting them would re-issue the fetch under the policy on
+  // this script — which is whatever the edge served it with, not the page's
+  // CSP — and the service worker has no business caching them anyway.
+  if (new URL(event.request.url).origin !== self.location.origin) return
 
   async function respond() {
     const url = new URL(event.request.url)

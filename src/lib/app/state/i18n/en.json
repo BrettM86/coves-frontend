@@ -57,7 +57,6 @@
         "signup": "Sign up",
         "accounts": "Accounts",
         "resetColor": "Reset color",
-        "addGuest": "Add guest",
         "moveUp": "Move up",
         "moveDown": "Move down",
         "guest": "Guest",
@@ -933,11 +932,6 @@
             },
             "youtube": {
                 "description": "The website to embed YouTube content in."
-            },
-            "instance": {
-                "invidious": "Invidious instance",
-                "piped": "Piped instance",
-                "description": "The instance to embed YouTube content in."
             }
         },
         "moderation": {

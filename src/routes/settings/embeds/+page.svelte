@@ -1,9 +1,8 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
-  import { DOMAIN_REGEX_FORMS } from '$lib/app/util/url'
   import { CommonList } from '$lib/ui/layout'
-  import { Option, Select, TextInput } from '$lib/ui/kit'
+  import { Option, Select } from '$lib/ui/kit'
   import { CursorArrowRays, VideoCamera } from 'svelte-hero-icons/dist'
   import Setting from '../Setting.svelte'
   import ToggleSetting from '../ToggleSetting.svelte'
@@ -31,38 +30,4 @@
       <Option value="piped">Piped</Option>
     </Select>
   </Setting>
-  {#if settings.embeds.youtube == 'invidious'}
-    <Setting>
-      {#snippet title()}
-        <span>{$t('settings.embeds.instance.invidious')}</span>
-      {/snippet}
-      {#snippet description()}
-        <span>
-          {$t('settings.embeds.instance.description')}
-        </span>
-      {/snippet}
-      <TextInput
-        label={$t('settings.embeds.instance.invidious')}
-        pattern={DOMAIN_REGEX_FORMS}
-        bind:value={settings.embeds.invidious}
-      />
-    </Setting>
-  {/if}
-  {#if settings.embeds.youtube == 'piped'}
-    <Setting>
-      {#snippet title()}
-        <span>{$t('settings.embeds.instance.piped')}</span>
-      {/snippet}
-      {#snippet description()}
-        <span>
-          {$t('settings.embeds.instance.description')}
-        </span>
-      {/snippet}
-      <TextInput
-        label={$t('settings.embeds.instance.piped')}
-        pattern={DOMAIN_REGEX_FORMS}
-        bind:value={settings.embeds.piped}
-      />
-    </Setting>
-  {/if}
 </CommonList>

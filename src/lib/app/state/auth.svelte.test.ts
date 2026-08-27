@@ -5,7 +5,7 @@ vi.mock('$app/environment', () => ({
   browser: false,
 }))
 
-vi.mock('./instance.svelte', () => ({
+vi.mock('./instance/env', () => ({
   DEFAULT_INSTANCE_URL: 'https://coves.social',
 }))
 

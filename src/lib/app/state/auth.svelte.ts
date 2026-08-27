@@ -1,5 +1,5 @@
 import { browser } from '$app/environment'
-import { DEFAULT_INSTANCE_URL } from './instance.svelte'
+import { DEFAULT_INSTANCE_URL } from './instance/env'
 import { moveItem } from '../util/array'
 import type {
   ClientSession,

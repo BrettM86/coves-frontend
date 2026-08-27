@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types'
 import { PENDING_AUTH_COOKIE_OPTIONS } from '$lib/server/cookies'
 import { generateOAuthState } from '$lib/server/csrf'
 import { normalizeInstanceUrl } from '$lib/app/state/instance/resolve'
+import { loginLockedOrigin } from '$lib/server/instance'
 
 interface LoginRequest {
   handle: string
@@ -51,11 +52,26 @@ export const POST: RequestHandler = async ({
   }
   const instanceUrl = new URL(normalizedInstance)
 
-  // Built once: all four logged rejections below share this request context.
+  // Built once: every logged rejection below shares this request context.
   const logContext = {
     requestId: locals.requestId,
     method: request.method,
     path: url.pathname,
+  }
+
+  // PUBLIC_LOCK_TO_INSTANCE is a deployment policy, not a UI preference: the
+  // login form hides the instance field, but this endpoint is reachable
+  // directly, so refuse to start OAuth against any other origin.
+  const lockedOrigin = loginLockedOrigin()
+  if (lockedOrigin !== null && instanceUrl.origin !== lockedOrigin) {
+    log.warn(
+      `[auth/login] Rejected login to non-locked instance: ${instanceUrl.origin}`,
+      logContext,
+    )
+    return json(
+      { error: 'This deployment only allows login to its own instance' },
+      { status: 403 },
+    )
   }
 
   // Validate redirect URL to prevent open redirect attacks

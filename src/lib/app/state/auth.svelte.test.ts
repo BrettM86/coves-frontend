@@ -17,6 +17,7 @@ vi.mock('$lib/server/session', () => ({
 import {
   isAuthenticated,
   isGuest,
+  profile,
   type ProfileInfo,
   type GuestProfile,
   type AuthenticatedProfile,
@@ -161,5 +162,67 @@ describe('LogoutResult interface', () => {
     expect(result.success).toBe(true)
     expect(result.remoteLogoutFailed).toBe(true)
     expect(result.remoteLogoutError).toBe('Token revocation failed')
+  })
+})
+
+describe('Profile.syncFromServer', () => {
+  const authed: AuthenticatedProfile = {
+    type: 'authenticated',
+    id: 'did:plc:abc123',
+    instance: 'https://coves.social' as any,
+    jwt: 'authenticated',
+    did: 'did:plc:abc123' as any,
+    handle: 'test.user' as any,
+  }
+
+  const seedAuthenticated = () => {
+    profile.meta.profiles = [authed]
+    profile.meta.profile = authed.id
+  }
+
+  it('adopts the server account when authenticated', () => {
+    profile.syncFromServer({
+      authenticated: true,
+      activeAccountId: 'did:plc:xyz',
+      account: {
+        id: 'did:plc:xyz',
+        did: 'did:plc:xyz',
+        handle: 'other.user',
+        instance: 'https://coves.social',
+      },
+    } as any)
+
+    expect(profile.meta.profile).toBe('did:plc:xyz')
+    expect(profile.meta.profiles).toHaveLength(1)
+    expect(isAuthenticated(profile.meta.profiles[0])).toBe(true)
+  })
+
+  it('drops a persisted authenticated profile when the server has no session', () => {
+    seedAuthenticated()
+
+    profile.syncFromServer({ authenticated: false } as any)
+
+    expect(profile.meta.profile).toBe('guest')
+    expect(profile.meta.profiles).toHaveLength(1)
+    expect(isGuest(profile.meta.profiles[0])).toBe(true)
+  })
+
+  it('drops a persisted authenticated profile when session data is missing', () => {
+    seedAuthenticated()
+
+    profile.syncFromServer(undefined)
+
+    expect(profile.meta.profile).toBe('guest')
+    expect(isGuest(profile.meta.profiles[0])).toBe(true)
+  })
+
+  it('leaves an existing guest profile untouched when unauthenticated', () => {
+    profile.syncFromServer(undefined)
+    const before = profile.meta.profiles[0]
+
+    profile.syncFromServer({ authenticated: false } as any)
+
+    expect(profile.meta.profiles[0]).toBe(before)
+    expect(profile.meta.profile).toBe('guest')
   })
 })

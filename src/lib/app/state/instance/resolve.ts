@@ -25,6 +25,7 @@
 export interface InstanceEnv {
   readonly PUBLIC_INSTANCE_URL?: string
   readonly PUBLIC_INTERNAL_INSTANCE?: string
+  readonly PUBLIC_LOCK_TO_INSTANCE?: string
 }
 
 export type InstanceSide = 'browser' | 'server'
@@ -83,6 +84,24 @@ export function instanceOrigin(raw: string | undefined): string | null {
   const normalized = normalizeInstanceUrl(raw)
   if (normalized === null) return null
   return new URL(normalized).origin
+}
+
+/**
+ * Whether this deployment pins login to `PUBLIC_INSTANCE_URL`.
+ * Defaults to locked; only the literal `"false"` (any case) opens it up.
+ */
+export function isLockedToInstance(env: InstanceEnv): boolean {
+  return (env.PUBLIC_LOCK_TO_INSTANCE ?? 'true').toLowerCase() === 'true'
+}
+
+/**
+ * The only origin login may target when the deployment is locked, or null
+ * when unlocked or when `PUBLIC_INSTANCE_URL` is unset/invalid (nothing to
+ * pin to, so callers must not enforce).
+ */
+export function lockedInstanceOrigin(env: InstanceEnv): string | null {
+  if (!isLockedToInstance(env)) return null
+  return instanceOrigin(env.PUBLIC_INSTANCE_URL)
 }
 
 /**

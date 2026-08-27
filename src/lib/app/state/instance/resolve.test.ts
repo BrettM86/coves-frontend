@@ -4,7 +4,9 @@ import {
   canonicalPublicHost,
   hasRequiredInstanceConfig,
   instanceOrigin,
+  isLockedToInstance,
   isUpstreamSchemeAllowed,
+  lockedInstanceOrigin,
   normalizeInstanceUrl,
   resolveInstanceUrl,
 } from './resolve'
@@ -153,5 +155,41 @@ describe('addressHeaderWarning', () => {
       expect(warning).toContain('ADDRESS_HEADER')
       expect(warning).toContain('rate')
     }
+  })
+})
+
+describe('isLockedToInstance', () => {
+  it('defaults to locked when unset', () => {
+    expect(isLockedToInstance({})).toBe(true)
+  })
+
+  it('only the literal "false" unlocks, case-insensitively', () => {
+    expect(isLockedToInstance({ PUBLIC_LOCK_TO_INSTANCE: 'false' })).toBe(false)
+    expect(isLockedToInstance({ PUBLIC_LOCK_TO_INSTANCE: 'FALSE' })).toBe(false)
+    expect(isLockedToInstance({ PUBLIC_LOCK_TO_INSTANCE: 'true' })).toBe(true)
+    expect(isLockedToInstance({ PUBLIC_LOCK_TO_INSTANCE: 'no' })).toBe(false)
+  })
+})
+
+describe('lockedInstanceOrigin', () => {
+  it('returns the public origin when locked', () => {
+    expect(lockedInstanceOrigin(BOTH)).toBe('https://coves.social')
+  })
+
+  it('normalises a bare host and drops any path', () => {
+    expect(
+      lockedInstanceOrigin({ PUBLIC_INSTANCE_URL: 'coves.social/app' }),
+    ).toBe('https://coves.social')
+  })
+
+  it('returns null when unlocked', () => {
+    expect(
+      lockedInstanceOrigin({ ...BOTH, PUBLIC_LOCK_TO_INSTANCE: 'false' }),
+    ).toBeNull()
+  })
+
+  it('returns null when there is nothing to pin to', () => {
+    expect(lockedInstanceOrigin({})).toBeNull()
+    expect(lockedInstanceOrigin({ PUBLIC_INSTANCE_URL: '::' })).toBeNull()
   })
 })

@@ -3,6 +3,7 @@ import { env } from '$env/dynamic/public'
 import { profile } from './auth.svelte'
 import {
   hasRequiredInstanceConfig,
+  isLockedToInstance,
   MISSING_INSTANCE_MESSAGE,
   resolveInstanceUrl,
 } from './instance/resolve'
@@ -17,10 +18,9 @@ class InstanceData {
 
 export const instance = new InstanceData()
 
-export const LINKED_INSTANCE_URL =
-  (env.PUBLIC_LOCK_TO_INSTANCE ?? 'true').toLowerCase() == 'true'
-    ? env.PUBLIC_INSTANCE_URL
-    : undefined
+export const LINKED_INSTANCE_URL = isLockedToInstance(env)
+  ? env.PUBLIC_INSTANCE_URL
+  : undefined
 
 const getDefaultInstance = (): string => {
   // The instance URL must never default to a third-party host. In production

@@ -266,7 +266,17 @@ class Profile {
    * @param serverSession - The session data from the server (passed via page data)
    */
   syncFromServer(serverSession: ServerSession | undefined): void {
-    if (!serverSession || !serverSession.authenticated) return
+    if (!serverSession || !serverSession.authenticated) {
+      // The server is the source of truth. If it reports no session (cookie
+      // expired, revoked, or cleared) drop any persisted authenticated
+      // profile so a shared device doesn't keep showing the previous user's
+      // handle and avatar as if they were still signed in.
+      if (this.meta.profiles.some(isAuthenticated)) {
+        this.meta.profiles = [createGuestProfile()]
+        this.meta.profile = 'guest'
+      }
+      return
+    }
 
     // Convert server account to client ProfileInfo format
     const serverProfile: AuthenticatedProfile = {

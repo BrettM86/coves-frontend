@@ -14,6 +14,10 @@ vi.mock('$env/dynamic/private', () => ({
   env: {},
 }))
 
+// Mutable so individual tests can flip the instance-lock policy.
+const publicEnv = vi.hoisted((): Record<string, string | undefined> => ({}))
+vi.mock('$env/dynamic/public', () => ({ env: publicEnv }))
+
 /**
  * Helper to create authenticated App.Locals with the new shape.
  */
@@ -46,6 +50,52 @@ global.fetch = mockFetch
 describe('POST /api/auth/login', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    for (const key of Object.keys(publicEnv)) delete publicEnv[key]
+  })
+
+  describe('PUBLIC_LOCK_TO_INSTANCE enforcement', () => {
+    const login = (instance: string) =>
+      loginHandler(
+        createMockEvent({
+          method: 'POST',
+          body: { handle: 'user.example.com', instance },
+          cookies: createMockCookies(),
+          url: 'http://localhost:5173/api/auth/login',
+        }),
+      )
+
+    it('rejects a foreign instance with 403 when locked (the default)', async () => {
+      publicEnv.PUBLIC_INSTANCE_URL = 'https://coves.social'
+
+      const response = await login('https://attacker.example')
+
+      expect(response.status).toBe(403)
+      expect((await response.json()).error).toMatch(/own instance/)
+    })
+
+    it('compares origins, so a bare host or trailing path still matches', async () => {
+      publicEnv.PUBLIC_INSTANCE_URL = 'https://coves.social'
+
+      expect((await login('coves.social')).status).toBe(200)
+      expect((await login('https://coves.social/')).status).toBe(200)
+    })
+
+    it('rejects a scheme downgrade of the locked instance', async () => {
+      publicEnv.PUBLIC_INSTANCE_URL = 'https://coves.social'
+
+      expect((await login('http://coves.social')).status).toBe(403)
+    })
+
+    it('allows any instance when PUBLIC_LOCK_TO_INSTANCE=false', async () => {
+      publicEnv.PUBLIC_INSTANCE_URL = 'https://coves.social'
+      publicEnv.PUBLIC_LOCK_TO_INSTANCE = 'false'
+
+      expect((await login('https://other.example')).status).toBe(200)
+    })
+
+    it('does not enforce when PUBLIC_INSTANCE_URL is unset', async () => {
+      expect((await login('https://other.example')).status).toBe(200)
+    })
   })
 
   it('returns OAuth redirect URL for valid handle/instance', async () => {

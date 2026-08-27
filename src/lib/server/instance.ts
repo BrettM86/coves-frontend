@@ -10,6 +10,7 @@ import {
   addressHeaderWarning,
   canonicalPublicHost,
   isUpstreamSchemeAllowed,
+  lockedInstanceOrigin,
   MISSING_INSTANCE_MESSAGE,
   resolveInstanceUrl,
 } from '$lib/app/state/instance/resolve'
@@ -53,6 +54,15 @@ export function addressHeaderConfigWarning(): string | null {
     { ADDRESS_HEADER: privateEnv.ADDRESS_HEADER },
     import.meta.env.PROD,
   )
+}
+
+/**
+ * When `PUBLIC_LOCK_TO_INSTANCE` is on, the sole origin login may target;
+ * null when unlocked or unconfigured. The login UI hides the instance field
+ * under the same flag — this is the server-side half of that policy.
+ */
+export function loginLockedOrigin(): string | null {
+  return lockedInstanceOrigin(publicEnv)
 }
 
 /** Applies the `ALLOW_HTTP_INTERNAL_INSTANCE` plaintext policy to a target URL. */

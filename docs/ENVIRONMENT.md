@@ -17,7 +17,7 @@ without the prefix is server-only. All are read at **runtime** (via
 | `PUBLIC_INSTANCE_URL` | browser, server | **yes in production** | The Coves backend as reachable from the browser (e.g. `https://coves.social`). The server refuses to boot in production without it, even if `PUBLIC_INTERNAL_INSTANCE` is set, because the browser can only ever see this value. In dev the OAuth cookie is scoped to this host, so `hooks.server.ts` redirects any other hostname to it (RFC 8252 requires `127.0.0.1`, not `localhost`). |
 | `PUBLIC_INTERNAL_INSTANCE` | server | no | Server-only shortcut to the backend for `hooks.server.ts` (`/api/me` validation) and the `/api/proxy` upstream — e.g. `http://appview:8080` on a Docker network, or `http://127.0.0.1:8081` in dev to skip the Caddy loop. Falls back to `PUBLIC_INSTANCE_URL`. |
 | `ALLOW_HTTP_INTERNAL_INSTANCE` | server | no | `"true"` to let the production proxy talk plaintext `http://` **only** to the origin of `PUBLIC_INTERNAL_INSTANCE` (which must then carry an explicit `http://` scheme). Any other `http://` target is still rejected with 400. |
-| `PUBLIC_LOCK_TO_INSTANCE` | browser | no (default `true`) | When `true`, the login UI is pinned to `PUBLIC_INSTANCE_URL` and users cannot type a different instance. Set `false` to allow arbitrary instances. |
+| `PUBLIC_LOCK_TO_INSTANCE` | browser, server | no (default `true`) | When `true`, login is pinned to `PUBLIC_INSTANCE_URL`: the login UI hides the instance field and `POST /api/auth/login` rejects any other origin with 403. Set `false` to allow arbitrary instances. |
 
 Resolution precedence:
 

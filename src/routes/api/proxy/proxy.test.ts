@@ -1,142 +1,64 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { SealedToken, InstanceURL } from '$lib/server/session'
-import { enforceSameOrigin, validateProxyPath } from './validate'
+import { createMockEvent } from '$lib/test-utils/request-event'
 
-// Mock SvelteKit types for testing - mirrors App.AuthState
-type MockAuthState =
-  | { authenticated: false }
-  | {
-      authenticated: true
-      authToken: SealedToken
-      account: { instance: InstanceURL }
-    }
+/**
+ * Mutable env, so a test can describe a different deployment (an internal
+ * plaintext upstream, a missing instance URL) without a second test file. The
+ * objects are mutated in place rather than reassigned: `$lib/server/instance`
+ * captures the reference at import time.
+ */
+const mockPrivateEnv = vi.hoisted(() => ({
+  env: {} as Record<string, string | undefined>,
+}))
+const mockPublicEnv = vi.hoisted(() => ({
+  env: {} as Record<string, string | undefined>,
+}))
+vi.mock('$env/dynamic/private', () => mockPrivateEnv)
+vi.mock('$env/dynamic/public', () => mockPublicEnv)
 
-interface MockLocals {
-  auth: MockAuthState
-}
+/**
+ * These exercise the real exported route handlers. Request/response header
+ * hygiene (the allowlist, the X-Forwarded-* stamps and the response denylist)
+ * is covered in depth by header-hygiene.test.ts; this file covers routing,
+ * methods, path validation, CSRF and error mapping.
+ */
+const { GET, POST, PUT, DELETE, PATCH } = await import('./[...path]/+server')
 
-interface MockParams {
-  path: string
-}
+type ProxyEvent = Parameters<typeof GET>[0]
 
-// Mock fetch type for testing
 type MockFetch = (
   input: RequestInfo | URL,
   init?: RequestInit,
 ) => Promise<Response>
 
-// Create the handler function we'll test.
-// This is duplicated from the source because the real handler function is not
-// exported (it's an internal implementation detail wrapped by the exported
-// RequestHandler functions), and it uses App.Locals which requires the full
-// SvelteKit type context. The tests verify the same logic in isolation.
-async function createHandler(options: {
-  params: MockParams
-  request: Request
-  locals: MockLocals
-  fetch: MockFetch
-  url?: URL
-}): Promise<Response> {
-  const { params, request, locals, fetch: fetchFn } = options
-  const url = options.url ?? new URL(request.url)
-  const path = params.path
+/** The origin the app itself is served from, and so the only same-origin one. */
+const APP_ORIGIN = 'https://coves.social'
 
-  // CSRF gate: this is the REAL exported gate from validate.ts — the same
-  // code the production route runs, not a test-local copy.
-  const csrfRejection = enforceSameOrigin(request, url.origin, path)
-  if (csrfRejection) {
-    return csrfRejection
-  }
-
-  // Validate path for security issues
-  const pathError = validateProxyPath(path)
-  if (pathError) {
-    return new Response(
-      JSON.stringify({ error: 'Bad Request', message: pathError }),
-      {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      },
-    )
-  }
-
-  // Determine target instance (from session or default)
-  const instance = locals.auth.authenticated
-    ? locals.auth.account.instance
-    : 'coves.social'
-  const targetUrl = `https://${instance}/${path}`
-
-  // Build headers, injecting auth if available
-  const headers = new Headers(request.headers)
-  headers.delete('host') // Don't forward host header
-  headers.delete('connection') // Don't forward connection header
-
-  if (locals.auth.authenticated) {
-    headers.set('Authorization', `Bearer ${locals.auth.authToken}`)
-  }
-
-  try {
-    // Forward request
-    const fetchOptions: RequestInit = {
-      method: request.method,
-      headers,
-    }
-
-    // Only include body for methods that support it.
-    // We consume the body as a Blob rather than streaming request.body
-    // (ReadableStream) because Node.js undici has issues with ReadableStream
-    // bodies in fetch(), causing "expected non-null body source" errors.
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      fetchOptions.body = await request.blob()
-    }
-
-    const response = await fetchFn(targetUrl, fetchOptions)
-
-    // Return response (strip some headers)
-    const responseHeaders = new Headers(response.headers)
-    responseHeaders.delete('content-encoding') // Let SvelteKit handle
-
-    return new Response(response.body, {
-      status: response.status,
-      headers: responseHeaders,
-    })
-  } catch (error) {
-    // Connection error to upstream
-    console.error('Proxy error:', error)
-    return new Response(
-      JSON.stringify({
-        error: 'Bad Gateway',
-        message: 'Failed to connect to upstream server',
-      }),
-      {
-        status: 502,
-        headers: { 'Content-Type': 'application/json' },
-      },
-    )
-  }
+function setEnv(
+  publicEnv: Record<string, string | undefined>,
+  privateEnv: Record<string, string | undefined> = {},
+): void {
+  for (const key of Object.keys(mockPublicEnv.env))
+    delete mockPublicEnv.env[key]
+  Object.assign(mockPublicEnv.env, publicEnv)
+  for (const key of Object.keys(mockPrivateEnv.env))
+    delete mockPrivateEnv.env[key]
+  Object.assign(mockPrivateEnv.env, privateEnv)
 }
 
-/**
- * Helper to create authenticated MockLocals
- */
-function createAuthenticatedLocals(
-  token: string,
-  instance: string,
-): MockLocals {
+function authenticatedLocals(token: string, instance: string): App.Locals {
   return {
     auth: {
       authenticated: true,
       authToken: token as SealedToken,
       account: { instance: instance as InstanceURL },
     },
-  }
+  } as unknown as App.Locals
 }
 
-/**
- * Helper to create unauthenticated MockLocals
- */
-function createUnauthenticatedLocals(): MockLocals {
-  return { auth: { authenticated: false } }
+function unauthenticatedLocals(): App.Locals {
+  return { auth: { authenticated: false }, requestId: 'test-request-id' }
 }
 
 describe('API Proxy', () => {
@@ -144,7 +66,48 @@ describe('API Proxy', () => {
 
   beforeEach(() => {
     mockFetch = vi.fn<MockFetch>()
+    setEnv({ PUBLIC_INSTANCE_URL: APP_ORIGIN })
+    // The handler logs upstream failures and blocked cross-origin requests;
+    // both are expected in these tests and would otherwise flood the output.
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+  })
+
+  interface ProxyEventOptions {
+    path: string
+    method?: string
+    headers?: Record<string, string>
+    body?: unknown
+    locals?: App.Locals
+  }
+
+  function createEvent(options: ProxyEventOptions): ProxyEvent {
+    const event = createMockEvent({
+      method: options.method ?? 'GET',
+      url: `${APP_ORIGIN}/api/proxy/${options.path}`,
+      params: { path: options.path },
+      headers: options.headers,
+      body: options.body,
+      locals: options.locals ?? unauthenticatedLocals(),
+    })
+    // The upstream hop goes through the platform fetch. The event's own fetch
+    // is present but throws: kit's per-request fetch replays the inbound
+    // cookie and authorization headers for a same-host upstream, which would
+    // silently undo the request allowlist.
+    vi.stubGlobal('fetch', mockFetch)
+    Object.assign(event, {
+      fetch: vi.fn(() => {
+        throw new Error('event.fetch must not be used for the upstream hop')
+      }),
+    })
+    return event as unknown as ProxyEvent
+  }
 
   /**
    * Helper to get the last call to mockFetch with proper typing
@@ -167,23 +130,17 @@ describe('API Proxy', () => {
       })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/feed', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/feed' },
-        request,
-        locals: createAuthenticatedLocals(
-          'test-jwt-token',
-          'test.coves.social',
-        ),
-        fetch: mockFetch,
-      })
+      const response = await GET(
+        createEvent({
+          path: 'api/v1/feed',
+          headers: { 'Content-Type': 'application/json' },
+          locals: authenticatedLocals('test-jwt-token', 'test.coves.social'),
+        }),
+      )
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
       const [url, options] = getLastFetchCall()
+      // A bare hostname in the session is normalised to an absolute https URL.
       expect(url).toBe('https://test.coves.social/api/v1/feed')
       expect(options.method).toBe('GET')
       expect(options.headers.get('Authorization')).toBe('Bearer test-jwt-token')
@@ -197,22 +154,15 @@ describe('API Proxy', () => {
       })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const postBody = JSON.stringify({ title: 'Test Post', content: 'Hello' })
-      const request = new Request('http://localhost/api/proxy/api/v1/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: postBody,
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/posts' },
-        request,
-        locals: createAuthenticatedLocals(
-          'test-jwt-token',
-          'test.coves.social',
-        ),
-        fetch: mockFetch,
-      })
+      const response = await POST(
+        createEvent({
+          path: 'api/v1/posts',
+          method: 'POST',
+          headers: { Origin: APP_ORIGIN },
+          body: { title: 'Test Post', content: 'Hello' },
+          locals: authenticatedLocals('test-jwt-token', 'test.coves.social'),
+        }),
+      )
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
       const [url, options] = getLastFetchCall()
@@ -221,33 +171,6 @@ describe('API Proxy', () => {
       expect(options.headers.get('Authorization')).toBe('Bearer test-jwt-token')
       expect(options.body).toBeDefined()
       expect(response.status).toBe(201)
-    })
-
-    it('preserves original request headers', async () => {
-      const mockResponse = new Response('OK', { status: 200 })
-      mockFetch.mockResolvedValue(mockResponse)
-
-      const request = new Request('http://localhost/api/proxy/api/v1/data', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'X-Custom-Header': 'custom-value',
-          'Accept-Language': 'en-US',
-        },
-      })
-
-      await createHandler({
-        params: { path: 'api/v1/data' },
-        request,
-        locals: createAuthenticatedLocals('token', 'coves.social'),
-        fetch: mockFetch,
-      })
-
-      const [, options] = getLastFetchCall()
-      expect(options.headers.get('Accept')).toBe('application/json')
-      expect(options.headers.get('X-Custom-Header')).toBe('custom-value')
-      expect(options.headers.get('Accept-Language')).toBe('en-US')
     })
 
     it('returns response from upstream', async () => {
@@ -261,16 +184,12 @@ describe('API Proxy', () => {
       })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/posts', {
-        method: 'GET',
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/posts' },
-        request,
-        locals: createAuthenticatedLocals('token', 'coves.social'),
-        fetch: mockFetch,
-      })
+      const response = await GET(
+        createEvent({
+          path: 'api/v1/posts',
+          locals: authenticatedLocals('token', 'coves.social'),
+        }),
+      )
 
       expect(response.status).toBe(200)
       expect(response.headers.get('X-Request-Id')).toBe('req-123')
@@ -286,19 +205,11 @@ describe('API Proxy', () => {
       })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/public', {
-        method: 'GET',
-      })
-
-      await createHandler({
-        params: { path: 'api/v1/public' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      await GET(createEvent({ path: 'api/v1/public' }))
 
       const [url, options] = getLastFetchCall()
-      expect(url).toBe('https://coves.social/api/v1/public') // Uses default instance
+      // Falls back to the operator-configured PUBLIC_INSTANCE_URL.
+      expect(url).toBe('https://coves.social/api/v1/public')
       expect(options.headers.has('Authorization')).toBe(false)
     })
 
@@ -308,16 +219,7 @@ describe('API Proxy', () => {
       })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/site', {
-        method: 'GET',
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/site' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      const response = await GET(createEvent({ path: 'api/v1/site' }))
 
       expect(response.status).toBe(200)
       const body = await response.json()
@@ -329,16 +231,12 @@ describe('API Proxy', () => {
     it('returns 502 on upstream connection error', async () => {
       mockFetch.mockRejectedValue(new Error('Connection refused'))
 
-      const request = new Request('http://localhost/api/proxy/api/v1/data', {
-        method: 'GET',
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/data' },
-        request,
-        locals: createAuthenticatedLocals('token', 'coves.social'),
-        fetch: mockFetch,
-      })
+      const response = await GET(
+        createEvent({
+          path: 'api/v1/data',
+          locals: authenticatedLocals('token', 'coves.social'),
+        }),
+      )
 
       expect(response.status).toBe(502)
       const body = await response.json()
@@ -355,19 +253,12 @@ describe('API Proxy', () => {
       )
       mockFetch.mockResolvedValue(errorResponse)
 
-      const request = new Request(
-        'http://localhost/api/proxy/api/v1/posts/999',
-        {
-          method: 'GET',
-        },
+      const response = await GET(
+        createEvent({
+          path: 'api/v1/posts/999',
+          locals: authenticatedLocals('token', 'coves.social'),
+        }),
       )
-
-      const response = await createHandler({
-        params: { path: 'api/v1/posts/999' },
-        request,
-        locals: createAuthenticatedLocals('token', 'coves.social'),
-        fetch: mockFetch,
-      })
 
       expect(response.status).toBe(404)
       const body = await response.json()
@@ -381,19 +272,12 @@ describe('API Proxy', () => {
       )
       mockFetch.mockResolvedValue(errorResponse)
 
-      const request = new Request(
-        'http://localhost/api/proxy/api/v1/protected',
-        {
-          method: 'GET',
-        },
+      const response = await GET(
+        createEvent({
+          path: 'api/v1/protected',
+          locals: authenticatedLocals('expired-token', 'coves.social'),
+        }),
       )
-
-      const response = await createHandler({
-        params: { path: 'api/v1/protected' },
-        request,
-        locals: createAuthenticatedLocals('expired-token', 'coves.social'),
-        fetch: mockFetch,
-      })
 
       expect(response.status).toBe(401)
     })
@@ -405,39 +289,27 @@ describe('API Proxy', () => {
       )
       mockFetch.mockResolvedValue(errorResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/error', {
-        method: 'GET',
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/error' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      const response = await GET(createEvent({ path: 'api/v1/error' }))
 
       expect(response.status).toBe(500)
     })
   })
 
   describe('header handling', () => {
+    // Full coverage of the request allowlist and response denylist lives in
+    // header-hygiene.test.ts. These two are kept as cheap guards on the
+    // specific headers that corrupt a proxied response when they leak.
     it('removes host header before forwarding', async () => {
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/data', {
-        method: 'GET',
-        headers: {
-          Host: 'localhost:5173',
-        },
-      })
-
-      await createHandler({
-        params: { path: 'api/v1/data' },
-        request,
-        locals: createAuthenticatedLocals('token', 'coves.social'),
-        fetch: mockFetch,
-      })
+      await GET(
+        createEvent({
+          path: 'api/v1/data',
+          headers: { Host: 'localhost:5173' },
+          locals: authenticatedLocals('token', 'coves.social'),
+        }),
+      )
 
       const [, options] = getLastFetchCall()
       expect(options.headers.has('Host')).toBe(false)
@@ -453,16 +325,7 @@ describe('API Proxy', () => {
       })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/data', {
-        method: 'GET',
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/data' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      const response = await GET(createEvent({ path: 'api/v1/data' }))
 
       expect(response.headers.has('Content-Encoding')).toBe(false)
       expect(response.headers.get('Content-Type')).toBe('application/json')
@@ -476,18 +339,15 @@ describe('API Proxy', () => {
       })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/posts/1', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Updated' }),
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/posts/1' },
-        request,
-        locals: createAuthenticatedLocals('token', 'coves.social'),
-        fetch: mockFetch,
-      })
+      const response = await PUT(
+        createEvent({
+          path: 'api/v1/posts/1',
+          method: 'PUT',
+          headers: { Origin: APP_ORIGIN },
+          body: { title: 'Updated' },
+          locals: authenticatedLocals('token', 'coves.social'),
+        }),
+      )
 
       const [, options] = getLastFetchCall()
       expect(options.method).toBe('PUT')
@@ -498,16 +358,14 @@ describe('API Proxy', () => {
       const mockResponse = new Response(null, { status: 204 })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/posts/1', {
-        method: 'DELETE',
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/posts/1' },
-        request,
-        locals: createAuthenticatedLocals('token', 'coves.social'),
-        fetch: mockFetch,
-      })
+      const response = await DELETE(
+        createEvent({
+          path: 'api/v1/posts/1',
+          method: 'DELETE',
+          headers: { Origin: APP_ORIGIN },
+          locals: authenticatedLocals('token', 'coves.social'),
+        }),
+      )
 
       const [, options] = getLastFetchCall()
       expect(options.method).toBe('DELETE')
@@ -520,18 +378,15 @@ describe('API Proxy', () => {
       })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/posts/1', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Patched' }),
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/posts/1' },
-        request,
-        locals: createAuthenticatedLocals('token', 'coves.social'),
-        fetch: mockFetch,
-      })
+      const response = await PATCH(
+        createEvent({
+          path: 'api/v1/posts/1',
+          method: 'PATCH',
+          headers: { Origin: APP_ORIGIN },
+          body: { title: 'Patched' },
+          locals: authenticatedLocals('token', 'coves.social'),
+        }),
+      )
 
       const [, options] = getLastFetchCall()
       expect(options.method).toBe('PATCH')
@@ -544,16 +399,12 @@ describe('API Proxy', () => {
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/data', {
-        method: 'GET',
-      })
-
-      await createHandler({
-        params: { path: 'api/v1/data' },
-        request,
-        locals: createAuthenticatedLocals('token', 'custom.instance.com'),
-        fetch: mockFetch,
-      })
+      await GET(
+        createEvent({
+          path: 'api/v1/data',
+          locals: authenticatedLocals('token', 'custom.instance.com'),
+        }),
+      )
 
       const [url] = getLastFetchCall()
       expect(url).toBe('https://custom.instance.com/api/v1/data')
@@ -563,16 +414,7 @@ describe('API Proxy', () => {
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/data', {
-        method: 'GET',
-      })
-
-      await createHandler({
-        params: { path: 'api/v1/data' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      await GET(createEvent({ path: 'api/v1/data' }))
 
       const [url] = getLastFetchCall()
       expect(url).toBe('https://coves.social/api/v1/data')
@@ -581,19 +423,7 @@ describe('API Proxy', () => {
 
   describe('path traversal security', () => {
     it('rejects paths with ../ traversal attempts', async () => {
-      const request = new Request(
-        'http://localhost/api/proxy/../../../etc/passwd',
-        {
-          method: 'GET',
-        },
-      )
-
-      const response = await createHandler({
-        params: { path: '../../../etc/passwd' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      const response = await GET(createEvent({ path: '../../../etc/passwd' }))
 
       // Should return 400 Bad Request and NOT call fetch
       expect(response.status).toBe(400)
@@ -604,117 +434,49 @@ describe('API Proxy', () => {
     })
 
     it('rejects URL-encoded traversal attempts (..%2F)', async () => {
-      // Note: SvelteKit typically decodes this, but we test the decoded version
-      const request = new Request(
-        'http://localhost/api/proxy/..%2F..%2Fetc%2Fpasswd',
-        {
-          method: 'GET',
-        },
-      )
-
-      const response = await createHandler({
-        params: { path: '../../etc/passwd' }, // Decoded by SvelteKit
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      // SvelteKit decodes the path before it reaches params, so the decoded
+      // form is what the handler must reject.
+      const response = await GET(createEvent({ path: '../../etc/passwd' }))
 
       expect(response.status).toBe(400)
       expect(mockFetch).not.toHaveBeenCalled()
     })
 
     it('rejects paths with encoded traversal in the middle', async () => {
-      const request = new Request(
-        'http://localhost/api/proxy/api/v1/../../../etc/passwd',
-        {
-          method: 'GET',
-        },
+      const response = await GET(
+        createEvent({ path: 'api/v1/../../../etc/passwd' }),
       )
-
-      const response = await createHandler({
-        params: { path: 'api/v1/../../../etc/passwd' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
 
       expect(response.status).toBe(400)
       expect(mockFetch).not.toHaveBeenCalled()
     })
 
     it('rejects paths with backslash traversal (Windows-style)', async () => {
-      const request = new Request(
-        'http://localhost/api/proxy/..\\..\\etc\\passwd',
-        {
-          method: 'GET',
-        },
-      )
-
-      const response = await createHandler({
-        params: { path: '..\\..\\etc\\passwd' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      const response = await GET(createEvent({ path: '..\\..\\etc\\passwd' }))
 
       expect(response.status).toBe(400)
       expect(mockFetch).not.toHaveBeenCalled()
     })
 
     it('rejects paths with mixed traversal techniques', async () => {
-      const request = new Request(
-        'http://localhost/api/proxy/api/../v1/../../secret',
-        {
-          method: 'GET',
-        },
+      const response = await GET(
+        createEvent({ path: 'api/../v1/../../secret' }),
       )
-
-      const response = await createHandler({
-        params: { path: 'api/../v1/../../secret' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
 
       expect(response.status).toBe(400)
       expect(mockFetch).not.toHaveBeenCalled()
     })
 
     it('rejects double-encoded traversal attempts (..%252F)', async () => {
-      // Double-encoded: %25 = %, so ..%252F = ..%2F when decoded once
-      // We need to check if the path contains %2F or similar encoded sequences
-      const request = new Request(
-        'http://localhost/api/proxy/..%252F..%252Fetc',
-        {
-          method: 'GET',
-        },
-      )
-
-      const response = await createHandler({
-        params: { path: '..%2F..%2Fetc' }, // SvelteKit decodes once
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      // Double-encoded: %25 = %, so ..%252F decodes once to ..%2F
+      const response = await GET(createEvent({ path: '..%2F..%2Fetc' }))
 
       expect(response.status).toBe(400)
       expect(mockFetch).not.toHaveBeenCalled()
     })
 
     it('rejects paths with null bytes', async () => {
-      const request = new Request(
-        'http://localhost/api/proxy/api/v1/data%00.json',
-        {
-          method: 'GET',
-        },
-      )
-
-      const response = await createHandler({
-        params: { path: 'api/v1/data\x00.json' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      const response = await GET(createEvent({ path: 'api/v1/data\x00.json' }))
 
       expect(response.status).toBe(400)
       expect(mockFetch).not.toHaveBeenCalled()
@@ -724,19 +486,7 @@ describe('API Proxy', () => {
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request(
-        'http://localhost/api/proxy/api/v1/file.json',
-        {
-          method: 'GET',
-        },
-      )
-
-      const response = await createHandler({
-        params: { path: 'api/v1/file.json' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      const response = await GET(createEvent({ path: 'api/v1/file.json' }))
 
       expect(response.status).toBe(200)
       expect(mockFetch).toHaveBeenCalledTimes(1)
@@ -748,17 +498,7 @@ describe('API Proxy', () => {
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/./v1/data', {
-        method: 'GET',
-      })
-
-      // Single dots are safe but we normalize them
-      const response = await createHandler({
-        params: { path: 'api/./v1/data' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      const response = await GET(createEvent({ path: 'api/./v1/data' }))
 
       expect(response.status).toBe(200)
       expect(mockFetch).toHaveBeenCalled()
@@ -768,150 +508,117 @@ describe('API Proxy', () => {
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request(
-        'http://localhost/api/proxy/api/v1/users/user.name@domain.com',
-        {
-          method: 'GET',
-        },
+      const response = await GET(
+        createEvent({ path: 'api/v1/users/user.name@domain.com' }),
       )
-
-      const response = await createHandler({
-        params: { path: 'api/v1/users/user.name@domain.com' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
 
       expect(response.status).toBe(200)
       expect(mockFetch).toHaveBeenCalled()
     })
 
     it('rejects paths that would escape the API root after normalization', async () => {
-      const request = new Request(
-        'http://localhost/api/proxy/api/v1/../../../../root',
-        {
-          method: 'GET',
-        },
+      const response = await GET(
+        createEvent({ path: 'api/v1/../../../../root' }),
       )
-
-      const response = await createHandler({
-        params: { path: 'api/v1/../../../../root' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
 
       expect(response.status).toBe(400)
       expect(mockFetch).not.toHaveBeenCalled()
     })
 
     it('rejects paths with protocol injection attempts', async () => {
-      const request = new Request(
-        'http://localhost/api/proxy/http://evil.com/malicious',
-        {
-          method: 'GET',
-        },
+      const response = await GET(
+        createEvent({ path: 'http://evil.com/malicious' }),
       )
-
-      const response = await createHandler({
-        params: { path: 'http://evil.com/malicious' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
 
       expect(response.status).toBe(400)
       expect(mockFetch).not.toHaveBeenCalled()
     })
 
     it('rejects paths with javascript protocol', async () => {
-      const request = new Request(
-        'http://localhost/api/proxy/javascript:alert(1)',
-        {
-          method: 'GET',
-        },
-      )
-
-      const response = await createHandler({
-        params: { path: 'javascript:alert(1)' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      const response = await GET(createEvent({ path: 'javascript:alert(1)' }))
 
       expect(response.status).toBe(400)
       expect(mockFetch).not.toHaveBeenCalled()
     })
   })
 
-  describe('production HTTP rejection', () => {
+  describe('upstream scheme policy', () => {
     /**
-     * Note: The actual production HTTP rejection is handled in the server endpoint
-     * using import.meta.env.PROD check. This test documents the expected behavior
-     * and tests the validation logic in isolation.
-     *
-     * In production, HTTP URLs should return 400 Bad Request with a clear message.
+     * The rule itself (`isUpstreamSchemeAllowed`) is unit-tested in
+     * src/lib/app/state/instance/resolve.test.ts. What is asserted here is the
+     * non-production side of the gate: a plaintext instance is proxied as
+     * configured rather than silently rewritten to https.
      */
-    it('documents production HTTP URL rejection behavior', () => {
-      // The actual server implementation checks import.meta.env.PROD
-      // and rejects HTTP URLs with this message:
-      const expectedErrorMessage = 'HTTP URLs are not allowed in production'
-
-      // This is a documentation test showing what the production behavior should be
-      expect(expectedErrorMessage).toBe(
-        'HTTP URLs are not allowed in production',
-      )
-
-      // The handler in +server.ts lines 82-93 implements:
-      // if (import.meta.env.PROD && baseUrl.startsWith('http://')) {
-      //   return new Response(
-      //     JSON.stringify({
-      //       error: 'Bad Request',
-      //       message: 'HTTP URLs are not allowed in production',
-      //     }),
-      //     { status: 400, headers: { 'Content-Type': 'application/json' } }
-      //   )
-      // }
-    })
-
     it('allows HTTP URLs in development/test environment', async () => {
-      // In non-production environment, HTTP URLs are allowed for local development
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
-      const request = new Request('http://localhost/api/proxy/api/v1/data', {
-        method: 'GET',
-      })
+      const response = await GET(
+        createEvent({
+          path: 'api/v1/data',
+          locals: authenticatedLocals('token', 'http://localhost:8080'),
+        }),
+      )
 
-      // Create handler with HTTP instance
-      const response = await createHandler({
-        params: { path: 'api/v1/data' },
-        request,
-        locals: createAuthenticatedLocals('token', 'http://localhost:8080'),
-        fetch: mockFetch,
-      })
-
-      // In test/dev, HTTP should work
-      // Note: createHandler uses https:// prefix, so this tests the handler accepts
-      // the request. The actual +server.ts implementation handles HTTP instances.
       expect(response.status).toBe(200)
+      const [url] = getLastFetchCall()
+      expect(url).toBe('http://localhost:8080/api/v1/data')
+    })
+  })
+
+  describe('production scheme gate', () => {
+    // In production a plaintext upstream is a downgrade an attacker on the
+    // path can read and rewrite, so it is refused — unless the operator has
+    // named one specific private-network origin as the exception.
+    beforeEach(() => {
+      vi.stubEnv('PROD', true)
+    })
+
+    it('refuses a plaintext upstream that was not opted in', async () => {
+      setEnv({ PUBLIC_INSTANCE_URL: 'http://localhost:8080' })
+
+      const response = await GET(createEvent({ path: 'api/v1/data' }))
+
+      expect(response.status).toBe(400)
+      const body = await response.json()
+      expect(body.message).toBe('HTTP URLs are not allowed in production')
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+
+    it('allows the plaintext internal origin the operator opted in', async () => {
+      setEnv(
+        {
+          PUBLIC_INSTANCE_URL: APP_ORIGIN,
+          PUBLIC_INTERNAL_INSTANCE: 'http://appview:8080',
+        },
+        { ALLOW_HTTP_INTERNAL_INSTANCE: 'true' },
+      )
+      mockFetch.mockResolvedValue(new Response('OK', { status: 200 }))
+
+      const response = await GET(
+        createEvent({
+          path: 'api/v1/data',
+          locals: authenticatedLocals('token', 'http://appview:8080'),
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      const [url] = getLastFetchCall()
+      expect(url).toBe('http://appview:8080/api/v1/data')
     })
   })
 
   describe('CSRF origin validation', () => {
     it('rejects cross-origin POST requests with 403', async () => {
-      const request = new Request('http://localhost/api/proxy/api/v1/posts', {
-        method: 'POST',
-        headers: { Origin: 'https://evil.example.com' },
-        body: JSON.stringify({ title: 'forged' }),
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/posts' },
-        request,
-        locals: createAuthenticatedLocals('token', 'test.coves.social'),
-        fetch: mockFetch,
-      })
+      const response = await POST(
+        createEvent({
+          path: 'api/v1/posts',
+          method: 'POST',
+          headers: { Origin: 'https://evil.example.com' },
+          body: { title: 'forged' },
+          locals: authenticatedLocals('token', 'test.coves.social'),
+        }),
+      )
 
       expect(response.status).toBe(403)
       const body = await response.json()
@@ -921,17 +628,14 @@ describe('API Proxy', () => {
     })
 
     it('rejects cross-origin requests identified only by Referer', async () => {
-      const request = new Request('http://localhost/api/proxy/api/v1/posts', {
-        method: 'DELETE',
-        headers: { Referer: 'https://evil.example.com/attack-page' },
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/posts' },
-        request,
-        locals: createAuthenticatedLocals('token', 'test.coves.social'),
-        fetch: mockFetch,
-      })
+      const response = await DELETE(
+        createEvent({
+          path: 'api/v1/posts',
+          method: 'DELETE',
+          headers: { Referer: 'https://evil.example.com/attack-page' },
+          locals: authenticatedLocals('token', 'test.coves.social'),
+        }),
+      )
 
       expect(response.status).toBe(403)
       expect(mockFetch).not.toHaveBeenCalled()
@@ -940,18 +644,15 @@ describe('API Proxy', () => {
     it('allows same-origin POST requests', async () => {
       mockFetch.mockResolvedValue(new Response('OK', { status: 200 }))
 
-      const request = new Request('http://localhost/api/proxy/api/v1/posts', {
-        method: 'POST',
-        headers: { Origin: 'http://localhost' },
-        body: JSON.stringify({ title: 'legit' }),
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/posts' },
-        request,
-        locals: createAuthenticatedLocals('token', 'test.coves.social'),
-        fetch: mockFetch,
-      })
+      const response = await POST(
+        createEvent({
+          path: 'api/v1/posts',
+          method: 'POST',
+          headers: { Origin: APP_ORIGIN },
+          body: { title: 'legit' },
+          locals: authenticatedLocals('token', 'test.coves.social'),
+        }),
+      )
 
       expect(response.status).toBe(200)
       expect(mockFetch).toHaveBeenCalledTimes(1)
@@ -961,17 +662,14 @@ describe('API Proxy', () => {
       // Some browsers/clients strip these headers; rejecting would break them
       mockFetch.mockResolvedValue(new Response('OK', { status: 200 }))
 
-      const request = new Request('http://localhost/api/proxy/api/v1/posts', {
-        method: 'POST',
-        body: JSON.stringify({ title: 'no-origin client' }),
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/posts' },
-        request,
-        locals: createAuthenticatedLocals('token', 'test.coves.social'),
-        fetch: mockFetch,
-      })
+      const response = await POST(
+        createEvent({
+          path: 'api/v1/posts',
+          method: 'POST',
+          body: { title: 'no-origin client' },
+          locals: authenticatedLocals('token', 'test.coves.social'),
+        }),
+      )
 
       expect(response.status).toBe(200)
     })
@@ -980,17 +678,12 @@ describe('API Proxy', () => {
       // Reads are safe; only state-changing methods need origin validation
       mockFetch.mockResolvedValue(new Response('OK', { status: 200 }))
 
-      const request = new Request('http://localhost/api/proxy/api/v1/feed', {
-        method: 'GET',
-        headers: { Origin: 'https://other.example.com' },
-      })
-
-      const response = await createHandler({
-        params: { path: 'api/v1/feed' },
-        request,
-        locals: createUnauthenticatedLocals(),
-        fetch: mockFetch,
-      })
+      const response = await GET(
+        createEvent({
+          path: 'api/v1/feed',
+          headers: { Origin: 'https://other.example.com' },
+        }),
+      )
 
       expect(response.status).toBe(200)
     })

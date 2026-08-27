@@ -31,6 +31,7 @@ Resolution precedence:
 | Variable | Required | Description |
 | --- | --- | --- |
 | `ORIGIN` | **yes behind a proxy** | Public URL of this frontend (e.g. `https://coves.social`). adapter-node needs it for correct origin / form-action checks. |
+| `ADDRESS_HEADER` | **yes behind a proxy** | Header adapter-node reads for `getClientAddress()` — set it to `x-real-ip` and make the reverse proxy in front of the frontend populate that header (Caddy: `header_up X-Real-IP {remote_host}`). `/api/proxy` stamps the resolved address onto upstream requests as `X-Forwarded-For` / `X-Real-IP`, so without this the backend sees the proxy's own address for every user and rate-limits them all in one bucket. When it is set but a request arrives without the header, adapter-node throws; the proxy catches that and forwards with no address stamp, so requests still succeed. **The front proxy must overwrite this header unconditionally on every request** (`header_up` does; a merely additive config does not) — if a client-supplied `X-Real-IP` can survive to the frontend, the address stamped onto upstream requests is attacker-controlled and rate limits can be evaded or poisoned. The alternative is `ADDRESS_HEADER=x-forwarded-for` with `XFF_DEPTH=1`, which counts back one trusted hop from the right of the chain. Setting this at all makes adapter-node trust that header on **every** connection, with no notion of which peer is allowed to assert it, so the Node listener (port 3000) must be reachable only from the trusted reverse proxy — bound to loopback or confined to the container network, never published directly — because any client that can open a connection to it simply sets its own `X-Real-IP`. |
 | `NODE_ENV` | set by the Dockerfile | `production` in the runtime image. |
 | `ADAPTER` | build-time only | `node` (Docker) or `static`; anything else uses adapter-auto. |
 | `LOG_STACKS` | no (default on) | Server log lines (`src/lib/server/log.ts`) are single JSON records with a request id; error messages and stacks pass through a secret scrubber before being written. Set `0` to omit stack traces entirely. Every response also carries an `x-request-id` header matching the `requestId` field in the logs. |
@@ -93,6 +94,7 @@ Production container:
 
 ```dotenv
 ORIGIN=https://coves.social
+ADDRESS_HEADER=x-real-ip
 PUBLIC_INSTANCE_URL=https://coves.social
 PUBLIC_INTERNAL_INSTANCE=http://appview:8080
 ALLOW_HTTP_INTERNAL_INSTANCE=true

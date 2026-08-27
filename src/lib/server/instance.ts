@@ -7,6 +7,7 @@
 import { env as privateEnv } from '$env/dynamic/private'
 import { env as publicEnv } from '$env/dynamic/public'
 import {
+  addressHeaderWarning,
   canonicalPublicHost,
   isUpstreamSchemeAllowed,
   MISSING_INSTANCE_MESSAGE,
@@ -39,6 +40,19 @@ export function publicInstanceUrl(): URL | null {
   } catch {
     return null
   }
+}
+
+/**
+ * The boot-time `ADDRESS_HEADER` warning for this deployment, or null.
+ *
+ * `import.meta.env.PROD` rather than `!dev` so the warning is tied to the build
+ * mode, and never fires under test.
+ */
+export function addressHeaderConfigWarning(): string | null {
+  return addressHeaderWarning(
+    { ADDRESS_HEADER: privateEnv.ADDRESS_HEADER },
+    import.meta.env.PROD,
+  )
 }
 
 /** Applies the `ALLOW_HTTP_INTERNAL_INSTANCE` plaintext policy to a target URL. */

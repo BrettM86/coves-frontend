@@ -122,3 +122,35 @@ export function isUpstreamSchemeAllowed(
   const targetOrigin = instanceOrigin(target)
   return allowed !== null && targetOrigin !== null && allowed === targetOrigin
 }
+
+export interface AddressHeaderEnv {
+  readonly ADDRESS_HEADER?: string
+}
+
+/**
+ * The boot-time warning for a missing `ADDRESS_HEADER`, or null when there is
+ * nothing to say.
+ *
+ * Behind a reverse proxy, adapter-node has no way to see the real client
+ * address unless `ADDRESS_HEADER` names the header carrying it; without it
+ * `getClientAddress()` reports the proxy's own address for every request. The
+ * `/api/proxy` upstream stamp is built from that value, so the backend ends up
+ * rate-limiting every user of the instance as a single caller. The failure is
+ * completely silent — requests succeed, limits just apply to the wrong
+ * identity — which is why it is worth saying out loud at boot.
+ *
+ * Only meaningful in production: in dev the frontend is normally reached
+ * directly, and the address is the connection's own.
+ */
+export function addressHeaderWarning(
+  env: AddressHeaderEnv,
+  isProd: boolean,
+): string | null {
+  if (!isProd) return null
+  if (env.ADDRESS_HEADER) return null
+  return (
+    '[instance] ADDRESS_HEADER is not set. Behind a reverse proxy every ' +
+    'request will look like it came from the proxy, so the backend will rate ' +
+    'limit all users as one caller. See docs/ENVIRONMENT.md.'
+  )
+}

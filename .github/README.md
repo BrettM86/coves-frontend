@@ -18,9 +18,11 @@ pnpm test         # Vitest
 ## Configuration
 
 Every environment variable, its default and who reads it is documented in
-[docs/ENVIRONMENT.md](../docs/ENVIRONMENT.md). The two you must set are
+[docs/ENVIRONMENT.md](../docs/ENVIRONMENT.md). The ones you must set are
 `PUBLIC_INSTANCE_URL` (the backend the browser talks to) and, behind a proxy,
-`ORIGIN`. `.env.example` is a production-shaped starting point.
+`ORIGIN` plus `ADDRESS_HEADER` (without the latter every user shares one
+rate-limit bucket at the backend). `.env.example` is a production-shaped
+starting point.
 
 ## License
 

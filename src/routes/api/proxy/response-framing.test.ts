@@ -26,7 +26,18 @@ const UPSTREAM_JSON = JSON.stringify({
   description: 'x'.repeat(1200),
 })
 
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+/**
+ * The upstream hop goes through the platform `fetch`, so the stub is installed
+ * on the global. The event's own `fetch` is present but throws: kit's
+ * per-request fetch replays the inbound cookie and authorization headers for a
+ * same-host upstream, so the handler must never reach for it.
+ */
 function createEvent(upstream: Response) {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(upstream))
   return {
     params: { path: 'xrpc/social.coves.community.get' },
     request: new Request(
@@ -37,7 +48,10 @@ function createEvent(upstream: Response) {
       'http://localhost/api/proxy/xrpc/social.coves.community.get?community=linux.lemmy-ml.tdpl.io',
     ),
     locals: { auth: { authenticated: false } },
-    fetch: vi.fn().mockResolvedValue(upstream),
+    getClientAddress: () => '127.0.0.1',
+    fetch: vi.fn(() => {
+      throw new Error('event.fetch must not be used for the upstream hop')
+    }),
   } as unknown as Parameters<typeof GET>[0]
 }
 
@@ -127,6 +141,9 @@ const PROXY_URL =
  * minted by hooks.server.ts as a real request would.
  */
 function createFailingEvent(error: Error) {
+  // The upstream hop uses the platform fetch (see createEvent above), so the
+  // failure is installed on the global; the event's own fetch must never run.
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(error))
   return {
     params: { path: 'xrpc/social.coves.community.get' },
     request: new Request(PROXY_URL, {
@@ -147,7 +164,10 @@ function createFailingEvent(error: Error) {
       },
       requestId: 'req-proxy-1',
     },
-    fetch: vi.fn().mockRejectedValue(error),
+    getClientAddress: () => '127.0.0.1',
+    fetch: vi.fn(() => {
+      throw new Error('event.fetch must not be used for the upstream hop')
+    }),
   } as unknown as Parameters<typeof GET>[0]
 }
 

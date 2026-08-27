@@ -6,6 +6,7 @@ import {
 } from '@sveltejs/kit'
 import { dev } from '$app/environment'
 import {
+  addressHeaderConfigWarning,
   canonicalHost,
   publicInstanceUrl,
   upstreamInstanceUrl,
@@ -16,6 +17,11 @@ import {
   asInstanceURL,
   asSealedToken,
 } from '$lib/server/session'
+
+// Config problems that cannot be detected per-request are reported once, at
+// module load, so they appear in the boot log rather than never.
+const startupWarning = addressHeaderConfigWarning()
+if (startupWarning) log.warn(startupWarning)
 
 /**
  * The safe subset of a request to attach to a log line. Deliberately excludes

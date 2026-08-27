@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  addressHeaderWarning,
   canonicalPublicHost,
   hasRequiredInstanceConfig,
   instanceOrigin,
@@ -124,5 +125,33 @@ describe('isUpstreamSchemeAllowed', () => {
       ALLOW_HTTP_INTERNAL_INSTANCE: 'true',
     }
     expect(isUpstreamSchemeAllowed('http://appview:8080', env)).toBe(false)
+  })
+})
+
+describe('addressHeaderWarning', () => {
+  // Behind a reverse proxy, adapter-node reports the proxy's own address as
+  // the client address unless ADDRESS_HEADER names the header carrying the
+  // real one. Every request then looks like it came from one IP, so anything
+  // the backend does per-address — rate limiting above all — collapses onto a
+  // single bucket. It is silent and only matters in production, so the boot
+  // sequence has to say it out loud.
+  it('says nothing outside production', () => {
+    expect(addressHeaderWarning({}, false)).toBeNull()
+    expect(addressHeaderWarning({ ADDRESS_HEADER: '' }, false)).toBeNull()
+  })
+
+  it('says nothing when the header is configured', () => {
+    expect(
+      addressHeaderWarning({ ADDRESS_HEADER: 'x-real-ip' }, true),
+    ).toBeNull()
+  })
+
+  it('warns in production when the header is unset or empty', () => {
+    for (const env of [{}, { ADDRESS_HEADER: '' }]) {
+      const warning = addressHeaderWarning(env, true)
+      expect(warning).not.toBeNull()
+      expect(warning).toContain('ADDRESS_HEADER')
+      expect(warning).toContain('rate')
+    }
   })
 })

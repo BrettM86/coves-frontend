@@ -1,7 +1,7 @@
 import type { AtUri, PostEmbed } from '$lib/api/coves/types'
 import { parseAtUri } from '$lib/api/coves/types'
 import { isImage, isVideo, isWebUrl } from '$lib/app/util/url'
-import { communitySlug } from '$lib/app/util/links'
+import { communityLink } from '$lib/app/util/links'
 import {
   type ImagePreset,
   type ImageVariant,
@@ -99,6 +99,7 @@ export interface PostLinkRef {
     did: string
     handle?: string
     name: string
+    origin?: string
   }
 }
 
@@ -110,10 +111,10 @@ export interface PostLinkRef {
  * lives in one place. Accepts any object carrying the post's AT-URI and a
  * community ref (see {@link PostLinkRef}).
  *
- * The slug prefers the community's handle; when the handle is missing it
- * falls back to the community DID, which the `[handle=handle]` route matcher
- * accepts and the community loaders resolve — a bare `name` would 404 at
- * routing.
+ * The community segment comes from {@link communityLink}: the canonical
+ * `name` / `name@origin` when the ref carries an `origin`, else the handle
+ * slug, else the DID — every form the `[handle=handle]` route matcher accepts
+ * and the community loaders resolve.
  *
  * @param includeUri - When true, appends `?uri=<canonical AT-URI>` to the path.
  *   The post page reads this param to load the post immediately, without a
@@ -122,10 +123,7 @@ export interface PostLinkRef {
  */
 export function postLink(post: PostLinkRef, includeUri = false): string {
   const { rkey } = parseAtUri(post.uri as AtUri)
-  const slug = post.community.handle
-    ? communitySlug(post.community.handle)
-    : post.community.did
-  const path = `/c/${encodeURIComponent(slug)}/post/${encodeURIComponent(rkey)}`
+  const path = `${communityLink(post.community)}/post/${encodeURIComponent(rkey)}`
   if (!includeUri) return path
   return `${path}?${new URLSearchParams({ uri: post.uri })}`
 }

@@ -2,7 +2,7 @@
   import { errorMessage } from '$lib/app/util/error'
   import { t } from '$lib/app/state/i18n'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
-  import { communitySlug } from '$lib/app/util/links'
+  import { communityAddress } from '$lib/app/util/community'
   import { placeholders } from '$lib/app/util/placeholders'
   import { isWebUrl } from '$lib/app/util/url'
   import FreeTextInput from '$lib/ui/form/FreeTextInput.svelte'
@@ -124,9 +124,7 @@
         <div class="flex flex-col gap-0">
           <span class="text-sm">{form.community.name}</span>
           <span class="text-[10px] leading-3">
-            {form.community.handle
-              ? communitySlug(form.community.handle)
-              : form.community.did}
+            {communityAddress(form.community)}
           </span>
         </div>
       </Button>

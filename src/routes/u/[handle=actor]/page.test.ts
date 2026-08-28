@@ -6,8 +6,8 @@ interface RedirectError {
   location: string
 }
 
-describe('/u/[handle=handle] redirect', () => {
-  // All fixture params must be matcher-valid — the [handle=handle] matcher
+describe('/u/[handle=actor] redirect', () => {
+  // All fixture params must be matcher-valid — the [handle=actor] matcher
   // only routes handles (dotted domains) and DIDs, so a bare name like
   // "alice" would never reach this load function.
   it('redirects to /profile/{handle} with 301 status', () => {

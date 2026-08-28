@@ -13,7 +13,7 @@
   import SubscribeButton from './SubscribeButton.svelte'
   import {
     communityDisplayName,
-    communityHandleOrName,
+    communityAddress,
     communityIdentifier,
   } from './helpers'
   import { withPreset } from '$lib/api/coves/image-proxy'
@@ -73,7 +73,7 @@
         {communityDisplayName(community)}
       </h3>
       <p class="text-sm text-slate-600 dark:text-zinc-400">
-        {communityHandleOrName(community)}
+        {communityAddress(community)}
       </p>
     </header>
     <Avatar

@@ -43,7 +43,7 @@ function makeArgs(handle: string, query = ''): Parameters<typeof load>[0] {
     // A distinct spy, not globalThis.fetch: the pass-through assertion below
     // must be able to tell SvelteKit's per-request fetch from the global one.
     fetch: vi.fn(),
-    route: { id: '/profile/[handle=handle]' },
+    route: { id: '/profile/[handle=actor]' },
   } as unknown as Parameters<typeof load>[0]
 }
 

@@ -2,7 +2,7 @@
   import type { CommunityRef, CommunityView } from '$lib/api/coves/types'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import type { HTMLAnchorAttributes } from 'svelte/elements'
-  import { communityHandleOrName, communityIdentifier } from './helpers'
+  import { communityIdentifier, communityMention } from './helpers'
 
   interface Props extends HTMLAnchorAttributes {
     community: CommunityRef | CommunityView
@@ -27,7 +27,7 @@
   Links to a community, labelled by its handle. The handle is the community's
   identity in atproto — it is what the URL resolves and what a user types to
   find the community — so it is always the label. Display names are freeform
-  and usually just restate the handle ("nba" vs `!nba.coves.social`).
+  and usually just restate the handle ("nba" vs `!nba@coves.social`).
 -->
 <a
   {...rest}
@@ -44,7 +44,7 @@
 
   {#if name}
     <span class="font-medium handle-text shrink min-w-0">
-      !{communityHandleOrName(community)}
+      {communityMention(community)}
     </span>
   {/if}
 </a>

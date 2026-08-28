@@ -48,6 +48,17 @@ const mockSettings = vi.hoisted(() => ({
 
 vi.mock('$lib/app/state/settings.svelte', () => ({ settings: mockSettings }))
 
+// Pins the local instance domain the canonical-URL redirect compares against.
+vi.mock('$env/dynamic/public', () => ({
+  env: { PUBLIC_INSTANCE_URL: 'https://coves.social' },
+}))
+
+// Extra fields merged into every mocked getCommunity() response, so a test can
+// stand in an AppView that serves `name`/`origin`; reset per test.
+const mockCommunityFields = vi.hoisted(
+  () => ({}) as { name?: string; origin?: string },
+)
+
 // `$lib/api/coves/sort` is deliberately NOT mocked: `resolveFeedSort` is pure and
 // dependency-free, so running the real one exercises the URL-vs-saved-defaults
 // precedence end to end rather than re-implementing it here.
@@ -90,6 +101,8 @@ describe('community loader', () => {
     mockCovesMethods.getCommunity.mockReset()
     clientFetchArgs.length = 0
     mockSettings.defaultSort = { sort: 'hot', timeframe: 'all' }
+    delete mockCommunityFields.name
+    delete mockCommunityFields.origin
     // The cache is module-level state shared across tests.
     feeds.clear()
 
@@ -99,7 +112,11 @@ describe('community loader', () => {
     )
     mockCovesMethods.getCommunity.mockImplementation(
       ({ community }: { community: string }) =>
-        Promise.resolve({ did: `did:plc:${community}`, handle: community }),
+        Promise.resolve({
+          did: `did:plc:${community}`,
+          handle: community,
+          ...mockCommunityFields,
+        }),
     )
   })
 
@@ -180,5 +197,119 @@ describe('community loader', () => {
     })
 
     consoleError.mockRestore()
+  })
+
+  it('surfaces an XRPC 400 (unparseable identifier) as a routable 404', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockCovesMethods.getCommunityFeed.mockRejectedValue(
+      new XrpcError(400, 'InvalidRequest', 'invalid identifier'),
+    )
+
+    await expect(load(makeArgs('gaming'))).rejects.toMatchObject({
+      status: 404,
+    })
+
+    consoleError.mockRestore()
+  })
+
+  describe('canonical URL redirect', () => {
+    it('redirects a legacy DNS handle to the bare name of a local community', async () => {
+      mockCommunityFields.name = 'gaming'
+      mockCommunityFields.origin = 'coves.social'
+
+      await expect(load(makeArgs('gaming.coves.social'))).rejects.toMatchObject(
+        { status: 302, location: '/c/gaming' },
+      )
+    })
+
+    it('redirects name@<local domain> to the bare name', async () => {
+      mockCommunityFields.name = 'gaming'
+      mockCommunityFields.origin = 'coves.social'
+
+      await expect(load(makeArgs('gaming@coves.social'))).rejects.toMatchObject(
+        { status: 302, location: '/c/gaming' },
+      )
+    })
+
+    it('redirects a DID to the canonical form, keeping the query string', async () => {
+      mockCommunityFields.name = 'gaming'
+      mockCommunityFields.origin = 'coves.social'
+
+      await expect(
+        load(makeArgs('did:plc:gaming', '?sort=top&timeframe=week')),
+      ).rejects.toMatchObject({
+        status: 302,
+        location: '/c/gaming?sort=top&timeframe=week',
+      })
+    })
+
+    it('redirects a bridge handle to name@origin with a literal @', async () => {
+      mockCommunityFields.name = 'comicstrips'
+      mockCommunityFields.origin = 'lemmy.world'
+
+      await expect(
+        load(makeArgs('comicstrips.lemmy-world.tdpl.io')),
+      ).rejects.toMatchObject({
+        status: 302,
+        location: '/c/comicstrips@lemmy.world',
+      })
+    })
+
+    it('does not redirect when the requested param is already canonical', async () => {
+      mockCommunityFields.name = 'gaming'
+      mockCommunityFields.origin = 'coves.social'
+
+      const result = await load(makeArgs('gaming'))
+      expect(result.community).toMatchObject({ name: 'gaming' })
+    })
+
+    it('does not redirect a canonical remote address', async () => {
+      mockCommunityFields.name = 'comicstrips'
+      mockCommunityFields.origin = 'lemmy.world'
+
+      await expect(
+        load(makeArgs('comicstrips@lemmy.world')),
+      ).resolves.toBeDefined()
+    })
+
+    it('redirects a differently-cased name to the lower-case canonical form', async () => {
+      mockCommunityFields.name = 'Gaming'
+      mockCommunityFields.origin = 'Coves.Social'
+
+      await expect(load(makeArgs('Gaming'))).rejects.toMatchObject({
+        status: 302,
+        location: '/c/gaming',
+      })
+      // ...and the target is stable, so the second hop does not bounce back.
+      await expect(load(makeArgs('gaming'))).resolves.toBeDefined()
+    })
+
+    it('does not redirect a community whose name is a static /profile segment', async () => {
+      mockCommunityFields.name = 'settings'
+      mockCommunityFields.origin = 'coves.social'
+
+      await expect(load(makeArgs('settings'))).resolves.toBeDefined()
+    })
+
+    it('does not redirect when the AppView serves no origin', async () => {
+      mockCommunityFields.name = 'gaming'
+
+      const result = await load(makeArgs('gaming.coves.social'))
+      expect(result.community).toMatchObject({ handle: 'gaming.coves.social' })
+    })
+
+    it('sends the requested param to the AppView unchanged', async () => {
+      mockCommunityFields.name = 'gaming'
+      mockCommunityFields.origin = 'coves.social'
+
+      await load(makeArgs('gaming'))
+
+      expect(mockCovesMethods.getCommunity).toHaveBeenLastCalledWith({
+        community: 'gaming',
+      })
+      expect(mockCovesMethods.getCommunityFeed).toHaveBeenLastCalledWith(
+        expect.objectContaining({ community: 'gaming' }),
+      )
+    })
   })
 })

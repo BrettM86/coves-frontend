@@ -15,7 +15,7 @@
   import SubscribeButton from './SubscribeButton.svelte'
   import {
     communityDisplayName,
-    communityHandleOrName,
+    communityMention,
     communityIdentifier,
   } from './helpers'
 
@@ -70,14 +70,12 @@
   {#snippet nameDetail()}
     <button
       onclick={() => {
-        navigator?.clipboard?.writeText?.(
-          `!${communityHandleOrName(community)}`,
-        )
+        navigator?.clipboard?.writeText?.(communityMention(community))
         toast({ content: $t('toast.copied') })
       }}
       class="text-sm flex gap-0 items-center"
     >
-      !{communityHandleOrName(community)}
+      {communityMention(community)}
     </button>
   {/snippet}
   <div

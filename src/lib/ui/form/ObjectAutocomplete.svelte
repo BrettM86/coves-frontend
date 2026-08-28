@@ -1,7 +1,7 @@
 <script lang="ts">
   import { coves } from '$lib/api/client.svelte'
   import type { CommunityView } from '$lib/api/coves/types'
-  import { communitySlug } from '$lib/app/util/links'
+  import { communityAddress } from '$lib/app/util/community'
   import { MenuButton, Search, toast } from '$lib/ui/kit'
   import { Icon, XCircle } from '@xylightdev/svelte-hero-icons'
   import { fly } from 'svelte/transition'
@@ -90,7 +90,7 @@
         <div class="flex flex-col text-left">
           <span>{item.displayName ?? item.name}</span>
           <span class="text-xs opacity-80">
-            {item.handle ? communitySlug(item.handle) : item.did}
+            {communityAddress(item)}
           </span>
         </div>
       </MenuButton>

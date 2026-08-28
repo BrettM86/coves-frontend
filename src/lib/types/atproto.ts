@@ -71,6 +71,30 @@ export function isValidHandle(value: string): value is Handle {
 }
 
 /**
+ * A community *name* as it appears in the `!name@origin` address: one DNS
+ * label (RFC 1035), alphanumeric with interior hyphens, at most 63 characters.
+ * No dots — a dotted value is a handle, not a name — and no underscores: the
+ * AppView resolves names with the same DNS-label rule (`isValidDNSLabel`), so
+ * admitting `_` here would only build URLs the resolver rejects with 400.
+ */
+export function isValidCommunityName(value: string): boolean {
+  return /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/.test(value)
+}
+
+/**
+ * Validates the `name@origin` community address (`gaming@coves.social`,
+ * `comicstrips@lemmy.world`) without the leading `!` sigil — the form used in
+ * URLs. The origin half must be a DNS hostname (`isValidHandle`).
+ */
+export function isValidCommunityAddress(value: string): boolean {
+  const at = value.indexOf('@')
+  if (at <= 0) return false
+  const name = value.slice(0, at)
+  const origin = value.slice(at + 1)
+  return isValidCommunityName(name) && isValidHandle(origin)
+}
+
+/**
  * Type guard to validate Instance URL format and narrow type.
  * Must be a valid URL with http: or https: protocol.
  *

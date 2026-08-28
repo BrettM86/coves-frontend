@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type {
   CommunityRef,
   ExternalEmbed,
@@ -27,6 +27,10 @@ import {
   postLinkRefFromUri,
   postTextFallback,
 } from './helpers'
+
+vi.mock('$env/dynamic/public', () => ({
+  env: { PUBLIC_INSTANCE_URL: 'https://coves.social' },
+}))
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -527,11 +531,13 @@ describe('postLink', () => {
     uri: string
     communityHandle?: string
     communityName?: string
+    communityOrigin?: string
   }): PostView {
     const community: CommunityRef = {
       did: 'did:plc:community1' as DID,
       handle: (overrides.communityHandle ?? '') as Handle,
       name: overrides.communityName ?? 'fallback',
+      origin: overrides.communityOrigin,
     }
     return {
       uri: overrides.uri as AtUri,
@@ -546,6 +552,26 @@ describe('postLink', () => {
       community,
     }
   }
+
+  it('uses the bare community name when the origin is local', () => {
+    const post = makePostView({
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkey1',
+      communityHandle: 'c-gaming.coves.social',
+      communityName: 'gaming',
+      communityOrigin: 'coves.social',
+    })
+    expect(postLink(post)).toBe('/c/gaming/post/rkey1')
+  })
+
+  it('uses name@origin for a remote community', () => {
+    const post = makePostView({
+      uri: 'at://did:plc:abc123/social.coves.community.post/rkey2',
+      communityHandle: 'comicstrips.lemmy-world.tdpl.io',
+      communityName: 'comicstrips',
+      communityOrigin: 'lemmy.world',
+    })
+    expect(postLink(post)).toBe('/c/comicstrips@lemmy.world/post/rkey2')
+  })
 
   it('strips c- prefix from community handle for the URL slug', () => {
     const post = makePostView({

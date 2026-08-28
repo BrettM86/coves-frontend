@@ -3,7 +3,7 @@
   import { locale, t } from '$lib/app/state/i18n'
   import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import { type View, settings } from '$lib/app/state/settings.svelte'
-  import { communitySlug } from '$lib/app/util/links'
+  import { communityMention } from '$lib/app/util/community'
   import { parseWebUrl } from '$lib/app/util/url'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
@@ -144,11 +144,9 @@
               />
               <div class="flex flex-col">
                 <span class="font-medium text-base">{community.name}</span>
-                {#if community.handle}
-                  <span class="text-xs text-slate-500 dark:text-zinc-400">
-                    !{communitySlug(community.handle)}
-                  </span>
-                {/if}
+                <span class="text-xs text-slate-500 dark:text-zinc-400">
+                  {communityMention(community)}
+                </span>
               </div>
             </div>
           </Material>

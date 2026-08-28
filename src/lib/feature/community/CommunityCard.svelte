@@ -44,7 +44,7 @@
   import SubscribeButton from './SubscribeButton.svelte'
   import {
     communityDisplayName,
-    communityHandleOrName,
+    communityMention,
     communityIdentifier,
   } from './helpers'
 
@@ -98,7 +98,7 @@
       avatarCircle={false}
     >
       {#snippet nameDetail()}
-        !{communityHandleOrName(community)}
+        {communityMention(community)}
       {/snippet}
     </EntityHeader>
 

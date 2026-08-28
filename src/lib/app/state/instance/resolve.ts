@@ -26,6 +26,7 @@ export interface InstanceEnv {
   readonly PUBLIC_INSTANCE_URL?: string
   readonly PUBLIC_INTERNAL_INSTANCE?: string
   readonly PUBLIC_LOCK_TO_INSTANCE?: string
+  readonly PUBLIC_INSTANCE_DOMAIN?: string
 }
 
 export type InstanceSide = 'browser' | 'server'
@@ -116,6 +117,39 @@ export function canonicalPublicHost(env: InstanceEnv): string | null {
   } catch {
     return null
   }
+}
+
+/**
+ * The domain this deployment's communities are "local" to — the `origin` the
+ * AppView reports for communities it hosts (`gaming@coves.social`). Community
+ * URLs drop the `@origin` suffix exactly when the origin equals this value.
+ *
+ * Read from `PUBLIC_INSTANCE_DOMAIN` when set; otherwise derived from the
+ * hostname of `PUBLIC_INSTANCE_URL`, since in production the AppView is
+ * served from the instance domain itself (its `did:web` is the same claim).
+ * The override exists for deployments where the two differ — notably local
+ * development, where the AppView is reached at `127.0.0.1` but communities
+ * still carry the configured instance domain. Lower-cased; `null` when
+ * nothing is configured, in which case no community is treated as local.
+ *
+ * Both sources are reduced to a hostname: an operator who writes
+ * `PUBLIC_INSTANCE_DOMAIN=https://coves.social/` (or adds a port) still gets
+ * `coves.social`, rather than a value no AppView `origin` can ever equal —
+ * which would silently turn every local community into a remote one.
+ */
+export function localInstanceDomain(env: InstanceEnv): string | null {
+  return (
+    hostnameOf(env.PUBLIC_INSTANCE_DOMAIN) ??
+    hostnameOf(env.PUBLIC_INSTANCE_URL)
+  )
+}
+
+/** Lower-cased hostname of a bare domain or URL, or null when unparseable. */
+function hostnameOf(raw: string | undefined): string | null {
+  const normalized = normalizeInstanceUrl(raw)
+  if (normalized === null) return null
+  const { hostname } = new URL(normalized)
+  return hostname ? hostname.toLowerCase() : null
 }
 
 export interface PlaintextPolicyEnv extends InstanceEnv {

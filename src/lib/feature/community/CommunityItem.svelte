@@ -9,7 +9,7 @@
   import SubscribeButton from './SubscribeButton.svelte'
   import {
     communityDisplayName,
-    communityHandleOrName,
+    communityAddress,
     communityIdentifier,
   } from './helpers'
 
@@ -36,7 +36,7 @@
   icon={community.avatar}
   href="/c/{communityIdentifier(community)}"
   title={communityDisplayName(community)}
-  detail="{communityHandleOrName(community)}{!showCounts
+  detail="{communityAddress(community)}{!showCounts
     ? ` • ${Intl.NumberFormat($locale, { notation: 'compact' }).format(community.subscriberCount)}`
     : ''}"
   orientation={view == 'cozy' ? 'vertical' : 'horizontal'}

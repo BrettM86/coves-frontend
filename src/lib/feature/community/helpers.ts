@@ -1,42 +1,25 @@
 import type { CommunityRef, CommunityView } from '$lib/api/coves/types'
-import { communitySlug } from '$lib/app/util/links'
-import { usableHandle } from '$lib/types/atproto'
-
-function communityHandle(
-  community: CommunityView | CommunityRef,
-): string | undefined {
-  return usableHandle(community.handle)
-}
+import { encodeCommunityParam } from '$lib/app/util/community'
+import { communityRouteParam } from '$lib/app/util/links'
 
 /**
- * Returns the identifier string for a community (for URLs, route params, etc.).
- * Prefers the canonical slug form of `handle` (no `c-` prefix, matching
- * {@link postLink} permalinks), falling back to `did` — both are accepted by
- * the `[handle=handle]` route matcher, whereas a bare `name` (e.g. "general")
- * would build a URL the router refuses. For human-readable text use
- * {@link communityHandleOrName} or {@link communityDisplayName} instead.
+ * Display forms of a community (`!name@origin` and sigil-less `name@origin`).
+ * Live in `app/util` so the `ui/` layer can share them; re-exported here as
+ * the feature-level entry point.
+ */
+export { communityAddress, communityMention } from '$lib/app/util/community'
+
+/**
+ * Returns the identifier string for a community (for URLs, route params, etc.):
+ * the canonical `name` / `name@origin` when the AppView served an `origin`,
+ * else the slug form of `handle` (no `c-` prefix), else `did`. All are
+ * accepted by the `[handle=handle]` route matcher. For human-readable text
+ * use {@link communityMention} or {@link communityDisplayName} instead.
  */
 export function communityIdentifier(
   community: CommunityView | CommunityRef,
 ): string {
-  const handle = communityHandle(community)
-  return handle ? communitySlug(handle) : community.did
-}
-
-/**
- * Returns a human-readable identifier for display copy (e.g. `!handle` text,
- * list detail lines). Prefers `handle` over `name` and never degrades to a
- * DID — for URLs use {@link communityIdentifier} instead.
- *
- * The `c-` prefix is an internal namespacing convention, so the handle is
- * shown in its canonical form (`science.coves.social`, not
- * `c-science.coves.social`).
- */
-export function communityHandleOrName(
-  community: CommunityView | CommunityRef,
-): string {
-  const handle = communityHandle(community)
-  return handle ? communitySlug(handle) : community.name
+  return encodeCommunityParam(communityRouteParam(community))
 }
 
 /**

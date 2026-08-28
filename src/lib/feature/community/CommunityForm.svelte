@@ -5,7 +5,7 @@
   import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
   import { t } from '$lib/app/state/i18n'
-  import { communitySlug } from '$lib/app/util/links'
+  import { communityLink } from '$lib/app/util/links'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { Header } from '$lib/ui/layout'
   import { Button, Option, Select, TextInput, toast } from '$lib/ui/kit'
@@ -46,7 +46,9 @@
         type: 'success',
       })
 
-      goto(`/c/${encodeURIComponent(communitySlug(res.handle))}`)
+      // The create response carries no `origin`, so this lands on the legacy
+      // handle URL; the community page redirects to the canonical one.
+      goto(communityLink({ ...res, name: formData.name }))
     } catch (err) {
       toast({
         content: errorMessage(err),

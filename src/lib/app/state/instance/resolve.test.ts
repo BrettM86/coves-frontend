@@ -6,6 +6,7 @@ import {
   instanceOrigin,
   isLockedToInstance,
   isUpstreamSchemeAllowed,
+  localInstanceDomain,
   lockedInstanceOrigin,
   normalizeInstanceUrl,
   resolveInstanceUrl,
@@ -191,5 +192,54 @@ describe('lockedInstanceOrigin', () => {
   it('returns null when there is nothing to pin to', () => {
     expect(lockedInstanceOrigin({})).toBeNull()
     expect(lockedInstanceOrigin({ PUBLIC_INSTANCE_URL: '::' })).toBeNull()
+  })
+})
+
+describe('localInstanceDomain', () => {
+  it('derives the hostname of PUBLIC_INSTANCE_URL', () => {
+    expect(localInstanceDomain(BOTH)).toBe('coves.social')
+  })
+
+  it('reduces an explicit domain written as a URL to its hostname', () => {
+    expect(
+      localInstanceDomain({
+        ...BOTH,
+        PUBLIC_INSTANCE_DOMAIN: 'https://Coves.Social:8443/',
+      }),
+    ).toBe('coves.social')
+  })
+
+  it('drops scheme, port and path', () => {
+    expect(
+      localInstanceDomain({
+        PUBLIC_INSTANCE_URL: 'http://Coves.Social:8080/x',
+      }),
+    ).toBe('coves.social')
+  })
+
+  it('accepts a bare host', () => {
+    expect(localInstanceDomain({ PUBLIC_INSTANCE_URL: 'coves.social' })).toBe(
+      'coves.social',
+    )
+  })
+
+  it('prefers an explicit PUBLIC_INSTANCE_DOMAIN, lower-cased', () => {
+    expect(
+      localInstanceDomain({
+        PUBLIC_INSTANCE_URL: 'http://127.0.0.1:8080',
+        PUBLIC_INSTANCE_DOMAIN: ' Coves.Local ',
+      }),
+    ).toBe('coves.local')
+  })
+
+  it('ignores a blank override', () => {
+    expect(localInstanceDomain({ ...BOTH, PUBLIC_INSTANCE_DOMAIN: '  ' })).toBe(
+      'coves.social',
+    )
+  })
+
+  it('returns null when nothing is configured or the URL is invalid', () => {
+    expect(localInstanceDomain({})).toBeNull()
+    expect(localInstanceDomain({ PUBLIC_INSTANCE_URL: '::' })).toBeNull()
   })
 })

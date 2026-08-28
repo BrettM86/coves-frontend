@@ -1,7 +1,18 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { AuthorView, CommunityRef } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
-import { communityLink, communitySlug, userLink } from './links'
+import {
+  communityLink,
+  communityRouteParam,
+  communitySlug,
+  userLink,
+} from './links'
+
+// Pins the local instance so the "is this community local?" branch of
+// communityLink is deterministic regardless of the developer's shell env.
+vi.mock('$env/dynamic/public', () => ({
+  env: { PUBLIC_INSTANCE_URL: 'https://coves.social' },
+}))
 
 // ---------------------------------------------------------------------------
 // communityLink()
@@ -44,6 +55,40 @@ describe('communityLink', () => {
     expect(communityLink(cPrefixCommunity)).toBe('/c/gaming.coves.social')
   })
 
+  it('uses the bare name when origin is the local instance', () => {
+    const local: CommunityRef = {
+      did: 'did:plc:abc123' as DID,
+      handle: 'c-gaming.coves.social' as Handle,
+      name: 'gaming',
+      origin: 'coves.social',
+    }
+    expect(communityLink(local)).toBe('/c/gaming')
+    expect(communityLink(local, '/app')).toBe('/app/c/gaming')
+  })
+
+  it('uses name@origin for a remote origin, with a literal @', () => {
+    const bridged: CommunityRef = {
+      did: 'did:plc:abc123' as DID,
+      handle: 'comicstrips.lemmy-world.tdpl.io' as Handle,
+      name: 'comicstrips',
+      origin: 'lemmy.world',
+    }
+    expect(communityLink(bridged)).toBe('/c/comicstrips@lemmy.world')
+  })
+
+  it('falls back to the handle slug when origin is absent', () => {
+    expect(communityLink(community)).toBe('/c/tech.coves.social')
+  })
+
+  it('falls back to the DID for the unresolved-handle sentinel', () => {
+    const unresolved: CommunityRef = {
+      did: 'did:plc:abc123' as DID,
+      handle: 'handle.invalid' as Handle,
+      name: 'tech',
+    }
+    expect(communityLink(unresolved)).toBe('/c/did%3Aplc%3Aabc123')
+  })
+
   it('strips c- prefix from handle when prefix is provided', () => {
     const cPrefixCommunity: CommunityRef = {
       did: 'did:plc:abc123' as DID,
@@ -52,6 +97,42 @@ describe('communityLink', () => {
     }
     expect(communityLink(cPrefixCommunity, '/app')).toBe(
       '/app/c/science.coves.social',
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// communityRouteParam()
+// ---------------------------------------------------------------------------
+
+describe('communityRouteParam', () => {
+  const gaming = {
+    did: 'did:plc:abc123',
+    handle: 'c-gaming.coves.social',
+    name: 'gaming',
+    origin: 'coves.social',
+  }
+
+  it('returns the unencoded canonical param', () => {
+    expect(communityRouteParam(gaming)).toBe('gaming')
+    expect(communityRouteParam({ ...gaming, origin: 'lemmy.world' })).toBe(
+      'gaming@lemmy.world',
+    )
+  })
+
+  it('honours an explicit local domain', () => {
+    expect(communityRouteParam(gaming, 'other.example')).toBe(
+      'gaming@coves.social',
+    )
+    expect(communityRouteParam(gaming, null)).toBe('gaming@coves.social')
+  })
+
+  it('returns the handle slug, then the DID, when origin is absent', () => {
+    expect(communityRouteParam({ ...gaming, origin: undefined })).toBe(
+      'gaming.coves.social',
+    )
+    expect(communityRouteParam({ did: 'did:plc:abc123', name: 'gaming' })).toBe(
+      'did:plc:abc123',
     )
   })
 })

@@ -108,7 +108,7 @@ export interface FeedTypes {
       params: FeedPaginationParams & { community: string; cursor?: string }
     },
   ]
-  '/profile/[handle=handle]': [
+  '/profile/[handle=actor]': [
     { actor: string; limit?: number; cursor?: string },
     {
       profile: ProfileViewDetailed

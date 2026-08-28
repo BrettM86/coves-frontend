@@ -7,7 +7,7 @@
   } from '$lib/api/coves/types'
   import { t } from '$lib/app/state/i18n'
   import { getSessionStorage, setSessionStorage } from '$lib/app/state/session'
-  import { communitySlug } from '$lib/app/util/links'
+  import { communityLink } from '$lib/app/util/links'
   import PostForm from '$lib/feature/post/form/PostForm.svelte'
   import {
     PostFormState,
@@ -19,9 +19,7 @@
   import { onDestroy } from 'svelte'
 
   let community = getSessionStorage('lastSeenCommunity') as
-    | CommunityView
-    | CommunityViewDetailed
-    | undefined
+    CommunityView | CommunityViewDetailed | undefined
 
   // Read the ?crosspost= draft once at component init — it should only seed
   // the form on initial load, never overwrite the user's edits reactively.
@@ -57,16 +55,11 @@
       // feed cache, and this avoids a backend handle→DID round-trip.
       goto(postLink(result, true))
     } catch (err) {
-      // DID fallback keeps the URL routable: the [handle=handle] matcher
-      // accepts handles and DIDs, but not bare community names.
-      const slug = result.community.handle
-        ? communitySlug(result.community.handle)
-        : result.community.did
       console.warn(
         '[create/post] Failed to parse post URI, falling back to community page:',
         err,
       )
-      goto(`/c/${encodeURIComponent(slug)}`)
+      goto(communityLink(result.community))
     }
   }
 </script>

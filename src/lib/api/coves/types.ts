@@ -103,8 +103,15 @@ export interface AuthorView {
 
 export interface CommunityRef {
   did: DID
-  handle: Handle
+  /** Absent on refs the appview could not resolve; treat like `CommunityView`. */
+  handle?: Handle
   name: string
+  /**
+   * Home instance of the community (e.g. `coves.social`, `lemmy.world`),
+   * served alongside `name` so clients can render the `!name@origin` form
+   * without parsing the DNS handle. Optional until every appview ships it.
+   */
+  origin?: string
   avatar?: string
 }
 
@@ -255,6 +262,8 @@ export interface CommunityViewerState {
 export interface CommunityView {
   did: DID
   name: string
+  /** Home instance of the community; see {@link CommunityRef.origin}. */
+  origin?: string
   subscriberCount: number
   memberCount: number
   postCount: number

@@ -1,7 +1,10 @@
-import type {
-  CommunityRef,
-  CommunityView as CovesCommunityView,
-} from '$lib/api/coves/types'
+import { LOCAL_INSTANCE_DOMAIN } from '$lib/app/state/instance/domain'
+import { usableHandle } from '$lib/types/atproto'
+import {
+  canonicalCommunityParam,
+  encodeCommunityParam,
+  type CommunityRouteSource,
+} from './community'
 
 /**
  * Strips the "c-" prefix from a community handle to produce its canonical form.
@@ -24,21 +27,37 @@ export function communitySlug(handle: string): string {
 }
 
 /**
- * Generate a link path for a community.
- * Accepts a Coves CommunityRef or CommunityView.
+ * Returns the route param a community should be addressed by: the canonical
+ * `name` / `name@origin` form when the AppView served an `origin` (see
+ * {@link canonicalCommunityParam}), otherwise the legacy DNS-handle slug, and
+ * the DID when the handle is missing or unresolved (`handle.invalid`). Every
+ * form is accepted by the `[handle=handle]` matcher and resolved by the
+ * AppView; only the canonical one survives the community page's redirect.
  *
- * Falls back to the community DID when the handle is missing — the
- * `[handle=handle]` route matcher accepts handles and DIDs but not bare
- * community names, so a `name`-based URL would 404 at routing.
+ * Unencoded — pass through {@link encodeCommunityParam} when building a path.
+ */
+export function communityRouteParam(
+  community: CommunityRouteSource,
+  localDomain: string | null = LOCAL_INSTANCE_DOMAIN,
+): string {
+  const canonical = canonicalCommunityParam(community, localDomain)
+  if (canonical) return canonical
+  const handle = usableHandle(community.handle)
+  return handle ? communitySlug(handle) : community.did
+}
+
+/**
+ * Generate a link path for a community: `/c/gaming` for a local community,
+ * `/c/comicstrips@lemmy.world` for a remote one, and the legacy
+ * `/c/<handle>` / `/c/<did>` when the response carried no `origin`.
+ * Accepts a Coves CommunityRef or CommunityView (or any `did` + optional
+ * `handle`/`name`/`origin` shape).
  */
 export function communityLink(
-  community: CommunityRef | CovesCommunityView,
+  community: CommunityRouteSource,
   prefix: string = '',
 ): string {
-  if ('handle' in community && community.handle) {
-    return `${prefix}/c/${encodeURIComponent(communitySlug(community.handle))}`
-  }
-  return `${prefix}/c/${encodeURIComponent(community.did)}`
+  return `${prefix}/c/${encodeCommunityParam(communityRouteParam(community))}`
 }
 
 /**

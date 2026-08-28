@@ -3,7 +3,7 @@
     CommunityView,
     CommunityViewDetailed,
   } from '$lib/api/coves/types'
-  import { communitySlug } from '$lib/app/util/links'
+  import { communityMention } from './helpers'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
 
   interface Props {
@@ -17,10 +17,8 @@
   <Avatar width={48} url={community.avatar} alt={community.name} />
   <div class="flex flex-col gap-0">
     <h1 class="font-bold text-xl">{community.displayName ?? community.name}</h1>
-    {#if community.handle}
-      <span class="dark:text-zinc-400 text-slate-600 text-sm">
-        !{communitySlug(community.handle)}
-      </span>
-    {/if}
+    <span class="dark:text-zinc-400 text-slate-600 text-sm">
+      {communityMention(community)}
+    </span>
   </div>
 </div>

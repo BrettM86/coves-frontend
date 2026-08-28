@@ -164,7 +164,7 @@ describe('buildContentSecurityPolicy', () => {
     const policy = directives(buildContentSecurityPolicy('', prod))
     expect(policy['frame-src']).toBe(EMBED_FRAME_ORIGINS.join(' '))
     expect(policy['frame-src']).toBe(
-      'https://www.youtube-nocookie.com https://yewtu.be https://piped.video',
+      'https://www.youtube-nocookie.com https://yewtu.be https://piped.video https://streamable.com',
     )
   })
 

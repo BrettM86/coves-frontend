@@ -2,6 +2,7 @@ import type { AtUri, PostEmbed } from '$lib/api/coves/types'
 import { parseAtUri } from '$lib/api/coves/types'
 import { isImage, isVideo, isWebUrl } from '$lib/app/util/url'
 import { communityLink } from '$lib/app/util/links'
+import { STREAMABLE_EMBED_ORIGIN } from '$lib/app/util/embed-hosts'
 import {
   type ImagePreset,
   type ImageVariant,
@@ -70,6 +71,35 @@ export const isYoutubeLink = (url?: string): RegExpMatchArray | null => {
   if (!url) return null
 
   return url?.match?.(YOUTUBE_REGEX)
+}
+
+// Matches the three public forms of a Streamable link — the plain
+// `streamable.com/<id>`, the `/e/<id>` embed and the `/s/<id>/…` share URL —
+// and captures the id. Anchored at both ends so a look-alike host
+// (`streamable.com.evil.test`) or a path that merely contains the string
+// (`example.com/streamable.com/x`) cannot match; the scheme is optional for
+// the same reason it is in YOUTUBE_REGEX, since callers gate on `isWebUrl`
+// before an absolute URL is required.
+const STREAMABLE_REGEX =
+  /^(?:https?:\/\/)?(?:www\.)?streamable\.com\/(?:[es]\/)?([a-z0-9]+)(?:[/?#]\S*)?$/i
+
+export const isStreamableLink = (url?: string): RegExpMatchArray | null => {
+  if (!url) return null
+
+  return url?.match?.(STREAMABLE_REGEX)
+}
+
+/**
+ * The player URL for a Streamable link, or null if it is not one.
+ *
+ * Built from the captured id rather than by rewriting the input, so the only
+ * author-controlled part of the resulting `src` is an alphanumeric id on an
+ * origin we chose.
+ */
+export function streamableEmbedUrl(url: string): string | null {
+  const id = isStreamableLink(url)?.[1]
+
+  return id ? `${STREAMABLE_EMBED_ORIGIN}/e/${id}` : null
 }
 
 /** The ATProto collection NSID for Coves community posts. */
@@ -159,7 +189,7 @@ export function commentLink(post: PostLinkRef, commentUri: AtUri): string {
 }
 
 export type MediaType = 'video' | 'image' | 'iframe' | 'embed' | 'none'
-export type IframeType = 'youtube' | 'video' | 'none'
+export type IframeType = 'youtube' | 'streamable' | 'video' | 'none'
 
 /**
  * Determines the media type from a Coves PostEmbed discriminated union.
@@ -187,6 +217,7 @@ export function mediaType(embed?: PostEmbed): MediaType {
       if (isImage(uri)) return 'image'
       if (isVideo(uri)) return 'iframe'
       if (isYoutubeLink(uri)) return 'iframe'
+      if (isStreamableLink(uri)) return 'iframe'
       return 'embed'
     }
     case 'social.coves.embed.post':
@@ -204,6 +235,7 @@ export function mediaType(embed?: PostEmbed): MediaType {
 export function iframeType(url: string): IframeType {
   if (isVideo(url)) return 'video'
   if (isYoutubeLink(url)) return 'youtube'
+  if (isStreamableLink(url)) return 'streamable'
   return 'none'
 }
 

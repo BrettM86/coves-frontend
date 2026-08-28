@@ -8,7 +8,7 @@
     PuzzlePiece,
     VideoCamera,
   } from '@xylightdev/svelte-hero-icons'
-  import { type IframeType } from '../helpers'
+  import { type IframeType, streamableEmbedUrl } from '../helpers'
   import { withPreset } from '$lib/api/coves/image-proxy'
   import {
     YOUTUBE_EMBED_HOSTS,
@@ -69,6 +69,16 @@
       }
     }
 
+    if (type == 'streamable') {
+      // No parseWebUrl hop here: the player URL is built from the captured id
+      // on a fixed origin, so a scheme-less input needs no parsing to be safe,
+      // and a non-Streamable one yields null -> '' -> no iframe.
+      const embed = streamableEmbedUrl(inputUrl)
+      if (!embed) return ''
+
+      return autoplay ? `${embed}?autoplay=1` : embed
+    }
+
     return ''
   }
 
@@ -83,6 +93,12 @@
         return {
           icon: VideoCamera,
           text: 'YouTube Video',
+        }
+      }
+      case 'streamable': {
+        return {
+          icon: VideoCamera,
+          text: 'Streamable Video',
         }
       }
       case 'video': {
@@ -147,9 +163,10 @@
         allow-scripts + allow-same-origin together are normally an escape hatch
         (a framed document can reach into its own sandbox and remove it), but
         they are safe here because `src` is never user-controlled: the origin
-        always comes from the fixed YOUTUBE_EMBED_HOSTS table, and the only
-        user-derived part is the 11-character video ID matched by
-        youtubeVideoID(). Since that origin is always cross-origin to us,
+        always comes from a fixed table (YOUTUBE_EMBED_HOSTS, or
+        STREAMABLE_EMBED_ORIGIN), and the only user-derived part is an id
+        matched by youtubeVideoID() or isStreamableLink() — 11 URL-safe
+        characters, or alphanumerics. Since those origins are cross-origin to us,
         allow-same-origin only grants the player its own storage and cookies,
         which it needs to play. allow-popups-to-escape-sandbox keeps the
         player's "watch on YouTube" popup from opening as a sandboxed window

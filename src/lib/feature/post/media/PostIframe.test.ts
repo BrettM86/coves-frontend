@@ -206,3 +206,63 @@ describe('PostIframe - unopened preview', () => {
     ).not.toThrow()
   })
 })
+
+// ---------------------------------------------------------------------------
+// 6. Streamable
+// ---------------------------------------------------------------------------
+
+describe('PostIframe - streamable', () => {
+  const STREAMABLE_URLS: readonly string[] = [
+    'https://streamable.com/abc123',
+    'https://www.streamable.com/abc123',
+    'https://streamable.com/e/abc123',
+    'https://streamable.com/s/abc123/xyzzy',
+    'streamable.com/abc123',
+  ]
+
+  it.each(STREAMABLE_URLS)('frames the fixed player origin for %j', (url) => {
+    const src = iframeAttribute(
+      renderIframe(url, { type: 'streamable' }),
+      'src',
+    )
+    expect(src).toBeDefined()
+
+    const parsed = new URL(src ?? '')
+    expect(EMBED_FRAME_ORIGINS).toContain(parsed.origin)
+    expect(parsed.pathname).toBe('/e/abc123')
+  })
+
+  it('does not carry the author-supplied host into the frame src', () => {
+    const html = renderIframe('https://streamable.com.evil.test/abc123', {
+      type: 'streamable',
+    })
+    expect(countIframes(html)).toBe(0)
+    expect(html).not.toContain('src=""')
+  })
+
+  it('adds autoplay only when asked', () => {
+    const url = 'https://streamable.com/abc123'
+    const withAutoplay = new URL(
+      iframeAttribute(
+        renderIframe(url, { type: 'streamable', autoplay: true }),
+        'src',
+      ) ?? '',
+    )
+    const without = new URL(
+      iframeAttribute(renderIframe(url, { type: 'streamable' }), 'src') ?? '',
+    )
+
+    expect(withAutoplay.searchParams.get('autoplay')).toBe('1')
+    expect(without.search).toBe('')
+  })
+
+  it.each([
+    'not a url',
+    '',
+    'javascript:alert(1)',
+    'https://example.com/abc123',
+  ])('emits no iframe for %j', (url: string) => {
+    expect(() => renderIframe(url, { type: 'streamable' })).not.toThrow()
+    expect(countIframes(renderIframe(url, { type: 'streamable' }))).toBe(0)
+  })
+})

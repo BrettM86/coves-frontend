@@ -20,13 +20,16 @@ import {
   extractEmbedTitle,
   extractEmbedUrl,
   iframeType,
+  isStreamableLink,
   isYoutubeLink,
   mediaType,
   optimizeImageURL,
   postLink,
   postLinkRefFromUri,
   postTextFallback,
+  streamableEmbedUrl,
 } from './helpers'
+import { EMBED_FRAME_ORIGINS } from '$lib/app/util/embed-hosts'
 
 vi.mock('$env/dynamic/public', () => ({
   env: { PUBLIC_INSTANCE_URL: 'https://coves.social' },
@@ -121,6 +124,14 @@ describe('mediaType', () => {
     const embed: ExternalEmbed = {
       $type: 'social.coves.embed.external#view',
       external: { uri: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    }
+    expect(mediaType(embed)).toBe('iframe')
+  })
+
+  it('returns "iframe" for external embed with Streamable URI', () => {
+    const embed: ExternalEmbed = {
+      $type: 'social.coves.embed.external#view',
+      external: { uri: 'https://streamable.com/abc123' },
     }
     expect(mediaType(embed)).toBe('iframe')
   })
@@ -367,6 +378,64 @@ describe('isYoutubeLink', () => {
 })
 
 // ---------------------------------------------------------------------------
+// isStreamableLink() / streamableEmbedUrl()
+// ---------------------------------------------------------------------------
+
+describe('isStreamableLink', () => {
+  it.each([
+    ['plain', 'https://streamable.com/abc123'],
+    ['www', 'https://www.streamable.com/abc123'],
+    ['http', 'http://streamable.com/abc123'],
+    ['scheme-less', 'streamable.com/abc123'],
+    ['embed form', 'https://streamable.com/e/abc123'],
+    ['share form', 'https://streamable.com/s/abc123/xyzzy'],
+    ['with query', 'https://streamable.com/abc123?t=5'],
+    ['with fragment', 'https://streamable.com/abc123#top'],
+    ['trailing slash', 'https://streamable.com/abc123/'],
+    ['uppercase host', 'https://STREAMABLE.com/abc123'],
+  ])('matches the %s URL and captures the id', (_label, url) => {
+    expect(isStreamableLink(url)?.[1]).toBe('abc123')
+  })
+
+  it.each([
+    ['undefined', undefined],
+    ['empty string', ''],
+    ['suffixed lookalike host', 'https://streamable.com.evil.test/abc123'],
+    ['prefixed lookalike host', 'https://notstreamable.com/abc123'],
+    ['subdomain lookalike', 'https://streamable.com.co/abc123'],
+    ['path-embedded host', 'https://example.com/streamable.com/abc123'],
+    ['bare host', 'https://streamable.com'],
+    ['bare host with slash', 'https://streamable.com/'],
+    ['non-alphanumeric id', 'https://streamable.com/abc-123'],
+  ])('does not match %s', (_label, url) => {
+    expect(isStreamableLink(url)).toBeNull()
+  })
+})
+
+describe('streamableEmbedUrl', () => {
+  it.each([
+    'https://streamable.com/abc123',
+    'https://www.streamable.com/abc123',
+    'streamable.com/abc123',
+    'https://streamable.com/e/abc123',
+    'https://streamable.com/s/abc123/xyzzy',
+    'https://streamable.com/abc123?t=5',
+  ])('builds the player URL for %j', (url) => {
+    expect(streamableEmbedUrl(url)).toBe('https://streamable.com/e/abc123')
+  })
+
+  it('returns null for a non-Streamable URL', () => {
+    expect(streamableEmbedUrl('https://example.com/abc123')).toBeNull()
+  })
+
+  it('emits an origin the CSP frame-src allows', () => {
+    const embed = streamableEmbedUrl('https://streamable.com/abc123')
+    expect(embed).not.toBeNull()
+    expect(EMBED_FRAME_ORIGINS).toContain(new URL(embed ?? '').origin)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // iframeType()
 // ---------------------------------------------------------------------------
 
@@ -379,6 +448,10 @@ describe('iframeType', () => {
     expect(iframeType('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe(
       'youtube',
     )
+  })
+
+  it('returns "streamable" for Streamable URL', () => {
+    expect(iframeType('https://streamable.com/abc123')).toBe('streamable')
   })
 
   it('returns "none" for generic URL', () => {

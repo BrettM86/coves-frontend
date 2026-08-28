@@ -17,10 +17,22 @@ export const YOUTUBE_EMBED_HOSTS = {
 
 export type YouTubeFrontend = keyof typeof YOUTUBE_EMBED_HOSTS
 
-/** Every origin `frame-src` must allow, derived from the table above. */
-export const EMBED_FRAME_ORIGINS: readonly string[] = Object.values(
-  YOUTUBE_EMBED_HOSTS,
-).map((host) => `https://${host}`)
+/**
+ * Where a Streamable link is framed from.
+ *
+ * Streamable takes the iframe route rather than hotlinking the underlying
+ * `.mp4`: `media-src` is deliberately narrow (the instance and its configured
+ * PDS hosts), while `frame-src` is a fixed list of origins we chose, so a new
+ * provider costs one entry here instead of widening a directive that user
+ * content can reach.
+ */
+export const STREAMABLE_EMBED_ORIGIN = 'https://streamable.com'
+
+/** Every origin `frame-src` must allow, derived from the tables above. */
+export const EMBED_FRAME_ORIGINS: readonly string[] = [
+  ...Object.values(YOUTUBE_EMBED_HOSTS).map((host) => `https://${host}`),
+  STREAMABLE_EMBED_ORIGIN,
+]
 
 /** Runtime membership check for values arriving from storage or import. */
 export function isYouTubeFrontend(value: unknown): value is YouTubeFrontend {

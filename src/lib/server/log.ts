@@ -9,7 +9,7 @@
  * means the request degraded but was handled and the process carried on.
  *
  * Stacks are included by default and are scrubbed like everything else; set
- * `LOG_STACKS=0` to drop them (see `.env.example`).
+ * `LOG_STACKS=0` to drop them (see `.env.prod.example`).
  */
 import { env } from '$env/dynamic/private'
 

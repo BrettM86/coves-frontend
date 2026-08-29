@@ -1,0 +1,60 @@
+# Coves frontend — production compose project.
+#
+# This is its OWN compose project (`coves-frontend`, from the directory name),
+# deployed from its own checkout at /opt/coves-frontend. It is NOT part of the
+# backend's /opt/coves/docker-compose.prod.yml; the two meet only on the shared
+# Docker network below, where the backend's Caddy reverse-proxies to this
+# container by its container name. Same arrangement as the tidepool bridge and
+# the aggregators.
+#
+# Deploy: ./scripts/deploy.sh (or the /deploy command). Never `docker compose
+# down` — recreate with `up -d --no-deps frontend`.
+#
+# Runtime environment comes from .env.prod (copy .env.prod.example); every
+# variable is documented in docs/ENVIRONMENT.md.
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: node
+    # VERSION defaults to the git short SHA in scripts/deploy.sh so the image
+    # tag on the box says exactly which commit is running.
+    image: coves/frontend:${VERSION:-latest}
+    # Caddy (in the backend stack) proxies to this exact name. A bare
+    # `frontend` service alias is not unique across compose projects sharing
+    # the network; the container name is.
+    container_name: coves-prod-frontend
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      # Pinned here rather than in .env.prod because they are not deployment
+      # choices: the runtime image is production, and the listener must bind
+      # every interface of the container so Caddy can reach it over the
+      # bridge network.
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+    # Deliberately NO `ports:`. With ADDRESS_HEADER set, adapter-node trusts
+    # X-Real-IP from ANY peer that can reach port 3000 — the only peer allowed
+    # to be that is Caddy, which overwrites the header unconditionally. Publishing
+    # the port would let any client forge its own address (docs/ENVIRONMENT.md).
+    networks:
+      - coves-internal
+    # The image's own HEALTHCHECK hits /healthz, which reports on this process
+    # only (never the backend) — see src/routes/healthz/+server.ts.
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+networks:
+  coves-internal:
+    # Owned by the backend stack (/opt/coves/docker-compose.prod.yml). The
+    # backend must be up before this project starts, or compose refuses with
+    # "network coves-prod-network declared as external, but could not be found".
+    external: true
+    name: coves-prod-network

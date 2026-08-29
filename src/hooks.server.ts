@@ -13,6 +13,7 @@ import {
   upstreamInstanceUrl,
 } from '$lib/server/instance'
 import { log, type LogContext } from '$lib/server/log'
+import { stampClientAddress } from '$lib/server/client-address'
 import {
   applySecurityHeaders,
   parseOriginList,
@@ -130,11 +131,20 @@ const session: Handle = async ({ event, resolve }) => {
 
   // TODO: Consider caching /api/me responses or skipping validation for proxy
   // requests to reduce latency. Currently /api/me is called on every request.
+  //
+  // Built from scratch — nothing the client sent is forwarded — and stamped
+  // with the observed client address. This hop runs once per authenticated
+  // page view and the backend's global rate limiter keys on X-Real-IP; without
+  // the stamp every user on the site would share this container's one bucket
+  // and, past the limit, be silently logged out (429 is handled below as
+  // "unauthenticated").
+  const upstreamHeaders = new Headers({
+    Cookie: `coves_session=${covesSession}`,
+  })
+  stampClientAddress(upstreamHeaders, event.getClientAddress, 'hooks')
   try {
     const response = await fetch(`${instance}/api/me`, {
-      headers: {
-        Cookie: `coves_session=${covesSession}`,
-      },
+      headers: upstreamHeaders,
       // A hung backend must not pile up requests until the Node process
       // exhausts sockets — this fetch runs on every authenticated request.
       signal: AbortSignal.timeout(10_000),

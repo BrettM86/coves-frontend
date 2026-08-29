@@ -52,7 +52,7 @@ plus the three directives a static build must keep.
 The reverse proxy must not overwrite these: the production Caddyfile emits its
 copies with set-if-absent semantics (`header ?Name`) and unconditionally adds
 only what the app cannot see — HSTS, TLS, body limits. The launch gate is
-`curl -sI https://coves.social/` showing a `'nonce-'` in `script-src`.
+`curl -sI -H 'Accept: text/html' https://coves.social/` showing a `'nonce-'` in `script-src` (the `Accept` header matters: the production Caddyfile routes a bare-`*/*` request at the apex to the ActivityPub instance actor, not the web app).
 
 Policy decisions recorded here:
 
@@ -120,7 +120,9 @@ PUBLIC_INTERNAL_INSTANCE=http://127.0.0.1:8081
 PUBLIC_INSTANCE_URL=http://127.0.0.1:8080
 ```
 
-Production container:
+Production container — the committed template is `.env.prod.example`, loaded by
+`docker-compose.prod.yml` via `env_file` and deployed with `scripts/deploy.sh`
+(runbook: `.claude/commands/deploy.md`):
 
 ```dotenv
 ORIGIN=https://coves.social

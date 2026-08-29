@@ -21,8 +21,8 @@ Every environment variable, its default and who reads it is documented in
 [docs/ENVIRONMENT.md](../docs/ENVIRONMENT.md). The ones you must set are
 `PUBLIC_INSTANCE_URL` (the backend the browser talks to) and, behind a proxy,
 `ORIGIN` plus `ADDRESS_HEADER` (without the latter every user shares one
-rate-limit bucket at the backend). `.env.example` is a production-shaped
-starting point.
+rate-limit bucket at the backend). `.env.prod.example` is the production template,
+deployed by `docker-compose.prod.yml` + `scripts/deploy.sh` (runbook: `.claude/commands/deploy.md`).
 
 ## License
 

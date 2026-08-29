@@ -6,7 +6,7 @@ node_modules
 .env
 .env.*
 .dev_env
-!.env.example
+!.env.prod.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 stats.html
@@ -32,3 +32,6 @@ network-*.txt
 # Claude agent memory (local review-agent scratch state)
 .claude/agent-memory/
 coverage/
+
+# Local-only Claude Code commands (contains prod host references) — same convention as the backend repo
+.claude/commands/deploy.md

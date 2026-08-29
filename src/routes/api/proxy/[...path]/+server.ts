@@ -1,6 +1,7 @@
 import type { RequestEvent } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { log } from '$lib/server/log'
+import { stampClientAddress } from '$lib/server/client-address'
 import { normalizeInstanceUrl } from '$lib/app/state/instance/resolve'
 import {
   upstreamInstanceUrl,
@@ -235,14 +236,6 @@ type ProxyRequestEvent = Pick<
 >
 
 /**
- * Latch for the client-address diagnostic below. The condition it reports is a
- * deployment fault that persists for the life of the process, so logging it per
- * request would emit one line per proxied call and bury the diagnostic in its
- * own noise.
- */
-let addressResolutionLogged = false
-
-/**
  * Handles proxying requests to the upstream Coves server.
  * Injects the Authorization header from the session if available.
  */
@@ -358,27 +351,9 @@ async function handler({
   // in production, url.host comes from the client's own Host header.
   headers.set('X-Forwarded-Proto', url.protocol.replace(/:$/, ''))
   headers.set('X-Forwarded-Host', url.host)
-  try {
-    const clientAddress = getClientAddress()
-    headers.set('X-Forwarded-For', clientAddress)
-    headers.set('X-Real-IP', clientAddress)
-  } catch (error) {
-    if (!addressResolutionLogged) {
-      addressResolutionLogged = true
-      log.error(
-        '[proxy] could not determine the client address; upstream requests ' +
-          'will carry no address stamp and the backend cannot rate limit per ' +
-          'caller. Check ADDRESS_HEADER against what the reverse proxy sets ' +
-          '(see docs/ENVIRONMENT.md)',
-        undefined,
-        error,
-      )
-    }
-    // adapter-node throws when ADDRESS_HEADER is configured but the header is
-    // absent from the request — a deployment/proxy misconfiguration, not a
-    // client fault. Proxy on with no address claim at all rather than failing
-    // the request or letting an unverified address through.
-  }
+  // Guarded inside: a missing ADDRESS_HEADER degrades to "no address claim",
+  // never a failed request or a client-supplied address (see the helper).
+  stampClientAddress(headers, getClientAddress, 'proxy')
 
   // Inject Authorization header from the sealed session cookie.
   // The sealed token is opaque to the browser (encrypted by the Go backend),

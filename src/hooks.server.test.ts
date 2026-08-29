@@ -182,10 +182,14 @@ describe('hooks.server handle', () => {
 
       await handle({ event, resolve })
 
-      expect(mockFetch).toHaveBeenCalledWith('http://localhost:4000/api/me', {
-        headers: { Cookie: 'coves_session=sealed-token-value' },
-        signal: expect.any(AbortSignal),
-      })
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:4000/api/me',
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      )
+      const upstreamHeaders = new Headers(mockFetch.mock.calls[0][1].headers)
+      expect(upstreamHeaders.get('cookie')).toBe(
+        'coves_session=sealed-token-value',
+      )
       expect(event.locals.auth.authenticated).toBe(true)
       if (event.locals.auth.authenticated) {
         expect(event.locals.auth.account.did).toBe('did:plc:user1')
@@ -201,6 +205,82 @@ describe('hooks.server handle', () => {
         event,
         expect.objectContaining({ transformPageChunk: expect.any(Function) }),
       )
+    })
+  })
+
+  describe('/api/me carries the observed client address', () => {
+    // The backend's global rate limiter keys on X-Real-IP. This hop runs once
+    // per authenticated page view, so an unstamped request would put every
+    // user on the site into this container's single bucket — and past the
+    // limit, the 429 is treated as "unauthenticated" and everyone is silently
+    // logged out. The stamp is the whole cutover's rate-limit story.
+    const ok = () =>
+      new Response(
+        JSON.stringify({ did: 'did:plc:user1', handle: 'user1.example.com' }),
+        { status: 200 },
+      )
+
+    it('stamps X-Real-IP and X-Forwarded-For from getClientAddress()', async () => {
+      mockFetch.mockResolvedValue(ok())
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({ cookies })
+      event.getClientAddress = () => '203.0.113.7'
+
+      await handle({ event, resolve: createMockResolve() })
+
+      const upstreamHeaders = new Headers(mockFetch.mock.calls[0][1].headers)
+      expect(upstreamHeaders.get('x-real-ip')).toBe('203.0.113.7')
+      expect(upstreamHeaders.get('x-forwarded-for')).toBe('203.0.113.7')
+    })
+
+    it('never forwards a client-supplied address header', async () => {
+      mockFetch.mockResolvedValue(ok())
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({
+        cookies,
+        headers: {
+          'x-real-ip': '6.6.6.6',
+          'x-forwarded-for': '6.6.6.6',
+          forwarded: 'for=6.6.6.6',
+        },
+      })
+      event.getClientAddress = () => '203.0.113.7'
+
+      await handle({ event, resolve: createMockResolve() })
+
+      const upstreamHeaders = new Headers(mockFetch.mock.calls[0][1].headers)
+      expect(upstreamHeaders.get('x-real-ip')).toBe('203.0.113.7')
+      expect(upstreamHeaders.get('x-forwarded-for')).toBe('203.0.113.7')
+      expect(upstreamHeaders.has('forwarded')).toBe(false)
+    })
+
+    it('still validates the session, with no address stamp, when the address is unavailable', async () => {
+      // adapter-node throws when ADDRESS_HEADER is configured but the header
+      // is absent — a proxy misconfiguration. The session check must go
+      // ahead without an address claim rather than fail the page or fall
+      // back to anything the client sent.
+      mockFetch.mockResolvedValue(ok())
+      const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+      const event = createMockEvent({
+        cookies,
+        headers: { 'x-real-ip': '6.6.6.6' },
+      })
+      event.getClientAddress = () => {
+        throw new Error(
+          'Address header was specified with ADDRESS_HEADER=x-real-ip but is absent from request',
+        )
+      }
+
+      await handle({ event, resolve: createMockResolve() })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      const upstreamHeaders = new Headers(mockFetch.mock.calls[0][1].headers)
+      expect(upstreamHeaders.get('cookie')).toBe(
+        'coves_session=sealed-token-value',
+      )
+      expect(upstreamHeaders.has('x-real-ip')).toBe(false)
+      expect(upstreamHeaders.has('x-forwarded-for')).toBe(false)
+      expect(event.locals.auth.authenticated).toBe(true)
     })
   })
 
@@ -566,11 +646,11 @@ describe('hooks.server handle', () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://coves.example.com/api/me',
-        {
-          headers: { Cookie: 'coves_session=sealed-token-value' },
-          signal: expect.any(AbortSignal),
-        },
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       )
+      expect(
+        new Headers(mockFetch.mock.calls[0][1].headers).get('cookie'),
+      ).toBe('coves_session=sealed-token-value')
       expect(event.locals.auth.authenticated).toBe(true)
     })
   })

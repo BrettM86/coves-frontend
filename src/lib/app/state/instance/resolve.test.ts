@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addressHeaderWarning,
+  originWarning,
   canonicalPublicHost,
   hasRequiredInstanceConfig,
   instanceOrigin,
@@ -155,6 +156,31 @@ describe('addressHeaderWarning', () => {
       expect(warning).not.toBeNull()
       expect(warning).toContain('ADDRESS_HEADER')
       expect(warning).toContain('rate')
+    }
+  })
+})
+
+describe('originWarning', () => {
+  // With ORIGIN unset, adapter-node derives event.url from the raw client
+  // Host header, so Kit's origin / form-action checks and the /api/proxy
+  // X-Forwarded-Host stamp all trust an attacker-controlled value. Latent
+  // today (nothing consumes the stamp upstream), but wrong on every
+  // production deployment, so boot has to say it out loud.
+  it('says nothing outside production', () => {
+    expect(originWarning({}, false)).toBeNull()
+    expect(originWarning({ ORIGIN: '' }, false)).toBeNull()
+  })
+
+  it('says nothing when ORIGIN is configured', () => {
+    expect(originWarning({ ORIGIN: 'https://coves.social' }, true)).toBeNull()
+  })
+
+  it('errors in production when ORIGIN is unset or empty', () => {
+    for (const env of [{}, { ORIGIN: '' }]) {
+      const warning = originWarning(env, true)
+      expect(warning).not.toBeNull()
+      expect(warning).toContain('ORIGIN')
+      expect(warning).toContain('docs/ENVIRONMENT.md')
     }
   })
 })

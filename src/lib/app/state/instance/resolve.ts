@@ -207,3 +207,34 @@ export function addressHeaderWarning(
     'limit all users as one caller. See docs/ENVIRONMENT.md.'
   )
 }
+
+export interface OriginEnv {
+  readonly ORIGIN?: string
+}
+
+/**
+ * The boot-time error for a missing `ORIGIN`, or null when there is nothing
+ * to say.
+ *
+ * adapter-node derives `event.url` — and with it Kit's origin / form-action
+ * checks — from the raw client `Host` header unless `ORIGIN` pins the public
+ * URL. Behind a proxy that means an attacker-controlled Host flows into
+ * everything built from `url`, including the `X-Forwarded-Host` /
+ * `X-Forwarded-Proto` values the `/api/proxy` upstream stamp carries. Nothing
+ * consumes those upstream today, so this is a latent misconfiguration rather
+ * than a live hole — but it is wrong on every production deployment, which is
+ * why boot says so.
+ *
+ * Only meaningful in production: in dev the app is reached directly and the
+ * dev server owns the origin.
+ */
+export function originWarning(env: OriginEnv, isProd: boolean): string | null {
+  if (!isProd) return null
+  if (env.ORIGIN) return null
+  return (
+    '[instance] ORIGIN is not set. adapter-node will trust the client Host ' +
+    'header for event.url and origin checks, and the /api/proxy ' +
+    'X-Forwarded-Host stamp inherits that value. Set ORIGIN to the public ' +
+    'URL of this frontend. See docs/ENVIRONMENT.md.'
+  )
+}

@@ -12,6 +12,7 @@ import {
   isUpstreamSchemeAllowed,
   lockedInstanceOrigin,
   MISSING_INSTANCE_MESSAGE,
+  originWarning,
   resolveInstanceUrl,
 } from '$lib/app/state/instance/resolve'
 
@@ -54,6 +55,16 @@ export function addressHeaderConfigWarning(): string | null {
     { ADDRESS_HEADER: privateEnv.ADDRESS_HEADER },
     import.meta.env.PROD,
   )
+}
+
+/**
+ * The boot-time `ORIGIN` error for this deployment, or null.
+ *
+ * Same build-mode gate as `addressHeaderConfigWarning`: `import.meta.env.PROD`
+ * so it never fires under test or dev.
+ */
+export function originConfigWarning(): string | null {
+  return originWarning({ ORIGIN: privateEnv.ORIGIN }, import.meta.env.PROD)
 }
 
 /**

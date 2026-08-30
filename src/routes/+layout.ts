@@ -3,7 +3,9 @@ import { env } from '$env/dynamic/public'
 import { aliases, loadTranslations } from '$lib/app/state/i18n'
 import { settings } from '$lib/app/state/settings.svelte'
 
-export const ssr = env.PUBLIC_SSR_ENABLED?.toLowerCase() == 'true'
+// SSR is on unless explicitly disabled: PUBLIC_SSR_ENABLED=false is the ops
+// kill switch (runtime-read, so flipping it back is a restart, not a rebuild).
+export const ssr = env.PUBLIC_SSR_ENABLED?.toLowerCase() !== 'false'
 
 export const load = async ({ data }) => {
   if (browser) {

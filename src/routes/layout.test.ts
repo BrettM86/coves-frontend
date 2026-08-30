@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const state = vi.hoisted(() => ({
   language: undefined as string | undefined,
   loadCalls: [] as string[],
+  publicEnv: {} as { PUBLIC_SSR_ENABLED?: string },
 }))
 
 vi.mock('$app/environment', () => ({
@@ -24,7 +25,7 @@ vi.mock('$app/environment', () => ({
 }))
 
 vi.mock('$env/dynamic/public', () => ({
-  env: { PUBLIC_SSR_ENABLED: 'true' },
+  env: state.publicEnv,
 }))
 
 vi.mock('$lib/app/state/settings.svelte', () => ({
@@ -108,7 +109,35 @@ describe('root universal load — locale resolution order', () => {
 })
 
 describe('root universal load — ssr flag', () => {
-  it('mirrors PUBLIC_SSR_ENABLED', () => {
+  // SSR is the default; PUBLIC_SSR_ENABLED survives only as the ops kill
+  // switch, so unset must mean on and only an explicit `false` may turn it
+  // off. The flag is read at module evaluation, hence the re-imports.
+  it('defaults to enabled when PUBLIC_SSR_ENABLED is unset', () => {
+    // The top-level import ran with `state.publicEnv` empty.
     expect(ssr).toBe(true)
+  })
+
+  it('is disabled only by an explicit false', async () => {
+    vi.resetModules()
+    state.publicEnv.PUBLIC_SSR_ENABLED = 'FALSE'
+    try {
+      const mod = await import('./+layout')
+      expect(mod.ssr).toBe(false)
+    } finally {
+      delete state.publicEnv.PUBLIC_SSR_ENABLED
+      vi.resetModules()
+    }
+  })
+
+  it('treats any other value as enabled', async () => {
+    vi.resetModules()
+    state.publicEnv.PUBLIC_SSR_ENABLED = 'off'
+    try {
+      const mod = await import('./+layout')
+      expect(mod.ssr).toBe(true)
+    } finally {
+      delete state.publicEnv.PUBLIC_SSR_ENABLED
+      vi.resetModules()
+    }
   })
 })

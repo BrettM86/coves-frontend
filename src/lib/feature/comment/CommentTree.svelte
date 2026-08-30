@@ -5,6 +5,7 @@
   import { XrpcError } from '$lib/api/coves/xrpc'
   import type { DID } from '$lib/types/atproto'
   import { errorMessage } from '$lib/app/util/error'
+  import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
   import { commentLink, type PostLinkRef } from '$lib/feature/post'
   import { Button, toast } from '$lib/ui/kit'
@@ -100,7 +101,7 @@
         })
         return
       }
-      console.error(err)
+      log.error('[CommentTree] loading replies failed', err)
       toast({
         content: errorMessage(err),
         type: 'error',

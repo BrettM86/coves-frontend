@@ -3,6 +3,7 @@
   import { XrpcError } from '$lib/api/coves/xrpc'
   import type { FeedViewPost, FeedPaginationParams } from '$lib/api/coves/types'
   import { errorMessage } from '$lib/app/util/error'
+  import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
   import VirtualList from '$lib/ui/generic/VirtualList.svelte'
   import { settings } from '$lib/app/state/settings.svelte'
@@ -198,10 +199,11 @@
       // new posts is the only observable symptom of that, so treat it as the
       // end of the feed and say why.
       if (response.feed.length !== 0 && added.length === 0) {
-        console.warn('[feed] page returned no new posts; stopping pagination', {
-          cursor: requestedCursor,
-          returned: response.feed.length,
-        })
+        log.warn(
+          '[feed] page returned no new posts; stopping pagination',
+          undefined,
+          { cursor: requestedCursor, returned: response.feed.length },
+        )
       }
 
       hasMore = added.length !== 0 && !!response.cursor
@@ -209,13 +211,10 @@
       if (posts !== feed) {
         // Not `error = e`: that would raise an error banner on the new feed
         // about a request the old feed made.
-        console.warn(
-          'Discarding failed page load for a feed no longer shown:',
-          e,
-        )
+        log.warn('Discarding failed page load for a feed no longer shown', e)
         return
       }
-      console.error('Failed to load more posts:', e)
+      log.error('Failed to load more posts', e)
       error = e
     } finally {
       // Released unconditionally: `loading` belongs to the request, not the

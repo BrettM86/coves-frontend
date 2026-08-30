@@ -2,6 +2,7 @@ import { browser } from '$app/environment'
 import { profile } from '$lib/app/state/auth.svelte'
 import { DEFAULT_INSTANCE_URL } from '$lib/app/state/instance.svelte'
 import { instanceToURL } from '$lib/app/util/url'
+import { log } from '$lib/app/util/log'
 import { error } from '@sveltejs/kit'
 import { BaseClient, DEFAULT_CLIENT_TYPE, type ClientType } from './base'
 import { CovesClient } from './coves'
@@ -44,9 +45,10 @@ function toProxyUrl(input: RequestInfo | URL): RequestInfo | URL {
   } catch (err) {
     // URL parsing failure indicates a malformed URL - this should not happen
     // in normal operation and could indicate a security issue or bug
-    console.error(
-      '[client] Failed to parse URL for proxy routing - aborting request:',
-      { url, error: err instanceof Error ? err.message : String(err) },
+    log.error(
+      '[client] Failed to parse URL for proxy routing - aborting request',
+      err,
+      { url },
     )
     throw new Error(
       `Invalid URL for API request: ${err instanceof Error ? err.message : String(err)}`,

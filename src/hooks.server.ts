@@ -5,7 +5,9 @@ import {
   type RequestEvent,
 } from '@sveltejs/kit'
 import { dev } from '$app/environment'
+import { getRequestEvent } from '$app/server'
 import { env as privateEnv } from '$env/dynamic/private'
+import { installRequestEventAccessor } from '$lib/app/util/request-event'
 import {
   addressHeaderConfigWarning,
   canonicalHost,
@@ -29,6 +31,18 @@ import {
 // module load, so they appear in the boot log rather than never.
 const startupWarning = addressHeaderConfigWarning()
 if (startupWarning) log.warn(startupWarning)
+
+// Universal modules cannot import `$app/server`, so they reach the in-flight
+// request through an accessor this server-only file installs at module load.
+// `getRequestEvent()` throws when there is no request in scope (module init,
+// background work), which callers read as "no request context".
+installRequestEventAccessor(() => {
+  try {
+    return getRequestEvent()
+  } catch {
+    return undefined
+  }
+})
 
 /**
  * The safe subset of a request to attach to a log line. Deliberately excludes

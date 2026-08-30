@@ -1,6 +1,7 @@
 import { browser } from '$app/environment'
 import { DEFAULT_INSTANCE_URL } from './instance/env'
 import { moveItem } from '../util/array'
+import { log } from '$lib/app/util/log'
 import type {
   ClientSession,
   DID,
@@ -22,7 +23,7 @@ function getFromStorage<T>(
     // If a validator is provided, use it to validate the parsed data
     if (validator) {
       if (!validator(parsed)) {
-        console.warn(
+        log.warn(
           `localStorage key "${key}" contains invalid data structure - clearing corrupted data`,
         )
         localStorage.removeItem(key)
@@ -32,7 +33,7 @@ function getFromStorage<T>(
 
     return parsed as T
   } catch (err) {
-    console.warn(`Failed to parse localStorage key "${key}":`, err)
+    log.warn(`Failed to parse localStorage key "${key}"`, err)
     localStorage.removeItem(key) // Clear corrupted data
     return undefined
   }
@@ -311,7 +312,7 @@ class Profile {
     } catch (err) {
       // Network error - don't clear local state
       const errorMsg = err instanceof Error ? err.message : 'Network error'
-      console.error('Logout request failed:', err)
+      log.error('Logout request failed', err)
       return {
         success: false,
         error: `Logout failed: ${errorMsg}. Please try again.`,
@@ -321,7 +322,7 @@ class Profile {
     if (response.status === 401) {
       // Session already gone on the server — treat logout as complete and
       // fall through to clear local state, otherwise the profile is stuck.
-      console.warn('[auth] Session already expired; clearing local profile')
+      log.warn('[auth] Session already expired; clearing local profile')
     } else if (!response.ok) {
       // Server returned an error - don't clear local state
       let errorMsg = `Server returned status ${response.status}`
@@ -331,9 +332,9 @@ class Profile {
           errorMsg = errorData.error
         }
       } catch (err) {
-        console.warn('[auth] Failed to parse error response JSON:', err)
+        log.warn('[auth] Failed to parse error response JSON', err)
       }
-      console.error('Server logout failed:', errorMsg)
+      log.error('Server logout failed', undefined, { errorMsg })
       return {
         success: false,
         error: `Logout failed: ${errorMsg}. Please try again.`,
@@ -349,10 +350,12 @@ class Profile {
       if (data.remoteLogoutFailed) {
         result.remoteLogoutFailed = true
         result.remoteLogoutError = data.remoteLogoutError
-        console.warn('Remote token revocation failed:', data.remoteLogoutError)
+        log.warn('Remote token revocation failed', undefined, {
+          remoteLogoutError: data.remoteLogoutError,
+        })
       }
     } catch (err) {
-      console.warn('[auth] Failed to parse logout response JSON:', err)
+      log.warn('[auth] Failed to parse logout response JSON', err)
     }
 
     // Remove from local state only after successful server logout
@@ -378,7 +381,7 @@ class Profile {
         index + (up ? -1 : 1),
       )
     } catch (err) {
-      console.warn('Failed to move profile:', err)
+      log.warn('Failed to move profile', err)
     }
   }
 
@@ -414,7 +417,7 @@ class Profile {
    */
   isMod(_community?: unknown): boolean {
     if (!this.#warnedIsMod) {
-      console.warn(
+      log.warn(
         'isMod() is a stub - implement when Coves roles API is available',
       )
       this.#warnedIsMod = true
@@ -427,7 +430,7 @@ class Profile {
    */
   get isAdmin(): boolean {
     if (!this.#warnedIsAdmin) {
-      console.warn(
+      log.warn(
         'isAdmin is a stub - implement when Coves roles API is available',
       )
       this.#warnedIsAdmin = true

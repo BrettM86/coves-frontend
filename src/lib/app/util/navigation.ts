@@ -1,4 +1,5 @@
 import { goto } from '$app/navigation'
+import { log } from '$lib/app/util/log'
 
 /**
  * Sets `key=value` on `url` (dropping `deleteKeys`) and navigates to it with
@@ -17,6 +18,6 @@ export const searchParam = async (
       invalidateAll: true,
     })
   } catch (err) {
-    console.error('[searchParam] Navigation failed:', err)
+    log.error('[searchParam] Navigation failed', err)
   }
 }

@@ -134,22 +134,35 @@ export default ts.config(
       why: 'only server-side route files (*.server.ts, +server.ts, routes/api) may use $lib/server',
     },
   ]),
-  // Server-side code must log through $lib/server/log — never console.*
-  // directly. The logger emits one JSON line per event with the request id,
-  // scrubs secrets out of error messages, and gates stack traces behind
-  // dev / LOG_STACKS=1. A raw console.error(err) anywhere in these files is a
-  // credential-to-stderr leak waiting to happen, so it is a lint error.
+  // Anything that can end up in the SERVER bundle must log through the
+  // isomorphic logger ($lib/app/util/log, or $lib/server/log for server-only
+  // callers) — never console.* directly. The logger emits one JSON line per
+  // event with the request id and scrubs secrets out of messages, stacks and
+  // URLs; a raw console.error(err) prints an unscrubbed error — headers,
+  // cookies, a whole OAuth URL — straight to stderr, where it is archived.
+  //
+  // `app/`, `api/`, `feature/`, `routes/` and `ui/` are all covered because SSR
+  // runs them too: a console in a universal route file or a shared component
+  // prints to the same stderr a `+page.server.ts`'s would. `ui/kit` is a leaf
+  // that may not import `$lib/app`, so it cannot reach the logger itself — it
+  // takes one by prop from its caller. The fence applies to it regardless; the
+  // alternative is an unscrubbed console in a component that server-renders.
+  //
+  // The browser half of the logger reaches a console deliberately, so the
+  // logger's own directory is exempt. `src/hooks.client.ts` is deliberately NOT
+  // listed: it only ever runs in the browser, where there is no stderr to leak
+  // to and no request to correlate.
   {
     files: [
       'src/hooks.server.ts',
       'src/lib/server/**/*.ts',
-      'src/routes/**/+server.ts',
-      'src/routes/**/+page.server.ts',
-      'src/routes/**/+layout.server.ts',
-      'src/routes/**/*.server.ts',
-      'src/routes/api/**/*.ts',
+      'src/lib/app/**/*.{ts,svelte}',
+      'src/lib/api/**/*.{ts,svelte}',
+      'src/lib/feature/**/*.{ts,svelte}',
+      'src/lib/ui/**/*.{ts,svelte}',
+      'src/routes/**/*.{ts,svelte}',
     ],
-    ignores: ['src/lib/server/log.ts', '**/*.test.ts'],
+    ignores: ['src/lib/app/util/log/**', '**/*.test.ts', '**/*.test.svelte.ts'],
     rules: { 'no-console': 'error' },
   },
 )

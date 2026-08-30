@@ -3,6 +3,7 @@
   import type { CreateCommentOutput, StrongRef } from '$lib/api/coves/types'
   import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
+  import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
   import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
@@ -79,7 +80,7 @@
 
       value = ''
     } catch (err) {
-      console.error(err)
+      log.error('[CommentForm] createComment failed', err)
       toast({
         content: errorMessage(err),
         type: 'error',

@@ -52,6 +52,18 @@ vi.mock('$env/dynamic/private', () => ({
   },
 }))
 
+// Controllable stand-in for SvelteKit's per-request event accessor. Declared
+// via vi.hoisted so the hoisted vi.mock factory below can close over it, and
+// kept as one stable vi.fn so tests can assert it was actually consulted.
+const { mockGetRequestEvent } = vi.hoisted(() => ({
+  mockGetRequestEvent: vi.fn<() => RequestEvent>(),
+}))
+
+// Mock $app/server (getRequestEvent throws outside a request in real SvelteKit)
+vi.mock('$app/server', () => ({
+  getRequestEvent: mockGetRequestEvent,
+}))
+
 // Import handle and handleError after mocking
 const { handle, handleError } = await import('./hooks.server')
 
@@ -1443,5 +1455,42 @@ describe('hooks.server security headers', () => {
     await expect(import('./hooks.server')).rejects.toThrow(/javascript/)
     mockCspVideoOrigins = 'https://pds.coves.me'
     vi.resetModules()
+  })
+})
+
+describe('request event accessor', () => {
+  // Self-contained: this suite builds its own module graph rather than reading
+  // the one the file imported at the top. Sharing that graph made the suite
+  // depend on running before the vi.resetModules() calls elsewhere in this
+  // file, which is a property of source order and nothing else.
+  let currentRequestEvent: () => RequestEvent | undefined
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    vi.resetModules()
+    // Order matters: load the accessor module first, then hooks.server, so the
+    // install lands in the same fresh copy this suite is about to read.
+    ;({ currentRequestEvent } = await import('$lib/app/util/request-event'))
+    await import('./hooks.server')
+  })
+
+  it('exposes the SvelteKit request event through currentRequestEvent', async () => {
+    const event = createMockEvent({ url: 'https://coves.social/feed' })
+    mockGetRequestEvent.mockReturnValue(event)
+
+    expect(currentRequestEvent()).toBe(event)
+    expect(mockGetRequestEvent).toHaveBeenCalled()
+  })
+
+  it('returns undefined instead of throwing when called outside a request', async () => {
+    mockGetRequestEvent.mockImplementation(() => {
+      throw new Error('Cannot be called outside a request handler')
+    })
+
+    expect(() => currentRequestEvent()).not.toThrow()
+    expect(currentRequestEvent()).toBeUndefined()
+    // Without this the assertion above passes vacuously: an uninstalled
+    // accessor also returns undefined, having never reached getRequestEvent.
+    expect(mockGetRequestEvent).toHaveBeenCalled()
   })
 })

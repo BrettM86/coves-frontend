@@ -2,6 +2,7 @@
   import { page } from '$app/state'
   import { coves } from '$lib/api/client.svelte'
   import { errorMessage } from '$lib/app/util/error'
+  import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
   import { mapSort } from '$lib/api/coves/sort'
@@ -141,7 +142,7 @@
       value.comments = Promise.resolve(comments)
       value.params.thread.singleThread = false
     } catch (err) {
-      console.error('[post] Failed to reload comments:', err)
+      log.error('[post] Failed to reload comments', err)
       toast({ content: errorMessage(err), type: 'error' })
     }
   }

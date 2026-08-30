@@ -912,4 +912,19 @@ describe('log stack policy', () => {
     expect(stack.endsWith(TRUNCATED)).toBe(true)
     expect(stack.length).toBeLessThanOrEqual(8000 + TRUNCATED.length)
   })
+
+  it("applies LOG_STACKS='0' to universal callers, not just server ones", async () => {
+    mockLogStacks = '0'
+    // The universal face of the same emitter, on the same module graph: this
+    // file's top-level `await import('./log')` is what installed the policy.
+    // A universal module never reads LOG_STACKS itself, so if the install did
+    // not reach it, $lib/app/util/log would still be emitting stacks in
+    // production — the setting would silently cover only half the callers.
+    const { log: isoLog } = await import('$lib/app/util/log')
+
+    isoLog.error('universal failure', new Error('kaput'))
+
+    const { line } = singleLine(spies.error.mock.calls)
+    expect('stack' in errOf(line)).toBe(false)
+  })
 })

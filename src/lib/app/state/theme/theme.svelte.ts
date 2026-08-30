@@ -1,6 +1,7 @@
 import { browser } from '$app/environment'
 import { env } from '$env/dynamic/public'
 import { getDefaultTheme, presets } from './presets'
+import { log } from '$lib/app/util/log'
 
 type ColorScheme = 'system' | 'light' | 'dark'
 
@@ -82,10 +83,7 @@ function readStorage(key: string): string | null {
   try {
     return localStorage.getItem(key)
   } catch (err) {
-    console.error(
-      `[theme] Failed to read ${key} from localStorage:`,
-      err instanceof Error ? err.message : String(err),
-    )
+    log.error(`[theme] Failed to read ${key} from localStorage`, err)
     return null
   }
 }
@@ -95,10 +93,7 @@ function removeStorage(key: string): void {
   try {
     localStorage.removeItem(key)
   } catch (err) {
-    console.error(
-      `[theme] Failed to clear ${key} from localStorage:`,
-      err instanceof Error ? err.message : String(err),
-    )
+    log.error(`[theme] Failed to clear ${key} from localStorage`, err)
   }
 }
 
@@ -120,9 +115,9 @@ export function persistThemeData(data: ThemeData): void {
       }),
     )
   } catch (err) {
-    console.error(
-      '[theme] Failed to persist theme.data — theme customizations will not survive a reload:',
-      err instanceof Error ? err.message : String(err),
+    log.error(
+      '[theme] Failed to persist theme.data — theme customizations will not survive a reload',
+      err,
     )
   }
 }
@@ -131,10 +126,7 @@ export function persistColorScheme(scheme: ColorScheme): void {
   try {
     localStorage.setItem('colorScheme', scheme)
   } catch (err) {
-    console.error(
-      '[theme] Failed to persist colorScheme:',
-      err instanceof Error ? err.message : String(err),
-    )
+    log.error('[theme] Failed to persist colorScheme', err)
   }
 }
 
@@ -266,17 +258,18 @@ function loadTheme(): ThemeData | undefined {
       typeof data !== 'object' ||
       !Array.isArray((data as ThemeData).themes)
     ) {
-      console.warn('[theme] discarding malformed theme.data:', localTheme)
+      log.warn('[theme] discarding malformed theme.data', undefined, {
+        localTheme,
+      })
       removeStorage('theme.data')
       return
     }
     const parsed = data as ThemeData
     const validThemes = parsed.themes.filter(isTheme)
     if (validThemes.length < parsed.themes.length) {
-      console.warn(
-        '[theme] dropped invalid entries from theme.data:',
+      log.warn('[theme] dropped invalid entries from theme.data', undefined, {
         localTheme,
-      )
+      })
     }
     parsed.themes = [...presets, ...validThemes]
     if (typeof parsed.currentTheme !== 'number') {
@@ -284,7 +277,7 @@ function loadTheme(): ThemeData | undefined {
     }
     return parsed
   } catch (err) {
-    console.warn('[theme] discarding unparseable theme.data:', localTheme, err)
+    log.warn('[theme] discarding unparseable theme.data', err, { localTheme })
     removeStorage('theme.data')
     return
   }

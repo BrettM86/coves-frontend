@@ -2,6 +2,7 @@ import { browser } from '$app/environment'
 import { env } from '$env/dynamic/public'
 import { locale } from './i18n'
 import { mergeDeep } from '../util/merge'
+import { log } from '$lib/app/util/log'
 import { isYouTubeFrontend, type YouTubeFrontend } from '../util/embed-hosts'
 import {
   normalizeCommentSort,
@@ -208,10 +209,7 @@ function getInitialSettings(defaultValue: Settings): Settings {
     // versions — mergeDeep keeps only keys the defaults still define.
     return mergeDeep(cloned, localSettings) as unknown as Settings
   } catch (err) {
-    console.error(
-      '[settings] Failed to parse settings from localStorage:',
-      err instanceof Error ? err.message : String(err),
-    )
+    log.error('[settings] Failed to parse settings from localStorage', err)
     return cloneDefaults(defaultValue)
   }
 }
@@ -300,10 +298,7 @@ $effect.root(() => {
     } catch (err) {
       // Storage can be unavailable or full (private browsing, blocked
       // cookies). Losing persistence must not take the reactive graph with it.
-      console.error(
-        '[settings] Failed to persist settings:',
-        err instanceof Error ? err.message : String(err),
-      )
+      log.error('[settings] Failed to persist settings', err)
     }
 
     if (settings.language) {

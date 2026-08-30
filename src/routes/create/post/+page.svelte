@@ -8,6 +8,7 @@
   import { t } from '$lib/app/state/i18n'
   import { getSessionStorage, setSessionStorage } from '$lib/app/state/session'
   import { communityLink } from '$lib/app/util/links'
+  import { log } from '$lib/app/util/log'
   import PostForm from '$lib/feature/post/form/PostForm.svelte'
   import {
     PostFormState,
@@ -55,8 +56,8 @@
       // feed cache, and this avoids a backend handle→DID round-trip.
       goto(postLink(result, true))
     } catch (err) {
-      console.warn(
-        '[create/post] Failed to parse post URI, falling back to community page:',
+      log.warn(
+        '[create/post] Failed to parse post URI, falling back to community page',
         err,
       )
       goto(communityLink(result.community))

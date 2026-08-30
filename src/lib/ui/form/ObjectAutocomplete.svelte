@@ -2,6 +2,7 @@
   import { coves } from '$lib/api/client.svelte'
   import type { CommunityView } from '$lib/api/coves/types'
   import { communityAddress } from '$lib/app/util/community'
+  import { log } from '$lib/app/util/log'
   import { MenuButton, Search, toast } from '$lib/ui/kit'
   import { Icon, XCircle } from '@xylightdev/svelte-hero-icons'
   import { fly } from 'svelte/transition'
@@ -28,6 +29,7 @@
 </script>
 
 <Search
+  onerror={(err) => log.error('[Search] search failed', err)}
   search={async (q) => {
     searchError = false
     try {
@@ -46,7 +48,7 @@
         return results.communities
       }
     } catch (err) {
-      console.error('[ObjectAutocomplete] search failed:', err)
+      log.error('[ObjectAutocomplete] search failed', err)
       searchError = true
       toast({
         content: 'Failed to search communities',

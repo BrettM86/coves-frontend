@@ -14,6 +14,12 @@
     noresults?: import('svelte').Snippet
     /** Shown in place of the results when the search callback rejects. */
     errorLabel?: string
+    /**
+     * Reports a rejected search to the caller. `ui/kit` is a leaf that may not
+     * import `$lib/app`, so it cannot reach the logger itself — the caller
+     * passes one in. Left unset, a failed search is shown but not recorded.
+     */
+    onerror?: (err: unknown) => void
     required?: boolean
     children?: import('svelte').Snippet<
       [
@@ -58,6 +64,7 @@
     children,
     onselect,
     oninput,
+    onerror,
     ...rest
   }: Props<T> = $props()
 
@@ -73,7 +80,7 @@
       // menu would spin for the rest of the page's life.
       items = []
       searchError = err instanceof Error ? err.message : String(err)
-      console.error('[Search] query failed:', err)
+      onerror?.(err)
     } finally {
       searching = false
     }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
+  import { log } from '$lib/app/util/log'
   import { toast } from '$lib/ui/kit'
   import { modals } from './moderation.svelte'
 
@@ -13,7 +14,7 @@
     try {
       return await importer
     } catch (err) {
-      console.error(`[ModerationModals] Failed to load ${name}:`, err)
+      log.error(`[ModerationModals] Failed to load ${name}`, err)
       toast({ content: $t('error.unknown'), type: 'error' })
       close()
       throw err

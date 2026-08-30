@@ -2,6 +2,8 @@
 // Sort and listing type validation
 // ---------------------------------------------------------------------------
 
+import { log } from '$lib/app/util/log'
+
 export type CovesSortType = 'hot' | 'new' | 'top'
 export type CovesListingType = 'discover' | 'timeline'
 
@@ -63,7 +65,7 @@ export function isValidTimeframe(t: string): t is CovesTimeframe {
  */
 export function mapSort(sort: string, timeframe?: string): CovesSortParams {
   if (!isValidSort(sort)) {
-    console.warn(`[sort] Invalid sort value "${sort}", falling back to "hot"`)
+    log.warn(`[sort] Invalid sort value "${sort}", falling back to "hot"`)
     return { sort: 'hot' }
   }
   if (sort === 'top') {
@@ -71,9 +73,7 @@ export function mapSort(sort: string, timeframe?: string): CovesSortParams {
       return { sort: 'top', timeframe }
     }
     if (timeframe) {
-      console.warn(
-        `[sort] Invalid timeframe "${timeframe}", falling back to "all"`,
-      )
+      log.warn(`[sort] Invalid timeframe "${timeframe}", falling back to "all"`)
     }
     return { sort: 'top', timeframe: 'all' }
   }
@@ -129,7 +129,7 @@ export function resolveFeedSort(
   if (isValidSort(sort)) return mapSort(sort, timeframe)
 
   const salvaged = normalizeSort(sort)
-  console.warn(`[sort] Legacy sort value "${sort}", mapping to "${salvaged}"`)
+  log.warn(`[sort] Legacy sort value "${sort}", mapping to "${salvaged}"`)
   return mapSort(salvaged, timeframe)
 }
 
@@ -161,7 +161,7 @@ export function isValidCommunitySort(s: string): s is CommunitySortType {
  */
 export function mapCommunitySort(sort: string): CommunitySortType {
   if (isValidCommunitySort(sort)) return sort
-  console.warn(
+  log.warn(
     `[sort] Invalid community sort value "${sort}", falling back to "popular"`,
   )
   return 'popular'
@@ -195,7 +195,7 @@ export function mapListing(
 ): CovesListingType {
   if (listing === 'timeline') return isAuthenticated ? 'timeline' : 'discover'
   if (listing !== 'discover') {
-    console.warn(
+    log.warn(
       `[sort] Invalid listing type "${listing}", falling back to "discover"`,
     )
   }

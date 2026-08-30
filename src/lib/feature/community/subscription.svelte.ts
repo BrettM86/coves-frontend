@@ -12,6 +12,7 @@
 // with that snapshot.
 // ---------------------------------------------------------------------------
 
+import { log } from '$lib/app/util/log'
 import type { CommunityViewerState } from '$lib/api/coves/types'
 import type { DID } from '$lib/types/atproto'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
@@ -88,7 +89,7 @@ export async function toggleSubscription(
     }
     return { kind: 'ok', subscribed: next }
   } catch (error) {
-    console.error('[subscription] toggle failed', { did, was }, error)
+    log.error('[subscription] toggle failed', error, { did, was })
     if (previous === undefined) {
       overrides.delete(did)
     } else {

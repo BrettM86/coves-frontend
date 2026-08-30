@@ -2,6 +2,7 @@
   import { page } from '$app/state'
   import { coves } from '$lib/api/client.svelte'
   import { errorMessage } from '$lib/app/util/error'
+  import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
   import { mapSort } from '$lib/api/coves/sort'
@@ -36,7 +37,7 @@
       // failure keeps the previously loaded comment tree on screen.
       value.comments = Promise.resolve(comments)
     } catch (err) {
-      console.error('[comment-permalink] Failed to reload comments:', err)
+      log.error('[comment-permalink] Failed to reload comments', err)
       toast({ content: errorMessage(err), type: 'error' })
     }
   }

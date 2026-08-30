@@ -1,4 +1,5 @@
 import { browser } from '$app/environment'
+import { log } from '$lib/app/util/log'
 import type {
   CommunityView as CovesCommunityView,
   CommunityViewDetailed,
@@ -38,7 +39,7 @@ export const getSessionStorage = (
   try {
     return JSON.parse(raw)
   } catch {
-    console.warn(
+    log.warn(
       `[session] Failed to parse sessionStorage key "${key}", removing corrupted data`,
     )
     sessionStorage.removeItem(key)

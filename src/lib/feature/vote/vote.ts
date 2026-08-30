@@ -9,6 +9,7 @@
 // ---------------------------------------------------------------------------
 
 import type { AtUri, VoteCounts } from '$lib/api/coves/types'
+import { log } from '$lib/app/util/log'
 
 // Re-exported so vote logic imports its counter type from the module that
 // operates on it. It is declared in the API types module because `PostStats`
@@ -28,8 +29,9 @@ export type { VoteCounts }
  */
 function decrement(count: number, counter: string): number {
   if (count <= 0) {
-    console.warn(
+    log.warn(
       `[vote] refusing to decrement ${counter} below zero — optimistic state is out of sync with the server`,
+      undefined,
       { count },
     )
     return 0

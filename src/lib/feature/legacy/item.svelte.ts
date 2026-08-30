@@ -5,6 +5,7 @@ import type {
   ProfileViewDetailed,
 } from '$lib/api/coves/types'
 import { toast } from '$lib/ui/kit'
+import { log } from '$lib/app/util/log'
 
 /**
  * Union of all result types that can appear in search results, feeds, etc.
@@ -19,10 +20,7 @@ import { toast } from '$lib/ui/kit'
  * Coves and legacy Lemmy shapes by checking for discriminating properties.
  */
 export type Result =
-  | PostView
-  | CommentView
-  | ProfileViewDetailed
-  | CommunityView
+  PostView | CommentView | ProfileViewDetailed | CommunityView
 
 /**
  * Extracts the published/created timestamp from any result type.
@@ -48,7 +46,9 @@ export function getItemPublished(item: Result): string {
   if (hasPublished(legacy, 'community'))
     return (legacy.community as Record<string, string>).published
 
-  console.warn('[item] getItemPublished: unrecognized item type', item)
+  log.warn('[item] getItemPublished: unrecognized item type', undefined, {
+    item,
+  })
   return ''
 }
 

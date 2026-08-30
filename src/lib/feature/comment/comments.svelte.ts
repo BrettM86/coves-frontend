@@ -9,6 +9,7 @@ import type {
 import { parseAtUri } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import { t } from '$lib/app/state/i18n'
+import { log } from '$lib/app/util/log'
 import { EMPTY_COMMENT_STATS } from '$lib/feature/vote/subjects'
 
 /**
@@ -67,7 +68,7 @@ export function buildCommentsTree(
     let normalized: NormalizedCommentView
     if (record == null || (cv.isDeleted && record.content === '')) {
       if (record == null && !cv.isDeleted) {
-        console.warn(
+        log.warn(
           `[comments] Comment ${cv.uri as string} has no record but is not marked deleted (backend data-integrity issue?); rendering as deleted.`,
         )
       }
@@ -192,7 +193,7 @@ export function insertCommentIntoTree(
       parentNode.children.unshift(node)
       return true
     } else {
-      console.warn(
+      log.warn(
         `[comments] Parent node not found in tree for comment ${cv.uri as string}, parent: ${cv.parent.uri as string}. Comment was dropped.`,
       )
       return false

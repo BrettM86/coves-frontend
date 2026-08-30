@@ -1,4 +1,5 @@
 import { t } from '$lib/app/state/i18n'
+import { log } from '$lib/app/util/log'
 
 /**
  * Turns anything an API call or loader can throw into a user-facing string.
@@ -49,9 +50,13 @@ export function errorMessage(error: any, instance?: string): string {
     const translated = t.get(key)
     return translated === key ? String(error) : translated
   } catch (formatError) {
-    console.error('[errorMessage] failed to format error', {
-      error,
-      formatError,
+    // `error` is whatever a caller threw — an API body, a Response, anything —
+    // so it rides as a field rather than in the message. On the server the
+    // logger reduces it to a class tag and key names, so values that may carry
+    // a token or a cookie never reach stderr; in the browser it is handed to
+    // devtools raw, which is the point of having it there.
+    log.error('[errorMessage] failed to format error', formatError, {
+      input: error,
     })
     if (typeof error === 'string') return error
     if (error instanceof Error) return error.message

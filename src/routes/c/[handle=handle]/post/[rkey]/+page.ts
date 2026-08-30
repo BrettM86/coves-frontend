@@ -8,6 +8,7 @@ import type { Handle } from '$lib/types/atproto'
 import { settings } from '$lib/app/state/settings.svelte'
 import { mapSort } from '$lib/api/coves/sort'
 import { ReactiveState } from '$lib/app/util/reactive.svelte'
+import { log } from '$lib/app/util/log'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
 import {
   type Feed,
@@ -96,9 +97,7 @@ export async function load({ params, url, fetch, route }) {
     if (!isHydratedPost(result)) {
       const reason: 'notFound' | 'blocked' =
         result != null && 'blocked' in result ? 'blocked' : 'notFound'
-      console.warn(
-        `[post-loader] Post unavailable (${reason}) for ${p.postUri}`,
-      )
+      log.warn(`[post-loader] Post unavailable (${reason}) for ${p.postUri}`)
       return {
         unavailable: reason,
         comments: Promise.resolve([]),

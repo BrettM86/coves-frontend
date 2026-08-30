@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import { t } from '$lib/app/state/i18n'
+  import { log } from '$lib/app/util/log'
   import { settings } from '$lib/app/state/settings.svelte'
   import {
     normalizeTimeframe,
@@ -84,7 +85,7 @@
     try {
       await goto(url, { invalidateAll: true })
     } catch (err) {
-      console.error('[SortMenu] Navigation failed:', err)
+      log.error('[SortMenu] Navigation failed', err)
       toast({ content: t.get('toast.sortFailed'), type: 'error' })
       sort = prevSort
       timeframe = prevTimeframe

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
+  import { log } from '$lib/app/util/log'
   import {
     importSettings,
     resetSettings,
@@ -28,7 +29,7 @@
         toast({ content: $t('toast.settingsImport'), type: 'success' })
         importing = false
       } catch (err) {
-        console.error('[settings] Import failed:', err)
+        log.error('[settings] Import failed', err)
         toast({ content: $t('toast.settingsImportFailed'), type: 'error' })
       }
     }}

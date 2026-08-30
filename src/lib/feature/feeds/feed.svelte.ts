@@ -15,6 +15,7 @@ import type {
 import type { CommunitySortType } from '$lib/api/coves/sort'
 import { profile } from '$lib/app/state/auth.svelte'
 import { recursiveEqual } from '$lib/app/util/array'
+import { log } from '$lib/app/util/log'
 import { SvelteMap } from 'svelte/reactivity'
 
 type FetchFn<P, R> = (params: P) => R
@@ -67,7 +68,7 @@ export class Feed<Params, Response> {
         this.#data = result
         this.error = undefined
       } catch (err) {
-        console.error('[Feed] fetch failed:', err)
+        log.error('[Feed] fetch failed', err)
         // Superseded failures still reject their own caller, but must not
         // raise an error banner over whatever the newer load rendered.
         if (generation === this.#generation) this.error = err

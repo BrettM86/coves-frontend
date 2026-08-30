@@ -1,5 +1,6 @@
 import { browser } from '$app/environment'
 import { coves } from '$lib/api/client.svelte'
+import { log } from '$lib/app/util/log'
 
 export interface AggregatedStats {
   readonly communities: number
@@ -51,7 +52,7 @@ class SiteStats {
     } catch (e) {
       this._error =
         e instanceof Error ? e.message : 'Failed to fetch site stats'
-      console.error('Failed to fetch site stats:', e)
+      log.error('Failed to fetch site stats', e)
     } finally {
       this._loading = false
     }

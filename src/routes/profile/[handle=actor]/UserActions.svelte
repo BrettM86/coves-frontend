@@ -4,6 +4,7 @@
   import { XrpcError } from '$lib/api/coves/xrpc'
   import { profile as authProfile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
+  import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
   import { Button, Menu, MenuButton, toast } from '$lib/ui/kit'
   import { untrack } from 'svelte'
@@ -90,11 +91,10 @@
       // Reported unconditionally: the toast is global rather than scoped to
       // this profile, and an action the user explicitly took must never fail
       // silently just because they navigated while it was in flight.
-      console.error(
-        '[UserActions] toggleBlock failed',
-        { subject, newBlockedState },
-        err,
-      )
+      log.error('[UserActions] toggleBlock failed', err, {
+        subject,
+        newBlockedState,
+      })
       if (err instanceof XrpcError && err.status === 401) {
         toast({ content: $t('toast.sessionExpired'), type: 'warning' })
       } else {

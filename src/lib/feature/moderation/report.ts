@@ -1,4 +1,5 @@
 import type { AuthorView, CommentView, PostView } from '$lib/api/coves/types'
+import { log } from '$lib/app/util/log'
 
 /**
  * Report types for the Coves moderation system.
@@ -96,7 +97,7 @@ function generalizeLegacyReport(
       resolver: report.resolver ? (report.resolver as AuthorView) : undefined,
     } as ReportView
   } catch (err) {
-    console.error(`[report] generalize ${type} report failed:`, err)
+    log.error(`[report] generalize ${type} report failed`, err)
     return null
   }
 }

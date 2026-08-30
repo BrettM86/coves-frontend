@@ -10,6 +10,7 @@
     MAX_REPORT_EXPLANATION_LENGTH,
   } from '$lib/api/coves/types'
   import { t } from '$lib/app/state/i18n'
+  import { log } from '$lib/app/util/log'
   import { Button, Modal, TextArea, toast } from '$lib/ui/kit'
   import {
     buildReportInput,
@@ -56,7 +57,7 @@
         type: 'success',
       })
     } catch (err) {
-      console.error('[ReportModal] Report submission failed:', err)
+      log.error('[ReportModal] Report submission failed', err)
       toast({
         content: reportErrorMessage(err, (key) => $t(key)),
         type: 'error',

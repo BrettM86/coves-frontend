@@ -3,6 +3,7 @@
   import { getClient } from '$lib/api/client.svelte'
   import type { ListingType, Person } from '$lib/api/types'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
+  import { log } from '$lib/app/util/log'
   import { MenuButton, Search } from '$lib/ui/kit'
   import { Icon, XCircle } from '@xylightdev/svelte-hero-icons'
   import { fly } from 'svelte/transition'
@@ -31,6 +32,7 @@
 </script>
 
 <Search
+  onerror={(err) => log.error('[Search] search failed', err)}
   search={async (q) => {
     const users = (
       await getClient(instance).search({

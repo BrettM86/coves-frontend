@@ -18,6 +18,7 @@ import type {
   StrongRef,
 } from '$lib/api/coves/types'
 import { XrpcError } from '$lib/api/coves/xrpc'
+import { log } from '$lib/app/util/log'
 import { nextVoteState, toggleUpvote, type VoteCounts } from './vote'
 
 export interface VoteViewer {
@@ -110,8 +111,9 @@ export async function castUpvote<
 
     const result = await ctx.api.createVote({ subject, direction: 'up' })
     if (!ctx.isCurrent()) {
-      console.warn(
+      log.warn(
         '[vote] discarding createVote result — component now shows a different subject',
+        undefined,
         { subject: subject.uri },
       )
       return { kind: 'stale-subject' }
@@ -124,9 +126,11 @@ export async function castUpvote<
       // Best-effort: a vote `prevViewer` never saw is also uncounted in
       // `prevStats`; only a stale 'down' leaves the restored counts off until
       // the next refetch, which is why callers surface an out-of-sync notice.
-      console.warn('[vote] createVote toggled off an unseen existing vote', {
-        uri: subject.uri,
-      })
+      log.warn(
+        '[vote] createVote toggled off an unseen existing vote',
+        undefined,
+        { uri: subject.uri },
+      )
       ctx.write({ stats: prevStats, viewer: prevViewer })
       return { kind: 'out-of-sync' }
     }
@@ -150,18 +154,18 @@ export async function castUpvote<
       // unable to ever reach un-voted. Scoped by errorName: an infrastructure
       // 404 (proxy misroute, stale AppView) arrives as `UnknownError` and is
       // NOT confirmation the vote is gone — that falls through to rollback.
-      console.warn(
+      log.warn(
         '[vote] deleteVote 404 — vote already absent, keeping optimistic state',
+        undefined,
         { uri: subject.uri },
       )
       return { kind: 'already-absent' }
     }
 
-    console.error(
-      '[vote] castUpvote failed',
-      { uri: subject.uri, isToggleOff },
-      err,
-    )
+    log.error('[vote] castUpvote failed', err, {
+      uri: subject.uri,
+      isToggleOff,
+    })
 
     // Rollback — unless the component has moved to a different subject, in
     // which case `stats`/`viewer` belong to the new one and the old snapshot

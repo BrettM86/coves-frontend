@@ -111,6 +111,8 @@ src/
 │   ├── app/
 │   │   ├── state/    # auth, settings, instance, session, theme, i18n
 │   │   └── util/     # pure helpers, one concern per file (links, url, text…)
+│   │                 # (except util/log and util/request-event, which hold
+│   │                 #  server-installed singletons — see their module docs)
 │   ├── ui/           # presentational components; may use app/ + api/, never feature/
 │   │   └── kit/      # hard fork of mono-svelte — imports nothing from app/feature/api
 │   ├── feature/      # feature modules (post, comment, community, markdown, shell…)

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
+  import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
   import { uploadImage } from '$lib/api/upload'
   import { Button, toast } from '$lib/ui/kit'
@@ -43,7 +44,7 @@
                 return uploaded
               })
               .catch((err) => {
-                console.error('[ImageAttachForm] upload failed', err)
+                log.error('[ImageAttachForm] upload failed', err)
                 toast({ content: errorMessage(err), type: 'error' })
                 return undefined
               }),

@@ -1,4 +1,5 @@
 import type { EmbedImage } from '$lib/api/coves/types'
+import { log } from '$lib/app/util/log'
 
 /**
  * Available image proxy presets matching the Coves backend.
@@ -39,7 +40,7 @@ export function withPreset(url: string, preset: ImagePreset): string {
   const parsed = parseProxyUrl(url)
   if (!parsed) {
     if (import.meta.env.DEV && url) {
-      console.warn(`[image-proxy] withPreset called with non-proxy URL: ${url}`)
+      log.warn(`[image-proxy] withPreset called with non-proxy URL: ${url}`)
     }
     return url
   }

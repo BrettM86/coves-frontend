@@ -1,0 +1,96 @@
+/**
+ * `syncFromServer` in the browser.
+ *
+ * Two places turn a server session into a client profile: the SSR render
+ * (through `profileFromSession`) and this method, which adopts the session the
+ * server put in page data. If they disagree by even one field the page changes
+ * under the reader at hydration. These pin that they agree.
+ *
+ * Separate file because `auth.svelte.test.ts` mocks `browser: false`
+ * file-wide, and the browser path is what stores a profile.
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ServerSession } from './auth.svelte'
+
+vi.mock('$app/environment', () => ({
+  browser: true,
+  dev: false,
+  building: false,
+  version: 'test',
+}))
+
+vi.mock('./instance/env', () => ({
+  DEFAULT_INSTANCE_URL: 'https://coves.social',
+  LINKED_INSTANCE_URL: undefined,
+}))
+
+vi.mock('$lib/server/session', () => ({}))
+
+/** The module reads and writes localStorage at import time on the browser path. */
+const store = new Map<string, string>()
+vi.stubGlobal('localStorage', {
+  getItem: (key: string) => store.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    store.set(key, value)
+  },
+  removeItem: (key: string) => {
+    store.delete(key)
+  },
+})
+
+const session = (avatar?: string): ServerSession =>
+  ({
+    authenticated: true,
+    activeAccountId: 'did:plc:abcdefghijklmnopqrstuvwx',
+    account: {
+      id: 'did:plc:abcdefghijklmnopqrstuvwx',
+      did: 'did:plc:abcdefghijklmnopqrstuvwx',
+      handle: 'mari.test',
+      instance: 'https://coves.social',
+      avatar,
+    },
+  }) as unknown as ServerSession
+
+async function freshAuth() {
+  vi.resetModules()
+  store.clear()
+  return await import('./auth.svelte')
+}
+
+beforeEach(() => {
+  vi.resetModules()
+  store.clear()
+})
+
+describe('syncFromServer', () => {
+  it('adopts exactly the profile profileFromSession maps', async () => {
+    const { profile, profileFromSession } = await freshAuth()
+    const incoming = session('https://cdn.example/avatar.png')
+
+    profile.syncFromServer(incoming)
+
+    // Deep equality against the shared mapper, so the two paths cannot drift
+    // apart field by field.
+    expect(profile.meta.profiles).toEqual([profileFromSession(incoming)])
+    expect(profile.meta.profile).toBe(incoming.activeAccountId)
+  })
+
+  it('agrees with profileFromSession when the account has no avatar', async () => {
+    const { profile, profileFromSession } = await freshAuth()
+    const incoming = session(undefined)
+
+    profile.syncFromServer(incoming)
+
+    expect(profile.meta.profiles).toEqual([profileFromSession(incoming)])
+  })
+
+  it('drops to the guest profileFromSession maps for no session', async () => {
+    const { profile, profileFromSession } = await freshAuth()
+    profile.syncFromServer(session())
+
+    profile.syncFromServer(undefined)
+
+    expect(profile.meta.profiles).toEqual([profileFromSession(undefined)])
+    expect(profile.meta.profile).toBe('guest')
+  })
+})

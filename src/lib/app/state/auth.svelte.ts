@@ -2,6 +2,7 @@ import { browser } from '$app/environment'
 import { DEFAULT_INSTANCE_URL } from './instance/env'
 import { moveItem } from '../util/array'
 import { log } from '$lib/app/util/log'
+import { currentRequestEvent } from '$lib/app/util/request-event'
 import type {
   ClientSession,
   DID,
@@ -227,12 +228,36 @@ export interface LogoutResult {
 }
 
 class Profile {
-  meta = $state<ProfileData>(
+  #meta = $state<ProfileData>(
     getFromStorage<ProfileData>('profileData', isValidProfileData) ?? {
       profiles: [createGuestProfile()],
       profile: 'guest',
     },
   )
+
+  /**
+   * The account list this read belongs to.
+   *
+   * In the browser it is module state, restored from localStorage. During a
+   * server render it describes the in-flight request instead: the account
+   * switcher and the sidebar render from `meta`, and one process renders every
+   * visitor, so module state here would show them the previous request's
+   * account.
+   *
+   * Outside a request — module evaluation, a unit test, a background job —
+   * there is no visitor to describe and the process's own state is all there
+   * is. That state is a lone guest unless something on this process wrote to
+   * it, and only browser-side code paths do.
+   */
+  get meta(): ProfileData {
+    if (browser) return this.#meta
+
+    const event = currentRequestEvent()
+    if (event === undefined) return this.#meta
+
+    const current = profileFromSession(sessionFromLocals(event.locals.auth))
+    return { profiles: [current], profile: current.id }
+  }
 
   #current = $derived(
     this.meta.profiles.find((i) => i.id == this.meta.profile) ??
@@ -243,12 +268,27 @@ class Profile {
     return createGuestProfile()
   }
 
-  get current() {
-    return this.#current
+  /**
+   * The profile this read belongs to.
+   *
+   * In the browser that is module state, backed by localStorage — one user,
+   * one answer. On the server one process renders every visitor, so the answer
+   * comes from the request that is currently executing and nothing is
+   * remembered between requests: a logged-in render must never leave its
+   * account visible to the anonymous render running beside it.
+   */
+  get current(): ProfileInfo {
+    if (browser) return this.#current
+    return profileFromSession(
+      sessionFromLocals(currentRequestEvent()?.locals.auth),
+    )
   }
 
-  set current(value) {
+  set current(value: ProfileInfo) {
     if (!value) return
+    // `meta` is shared by every in-flight request on the server, where the
+    // request — not an assignment — decides who is signed in.
+    if (!browser) return
     const index = this.meta.profiles.findLastIndex((i) => i.id === value.id)
     if (index != -1) this.meta.profiles[index] = value
   }
@@ -272,19 +312,9 @@ class Profile {
       return
     }
 
-    // Convert server account to client ProfileInfo format
-    const serverProfile: AuthenticatedProfile = {
-      type: 'authenticated',
-      id: serverSession.account.id,
-      instance: serverSession.account.instance,
-      jwt: 'authenticated',
-      did: serverSession.account.did,
-      handle: serverSession.account.handle,
-      avatar: serverSession.account.avatar,
-    }
-
-    // Update local state
-    this.meta.profiles = [serverProfile]
+    // Through the shared mapper, so what the client adopts here and what the
+    // server render produced cannot drift apart field by field.
+    this.meta.profiles = [profileFromSession(serverSession)]
     this.meta.profile = serverSession.activeAccountId
   }
 
@@ -386,10 +416,11 @@ class Profile {
   }
 
   get isDefaultProfile(): boolean {
-    // A default/guest profile has type 'guest'
+    // Reads `current`, not `#current`: on the server the profile belongs to
+    // the in-flight request, and module state has no say in it.
+    const current = this.current
     return (
-      this.#current.type === 'guest' &&
-      this.#current.instance == DEFAULT_INSTANCE_URL
+      current.type === 'guest' && current.instance == DEFAULT_INSTANCE_URL
     )
   }
 
@@ -399,7 +430,7 @@ class Profile {
    * @returns `true` if the profile is authenticated (type === 'authenticated')
    */
   get isAuthenticated(): boolean {
-    return this.#current.type === 'authenticated'
+    return this.current.type === 'authenticated'
   }
 
   // TODO(coves-migration): Implement role checking via Coves API when roles endpoint is available.
@@ -465,6 +496,57 @@ class Profile {
 }
 
 export const profile = new Profile()
+
+/**
+ * Maps a server session onto a client profile.
+ *
+ * The one place that conversion lives, so the server render (which resolves
+ * the profile from the in-flight request) and `syncFromServer` (which adopts
+ * it in the browser) cannot drift apart.
+ */
+export function profileFromSession(
+  session: ServerSession | undefined,
+): ProfileInfo {
+  if (!session?.authenticated) return createGuestProfile()
+
+  return {
+    type: 'authenticated',
+    id: session.account.id,
+    instance: session.account.instance,
+    jwt: 'authenticated',
+    did: session.account.did,
+    handle: session.account.handle,
+    avatar: session.account.avatar,
+  }
+}
+
+/**
+ * Narrows the request's auth state to the client-safe session shape.
+ *
+ * Mirrors `toClientSession` in `$lib/server/session`, which this layer may
+ * import types from but not code. The sealed token is deliberately dropped:
+ * nothing on a profile is allowed to carry it, since profiles are serialized
+ * into the page and into localStorage.
+ */
+export function sessionFromLocals(
+  auth: App.AuthState | undefined,
+): ServerSession | undefined {
+  if (!auth?.authenticated) return undefined
+
+  const { account } = auth
+  return {
+    authenticated: true,
+    // The UI identifies accounts by `id`; the DID is what fills that role.
+    activeAccountId: account.did,
+    account: {
+      id: account.did,
+      did: account.did,
+      handle: account.handle,
+      instance: account.instance,
+      avatar: account.avatar,
+    },
+  }
+}
 
 /**
  * Creates a default guest profile.

@@ -1,3 +1,4 @@
+import { browser } from '$app/environment'
 import type {
   CommentView,
   CommunityView,
@@ -132,6 +133,10 @@ class ResumableStore {
   }
 
   add(item: ResumableItem) {
+    // This list is one person's recent history. On the server it is shared by
+    // every visitor the process renders, so anything added during a render
+    // would show the next visitor what the last one was reading.
+    if (!browser) return
     if (this.#items.find((i) => JSON.stringify(i) === JSON.stringify(item)))
       return
     this.#items.unshift(item)

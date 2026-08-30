@@ -49,3 +49,6 @@ jobs:
 
       - name: Build (node adapter, same as the Docker image)
         run: ADAPTER=node pnpm build
+
+      - name: SSR isolation acceptance (tests/ssr)
+        run: pnpm test:ssr

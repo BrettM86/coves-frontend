@@ -17,6 +17,14 @@ export const load = async ({ request, locals }) => {
     }
   }
 
+  // The language travels on the request, not on a module-level store: one Node
+  // process serves every visitor, so universal code reads it back through the
+  // request-event accessor rather than from shared state.
+  locals.lang = preferredLanguage
+
+  // Preload only. This warms the dictionary cache so the render — which is
+  // synchronous — can resolve keys without awaiting; it must not repoint the
+  // shared locale, and on the server `loadTranslations` deliberately does not.
   await loadTranslations(preferredLanguage)
 
   // Build client-safe session (without sensitive tokens)

@@ -3,6 +3,7 @@ import { profile } from '$lib/app/state/auth.svelte'
 import { DEFAULT_INSTANCE_URL } from '$lib/app/state/instance.svelte'
 import { instanceToURL } from '$lib/app/util/url'
 import { log } from '$lib/app/util/log'
+import { currentRequestEvent } from '$lib/app/util/request-event'
 import { error } from '@sveltejs/kit'
 import { BaseClient, DEFAULT_CLIENT_TYPE, type ClientType } from './base'
 import { CovesClient } from './coves'
@@ -57,9 +58,65 @@ function toProxyUrl(input: RequestInfo | URL): RequestInfo | URL {
 }
 
 /**
+ * The session token of the request being rendered, if it may be sent to
+ * `input`.
+ *
+ * On the server there is no proxy to inject auth, so a render's upstream calls
+ * have to carry the token from the request that is executing. That token is a
+ * session credential for our own upstream only, so it is released solely when
+ * the target's origin equals the account's instance origin (fail closed): a call aimed at a remote instance, an image host,
+ * or anywhere a route param could name goes out unauthenticated rather than
+ * handing a session credential to a third party.
+ */
+function requestToken(input: RequestInfo | URL): string | undefined {
+  const auth = currentRequestEvent()?.locals.auth
+  // An anonymous render, or no request at all, is the ordinary case and not a
+  // fault. Reporting it would bury the two diagnostics below under one line
+  // per page view.
+  if (!auth?.authenticated) return undefined
+
+  const target = input instanceof Request ? input.url : String(input)
+  const instance = auth.account.instance
+
+  let targetOrigin: string
+  let upstreamOrigin: string
+  try {
+    targetOrigin = new URL(target).origin
+    upstreamOrigin = new URL(instanceToURL(instance)).origin
+  } catch (err) {
+    // A config or programming fault rather than a runtime condition: an
+    // account whose instance cannot be parsed can never authenticate
+    // anything, and degrading to anonymous renders in silence is how that
+    // survives a release unnoticed.
+    log.error(
+      '[client] requestToken: unparseable instance or target, withholding session token',
+      err,
+      { instance, target },
+    )
+    return undefined
+  }
+
+  if (targetOrigin !== upstreamOrigin) {
+    // Only a warning: fetching a remote instance or an image host is
+    // legitimate and the token is correctly withheld. Worth seeing anyway,
+    // because it is also what a mis-set PUBLIC_INTERNAL_INSTANCE looks like.
+    log.warn(
+      '[client] requestToken: origin mismatch, withholding session token',
+      undefined,
+      { target: targetOrigin, upstream: upstreamOrigin },
+    )
+    return undefined
+  }
+
+  return auth.authToken
+}
+
+/**
  * Custom fetch function that handles:
  * - Client-side: Routes through /api/proxy for auth injection
- * - Server-side: Direct calls with auth header (when func is SvelteKit's fetch)
+ * - Server-side: direct call; Authorization is set from an explicit `auth`,
+ *   else from the in-flight request's session token when the target origin is
+ *   the account's own instance (see `requestToken`)
  * - User-Agent header addition
  *
  * @throws Calls SvelteKit's `error()` with the status code and response body on non-ok responses.
@@ -101,9 +158,12 @@ async function customFetch(
     }
     return res
   } else {
-    // Server-side: Direct call with auth header (token from locals)
-    if (auth) {
-      headers.set('Authorization', `Bearer ${auth}`)
+    // Server-side: direct call, so the auth header is ours to set. An
+    // explicitly passed token wins; otherwise it comes from the in-flight
+    // request.
+    const token = auth ?? requestToken(input)
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`)
     }
 
     const serverInit: RequestInit = {
@@ -111,7 +171,8 @@ async function customFetch(
       headers,
     }
 
-    if (auth) {
+    // An authenticated response is per-user and must never be cached.
+    if (token) {
       serverInit.cache = 'no-store'
     }
 
@@ -147,18 +208,18 @@ export function client({
   }
 
   // Auth handling:
-  // - Client-side: The proxy at /api/proxy injects auth from the session cookie
-  // - Server-side: The caller MUST pass `auth` explicitly from locals.auth.authToken
+  // - Client-side: the proxy at /api/proxy injects auth from the session cookie
+  // - Server-side: an explicit `auth` wins; otherwise `customFetch` falls back
+  //   to the in-flight request's token, and only for our own upstream origin
   //
-  // NOTE: profile.current?.jwt is now just the literal 'authenticated' marker (not a real token).
-  // Server-side requests that need auth MUST pass the auth parameter explicitly.
+  // NOTE: profile.current?.jwt is just the literal 'authenticated' marker, not
+  // a real token, and is never used as one.
   const authToken = auth
 
   // TODO(coves-migration): Use CovesClient (see `coves()`) once Lemmy/PieFed adapters are removed
   return new (clientType?.name == 'piefed' ? PiefedClient : LemmyClient)(
     instanceToURL(instanceURL),
     {
-      // customFetch handles auth header injection for both client and server
       fetchFunction: (input, init) => customFetch(func, input, init, authToken),
       headers: {},
     },
@@ -202,8 +263,9 @@ async function covesCustomFetch(
 
     return f(proxyInput, proxyInit)
   } else {
-    if (auth) {
-      headers.set('Authorization', `Bearer ${auth}`)
+    const token = auth ?? requestToken(input)
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`)
     }
 
     const serverInit: RequestInit = {
@@ -211,7 +273,8 @@ async function covesCustomFetch(
       headers,
     }
 
-    if (auth) {
+    // An authenticated response is per-user and must never be cached.
+    if (token) {
       serverInit.cache = 'no-store'
     }
 

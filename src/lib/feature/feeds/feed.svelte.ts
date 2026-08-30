@@ -200,7 +200,10 @@ export function feed<Type extends keyof FeedTypes>(
   }
 
   const feedData = new Feed<P, R>(init as unknown as FetchFn<P, R>)
-  feeds.set(id, feedData as Feed<unknown, unknown>)
+  // Browser only: `feeds` is keyed by route id and shared by every visitor a
+  // server process renders, so an entry cached here would hand one request's
+  // posts to the next. Each server render gets its own Feed and drops it.
+  if (browser) feeds.set(id, feedData as Feed<unknown, unknown>)
 
   return feedData
 }

@@ -5,9 +5,13 @@ import { settings } from '$lib/app/state/settings.svelte'
 
 export const ssr = env.PUBLIC_SSR_ENABLED?.toLowerCase() == 'true'
 
-export const load = async () => {
+export const load = async ({ data }) => {
   if (browser) {
-    const initLocale = settings.language ?? navigator?.language ?? 'en'
+    // `data.lang` is what the server actually rendered in. It has to outrank
+    // `navigator.language`, or the first paint flips language under the reader
+    // when the two disagree; an explicit user setting still wins over both.
+    const initLocale =
+      settings.language ?? data?.lang ?? navigator?.language ?? 'en'
 
     await loadTranslations(aliases.get(initLocale) ?? initLocale)
   }

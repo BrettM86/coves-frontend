@@ -26,7 +26,8 @@ declare global {
       /**
        * Convenience alias for `account.sealedToken`.
        * Duplicated at the top level so the proxy layer (`/api/proxy/[...path]`)
-       * can read the token directly from `locals.auth.authToken` without
+       * (and the logout endpoint, and `$lib/api/client.svelte`'s server-side
+       * token fallback) can read it directly from `locals.auth.authToken` without
        * reaching into the nested account object on every proxied request.
        */
       readonly authToken: SealedToken
@@ -82,6 +83,15 @@ declare global {
       authError?: AuthErrorKind
       /** Set to true when a 401 from /api/me indicates the session has expired or been revoked */
       sessionExpired?: boolean
+      /**
+       * Language this request renders in, resolved from the visitor's
+       * `Accept-Language` header. Read by `$lib/app/state/i18n` through the
+       * request-event accessor, so that one Node process can render different
+       * languages concurrently. Stamped by the root `+layout.server.ts` load,
+       * so it is unset outside a request and on error pages rendered before
+       * that load runs; i18n then falls back to `en`.
+       */
+      lang?: string
     }
     interface PageData {
       slots?: {

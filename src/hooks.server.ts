@@ -252,12 +252,51 @@ function securityHeaderOptions(secure: boolean): SecurityHeaderOptions {
 }
 
 /**
+ * `+layout.server.ts` puts the signed-in session (handle, avatar, DID) in the
+ * load payload, and the payload reaches the browser one of two ways. With SSR
+ * on it is serialised into the page itself; with `ssr = false`, which is what
+ * we ship, Kit renders an empty shell and the client fetches the same payload
+ * as `__data.json`. Either way a stored copy replays one user's session to
+ * whoever loads it next on that device, so both are forced to
+ * `private, no-store`. Kit already stamps that on `__data.json` itself, but
+ * this hook states it independently — belt and braces on the response we own,
+ * and the only cover for the SSR-on document.
+ *
+ * This header addresses HTTP caches: shared proxies and the browser's own disk
+ * cache. It says nothing to our service worker, whose Cache API ignores
+ * `Cache-Control` entirely; that hole is closed separately in
+ * `service-worker.ts`. `no-store` rather than `no-cache` because only
+ * `no-store` also forbids writing the response to disk. It forfeits bfcache in
+ * browsers that still exclude no-store pages (Firefox, Safari; Chromium
+ * restores them with restrictions), deliberately.
+ *
+ * Everything else defaults to no-store as well, unless it named a policy of
+ * its own — silence is not permission to cache. That default is what covers a
+ * page-level `redirect()` and Kit's error page, which produce neither a
+ * transformed chunk nor a data request while still having branched on who is
+ * signed in; a 301 or 308 is heuristically cacheable, so leaving those bare
+ * would be a real leak. An endpoint that sets its own `cache-control` (the
+ * proxy relaying an unauthenticated upstream, say) chose its freshness
+ * deliberately and keeps it.
+ */
+function applyCachePolicy(
+  headers: Headers,
+  kitPage: boolean,
+  isDataRequest: boolean,
+): void {
+  if (!kitPage && !isDataRequest && headers.has('cache-control')) return
+  headers.set('cache-control', 'private, no-store')
+}
+
+/**
  * Every response that reaches `handle` — Kit pages, endpoints, and the manual
  * early returns in `session` above — leaves with the full security header
  * set. Not covered: static assets and prerendered pages (served by sirv / Vite
  * ahead of hooks; the edge supplies their baseline headers), and anything
  * thrown out of `session` (the dev-only host redirect, or Kit's fatal-error
  * page for an unexpected throw), which Kit builds outside this function.
+ * The cache policy rides along under exactly the same coverage and the same
+ * re-wrap on an immutable Headers guard.
  *
  * Composed by hand rather than with Kit's `sequence()`: as of Kit 2.70,
  * `sequence.js` calls `get_request_store()` up front, which throws outside
@@ -289,6 +328,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   try {
     applySecurityHeaders(response.headers, options, kitPage)
+    applyCachePolicy(response.headers, kitPage, event.isDataRequest)
     return response
   } catch (error) {
     // A Response built from `fetch()` or `Response.redirect()` carries an
@@ -298,6 +338,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (!(error instanceof TypeError)) throw error
     const copy = new Response(response.body, response)
     applySecurityHeaders(copy.headers, options, kitPage)
+    applyCachePolicy(copy.headers, kitPage, event.isDataRequest)
     return copy
   }
 }

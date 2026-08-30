@@ -79,6 +79,29 @@ function createMockResolve() {
 }
 
 /**
+ * Mimics Kit's page renderer: emits the nonce'd CSP and runs the
+ * `transformPageChunk` option the wrapper passes through resolve(). Module
+ * scope because both the security-header and the cache-policy suites need a
+ * response that Kit itself rendered.
+ */
+function kitPageResolve(
+  html = '<html></html>',
+  extraHeaders: Record<string, string> = {},
+) {
+  return vi.fn(async (_event: unknown, opts?: ResolveOptions) => {
+    const body =
+      (await opts?.transformPageChunk?.({ html, done: true })) ?? html
+    return new Response(body, {
+      headers: {
+        'content-type': 'text/html',
+        'content-security-policy': "script-src 'self' 'nonce-kit123'",
+        ...extraHeaders,
+      },
+    })
+  })
+}
+
+/**
  * Asserts a console spy received exactly one call carrying exactly one string
  * argument — the structured log line — and returns it raw and parsed. The raw
  * form is what secret-leak assertions must run against.
@@ -1280,27 +1303,6 @@ describe('hooks.server security headers', () => {
     )
   }
 
-  /**
-   * Mimics Kit's page renderer: emits the nonce'd CSP and runs the
-   * `transformPageChunk` option the wrapper passes through resolve().
-   */
-  function kitPageResolve(
-    html = '<html></html>',
-    extraHeaders: Record<string, string> = {},
-  ) {
-    return vi.fn(async (_event: unknown, opts?: ResolveOptions) => {
-      const body =
-        (await opts?.transformPageChunk?.({ html, done: true })) ?? html
-      return new Response(body, {
-        headers: {
-          'content-type': 'text/html',
-          'content-security-policy': "script-src 'self' 'nonce-kit123'",
-          ...extraHeaders,
-        },
-      })
-    })
-  }
-
   it('hardens every response resolve() produces', async () => {
     const event = createMockEvent({ url: 'https://coves.social/api/whatever' })
     const resolve = vi
@@ -1492,5 +1494,137 @@ describe('request event accessor', () => {
     // Without this the assertion above passes vacuously: an uninstalled
     // accessor also returns undefined, having never reached getRequestEvent.
     expect(mockGetRequestEvent).toHaveBeenCalled()
+  })
+})
+
+/**
+ * Kit pages and their `__data.json` twins embed the signed-in user's session
+ * (handle, avatar, DID) in the payload, so an HTTP cache that stores and
+ * replays them — a proxy, the browser's disk cache — hands one user's session
+ * to the next person on the device. The response has to say so itself rather
+ * than leaving every cache to guess right. This header does not reach the
+ * service worker: the Cache API ignores Cache-Control entirely, which is why
+ * the SW is closed separately in service-worker.ts.
+ */
+describe('hooks.server cache policy', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPublicInternalInstance = 'http://localhost:4000'
+    mockPublicInstanceUrl = 'https://coves.social'
+    mockDev = false
+  })
+
+  it('marks a rendered Kit page private, no-store', async () => {
+    const event = createMockEvent({ url: 'https://coves.social/' })
+
+    const response = await handle({ event, resolve: kitPageResolve() })
+
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+  })
+
+  it('marks a data request private, no-store', async () => {
+    // Client-side navigation fetches `__data.json` instead of a document, so
+    // no page chunk is ever transformed — this response is not a Kit page and
+    // has to be recognised by `isDataRequest` alone.
+    const event = Object.assign(
+      createMockEvent({ url: 'https://coves.social/feed/__data.json' }),
+      { isDataRequest: true },
+    )
+
+    const response = await handle({ event, resolve: createMockResolve() })
+
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+  })
+
+  it('leaves an endpoint response its own cache-control', async () => {
+    // The proxy relays unauthenticated upstream responses and picks their
+    // freshness deliberately. Neither a page nor a data request, so the
+    // session-privacy rule does not apply and must not clobber it.
+    const event = createMockEvent({ url: 'https://coves.social/api/proxy/x' })
+    const resolve = vi.fn().mockResolvedValue(
+      new Response('OK', {
+        headers: { 'cache-control': 'public, max-age=60' },
+      }),
+    )
+
+    const response = await handle({ event, resolve })
+
+    expect(response.headers.get('cache-control')).toBe('public, max-age=60')
+  })
+
+  it('marks a data-request redirect private, no-store despite immutable headers', async () => {
+    // Kit itself answers a data-request `redirect()` with a 200 JSON body
+    // whose headers are mutable. Response.redirect() stands in here because it
+    // carries the same immutable Headers guard a relayed fetch() Response
+    // does, and the re-wrap path that guard forces must still land the header
+    // rather than throwing.
+    const event = Object.assign(
+      createMockEvent({ url: 'https://coves.social/settings/__data.json' }),
+      { isDataRequest: true },
+    )
+    const resolve = vi
+      .fn()
+      .mockResolvedValue(Response.redirect('https://coves.social/', 303))
+
+    const response = await handle({ event, resolve })
+
+    expect(response.status).toBe(303)
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+  })
+
+  it('marks a header-less redirect private, no-store', async () => {
+    // A page-level `redirect()`: no page chunk is transformed and it is not a
+    // data request, so neither signal fires — but the response still came out
+    // of a route that may have branched on who is signed in, and it names no
+    // policy of its own. Immutable headers, so this also exercises the
+    // re-wrap.
+    const event = createMockEvent({ url: 'https://coves.social/settings' })
+    const resolve = vi
+      .fn()
+      .mockResolvedValue(Response.redirect('https://coves.social/login', 302))
+
+    const response = await handle({ event, resolve })
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+  })
+
+  it('marks a header-less response private, no-store', async () => {
+    // Silence is not permission to cache: only a response that names its own
+    // policy (see the endpoint test above) keeps one.
+    const event = createMockEvent({ url: 'https://coves.social/api/thing' })
+
+    const response = await handle({ event, resolve: createMockResolve() })
+
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+  })
+
+  it('overrides a public cache-control on a Kit page', async () => {
+    // A route that set its own freshness cannot know a session was serialised
+    // into the payload underneath it, so the page rule wins.
+    const event = createMockEvent({ url: 'https://coves.social/' })
+    const resolve = kitPageResolve('<html></html>', {
+      'cache-control': 'public, max-age=3600',
+    })
+
+    const response = await handle({ event, resolve })
+
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+  })
+
+  it('overrides a public cache-control on a data request', async () => {
+    const event = Object.assign(
+      createMockEvent({ url: 'https://coves.social/feed/__data.json' }),
+      { isDataRequest: true },
+    )
+    const resolve = vi.fn().mockResolvedValue(
+      new Response('{}', {
+        headers: { 'cache-control': 'public, max-age=3600' },
+      }),
+    )
+
+    const response = await handle({ event, resolve })
+
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
   })
 })

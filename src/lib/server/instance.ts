@@ -12,6 +12,7 @@ import {
   isUpstreamSchemeAllowed,
   lockedInstanceOrigin,
   MISSING_INSTANCE_MESSAGE,
+  instanceOrigin,
   originWarning,
   resolveInstanceUrl,
 } from '$lib/app/state/instance/resolve'
@@ -42,6 +43,11 @@ export function publicInstanceUrl(): URL | null {
   } catch {
     return null
   }
+}
+
+/** Origin of an explicitly configured internal backend, or null when absent/invalid. */
+export function internalInstanceOrigin(): string | null {
+  return instanceOrigin(publicEnv.PUBLIC_INTERNAL_INSTANCE)
 }
 
 /**

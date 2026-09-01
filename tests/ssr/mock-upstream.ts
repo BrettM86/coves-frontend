@@ -1,10 +1,11 @@
 /**
  * A stand-in for the Go backend, for the SSR acceptance tier.
  *
- * The built SvelteKit server talks to `PUBLIC_INTERNAL_INSTANCE` for two
- * things when rendering `/`:
+ * The built SvelteKit server talks to `PUBLIC_INTERNAL_INSTANCE` for these
+ * requests in the acceptance suite:
  *   - `GET /api/me`            (hooks.server.ts, only when a session cookie is present)
  *   - `GET /xrpc/social.coves.feed.getDiscover` (the `/` page load)
+ *   - `GET /xrpc/social.coves.community.list` (`/explore/communities`)
  * Anything else is a 404 and is recorded so a future page change surfaces as a
  * named gap rather than an opaque 500.
  *
@@ -35,6 +36,10 @@ export const XRPC_LOG_PATH = '/__test/xrpc-requests'
 /** Control-plane path listing paths the mock did not recognise. */
 export const UNKNOWN_PATHS_PATH = '/__test/unknown-paths'
 
+/** Visible content proving the CORS-free XRPC payload reached SSR rendering. */
+export const SSR_POST_MARKER = 'SSR feed post from CORS-free upstream'
+export const SSR_COMMUNITY_MARKER = 'SSR community from CORS-free upstream'
+
 /** One inbound XRPC call, as the upstream saw it. */
 export interface XrpcRequest {
   readonly path: string
@@ -50,15 +55,10 @@ export interface MockUpstream {
   close(): Promise<void>
 }
 
-/**
- * Kit's universal `fetch` enforces CORS on cross-origin server-side loads
- * (`load_data.js`: a missing `Access-Control-Allow-Origin` throws, which turns
- * the page into a 500). The test server and the mock are on different ports,
- * so every response carries the header.
- */
+// Deliberately no Access-Control-Allow-Origin: the real internal AppView does
+// not emit one on XRPC responses, and SSR must still be able to consume them.
 const BASE_HEADERS = {
   'content-type': 'application/json',
-  'access-control-allow-origin': '*',
 } as const
 
 export async function startMockUpstream(): Promise<MockUpstream> {
@@ -124,10 +124,75 @@ export async function startMockUpstream(): Promise<MockUpstream> {
       path === '/xrpc/social.coves.feed.getDiscover' ||
       path === '/xrpc/social.coves.feed.getTimeline'
     ) {
-      // An empty feed is enough: the tests assert on the shell — sidebar
-      // login state, the signed-in handle, feed tabs — not on post rendering.
+      const audience =
+        req.headers.authorization === 'Bearer a'
+          ? 'a'
+          : req.headers.authorization === 'Bearer b'
+            ? 'b'
+            : 'anonymous'
       res.writeHead(200, BASE_HEADERS)
-      res.end(JSON.stringify({ feed: [] }))
+      res.end(
+        JSON.stringify({
+          feed: [
+            {
+              post: {
+                uri: 'at://did:plc:abcdefghijklmnopqrstuvwx/social.coves.community.post/ssrfeed',
+                cid: 'bafyreigh2akiscaildc',
+                rkey: 'ssrfeed',
+                indexedAt: '2026-08-31T00:00:00.000Z',
+                createdAt: '2026-08-31T00:00:00.000Z',
+                author: {
+                  did: 'did:plc:feedauthorabcdefghijkl',
+                  handle: 'feed-author.test',
+                },
+                community: {
+                  did: 'did:plc:communityabcdefghijkl',
+                  handle: 'general.coves.social',
+                  name: 'general',
+                  origin: 'coves.social',
+                },
+                record: {
+                  $type: 'social.coves.community.post',
+                  community: 'did:plc:communityabcdefghijkl',
+                  author: 'did:plc:feedauthorabcdefghijkl',
+                  createdAt: '2026-08-31T00:00:00.000Z',
+                  title: `${SSR_POST_MARKER} [${audience}]`,
+                  content: 'Rendered during the initial server request.',
+                },
+                stats: {
+                  upvotes: 1,
+                  downvotes: 0,
+                  score: 1,
+                  commentCount: 0,
+                },
+                viewer: { saved: false },
+              },
+            },
+          ],
+        }),
+      )
+      return
+    }
+
+    if (path === '/xrpc/social.coves.community.list') {
+      res.writeHead(200, BASE_HEADERS)
+      res.end(
+        JSON.stringify({
+          communities: [
+            {
+              did: 'did:plc:communityabcdefghijkl',
+              name: 'general',
+              handle: 'general.coves.social',
+              displayName: SSR_COMMUNITY_MARKER,
+              origin: 'coves.social',
+              subscriberCount: 12,
+              memberCount: 12,
+              postCount: 1,
+              visibility: 'public',
+            },
+          ],
+        }),
+      )
       return
     }
 

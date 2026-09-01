@@ -65,7 +65,7 @@ vi.mock('$app/server', () => ({
 }))
 
 // Import handle and handleError after mocking
-const { handle, handleError } = await import('./hooks.server')
+const { handle, handleError, handleFetch } = await import('./hooks.server')
 
 // Mock global fetch
 const mockFetch = vi.fn()
@@ -147,6 +147,134 @@ function expectOnlyStringArgs(calls: unknown[][]): void {
     }
   }
 }
+
+/** Gives a synthetic Response the final URL a real network fetch carries. */
+function responseAt(
+  url: string,
+  body: BodyInit | null,
+  init?: ResponseInit,
+): Response {
+  const response = new Response(body, init)
+  Object.defineProperty(response, 'url', { value: url })
+  return response
+}
+
+describe('hooks.server handleFetch', () => {
+  beforeEach(() => {
+    mockPublicInternalInstance = 'http://localhost:4000'
+  })
+
+  it('makes CORS-free internal responses readable to universal SSR loads', async () => {
+    const event = createMockEvent({ url: 'https://frontend.example/feed' })
+    const request = new Request(
+      'http://localhost:4000/xrpc/social.coves.feed.getDiscover',
+    )
+    const upstreamResponse = responseAt(request.url, '{"feed":[]}', {
+      status: 206,
+      statusText: 'Partial Content',
+      headers: { 'content-type': 'application/json', etag: 'feed-v1' },
+    })
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(upstreamResponse)
+
+    const response = await handleFetch({ event, request, fetch: fetchFn })
+
+    expect(fetchFn).toHaveBeenCalledWith(request)
+    expect(response.status).toBe(206)
+    expect(response.statusText).toBe('Partial Content')
+    expect(response.headers.get('content-type')).toBe('application/json')
+    expect(response.headers.get('etag')).toBe('feed-v1')
+    expect(response.headers.get('access-control-allow-origin')).toBe(
+      'https://frontend.example',
+    )
+    expect(await response.text()).toBe('{"feed":[]}')
+  })
+
+  it('leaves a request to another cross-origin server unchanged', async () => {
+    const event = createMockEvent({ url: 'https://frontend.example/feed' })
+    const request = new Request('https://untrusted.example/data')
+    const upstreamResponse = new Response('private')
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(upstreamResponse)
+
+    const response = await handleFetch({ event, request, fetch: fetchFn })
+
+    expect(response).toBe(upstreamResponse)
+    expect(response.headers.has('access-control-allow-origin')).toBe(false)
+  })
+
+  it('preserves a valid CORS policy supplied by the internal backend', async () => {
+    const event = createMockEvent({ url: 'https://frontend.example/feed' })
+    const request = new Request('http://localhost:4000/xrpc/example')
+    const upstreamResponse = responseAt(request.url, 'ok', {
+      headers: { 'access-control-allow-origin': '*' },
+    })
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(upstreamResponse)
+
+    const response = await handleFetch({ event, request, fetch: fetchFn })
+
+    expect(response).toBe(upstreamResponse)
+    expect(response.headers.get('access-control-allow-origin')).toBe('*')
+  })
+
+  it('preserves an explicit CORS policy that denies the page origin', async () => {
+    const event = createMockEvent({ url: 'https://frontend.example/feed' })
+    const request = new Request('http://localhost:4000/xrpc/example')
+    const upstreamResponse = responseAt(request.url, 'denied', {
+      headers: {
+        'access-control-allow-origin': 'https://different.example',
+      },
+    })
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(upstreamResponse)
+
+    const response = await handleFetch({ event, request, fetch: fetchFn })
+
+    expect(response).toBe(upstreamResponse)
+    expect(response.headers.get('access-control-allow-origin')).toBe(
+      'https://different.example',
+    )
+  })
+
+  it('does not trust the destination of a cross-origin redirect', async () => {
+    const event = createMockEvent({ url: 'https://frontend.example/feed' })
+    const request = new Request('http://localhost:4000/xrpc/redirect')
+    const upstreamResponse = responseAt(
+      'http://metadata.internal/latest',
+      'secret',
+    )
+    Object.defineProperty(upstreamResponse, 'redirected', { value: true })
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(upstreamResponse)
+
+    const response = await handleFetch({ event, request, fetch: fetchFn })
+
+    expect(response).toBe(upstreamResponse)
+    expect(response.headers.has('access-control-allow-origin')).toBe(false)
+  })
+
+  it('leaves same-origin requests unchanged', async () => {
+    mockPublicInternalInstance = 'https://frontend.example'
+    const event = createMockEvent({ url: 'https://frontend.example/feed' })
+    const request = new Request('https://frontend.example/xrpc/example')
+    const upstreamResponse = new Response('same origin')
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(upstreamResponse)
+
+    const response = await handleFetch({ event, request, fetch: fetchFn })
+
+    expect(response).toBe(upstreamResponse)
+    expect(response.headers.has('access-control-allow-origin')).toBe(false)
+  })
+
+  it('does not infer a trusted origin when the internal instance is unset', async () => {
+    mockPublicInternalInstance = undefined
+    const event = createMockEvent({ url: 'https://frontend.example/feed' })
+    const request = new Request('http://localhost:4000/xrpc/example')
+    const upstreamResponse = new Response('unconfigured')
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(upstreamResponse)
+
+    const response = await handleFetch({ event, request, fetch: fetchFn })
+
+    expect(response).toBe(upstreamResponse)
+    expect(response.headers.has('access-control-allow-origin')).toBe(false)
+  })
+})
 
 describe('hooks.server handle', () => {
   // vitest's `restoreMocks` detaches these after each test, so no test needs

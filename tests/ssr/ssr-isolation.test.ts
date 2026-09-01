@@ -3,9 +3,10 @@
  *
  * One Node server renders every request, and several pieces of app state that
  * look per-request in the browser are module-level singletons on the server:
- * the i18n dictionary/locale, and `profile.current`. Each test below holds the
- * server under concurrent load and checks that what a response carries matches
- * what THAT request asked for:
+ * the i18n dictionary/locale, and `profile.current`. The first test also pins
+ * the CORS-free internal-fetch behavior that makes SSR possible. The remaining
+ * tests hold the server under concurrent load and check that what a response
+ * carries matches what THAT request asked for:
  *
  *   1. language — every response renders in its own `Accept-Language`
  *   2. identity — every response renders the account its own cookie names
@@ -23,6 +24,8 @@
 import { afterEach, beforeEach, describe, expect, inject, it } from 'vitest'
 import {
   MOCK_ACCOUNTS,
+  SSR_COMMUNITY_MARKER,
+  SSR_POST_MARKER,
   UNKNOWN_PATHS_PATH,
   XRPC_LOG_PATH,
   type XrpcRequest,
@@ -55,6 +58,9 @@ const headersFor = (identity: Identity): Record<string, string> =>
 
 const handleOf = (identity: Identity): string | null =>
   identity === null ? null : MOCK_ACCOUNTS[identity].handle
+
+const feedMarkerOf = (identity: Identity): string =>
+  `${SSR_POST_MARKER} [${identity ?? 'anonymous'}]`
 
 /** Every handle the upstream could possibly return. */
 const ALL_HANDLES = Object.values(MOCK_ACCOUNTS).map((a) => a.handle)
@@ -147,6 +153,30 @@ afterEach(async () => {
 })
 
 describe('SSR request isolation', () => {
+  it('renders CORS-free internal feed routes on full-page requests', async () => {
+    const [homeResponse, communitiesResponse] = await Promise.all([
+      fetch(`${baseUrl}/`),
+      fetch(`${baseUrl}/explore/communities`),
+    ])
+    const [home, communities] = await Promise.all([
+      homeResponse.text(),
+      communitiesResponse.text(),
+    ])
+
+    expect({
+      homeStatus: homeResponse.status,
+      homeHasPost: renderedMarkup(home).includes(SSR_POST_MARKER),
+      communitiesStatus: communitiesResponse.status,
+      communitiesHasItem:
+        renderedMarkup(communities).includes(SSR_COMMUNITY_MARKER),
+    }).toEqual({
+      homeStatus: 200,
+      homeHasPost: true,
+      communitiesStatus: 200,
+      communitiesHasItem: true,
+    })
+  })
+
   it('renders each concurrent request in its own Accept-Language', async () => {
     const PAIRS = 50
     const langs: ('de' | 'fr')[] = []
@@ -247,9 +277,22 @@ describe('SSR request isolation', () => {
       missingPageMarker: 0,
     })
 
+    // The fixture names each authenticated credential in visible feed content,
+    // correlating those outbound tokens with the requests that triggered them.
+    // Aggregate counts alone would not catch an a↔b swap; once both signed-in
+    // groups are correlated, the exact partition below accounts for anonymous.
+    const authenticatedResponses = responses.filter(
+      (response) => response.identity !== null,
+    )
+    expect(
+      authenticatedResponses.filter((response) =>
+        response.markup.includes(feedMarkerOf(response.identity)),
+      ),
+    ).toHaveLength(authenticatedResponses.length)
+
     const upstream = await readXrpcLog()
 
-    // An exact partition: every call is accounted for, each token appears
+    // A complete partition: every call is accounted for, each token appears
     // exactly as often as the identity that owns it made requests, and no
     // other credential was ever sent. `total` pins one call per render, so a
     // count cannot be reached by one identity calling twice.

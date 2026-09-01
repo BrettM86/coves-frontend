@@ -1,6 +1,7 @@
 import {
   redirect,
   type Handle,
+  type HandleFetch,
   type HandleServerError,
   type RequestEvent,
 } from '@sveltejs/kit'
@@ -12,6 +13,7 @@ import {
   addressHeaderConfigWarning,
   originConfigWarning,
   canonicalHost,
+  internalInstanceOrigin,
   publicInstanceUrl,
   upstreamInstanceUrl,
 } from '$lib/server/instance'
@@ -48,6 +50,53 @@ installRequestEventAccessor(() => {
     return undefined
   }
 })
+
+/**
+ * Allows universal server loads to read responses from the trusted internal
+ * backend. SvelteKit applies browser CORS checks after this hook returns, even
+ * though the request is a private server hop, so a successful CORS-free XRPC
+ * response would otherwise become a 500. Scope the synthetic header to the
+ * explicitly configured internal origin; arbitrary cross-origin fetches must
+ * still satisfy the upstream server's real CORS policy.
+ */
+export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
+  const internalOrigin = internalInstanceOrigin()
+  const requestOrigin = new URL(request.url).origin
+
+  if (
+    internalOrigin === null ||
+    requestOrigin !== internalOrigin ||
+    requestOrigin === event.url.origin
+  ) {
+    return fetch(request)
+  }
+
+  const response = await fetch(request)
+
+  // Network fetches expose the final URL after redirects. Fail closed when a
+  // response escaped the configured internal origin (or a custom transport
+  // returned no parseable URL) rather than blessing the redirect target.
+  let responseOrigin: string
+  try {
+    responseOrigin = new URL(response.url).origin
+  } catch {
+    return response
+  }
+  if (responseOrigin !== internalOrigin) return response
+
+  const allowedOrigin = response.headers.get('access-control-allow-origin')
+  // Missing ACAO is the internal-hop failure this hook repairs. An explicit
+  // value is an upstream policy decision, including when it denies this page.
+  if (allowedOrigin !== null) return response
+
+  const headers = new Headers(response.headers)
+  headers.set('access-control-allow-origin', event.url.origin)
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
+}
 
 /**
  * The safe subset of a request to attach to a log line. Deliberately excludes

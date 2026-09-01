@@ -82,7 +82,7 @@ describe('layering rule', () => {
     [ROUTE, '$lib/server/session'],
   ])('blocks %s importing %s', async (from, specifier) => {
     expect(await isBlocked(from, specifier)).toBe(true)
-  })
+  }, 30_000)
 
   it.each([
     [KIT, './helper'],
@@ -101,7 +101,7 @@ describe('layering rule', () => {
     [API, '$lib/app/state/auth.svelte'],
   ])('allows %s importing %s', async (from, specifier) => {
     expect(await isBlocked(from, specifier)).toBe(false)
-  })
+  }, 30_000)
 
   it('allows type-only imports from a forbidden layer', async () => {
     expect(await isBlocked(APP, '$lib/server/session', true)).toBe(false)

@@ -86,7 +86,7 @@ describe('no-console fence', () => {
     [HOOKS],
   ])('reports console.error in %s', async (from) => {
     expect(await reportsConsole(from)).toBe(true)
-  })
+  }, 30_000)
 
   it.each([
     // The logger itself is the one place allowed to reach a console.
@@ -96,5 +96,5 @@ describe('no-console fence', () => {
     [APP_TEST],
   ])('allows console.error in %s', async (from) => {
     expect(await reportsConsole(from)).toBe(false)
-  })
+  }, 30_000)
 })

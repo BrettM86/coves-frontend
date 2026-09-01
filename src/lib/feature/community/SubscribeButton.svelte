@@ -4,7 +4,7 @@
   import { errorMessage } from '$lib/app/util/error'
   import { t } from '$lib/app/state/i18n'
   import { Button, toast } from '$lib/ui/kit'
-  import { Check, Plus } from '@xylightdev/svelte-hero-icons'
+  import { Check, Plus } from '$lib/ui/kit/icon'
   import {
     isSubscribed,
     isSubscriptionPending,

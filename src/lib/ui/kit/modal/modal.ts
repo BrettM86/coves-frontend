@@ -1,4 +1,4 @@
-import type { IconSource } from '@xylightdev/svelte-hero-icons'
+import type { IconSource } from '$lib/ui/kit/icon'
 import type { Snippet } from 'svelte'
 import { writable } from 'svelte/store'
 

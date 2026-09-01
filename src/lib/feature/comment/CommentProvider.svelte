@@ -23,15 +23,14 @@
   import { Button, Option, Select } from '$lib/ui/kit'
   import { onMount, untrack } from 'svelte'
   import {
-    ArrowPath,
-    ChatBubbleOvalLeft,
-    Fire,
     Icon,
-    PlusCircle,
+    CirclePlus,
+    Flame,
+    MessageSquare,
+    RefreshCw,
     Star,
     Trophy,
-  } from '@xylightdev/svelte-hero-icons'
-
+  } from '$lib/ui/kit/icon'
   interface Props {
     post: PostView
     comments: ThreadViewComment[]
@@ -100,7 +99,7 @@
   {#if !commenting}
     <EndPlaceholder border={false}>
       <Button color="primary" rounding="xl" onclick={() => (commenting = true)}>
-        <Icon src={ChatBubbleOvalLeft} size="16" micro />
+        <Icon src={MessageSquare} size="16" />
         {$t('routes.post.addComment')}
       </Button>
 
@@ -111,7 +110,7 @@
             bind:value={settings.defaultSort.comments}
             onchange={onupdate}
           >
-            <Option icon={Fire} value="hot">{$t('filter.sort.hot')}</Option>
+            <Option icon={Flame} value="hot">{$t('filter.sort.hot')}</Option>
             <Option icon={Trophy} value="top">
               {$t('filter.sort.top.label')}
             </Option>
@@ -122,7 +121,7 @@
             class="h-8.5 w-8.5"
             rounding="xl"
             onclick={onupdate}
-            icon={ArrowPath}
+            icon={RefreshCw}
           ></Button>
         </div>
       {/snippet}
@@ -161,7 +160,7 @@
       bind:value={settings.defaultSort.comments}
       onchange={onupdate}
     >
-      <Option icon={Fire} value="hot">{$t('filter.sort.hot')}</Option>
+      <Option icon={Flame} value="hot">{$t('filter.sort.hot')}</Option>
       <Option icon={Trophy} value="top">
         {$t('filter.sort.top.label')}
       </Option>
@@ -172,7 +171,7 @@
       class="h-8.5 w-8.5"
       rounding="xl"
       onclick={onupdate}
-      icon={ArrowPath}
+      icon={RefreshCw}
     ></Button>
   </div>
 {/if}
@@ -180,7 +179,7 @@
 {#snippet allCommentsPlaceholder()}
   <EndPlaceholder alignment="center">
     {#snippet action()}
-      <Button href={postLink(post)} icon={PlusCircle} rounding="pill">
+      <Button href={postLink(post)} icon={CirclePlus} rounding="pill">
         {$t('routes.post.thread.allComments')}
       </Button>
     {/snippet}
@@ -199,7 +198,7 @@
     href={postLink(post)}
     class="mt-2 -mb-2 -mx-2.5 w-max"
   >
-    <Icon src={PlusCircle} size="16" micro />
+    <Icon src={CirclePlus} size="16" />
     {$t('routes.post.thread.allComments')}
   </Button>
   <div

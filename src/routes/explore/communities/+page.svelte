@@ -8,7 +8,7 @@
   import { CommonList } from '$lib/ui/layout'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { Material } from '$lib/ui/kit'
-  import { QuestionMarkCircle } from '@xylightdev/svelte-hero-icons'
+  import { CircleHelp } from '$lib/ui/kit/icon'
   import { expoOut } from 'svelte/easing'
   import { fly } from 'svelte/transition'
 
@@ -40,7 +40,7 @@
   <ul class="flex flex-col h-full">
     {#if data.communities.length == 0}
       <Placeholder
-        icon={QuestionMarkCircle}
+        icon={CircleHelp}
         title={$t('routes.search.noResults.title')}
         description={$t('routes.search.noResults.description')}
       />

@@ -5,13 +5,13 @@
   import { showImage } from '$lib/ui/generic/ExpandableImage.svelte'
   import { Button, modal } from '$lib/ui/kit'
   import {
-    DocumentText,
-    ExclamationTriangle,
     Icon,
+    FileText,
+    Image,
     Link,
-    Photo,
-    VideoCamera,
-  } from '@xylightdev/svelte-hero-icons'
+    TriangleAlert,
+    Video,
+  } from '$lib/ui/kit/icon'
   import {
     bestImageURL,
     extractEmbedAlt,
@@ -88,17 +88,13 @@
               'absolute w-8 h-8 bottom-1 left-1 rounded-xl bg-slate-25 dark:bg-zinc-900 grid place-items-center',
             ]}
           >
-            <Icon
-              src={type === 'iframe' ? VideoCamera : Link}
-              micro
-              size="16"
-            />
+            <Icon src={type === 'iframe' ? Video : Link} size="16" />
           </div>
         {/if}
       {:else}
         {@const typeIconMap = new Map([
           ['embed', Link],
-          ['iframe', VideoCamera],
+          ['iframe', Video],
         ])}
         <div
           class={[
@@ -106,14 +102,13 @@
             'text-slate-600 dark:text-zinc-400',
           ]}
         >
-          <Icon src={typeIconMap.get(type) ?? DocumentText} solid size="32" />
+          <Icon src={typeIconMap.get(type) ?? FileText} size="32" />
         </div>
       {/if}
     </div>
     {#if blur}
       <Icon
-        src={ExclamationTriangle}
-        solid
+        src={TriangleAlert}
         size="32"
         class="absolute w-8 h-8 mx-auto my-auto z-30 inset-0 opacity-30"
       />
@@ -127,7 +122,7 @@
       size="square-md"
       rounding="xl"
     >
-      <Icon src={Photo} size="16" micro />
+      <Icon src={Image} size="16" />
     </Button>
   {/if}
 </div>

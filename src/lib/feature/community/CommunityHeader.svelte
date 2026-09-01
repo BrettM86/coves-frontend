@@ -5,12 +5,7 @@
   import EntityHeader from '$lib/feature/shell/EntityHeader.svelte'
   import { action, Button, Menu, MenuButton, modal, toast } from '$lib/ui/kit'
   import { formatRelativeDate } from '$lib/ui/util/RelativeDate.svelte'
-  import {
-    Cog6Tooth,
-    EllipsisHorizontal,
-    Fire,
-    Icon,
-  } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Ellipsis, Flame, Settings } from '$lib/ui/kit/icon'
   import { purgeCommunity } from './CommunityCard.svelte'
   import SubscribeButton from './SubscribeButton.svelte'
   import {
@@ -92,16 +87,13 @@
         size="square-lg"
         href="/c/{communityIdentifier(community)}/settings"
       >
-        <Icon src={Cog6Tooth} size="16" mini />
+        <Icon src={Settings} size="16" />
       </Button>
     {/if}
     {#if profile.current?.jwt && profile.isAdmin}
       <Menu placement="top-end">
         {#snippet target(attachment)}
-          <Button
-            {@attach attachment}
-            size="square-lg"
-            icon={EllipsisHorizontal}
+          <Button {@attach attachment} size="square-lg" icon={Ellipsis}
           ></Button>
         {/snippet}
         <MenuButton
@@ -120,13 +112,13 @@
                   close: true,
                   content: $t('admin.purge'),
                   type: 'danger',
-                  icon: Fire,
+                  icon: Flame,
                 }),
               ],
               dismissable: true,
               type: 'error',
             })}
-          icon={Fire}
+          icon={Flame}
         >
           {$t('admin.purge')}
         </MenuButton>

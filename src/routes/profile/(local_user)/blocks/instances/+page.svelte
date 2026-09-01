@@ -7,8 +7,7 @@
   import ItemList from '$lib/ui/generic/ItemList.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Button } from '$lib/ui/kit'
-  import { Check, Trash } from '@xylightdev/svelte-hero-icons'
-
+  import { Check, Trash2 } from '$lib/ui/kit/icon'
   let { data } = $props()
 
   // TODO(coves-migration): Needs Coves instance block API — my_user is undefined during migration
@@ -50,7 +49,7 @@
         title="Unblock"
         size="square-md"
         onclick={() => unblock(Number(block.id))}
-        icon={Trash}
+        icon={Trash2}
       />
     {/snippet}
   </ItemList>

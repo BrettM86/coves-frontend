@@ -10,30 +10,29 @@ import { TIMEFRAME_OPTIONS } from '$lib/api/coves/sort'
 import { theme, type ThemeData } from '$lib/app/state/theme/theme.svelte'
 import type { ResumableItem } from '$lib/feature/legacy/item.svelte'
 import {
-  ArrowRightOnRectangle,
-  ChartBar,
+  type IconSource,
+  ChartColumn,
+  CircleUser,
   Clock,
-  Cog6Tooth,
-  ComputerDesktop,
-  Fire,
-  GlobeAlt,
-  GlobeAmericas,
-  Home,
+  Columns3,
+  Earth,
+  Flame,
+  Compass,
+  House,
+  LogIn,
+  Monitor,
   Moon,
   Newspaper,
-  PaintBrush,
-  PencilSquare,
+  Paintbrush,
+  Settings,
   Sparkles,
+  SquarePen,
   Star,
   Sun,
-  Swatch,
+  SwatchBook,
   Trophy,
-  UserCircle,
-  UserGroup,
-  ViewColumns,
-  type IconSource,
-} from '@xylightdev/svelte-hero-icons'
-
+  Users,
+} from '$lib/ui/kit/icon'
 export interface Group {
   name: string
   actions: Action[]
@@ -62,7 +61,7 @@ export function getGroups(
       name: t.get('nav.commands.recents'),
       actions: resumables.map((r) => ({
         name: r.name,
-        icon: r.avatar ?? PencilSquare,
+        icon: r.avatar ?? SquarePen,
         href: r.url,
       })),
     },
@@ -73,11 +72,11 @@ export function getGroups(
     {
       name: t.get('nav.commands.main'),
       actions: [
-        { href: '/', name: t.get('nav.home'), icon: Home, shortcut: 'h' },
+        { href: '/', name: t.get('nav.home'), icon: House, shortcut: 'h' },
         {
           href: '/communities',
           name: t.get('nav.communities'),
-          icon: GlobeAlt,
+          icon: Compass,
         },
       ],
     },
@@ -86,11 +85,11 @@ export function getGroups(
       actions: [
         {
           name: t.get('filter.feed.label'),
-          icon: GlobeAmericas,
+          icon: Earth,
           subActions: [
             {
               name: t.get('filter.feed.discover'),
-              icon: GlobeAmericas,
+              icon: Earth,
               href: '/?type=discover',
             },
             {
@@ -102,11 +101,11 @@ export function getGroups(
         },
         {
           name: t.get('filter.sort.label'),
-          icon: ChartBar,
+          icon: ChartColumn,
           subActions: [
             {
               name: t.get('filter.sort.hot'),
-              icon: Fire,
+              icon: Flame,
               href: '/?sort=hot',
             },
             {
@@ -135,29 +134,29 @@ export function getGroups(
               {
                 href: `/profile/${encodeURIComponent(profile.handle)}`,
                 name: t.get('profile.profile'),
-                icon: UserCircle,
+                icon: CircleUser,
               },
               {
                 href: '/accounts',
                 name: t.get('account.accounts'),
-                icon: UserGroup,
+                icon: Users,
               },
               {
                 href: '/login',
                 name: t.get('account.login'),
-                icon: ArrowRightOnRectangle,
+                icon: LogIn,
               },
             ]
           : [
               {
                 href: '/login',
                 name: t.get('account.login'),
-                icon: ArrowRightOnRectangle,
+                icon: LogIn,
               },
               {
                 href: '/accounts',
                 name: t.get('account.accounts'),
-                icon: UserGroup,
+                icon: Users,
               },
             ],
     },
@@ -165,7 +164,7 @@ export function getGroups(
       name: t.get('account.accounts'),
       actions: profiles.map((p) => ({
         name: p.handle ?? t.get('account.guest'),
-        icon: p.avatar ?? UserCircle,
+        icon: p.avatar ?? CircleUser,
         detail: p.instance,
         handle: async () => {
           if (profile.id != p.id) {
@@ -184,38 +183,38 @@ export function getGroups(
         {
           href: '/settings',
           name: t.get('nav.menu.settings'),
-          icon: Cog6Tooth,
+          icon: Settings,
         },
         {
           name: t.get('nav.commands.setView'),
-          icon: ViewColumns,
+          icon: Columns3,
           subActions: [
             {
               name: t.get('nav.commands.setViewTo', {
                 default: t.get('filter.view.compact'),
               }),
-              icon: ViewColumns,
+              icon: Columns3,
               handle: () => (settings.view = 'compact'),
             },
             {
               name: t.get('nav.commands.setViewTo', {
                 default: t.get('filter.view.cozy'),
               }),
-              icon: ViewColumns,
+              icon: Columns3,
               handle: () => (settings.view = 'cozy'),
             },
           ],
         },
         {
           name: t.get('nav.commands.setColor'),
-          icon: PaintBrush,
+          icon: Paintbrush,
           subActions: [
             {
               name: t.get('nav.commands.setColorTo', {
                 default: t.get('nav.menu.colorscheme.system'),
               }),
               handle: () => (theme.colorScheme = 'system'),
-              icon: ComputerDesktop,
+              icon: Monitor,
             },
             {
               name: t.get('nav.commands.setColorTo', {
@@ -235,10 +234,10 @@ export function getGroups(
         },
         {
           name: t.get('nav.commands.setTheme'),
-          icon: Swatch,
+          icon: SwatchBook,
           subActions: td.themes.map((th) => ({
             name: t.get('nav.commands.setThemeTo', { default: th.name }),
-            icon: Swatch,
+            icon: SwatchBook,
             handle: () => (theme.data.currentTheme = th.id),
           })),
         },
@@ -250,7 +249,7 @@ export function getGroups(
         {
           href: '/create/post',
           name: t.get('form.post.create'),
-          icon: PencilSquare,
+          icon: SquarePen,
         },
       ],
     },

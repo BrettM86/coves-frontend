@@ -15,19 +15,19 @@
     toast,
   } from '$lib/ui/kit'
   import {
-    ArrowLeftOnRectangle,
-    BugAnt,
-    Cog6Tooth,
-    CommandLine,
-    ComputerDesktop,
     Icon,
+    Bug,
+    CircleUser,
+    LogIn,
+    Monitor,
     Moon,
-    ServerStack,
+    Server,
+    Settings,
     Sun,
-    Swatch,
-    UserCircle,
-    UserGroup,
-  } from '@xylightdev/svelte-hero-icons'
+    SwatchBook,
+    Terminal,
+    Users,
+  } from '$lib/ui/kit/icon'
   import { chords } from './commands/CommandsHost.svelte'
 </script>
 
@@ -41,20 +41,20 @@
     href={profile.current.type === 'authenticated'
       ? `/profile/${encodeURIComponent(profile.current.handle)}`
       : '/login'}
-    icon={UserCircle}
+    icon={CircleUser}
   >
     {$t('profile.profile')}
   </MenuButton>
 {:else}
-  <MenuButton href="/accounts/login" icon={ArrowLeftOnRectangle}>
+  <MenuButton href="/accounts/login" icon={LogIn}>
     {$t('account.login')}
   </MenuButton>
 {/if}
-<MenuButton href="/accounts" icon={UserGroup}>
+<MenuButton href="/accounts" icon={Users}>
   {$t('account.accounts')}
 </MenuButton>
 <MenuDivider>{$t('nav.menu.app')}</MenuDivider>
-<MenuButton href="/settings" icon={Cog6Tooth}>
+<MenuButton href="/settings" icon={Settings}>
   {$t('nav.menu.settings')}
 </MenuButton>
 <Select bind:value={theme.colorScheme} size="sm" placement="bottom">
@@ -62,7 +62,7 @@
     <MenuButton
       {@attach attachment}
       icon={theme.colorScheme == 'system'
-        ? ComputerDesktop
+        ? Monitor
         : theme.colorScheme == 'light'
           ? Sun
           : Moon}
@@ -71,7 +71,7 @@
     >
       {$t('nav.menu.colorscheme.label')}
     </MenuButton>
-    <Option value="system" class="hidden" icon={ComputerDesktop}>
+    <Option value="system" class="hidden" icon={Monitor}>
       {$t('nav.menu.colorscheme.system')}
     </Option>
     <Option value="light" class="hidden" icon={Sun}>
@@ -82,7 +82,7 @@
     </Option>
   {/snippet}
 </Select>
-<MenuButton href="/theme" icon={Swatch}>
+<MenuButton href="/theme" icon={SwatchBook}>
   {$t('nav.menu.theme')}
 </MenuButton>
 {#snippet key(label: string)}
@@ -94,7 +94,7 @@
 {/snippet}
 <MenuButton
   onclick={() => (chords.commands = !chords.commands)}
-  icon={CommandLine}
+  icon={Terminal}
 >
   {$t('nav.commands.prompt')}
   <div class="text-slate-600 dark:text-zinc-400 text-xs ml-auto max-sm:hidden">
@@ -103,7 +103,7 @@
   </div>
 </MenuButton>
 {#if settings.debugInfo}
-  <MenuButton href="/util" icon={BugAnt}>Debug</MenuButton>
+  <MenuButton href="/util" icon={Bug}>Debug</MenuButton>
 {/if}
 <li class="flex flex-col px-2 py-1 mx-auto my-1 text-xs w-full">
   <div class="flex flex-row gap-2 w-full items-center">
@@ -130,7 +130,7 @@
       title={$t('nav.menu.instance')}
       size="square-md"
     >
-      <Icon src={ServerStack} size="16" micro />
+      <Icon src={Server} size="16" />
     </Button>
   </div>
 </li>

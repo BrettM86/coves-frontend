@@ -6,14 +6,13 @@
   import { Option, Select } from '$lib/ui/kit'
   import { untrack } from 'svelte'
   import {
-    ChartBar,
-    Fire,
     Icon,
-    Language,
+    ChartColumn,
+    Flame,
+    Languages,
     Star,
-    UserGroup,
-  } from '@xylightdev/svelte-hero-icons'
-
+    Users,
+  } from '$lib/ui/kit/icon'
   let { data, children } = $props()
 
   // Navigating within /explore re-runs load() but reuses this layout, so a
@@ -74,16 +73,16 @@
           >
             {#snippet customLabel()}
               <span class="flex items-center gap-1">
-                <Icon src={ChartBar} size="13" micro />
+                <Icon src={ChartColumn} size="13" />
                 {$t('filter.sort.label')}
               </span>
             {/snippet}
-            <Option value="popular" icon={Fire}>Popular</Option>
-            <Option value="active" icon={UserGroup}>Active</Option>
+            <Option value="popular" icon={Flame}>Popular</Option>
+            <Option value="active" icon={Users}>Active</Option>
             <Option value="new" icon={Star}>
               {$t('filter.sort.new')}
             </Option>
-            <Option value="alphabetical" icon={Language}>A–Z</Option>
+            <Option value="alphabetical" icon={Languages}>A–Z</Option>
           </Select>
         </div>
       </form>

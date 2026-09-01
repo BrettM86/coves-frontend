@@ -8,7 +8,7 @@
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { CommonList, Header } from '$lib/ui/layout'
   import { action, Button, modal, toast } from '$lib/ui/kit'
-  import { Icon, Plus, Trash } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Plus, Trash2 } from '$lib/ui/kit/icon'
   import type { PageData } from '../$types'
 
   interface Props {
@@ -122,7 +122,7 @@
           })
         }}
       >
-        <Icon src={Trash} mini size="16" />
+        <Icon src={Trash2} size="16" />
       </Button>
     </div>
   {/snippet}

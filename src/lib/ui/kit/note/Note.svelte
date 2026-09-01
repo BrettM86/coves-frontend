@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Material } from '$lib/ui/kit'
-  import { Icon, InformationCircle } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Info } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
 
   interface Props {
@@ -18,9 +18,8 @@
   class={['flex flex-row items-center px-3 py-2.5', clazz]}
 >
   <Icon
-    src={InformationCircle}
+    src={Info}
     size="20"
-    micro
     class="inline-block rounded-lg clear-both float-left mr-2"
   />
   <div class="flex flex-col md:flex-row items-center w-full">

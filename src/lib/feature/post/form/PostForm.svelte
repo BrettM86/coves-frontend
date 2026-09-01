@@ -21,11 +21,7 @@
     TextInput,
   } from '$lib/ui/kit'
   import { untrack, type Snippet } from 'svelte'
-  import {
-    ChatBubbleBottomCenterText,
-    Photo,
-    QrCode,
-  } from '@xylightdev/svelte-hero-icons'
+  import { Image, MessageSquareText, QrCode } from '$lib/ui/kit/icon'
   import { PostFormState, type PostSubmitResult } from './post-form.svelte'
 
   interface Props {
@@ -166,7 +162,7 @@
         onclick={() => {
           uploadImage = !uploadImage
         }}
-        icon={Photo}
+        icon={Image}
       >
         {$t('form.post.uploadImage')}
       </Button>
@@ -176,7 +172,7 @@
           color={(form.altText ?? '') != '' ? 'primary' : 'secondary'}
           onclick={() =>
             modal({ title: $t('form.post.altText'), snippet: altText })}
-          icon={ChatBubbleBottomCenterText}
+          icon={MessageSquareText}
         >
           {$t('form.post.altText')}
         </Button>

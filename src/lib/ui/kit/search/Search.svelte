@@ -2,8 +2,7 @@
   import { Menu, MenuButton, Spinner, TextInput } from '$lib/ui/kit'
   import type { TextInputProps } from '$lib/ui/kit/forms/TextInput.svelte'
   import { debounce } from '$lib/ui/kit/util/time'
-  import { Icon, MagnifyingGlass } from '@xylightdev/svelte-hero-icons'
-
+  import { Icon, Search } from '$lib/ui/kit/icon'
   interface Props<T> extends Omit<TextInputProps, 'onselect' | 'children'> {
     query?: string
     selected?: T | undefined
@@ -112,7 +111,7 @@
         >
           {#snippet prefix()}
             <div class="h-5 flex items-center">
-              <Icon src={MagnifyingGlass} mini size="16" />
+              <Icon src={Search} size="16" />
             </div>
           {/snippet}
         </TextInput>

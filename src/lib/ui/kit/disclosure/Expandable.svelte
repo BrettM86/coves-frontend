@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Disclosure } from '$lib/ui/kit'
-  import { Icon, Minus, Plus } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Minus, Plus } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
 
   interface Props {
@@ -43,7 +43,7 @@
             'transition-transform duration-300 ease-out',
           ]}
         >
-          <Icon src={open ? Minus : Plus} size="15" micro class={[]} />
+          <Icon src={open ? Minus : Plus} size="15" class={[]} />
         </div>
       {/if}
       <div

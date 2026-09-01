@@ -2,8 +2,7 @@
   import { page } from '$app/state'
   import { Button } from '$lib/ui/kit'
   import type { ButtonProps } from '$lib/ui/kit/button/Button.svelte'
-  import { Icon, type IconSource } from '@xylightdev/svelte-hero-icons'
-
+  import { Icon, type IconSource } from '$lib/ui/kit/icon'
   interface Props extends ButtonProps {
     href?: string | undefined
     icon?: IconSource | undefined
@@ -54,7 +53,7 @@
     {#if customIcon}
       {@render customIcon({ selected })}
     {:else if icon}
-      <Icon src={icon} solid size="18" />
+      <Icon src={icon} size="18" />
     {/if}
   {/snippet}
   {label}

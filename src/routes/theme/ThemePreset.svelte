@@ -5,8 +5,7 @@
     theme as themeData,
   } from '$lib/app/state/theme/theme.svelte'
   import { action, Button, Material, modal, TextInput } from '$lib/ui/kit'
-  import { CheckCircle, Icon, Trash } from '@xylightdev/svelte-hero-icons'
-
+  import { Icon, CircleCheck, Trash2 } from '$lib/ui/kit/icon'
   interface Props {
     theme: Theme
   }
@@ -42,9 +41,8 @@
     </div>
     {#if theme.id == themeData.data.currentTheme}
       <Icon
-        src={CheckCircle}
+        src={CircleCheck}
         size="20"
-        solid
         class="absolute top-0 right-0 m-2 text-primary-100"
       />
     {/if}
@@ -106,7 +104,7 @@
               title: $t('routes.theme.preset.delete.title'),
             })
           }}
-          icon={Trash}
+          icon={Trash2}
         ></Button>
       {/if}
     </div>

@@ -12,18 +12,18 @@
     formatRelativeDate,
   } from '$lib/ui/util/RelativeDate.svelte'
   import {
-    Bookmark,
     Icon,
+    type IconSource,
+    Bookmark,
     Megaphone,
-    PaperAirplane,
     Pencil,
-  } from '@xylightdev/svelte-hero-icons'
+    Send,
+  } from '$lib/ui/kit/icon'
   import { SvelteMap } from 'svelte/reactivity'
   import CommunityLink from '../community/CommunityLink.svelte'
   import UserLink from '../user/UserLink.svelte'
   import { postLink } from './helpers'
 
-  import type { IconSource } from '@xylightdev/svelte-hero-icons'
   import type { MetaTag } from './tags'
 
   type BadgeType = 'saved' | 'featured'
@@ -170,9 +170,8 @@
       <address class="contents not-italic">
         {#if view == 'compact' && showCommunity}
           <Icon
-            src={PaperAirplane}
+            src={Send}
             size="12"
-            micro
             class="rotate-180 text-slate-400 dark:text-zinc-600 max-sm:hidden"
           />
         {/if}
@@ -208,7 +207,7 @@
             }),
           })}
       >
-        <Icon src={Pencil} micro size="14" />
+        <Icon src={Pencil} size="14" />
       </button>
     {/if}
   </div>
@@ -226,7 +225,7 @@
         <Badge class={tag.color ? 'badge-tag-color' : ''}>
           {#snippet icon()}
             {#if tag.icon}
-              <Icon src={tag.icon} micro size="14" />
+              <Icon src={tag.icon} size="14" />
             {/if}
           {/snippet}
           {tag.content}
@@ -242,7 +241,7 @@
       .filter((i) => i != undefined) as badge}
       <Badge label={badge.label} color={badge.color} allowIconOnly>
         {#snippet icon()}
-          <Icon src={badge.icon} micro size="14" />{/snippet}{badge.label}
+          <Icon src={badge.icon} size="14" />{/snippet}{badge.label}
       </Badge>
     {/each}
     {@render extraBadges?.()}

@@ -3,7 +3,7 @@
   import { Button } from '$lib/ui/kit'
   import type { ButtonProps } from '$lib/ui/kit/button/Button.svelte'
   import type { Snippet } from 'svelte'
-  import { Icon, type IconSource } from '@xylightdev/svelte-hero-icons'
+  import { Icon, type IconSource } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
 
   interface Props extends ButtonProps {
@@ -54,10 +54,10 @@
         {@render customIcon?.({ size: 16, isSelected })}
       {:else if icon}
         <div class="hidden md:block">
-          <Icon src={icon} size="16" micro />
+          <Icon src={icon} size="16" />
         </div>
         <div class="block md:hidden">
-          <Icon src={icon} size="20" mini />
+          <Icon src={icon} size="20" />
         </div>
       {/if}
     </div>

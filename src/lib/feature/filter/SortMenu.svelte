@@ -14,16 +14,15 @@
   import MenuButton from '$lib/ui/kit/popover/MenuButton.svelte'
   import { Button, toast } from '$lib/ui/kit'
   import {
+    Icon,
+    type IconSource,
     Check,
     ChevronDown,
     Clock,
-    Fire,
-    Icon,
+    Flame,
     Star,
     Trophy,
-    type IconSource,
-  } from '@xylightdev/svelte-hero-icons'
-
+  } from '$lib/ui/kit/icon'
   interface Props {
     sort: CovesSortType
     timeframe?: CovesTimeframe
@@ -42,7 +41,7 @@
     CovesSortType,
     { icon: IconSource; labelKey: string }
   > = {
-    hot: { icon: Fire, labelKey: 'filter.sort.hot' },
+    hot: { icon: Flame, labelKey: 'filter.sort.hot' },
     top: { icon: Trophy, labelKey: 'filter.sort.top.label' },
     new: { icon: Star, labelKey: 'filter.sort.new' },
   }
@@ -124,23 +123,22 @@
     <Button
       {@attach attachment}
       color="secondary"
-      size="sm"
+      size="md"
       class={['gap-1.5', clazz]}
     >
-      <Icon src={currentIcon} size="16" micro />
+      <Icon src={currentIcon} size="16" />
       {currentLabel}
-      <Icon src={ChevronDown} size="14" micro />
+      <Icon src={ChevronDown} size="14" />
     </Button>
   {/snippet}
 
-  <MenuButton icon={Fire} onclick={() => selectSort('hot')}>
+  <MenuButton icon={Flame} onclick={() => selectSort('hot')}>
     {$t('filter.sort.hot')}
     {#snippet suffix()}
       {#if sort === 'hot'}
         <Icon
           src={Check}
           size="16"
-          micro
           class="ml-auto text-primary-900 dark:text-primary-100"
         />
       {/if}
@@ -154,7 +152,6 @@
         <Icon
           src={Check}
           size="16"
-          micro
           class="ml-auto text-primary-900 dark:text-primary-100"
         />
       {/if}
@@ -174,7 +171,6 @@
             <Icon
               src={Check}
               size="16"
-              micro
               class="ml-auto text-primary-900 dark:text-primary-100"
             />
           {/if}
@@ -190,7 +186,6 @@
         <Icon
           src={Check}
           size="16"
-          micro
           class="ml-auto text-primary-900 dark:text-primary-100"
         />
       {/if}

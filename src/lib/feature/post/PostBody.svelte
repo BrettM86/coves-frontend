@@ -3,7 +3,7 @@
   import RichText from '$lib/feature/richtext/RichText.svelte'
   import { hasFacets } from '$lib/feature/richtext/facets'
   import { Button } from '$lib/ui/kit'
-  import { ChevronDoubleDown, Icon } from '@xylightdev/svelte-hero-icons'
+  import { Icon, ChevronsDown } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
 
   const MAX_HEIGHT = 192
@@ -80,7 +80,7 @@
       ]}
       title="Expand"
     >
-      <Icon src={ChevronDoubleDown} size="20" mini />
+      <Icon src={ChevronsDown} size="20" />
     </Button>
   {/if}
 </svelte:element>

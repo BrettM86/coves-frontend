@@ -1,7 +1,7 @@
 <script module lang="ts">
   import { Spinner } from '$lib/ui/kit'
   import type { Snippet } from 'svelte'
-  import { type IconSource, Icon } from '@xylightdev/svelte-hero-icons'
+  import { Icon, type IconSource } from '$lib/ui/kit/icon'
   import type { ClassValue, HTMLButtonAttributes } from 'svelte/elements'
 
   export type ButtonColor = keyof typeof buttonColor
@@ -170,7 +170,6 @@
     <Icon
       src={icon}
       size="16"
-      mini
       class={[color == 'secondary' && 'text-slate-600 dark:text-zinc-400']}
     />
   {/if}

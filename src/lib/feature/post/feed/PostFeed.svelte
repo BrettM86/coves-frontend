@@ -4,7 +4,7 @@
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Button } from '$lib/ui/kit'
   import type { Snippet } from 'svelte'
-  import { ArchiveBox, Plus } from '@xylightdev/svelte-hero-icons'
+  import { Archive, Plus } from '$lib/ui/kit/icon'
   import { Post } from '..'
 
   interface Props {
@@ -22,7 +22,7 @@
   {#if posts?.length == 0}
     <div class="h-full grid place-items-center">
       <Placeholder
-        icon={ArchiveBox}
+        icon={Archive}
         title="No posts"
         description="There are no posts that match this filter."
       >

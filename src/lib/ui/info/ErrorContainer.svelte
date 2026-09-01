@@ -17,7 +17,7 @@
 
 <script lang="ts">
   import { onDestroy, type Snippet } from 'svelte'
-  import { ExclamationTriangle, Icon } from '@xylightdev/svelte-hero-icons'
+  import { Icon, TriangleAlert } from '$lib/ui/kit/icon'
   import { expoOut } from 'svelte/easing'
   import { fly, slide } from 'svelte/transition'
 
@@ -56,9 +56,8 @@
       class="info-container material-error"
     >
       <Icon
-        src={ExclamationTriangle}
+        src={TriangleAlert}
         size="20"
-        micro
         class="inline-block rounded-lg clear-both float-left mr-2"
       />
       {#if message}

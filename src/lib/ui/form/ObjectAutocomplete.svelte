@@ -4,7 +4,7 @@
   import { communityAddress } from '$lib/app/util/community'
   import { log } from '$lib/app/util/log'
   import { MenuButton, Search, toast } from '$lib/ui/kit'
-  import { Icon, XCircle } from '@xylightdev/svelte-hero-icons'
+  import { Icon, CircleX } from '$lib/ui/kit/icon'
   import { fly } from 'svelte/transition'
   import Avatar from '../generic/Avatar.svelte'
 
@@ -66,7 +66,7 @@
     <div class="w-full h-full">
       {#if q == '' && showWhenEmpty}
         <MenuButton onclick={() => onselect?.(undefined)}>
-          <Icon src={XCircle} size="16" mini />
+          <Icon src={CircleX} size="16" />
           <div class="flex flex-col text-left">
             <span>None</span>
           </div>

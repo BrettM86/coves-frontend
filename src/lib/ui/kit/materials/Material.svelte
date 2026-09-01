@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Icon, type IconSource } from '@xylightdev/svelte-hero-icons'
+  import { Icon, type IconSource } from '$lib/ui/kit/icon'
   import type { ClassValue, HTMLAttributes } from 'svelte/elements'
 
   type Elevation = keyof typeof elevationClass
@@ -89,7 +89,6 @@
     <Icon
       src={icon}
       size="20"
-      mini
       class="inline-block rounded-lg clear-both float-left mr-2"
     />
   {/if}

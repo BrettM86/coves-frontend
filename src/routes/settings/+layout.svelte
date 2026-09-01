@@ -8,12 +8,7 @@
   } from '$lib/app/state/settings.svelte'
   import { Header, Tabs } from '$lib/ui/layout'
   import { action, Button, Modal, modal, TextArea, toast } from '$lib/ui/kit'
-  import {
-    ArrowDownTray,
-    ArrowPath,
-    ArrowUpTray,
-  } from '@xylightdev/svelte-hero-icons'
-
+  import { Download, RefreshCw, Upload } from '$lib/ui/kit/icon'
   let { children } = $props()
   let importing = $state(false)
   let importText = $state('')
@@ -74,7 +69,7 @@
           importText = ''
           importing = true
         }}
-        icon={ArrowDownTray}
+        icon={Download}
         size="lg"
       >
         {$t('settings.import')}
@@ -85,7 +80,7 @@
           navigator?.clipboard?.writeText?.(json)
           toast({ content: $t('toast.copied') })
         }}
-        icon={ArrowUpTray}
+        icon={Upload}
         size="lg"
       >
         {$t('settings.export')}
@@ -108,7 +103,7 @@
             ],
           })
         }}
-        icon={ArrowPath}
+        icon={RefreshCw}
         size="lg"
       >
         {$t('settings.reset')}

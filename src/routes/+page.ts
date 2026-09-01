@@ -7,8 +7,7 @@ import { mapListing, resolveFeedSort } from '$lib/api/coves/sort'
 import { ReactiveState } from '$lib/app/util/reactive.svelte'
 import { awaitIfServer } from '$lib/app/util/ssr'
 import { feed } from '$lib/feature/feeds/feed.svelte'
-import { ChevronDoubleUp } from '@xylightdev/svelte-hero-icons'
-
+import { ChevronsUp } from '$lib/ui/kit/icon'
 export async function load({ url, fetch, route }) {
   const cursor = url.searchParams.get('cursor') as string | undefined
 
@@ -61,7 +60,7 @@ export async function load({ url, fetch, route }) {
             return t.get('routes.post.scrollToTop')
           },
           handle: () => window?.scrollTo({ top: 0, behavior: 'instant' }),
-          icon: ChevronDoubleUp,
+          icon: ChevronsUp,
         },
       ],
     },

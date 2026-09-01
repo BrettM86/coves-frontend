@@ -1,5 +1,4 @@
-import type { IconSource } from '@xylightdev/svelte-hero-icons'
-
+import type { IconSource } from '$lib/ui/kit/icon'
 export interface SelectOption {
   value: string
   label: string

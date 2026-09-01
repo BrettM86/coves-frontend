@@ -9,10 +9,7 @@
   import { t } from '$lib/app/state/i18n'
   import { commentLink, type PostLinkRef } from '$lib/feature/post'
   import { Button, toast } from '$lib/ui/kit'
-  import {
-    ArrowDownCircle,
-    ArrowRightCircle,
-  } from '@xylightdev/svelte-hero-icons'
+  import { CircleArrowDown, CircleArrowRight } from '$lib/ui/kit/icon'
   import Comment from './Comment.svelte'
   import {
     type CommentNodeI,
@@ -153,7 +150,7 @@
             color="tertiary"
             class="font-normal text-slate-600 dark:text-zinc-400"
             shadow="none"
-            icon={ArrowRightCircle}
+            icon={CircleArrowRight}
           >
             {$t('comment.thread')}
           </Button>
@@ -167,7 +164,7 @@
             shadow="none"
             loaderWidth={16}
             onclick={() => fetchChildren(nodes[index])}
-            icon={ArrowDownCircle}
+            icon={CircleArrowDown}
           >
             {$t('comment.more')}
           </Button>

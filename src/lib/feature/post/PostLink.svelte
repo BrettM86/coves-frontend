@@ -2,11 +2,7 @@
   import type { View } from '$lib/app/state/settings.svelte'
   import { parseWebUrl } from '$lib/app/util/url'
   import { Material } from '$lib/ui/kit'
-  import {
-    ArrowTopRightOnSquare,
-    Icon,
-    Link,
-  } from '@xylightdev/svelte-hero-icons'
+  import { Icon, ExternalLink, Link } from '$lib/ui/kit/icon'
   import { withPreset } from '$lib/api/coves/image-proxy'
 
   interface Props {
@@ -34,7 +30,7 @@
     class="post-link-compact post-link-inert"
     title="Link not opened: only http and https addresses are supported"
   >
-    <Icon src={Link} size="16" micro class="shrink-0" />
+    <Icon src={Link} size="16" class="shrink-0" />
     {url}
   </span>
 {:else if (embed_title || thumbnail_url) && view == 'cozy'}
@@ -75,9 +71,8 @@
           role="presentation"
         >
           <Icon
-            src={ArrowTopRightOnSquare}
+            src={ExternalLink}
             size="16"
-            micro
             class="text-slate-500 dark:text-zinc-300"
           />
         </Material>
@@ -91,7 +86,7 @@
     rel="noopener noreferrer"
     class="post-link-compact"
   >
-    <Icon src={Link} size="16" micro class="shrink-0" />
+    <Icon src={Link} size="16" class="shrink-0" />
     <div class="post-link-url">
       {richURL.hostname}
       {#if richURL.pathname != '/'}

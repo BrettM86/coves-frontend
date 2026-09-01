@@ -11,7 +11,7 @@
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { TextInput } from '$lib/ui/kit'
   import { onMount } from 'svelte'
-  import { Home, Icon } from '@xylightdev/svelte-hero-icons'
+  import { Icon, House } from '$lib/ui/kit/icon'
   import {
     type Action,
     type Group,
@@ -242,7 +242,7 @@
         class="text-[13px] font-medium text-slate-600 dark:text-zinc-400"
         onclick={goBack}
       >
-        <Icon src={Home} size="16" mini />
+        <Icon src={House} size="16" />
       </button>
       {#each breadcrumbs as crumb}
         <span class="text-base text-slate-400 dark:text-zinc-600">/</span>

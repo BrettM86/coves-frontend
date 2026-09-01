@@ -4,11 +4,7 @@
   import { userLink } from '$lib/app/util/links'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import Logo from '$lib/ui/generic/Logo.svelte'
-  import {
-    Icon,
-    type IconSource,
-    Language,
-  } from '@xylightdev/svelte-hero-icons'
+  import { Icon, type IconSource, Languages } from '$lib/ui/kit/icon'
   import { userLabel } from './helpers'
 
   function parseBadge(): Record<string, string[]> {
@@ -46,7 +42,7 @@
       return {
         classes:
           'bg-linear-to-r bg-clip-text text-transparent from-sky-500 to-blue-700 dark:from-blue-300 dark:to-indigo-500',
-        icon: Language,
+        icon: Languages,
         iconClass: 'text-blue-500 dark:text-blue-400',
       }
     }
@@ -116,7 +112,6 @@
       {:else}
         <Icon
           src={envBadge.icon}
-          micro
           size="16"
           class={envBadge.iconClass ?? envBadge.classes}
         />

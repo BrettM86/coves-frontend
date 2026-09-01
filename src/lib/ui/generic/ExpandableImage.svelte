@@ -3,7 +3,7 @@
   import { page } from '$app/state'
   import { t } from '$lib/app/state/i18n'
   import { Button, Material, toast } from '$lib/ui/kit'
-  import { Share, XMark } from '@xylightdev/svelte-hero-icons'
+  import { Forward, X } from '$lib/ui/kit/icon'
   import { backOut } from 'svelte/easing'
   import { fade, scale } from 'svelte/transition'
   import { trapFocus } from 'trap-focus-svelte'
@@ -65,7 +65,7 @@
           size="square-lg"
           rounding="pill"
           aria-label={$t('post.actions.more.share')}
-          icon={Share}
+          icon={Forward}
         ></Button>
         <Button
           onclick={() => history.back()}
@@ -73,7 +73,7 @@
           size="square-lg"
           rounding="pill"
           aria-label={$t('common.back')}
-          icon={XMark}
+          icon={X}
         ></Button>
       </Material>
     </div>

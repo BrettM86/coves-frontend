@@ -6,11 +6,7 @@
     type ButtonProps,
   } from '$lib/ui/kit/button/Button.svelte'
   import type { Snippet } from 'svelte'
-  import {
-    ChevronRight,
-    Icon,
-    type IconSource,
-  } from '@xylightdev/svelte-hero-icons'
+  import { Icon, type IconSource, ChevronRight } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
 
   interface Props extends ButtonProps {
@@ -68,7 +64,7 @@
       ]}
     >
       {#if icon}
-        <Icon src={icon} micro size="16" />
+        <Icon src={icon} size="16" />
       {:else}
         {@render passedPrefix?.()}
       {/if}
@@ -78,7 +74,7 @@
   {#snippet suffix()}
     {@render passedSuffix?.()}
     {#if nest}
-      <Icon src={ChevronRight} size="16" micro class="ml-auto" />
+      <Icon src={ChevronRight} size="16" class="ml-auto" />
     {/if}
   {/snippet}
 </Button>

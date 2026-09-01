@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
   import { Button } from '$lib/ui/kit'
-  import { ArrowLeft, Icon } from '@xylightdev/svelte-hero-icons'
+  import { Icon, ArrowLeft } from '$lib/ui/kit/icon'
   import LoginPage from '../../login/+page.svelte'
 </script>
 
@@ -12,7 +12,7 @@
     class="w-max hover:underline text-slate-600 dark:text-zinc-400"
     onclick={() => history?.back()}
   >
-    <Icon src={ArrowLeft} size="16" micro />
+    <Icon src={ArrowLeft} size="16" />
     {$t('account.accounts')}
   </Button>
 </LoginPage>

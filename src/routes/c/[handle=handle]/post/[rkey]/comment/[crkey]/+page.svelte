@@ -9,7 +9,7 @@
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
   import { commentLink, Post, postLink } from '$lib/feature/post'
   import { Button, Material, Spinner, toast } from '$lib/ui/kit'
-  import { ArrowUturnUp, QueueList } from '@xylightdev/svelte-hero-icons'
+  import { LayoutList, Undo2 } from '$lib/ui/kit/icon'
   import type { PageData } from './$types'
 
   interface Props {
@@ -84,7 +84,7 @@
         href="{postLink(post)}#comment-{encodeURIComponent(focused.rkey)}"
         rounding="pill"
         color="secondary"
-        icon={QueueList}
+        icon={LayoutList}
       >
         {$t('comment.permalink.allComments')}
       </Button>
@@ -93,7 +93,7 @@
           href={commentLink(post, focused.parentUri)}
           rounding="pill"
           color="secondary"
-          icon={ArrowUturnUp}
+          icon={Undo2}
         >
           {$t('comment.permalink.context')}
         </Button>

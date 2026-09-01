@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type IconSource, Icon } from '@xylightdev/svelte-hero-icons'
+  import { Icon, type IconSource } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
 
   interface Props {
@@ -33,7 +33,7 @@
             : 'bg-slate-100 dark:bg-zinc-900 p-3 rounded-2xl text-primary-900 dark:text-primary-100',
         ]}
       >
-        <Icon src={icon} size="28" solid />
+        <Icon src={icon} size="28" />
       </div>
     {/if}
     <div class={['space-y-2', clazz]}>

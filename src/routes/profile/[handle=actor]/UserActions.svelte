@@ -8,13 +8,7 @@
   import { t } from '$lib/app/state/i18n'
   import { Button, Menu, MenuButton, toast } from '$lib/ui/kit'
   import { untrack } from 'svelte'
-  import {
-    EllipsisHorizontal,
-    Envelope,
-    Icon,
-    NoSymbol,
-  } from '@xylightdev/svelte-hero-icons'
-
+  import { Icon, Ban, Ellipsis, Mail } from '$lib/ui/kit/icon'
   interface Props {
     profile: ProfileViewDetailed
   }
@@ -114,7 +108,7 @@
     <Button
       size="lg"
       color="primary"
-      icon={Envelope}
+      icon={Mail}
       onclick={() =>
         toast({
           content: 'Messaging is not yet available',
@@ -129,13 +123,13 @@
           {@attach attachment}
           size="square-lg"
           rounding="2xl"
-          icon={EllipsisHorizontal}
+          icon={Ellipsis}
           aria-label={$t('post.actions.more.label')}
         />
       {/snippet}
       <MenuButton color="danger-subtle" onclick={toggleBlock}>
         {#snippet prefix()}
-          <Icon mini size="16" src={NoSymbol} />
+          <Icon size="16" src={Ban} />
         {/snippet}
         {isBlocked ? $t('account.unblock') : $t('account.block')}
       </MenuButton>

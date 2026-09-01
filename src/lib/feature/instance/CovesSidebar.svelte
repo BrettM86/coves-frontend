@@ -6,7 +6,7 @@
   import SidebarButton from '$lib/ui/sidebar/SidebarButton.svelte'
   import { Spinner } from '$lib/ui/kit'
   import { onMount } from 'svelte'
-  import { BuildingOffice, GlobeAlt } from '@xylightdev/svelte-hero-icons'
+  import { Building, Compass } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
   import { siteStats } from './siteStats.svelte'
 
@@ -43,13 +43,9 @@
     <SidebarButton
       href="/explore/communities"
       label={$t('routes.explore.title')}
-      icon={GlobeAlt}
+      icon={Compass}
     />
-    <SidebarButton
-      href="/legal"
-      label="Community Guidelines"
-      icon={BuildingOffice}
-    />
+    <SidebarButton href="/legal" label="Community Guidelines" icon={Building} />
 
     {#if siteStats.data || siteStats.loading}
       <EndPlaceholder size="xs" margin="sm">

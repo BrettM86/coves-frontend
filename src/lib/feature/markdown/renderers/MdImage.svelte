@@ -10,7 +10,7 @@
   import { parseProxyUrl, withPreset } from '$lib/api/coves/image-proxy'
   import { showImage } from '$lib/ui/generic/ExpandableImage.svelte'
   import { getContext } from 'svelte'
-  import { ArrowDownTray, Icon } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Download } from '$lib/ui/kit/icon'
   import { isSafeHref } from './plugins'
 
   let loaded: boolean = $state(
@@ -92,7 +92,7 @@
         title={$t('common.download')}
       >
         <Icon
-          src={ArrowDownTray}
+          src={Download}
           size="24"
           class="text-primary-900 dark:text-primary-100"
         />

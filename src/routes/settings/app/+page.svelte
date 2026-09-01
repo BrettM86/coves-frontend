@@ -7,30 +7,30 @@
   import { CommonList } from '$lib/ui/layout'
   import { Option, Select } from '$lib/ui/kit'
   import {
-    ArrowsPointingOut,
-    ArrowsRightLeft,
-    ArrowsUpDown,
-    ArrowTopRightOnSquare,
-    Bars2,
-    BarsArrowDown,
-    Calendar,
-    ChartBar,
-    ChatBubbleOvalLeftEllipsis,
-    Clock,
-    CubeTransparent,
-    DocumentText,
-    Fire,
-    GlobeAmericas,
     Icon,
-    Language,
-    Photo,
+    ArrowDownWideNarrow,
+    ArrowRightLeft,
+    ArrowUpDown,
+    Calendar,
+    ChartColumn,
+    Clock,
+    Columns3,
+    Dock,
+    Earth,
+    Equal,
+    ExternalLink,
+    FileText,
+    Flame,
+    Image,
+    Languages,
+    Maximize2,
+    MessageSquareMore,
     Sparkles,
     Star,
-    TableCells,
+    Table,
     Tag,
     Trophy,
-    ViewColumns,
-  } from '@xylightdev/svelte-hero-icons'
+  } from '$lib/ui/kit/icon'
   import Setting from '../Setting.svelte'
   import ToggleSetting from '../ToggleSetting.svelte'
 
@@ -63,7 +63,7 @@
 </script>
 
 <CommonList>
-  <Setting icon={Language}>
+  <Setting icon={Languages}>
     {#snippet title()}
       {$t('settings.app.lang.title')}
     {/snippet}
@@ -74,7 +74,7 @@
     {/snippet}
     <!--@ts-ignore-->
     <Select bind:value={settings.language}>
-      <Option icon={Language} value={null}>
+      <Option icon={Languages} value={null}>
         {$t('settings.app.lang.auto')}
       </Option>
       {#each localeMap.entries() as [key, value]}
@@ -94,7 +94,7 @@
       title={$t('settings.app.lang.useRtl.title')}
     ></ToggleSetting>
   {/if}
-  <Setting icon={ViewColumns}>
+  <Setting icon={Columns3}>
     {#snippet title()}
       <span>{$t('settings.app.view.title')}</span>
     {/snippet}
@@ -109,7 +109,10 @@
       </p>
     {/snippet}
   </Setting>
-  <Setting optionClass="flex-2 max-w-full flex-wrap min-w-0 " icon={ChartBar}>
+  <Setting
+    optionClass="flex-2 max-w-full flex-wrap min-w-0 "
+    icon={ChartColumn}
+  >
     {#snippet title()}
       <span>{$t('settings.app.sort.title')}</span>
     {/snippet}
@@ -123,11 +126,11 @@
       <Select bind:value={settings.defaultSort.feed}>
         {#snippet customLabel()}
           <div class="flex items-center gap-1">
-            <Icon src={GlobeAmericas} size="16" mini />
+            <Icon src={Earth} size="16" />
             {$t('filter.feed.label')}
           </div>
         {/snippet}
-        <Option icon={GlobeAmericas} value="discover">
+        <Option icon={Earth} value="discover">
           {$t('filter.feed.discover')}
         </Option>
         <Option icon={Sparkles} value="timeline">
@@ -137,12 +140,12 @@
       <Select bind:value={settings.defaultSort.sort}>
         {#snippet customLabel()}
           <div class="flex items-center gap-1">
-            <Icon src={ChartBar} size="14" mini />
+            <Icon src={ChartColumn} size="14" />
             {$t('filter.sort.label')}
           </div>
         {/snippet}
 
-        <Option icon={Fire} value="hot">{$t('filter.sort.hot')}</Option>
+        <Option icon={Flame} value="hot">{$t('filter.sort.hot')}</Option>
         <Option icon={Trophy} value="top">
           {$t('filter.sort.top.label')}
         </Option>
@@ -152,7 +155,7 @@
         <Select bind:value={settings.defaultSort.timeframe}>
           {#snippet customLabel()}
             <div class="flex items-center gap-1">
-              <Icon src={Clock} size="14" mini />
+              <Icon src={Clock} size="14" />
               {$t('filter.sort.top.time.label')}
             </div>
           {/snippet}
@@ -167,12 +170,12 @@
       <Select bind:value={settings.defaultSort.comments}>
         {#snippet customLabel()}
           <div class="flex items-center gap-1">
-            <Icon src={ChatBubbleOvalLeftEllipsis} size="14" mini />
+            <Icon src={MessageSquareMore} size="14" />
             {$t('content.comments')}
           </div>
         {/snippet}
 
-        <Option icon={Fire} value="hot">{$t('filter.sort.hot')}</Option>
+        <Option icon={Flame} value="hot">{$t('filter.sort.hot')}</Option>
         <Option icon={Trophy} value="top">
           {$t('filter.sort.top.label')}
         </Option>
@@ -181,12 +184,12 @@
     </div>
   </Setting>
   <ToggleSetting
-    icon={BarsArrowDown}
+    icon={ArrowDownWideNarrow}
     bind:checked={settings.infiniteScroll}
     title={$t('settings.app.infiniteScroll.title')}
     description={$t('settings.app.infiniteScroll.description')}
   />
-  <Setting icon={Photo}>
+  <Setting icon={Image}>
     {#snippet title()}
       <span>{$t('settings.app.thumbnailSide.title')}</span>
     {/snippet}
@@ -205,13 +208,13 @@
     />
   </Setting>
   <ToggleSetting
-    icon={ArrowsRightLeft}
+    icon={ArrowRightLeft}
     bind:checked={settings.posts.reverseActions}
     title={$t('settings.app.reverseActions.title')}
     description={$t('settings.app.reverseActions.description')}
   />
   <ToggleSetting
-    icon={TableCells}
+    icon={Table}
     supportedPlatforms={{ desktop: true, tablet: false, mobile: false }}
     bind:checked={settings.newWidth}
     title={$t('settings.app.limitLayoutWidth.title')}
@@ -224,25 +227,25 @@
     description={$t('settings.app.absoluteDates.description')}
   />
   <ToggleSetting
-    icon={ArrowsUpDown}
+    icon={ArrowUpDown}
     bind:checked={settings.voteRatioBar}
     title={$t('settings.app.voteRatioBar.title')}
     description={$t('settings.app.voteRatioBar.description')}
   />
   <ToggleSetting
-    icon={CubeTransparent}
+    icon={Dock}
     supportedPlatforms={{ desktop: false, tablet: false, mobile: true }}
     bind:checked={settings.dock.autoHide}
     title={$t('settings.navigation.autoHide.title')}
     description={$t('settings.navigation.autoHide.description')}
   />
   <ToggleSetting
-    icon={ArrowTopRightOnSquare}
+    icon={ExternalLink}
     bind:checked={settings.openLinksInNewTab}
     title={$t('settings.app.postsInNewTab.title')}
     description={$t('settings.app.postsInNewTab.description')}
   />
-  <Setting icon={DocumentText}>
+  <Setting icon={FileText}>
     {#snippet title()}
       <span>{$t('settings.app.font.title')}</span>
     {/snippet}
@@ -256,19 +259,19 @@
     </Select>
   </Setting>
   <ToggleSetting
-    icon={ArrowsPointingOut}
+    icon={Maximize2}
     bind:checked={settings.expandImages}
     title={$t('settings.app.expandImages.title')}
     description={$t('settings.app.expandImages.description')}
   />
   <ToggleSetting
-    icon={Bars2}
+    icon={Equal}
     bind:checked={settings.posts.deduplicateEmbed}
     title={$t('settings.app.duplicateTitles.title')}
     description={$t('settings.app.duplicateTitles.description')}
   />
   <ToggleSetting
-    icon={ArrowTopRightOnSquare}
+    icon={ExternalLink}
     bind:checked={settings.posts.titleOpensUrl}
     title={$t('settings.app.titleOpensUrl.title')}
     description={$t('settings.app.titleOpensUrl.description')}

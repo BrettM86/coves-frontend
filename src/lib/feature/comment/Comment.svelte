@@ -15,13 +15,7 @@
   import { publishedToDate } from '$lib/ui/util/date'
   import { Button, Modal, toast } from '$lib/ui/kit'
   import RelativeDate from '$lib/ui/util/RelativeDate.svelte'
-  import {
-    Icon,
-    Microphone,
-    Minus,
-    Plus,
-    Trash,
-  } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Mic, Minus, Plus, Trash2 } from '$lib/ui/kit/icon'
   import { expoOut } from 'svelte/easing'
   import type { ClassValue } from 'svelte/elements'
   import { slide } from 'svelte/transition'
@@ -189,7 +183,7 @@
             'transition-all duration-500 ease-out my-auto h-full w-8 grid place-items-center',
           ]}
         >
-          <Icon src={open ? Minus : Plus} size="16" micro />
+          <Icon src={open ? Minus : Plus} size="16" />
         </div>
       </div>
       {@render metaSuffix?.()}
@@ -211,12 +205,7 @@
           <UserLink avatarSize={20} avatar user={node.comment.author} />
         </span>
         {#if creatorIsOp}
-          <Icon
-            mini
-            size="16"
-            src={Microphone}
-            class="text-blue-500 dark:text-blue-400"
-          />
+          <Icon size="16" src={Mic} class="text-blue-500 dark:text-blue-400" />
         {/if}
       {/if}
       <RelativeDate
@@ -226,8 +215,7 @@
       <span class="text-slate-600 dark:text-zinc-400 flex flex-row gap-2 ml-1">
         {#if node.comment.isDeleted}
           <Icon
-            src={Trash}
-            solid
+            src={Trash2}
             size="12"
             aria-label={$t('post.badges.deleted')}
             class="text-red-600 dark:text-red-500"
@@ -235,8 +223,7 @@
         {/if}
         {#if node.comment.deletionReason}
           <Icon
-            src={Trash}
-            solid
+            src={Trash2}
             size="12"
             aria-label={$t('post.badges.removed')}
             class="text-green-600 dark:text-green-500"

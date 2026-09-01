@@ -17,7 +17,7 @@
   import VirtualFeed from '$lib/feature/post/feed/VirtualFeed.svelte'
   import { Button } from '$lib/ui/kit'
   import { untrack, type Snippet } from 'svelte'
-  import { ArrowRight, Icon } from '@xylightdev/svelte-hero-icons'
+  import { Icon, ArrowRight } from '$lib/ui/kit/icon'
   import { Header, Pageination } from '$lib/ui/layout'
 
   interface Props {
@@ -129,7 +129,7 @@
                 {/each}
               </select>
               <Button class="h-[34px] aspect-square" size="custom" submit>
-                <Icon src={ArrowRight} size="16" micro />
+                <Icon src={ArrowRight} size="16" />
               </Button>
             </form>
           </noscript>

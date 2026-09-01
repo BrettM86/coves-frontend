@@ -8,7 +8,7 @@
   import Blobs from '$lib/ui/generic/Blobs.svelte'
   import { Button, modal } from '$lib/ui/kit'
   import type { Snippet } from 'svelte'
-  import { Icon, InformationCircle } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Info } from '$lib/ui/kit/icon'
   import CommunityCard from './CommunityCard.svelte'
   import SubscribeButton from './SubscribeButton.svelte'
   import {
@@ -100,7 +100,7 @@
       aria-label={$t('common.info')}
       size="square-md"
     >
-      <Icon src={InformationCircle} size="16" mini />
+      <Icon src={Info} size="16" />
     </Button>
     <SubscribeButton {community} variant="tile" />
   </div>

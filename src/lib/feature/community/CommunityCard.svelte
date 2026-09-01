@@ -16,12 +16,7 @@
     Spinner,
     toast,
   } from '$lib/ui/kit'
-  import {
-    Cog6Tooth,
-    EllipsisHorizontal,
-    Fire,
-  } from '@xylightdev/svelte-hero-icons'
-
+  import { Ellipsis, Flame, Settings } from '$lib/ui/kit/icon'
   /**
    * Purge a community by DID.
    * Not yet available in the Coves API.
@@ -111,7 +106,7 @@
     {#if isHydratedCommunity(community) && profile.isMod(community)}
       <SidebarButton
         href="/c/{communityIdentifier(community)}/settings"
-        icon={Cog6Tooth}
+        icon={Settings}
         label={$t('routes.profile.edit')}
       />
     {/if}
@@ -121,7 +116,7 @@
           <SidebarButton
             {@attach attachment}
             label={$t('post.actions.more.label')}
-            icon={EllipsisHorizontal}
+            icon={Ellipsis}
           />
         {/snippet}
         <MenuButton
@@ -140,13 +135,13 @@
                   close: true,
                   content: $t('admin.purge'),
                   type: 'danger',
-                  icon: Fire,
+                  icon: Flame,
                 }),
               ],
               dismissable: true,
               type: 'error',
             })}
-          icon={Fire}
+          icon={Flame}
         >
           {$t('admin.purge')}
         </MenuButton>

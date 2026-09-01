@@ -7,7 +7,7 @@
   import { publishedToDate } from '$lib/ui/util/date'
   import { action, Button, modal, toast } from '$lib/ui/kit'
   import RelativeDate from '$lib/ui/util/RelativeDate.svelte'
-  import { ArrowDownTray, Trash } from '@xylightdev/svelte-hero-icons'
+  import { Download, Trash2 } from '$lib/ui/kit/icon'
   import UserLink from './UserLink.svelte'
 
   /**
@@ -77,7 +77,7 @@
       )}/pictrs/image/{image.pictrs_alias}"
       size="square-md"
       class="ml-auto"
-      icon={ArrowDownTray}
+      icon={Download}
     />
     <Button
       title={$t('post.actions.more.delete')}
@@ -101,7 +101,7 @@
         })
       }}
       size="square-md"
-      icon={Trash}
+      icon={Trash2}
     />
   </div>
 </div>

@@ -2,13 +2,12 @@
   import { t } from '$lib/app/state/i18n'
   import { Badge, Switch } from '$lib/ui/kit'
   import {
-    ComputerDesktop,
-    DevicePhoneMobile,
-    DeviceTablet,
     Icon,
     type IconSource,
-  } from '@xylightdev/svelte-hero-icons'
-
+    Monitor,
+    Smartphone,
+    Tablet,
+  } from '$lib/ui/kit/icon'
   interface Props {
     title: string
     description?: string | undefined
@@ -48,7 +47,7 @@
         {#if supportedPlatforms.desktop}
           <Badge>
             {#snippet icon()}
-              <Icon src={ComputerDesktop} micro size="14" />
+              <Icon src={Monitor} size="14" />
             {/snippet}
             {$t('settings.desktop')}
           </Badge>
@@ -56,7 +55,7 @@
         {#if supportedPlatforms.tablet}
           <Badge>
             {#snippet icon()}
-              <Icon src={DeviceTablet} micro size="14" />
+              <Icon src={Tablet} size="14" />
             {/snippet}
             {$t('settings.tablet')}
           </Badge>
@@ -64,7 +63,7 @@
         {#if supportedPlatforms.mobile}
           <Badge>
             {#snippet icon()}
-              <Icon src={DevicePhoneMobile} micro size="14" />
+              <Icon src={Smartphone} size="14" />
             {/snippet}
             {$t('settings.mobile')}
           </Badge>
@@ -77,7 +76,6 @@
       <Icon
         src={icon}
         size="32"
-        mini
         class="bg-red-200/20 dark:bg-red-600/20 p-1.5 self-center
          rounded-lg color text-red-500 dark:text-red-300"
       />

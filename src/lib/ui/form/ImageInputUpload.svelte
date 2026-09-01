@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
   import { Label } from '$lib/ui/kit'
-  import { DocumentPlus, Icon, Plus } from '@xylightdev/svelte-hero-icons'
+  import { Icon, FilePlus, Plus } from '$lib/ui/kit/icon'
   import ImageInputModal from './ImageInputModal.svelte'
 
   let {
@@ -35,16 +35,14 @@
           src={Plus}
           class="text-slate-400 dark:text-zinc-500 absolute top-0 left-0 m-2"
           size="20"
-          micro
         />
       </div>
       <img src={imageUrl} alt="" class="rounded-md mx-auto h-full" />
     {:else}
       <Icon
-        src={DocumentPlus}
+        src={FilePlus}
         class="text-slate-400 dark:text-zinc-500"
         size="36"
-        solid
       />
       <p class="text-slate-600 dark:text-zinc-400 font-medium">
         {$t('common.attach')}

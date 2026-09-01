@@ -2,8 +2,7 @@
   import { navigating, page } from '$app/state'
   import { t } from '$lib/app/state/i18n'
   import { Button, TextInput } from '$lib/ui/kit'
-  import { MagnifyingGlass } from '@xylightdev/svelte-hero-icons'
-
+  import { Search } from '$lib/ui/kit/icon'
   interface Props {
     query?: string | null
   }
@@ -30,6 +29,6 @@
     title="Search"
     rounding="pill"
     loading={navigating.to?.route.id == page.url.pathname}
-    icon={MagnifyingGlass}
+    icon={Search}
   ></Button>
 </div>

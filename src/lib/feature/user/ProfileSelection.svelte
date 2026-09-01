@@ -5,13 +5,12 @@
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { Badge, Button, Menu, MenuButton } from '$lib/ui/kit'
   import {
-    CheckCircle,
-    ChevronUpDown,
     Icon,
-    QuestionMarkCircle,
-    UserGroup,
-  } from '@xylightdev/svelte-hero-icons'
-
+    ChevronsUpDown,
+    CircleCheck,
+    CircleHelp,
+    Users,
+  } from '$lib/ui/kit/icon'
   let {
     profiles,
     selectable = true,
@@ -47,12 +46,7 @@
       </div>
       {#snippet suffix()}
         {#if selectable}
-          <Icon
-            src={ChevronUpDown}
-            size="16"
-            micro
-            class="block justify-self-end"
-          />
+          <Icon src={ChevronsUpDown} size="16" class="block justify-self-end" />
         {/if}
       {/snippet}
     </Button>
@@ -76,20 +70,19 @@
       <div class="flex-1"></div>
       {#if !p.jwt}
         <Badge color="gray-subtle" class="p-1!">
-          <Icon src={QuestionMarkCircle} size="16" micro />
+          <Icon src={CircleHelp} size="16" />
         </Badge>
       {/if}
       {#if selected}
         <Icon
-          src={CheckCircle}
+          src={CircleCheck}
           class="text-primary-900 dark:text-primary-100"
           size="16"
-          micro
         />
       {/if}
     </MenuButton>
   {/each}
-  <MenuButton href="/accounts" icon={UserGroup}>
+  <MenuButton href="/accounts" icon={Users}>
     {$t('account.accounts')}
   </MenuButton>
 </Menu>

@@ -2,12 +2,7 @@
   import { profile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
   import { Menu, Spinner } from '$lib/ui/kit'
-  import {
-    Bars3,
-    GlobeAlt,
-    Icon,
-    PencilSquare,
-  } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Compass, Menu as MenuIcon, SquarePen } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import CommandsWrapper from './commands/CommandsHost.svelte'
@@ -27,7 +22,7 @@
   <NavButton
     href="/explore/communities"
     label={$t('routes.explore.title')}
-    icon={GlobeAlt}
+    icon={Compass}
     isSelectedFilter={(path) => path.startsWith('/explore')}
     class="order-1"
   />
@@ -35,7 +30,7 @@
     label={$t('nav.create.label')}
     href="/create"
     isSelectedFilter={(path) => path.startsWith('/create')}
-    icon={PencilSquare}
+    icon={SquarePen}
     class="order-2 nav-btn-sm-primary"
   />
   <Menu placement="bottom">
@@ -65,7 +60,7 @@
           </div>
         {:else}
           <div class="w-full h-full grid place-items-center">
-            <Icon src={Bars3} micro size="18" />
+            <Icon src={MenuIcon} size="18" />
           </div>
         {/if}
       </button>

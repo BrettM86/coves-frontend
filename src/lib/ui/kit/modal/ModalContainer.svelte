@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button, Modal } from '$lib/ui/kit'
-  import { Icon } from '@xylightdev/svelte-hero-icons'
+  import { Icon } from '$lib/ui/kit/icon'
   import { shownModal } from './modal'
 
   interface Props {
@@ -40,7 +40,7 @@
             color={action.type}
           >
             {#if action.icon}
-              <Icon src={action.icon} mini size="16" />
+              <Icon src={action.icon} size="16" />
             {/if}
             {action.content ?? closeLabel}
           </Button>

@@ -4,7 +4,7 @@
   import { Button } from '$lib/ui/kit'
   import Portal from '$lib/ui/kit/popover/Portal.svelte'
   import type { Snippet } from 'svelte'
-  import { XMark } from '@xylightdev/svelte-hero-icons'
+  import { X } from '$lib/ui/kit/icon'
   import { backOut } from 'svelte/easing'
   import type { ClassValue } from 'svelte/elements'
   import { fade, scale } from 'svelte/transition'
@@ -113,7 +113,7 @@
             color="tertiary"
             size="square-sm"
             onclick={onclose}
-            icon={XMark}
+            icon={X}
           ></Button>
         {/if}
         {#if title !== null}

@@ -13,11 +13,7 @@
   import Skeleton from '$lib/ui/generic/Skeleton.svelte'
   import { Header, Pageination } from '$lib/ui/layout'
   import { Button } from '$lib/ui/kit'
-  import {
-    ArchiveBox,
-    ArrowTopRightOnSquare,
-  } from '@xylightdev/svelte-hero-icons'
-
+  import { Archive, ExternalLink } from '$lib/ui/kit/icon'
   let { data = $bindable() } = $props()
 
   // Defaults are saved by the controls themselves (SortMenu, FeedTabs) on a
@@ -83,7 +79,7 @@
   {:else}
     <div class="h-full grid place-items-center my-8">
       <Placeholder
-        icon={ArchiveBox}
+        icon={Archive}
         title={$t('routes.frontpage.empty.title')}
         description={$t('routes.frontpage.empty.description')}
       >
@@ -91,7 +87,7 @@
           href="/explore/communities"
           rounding="pill"
           color="primary"
-          icon={ArrowTopRightOnSquare}
+          icon={ExternalLink}
         >
           {$t('nav.communities')}
         </Button>

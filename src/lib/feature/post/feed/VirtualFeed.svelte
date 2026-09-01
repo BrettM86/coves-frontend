@@ -12,12 +12,12 @@
   import { Button, Material, Spinner } from '$lib/ui/kit'
   import { onMount, tick, untrack } from 'svelte'
   import {
-    ArchiveBox,
-    ArrowTopRightOnSquare,
-    ChevronDoubleUp,
-    ExclamationTriangle,
     Icon,
-  } from '@xylightdev/svelte-hero-icons'
+    Archive,
+    ChevronsUp,
+    ExternalLink,
+    TriangleAlert,
+  } from '$lib/ui/kit/icon'
   import { expoOut } from 'svelte/easing'
   import { fly } from 'svelte/transition'
   import { Post } from '..'
@@ -317,7 +317,7 @@
     {#if posts?.length == 0}
       <div class="h-full grid place-items-center my-8">
         <Placeholder
-          icon={ArchiveBox}
+          icon={Archive}
           title={$t('routes.frontpage.empty.title')}
           description={$t('routes.frontpage.empty.description')}
         >
@@ -325,7 +325,7 @@
             href="/explore/communities"
             rounding="pill"
             color="primary"
-            icon={ArrowTopRightOnSquare}
+            icon={ExternalLink}
           >
             {$t('nav.communities')}
           </Button>
@@ -373,9 +373,8 @@
       <Material color="error" class="flex flex-col gap-4">
         <div>
           <Icon
-            src={ExclamationTriangle}
+            src={TriangleAlert}
             size="20"
-            micro
             class="inline-block rounded-lg clear-both float-left mr-2"
           />
           {#if isAuthError}
@@ -408,7 +407,7 @@
         <EndPlaceholder>
           {$t('routes.frontpage.endFeed')}
           {#snippet action()}
-            <Button color="tertiary" icon={ChevronDoubleUp}>
+            <Button color="tertiary" icon={ChevronsUp}>
               {$t('routes.post.scrollToTop')}
             </Button>
           {/snippet}

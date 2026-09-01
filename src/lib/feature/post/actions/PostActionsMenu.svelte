@@ -7,12 +7,7 @@
   import { report } from '$lib/feature/moderation/moderation.svelte'
   import { encodeCrosspostDraft } from '$lib/feature/post/helpers'
   import { action, MenuButton, modal, toast } from '$lib/ui/kit'
-  import {
-    ArrowTopRightOnSquare,
-    Flag,
-    Trash,
-  } from '@xylightdev/svelte-hero-icons'
-
+  import { ExternalLink, Flag, Trash2 } from '$lib/ui/kit/icon'
   interface Props {
     post: PostView
   }
@@ -75,12 +70,12 @@
 {#if profile.current?.jwt}
   <MenuButton
     href="/create/post?crosspost={crosspostParam}"
-    icon={ArrowTopRightOnSquare}
+    icon={ExternalLink}
   >
     {$t('post.actions.more.crosspost')}
   </MenuButton>
   {#if profile.current?.did && profile.current.did === post.author.did}
-    <MenuButton onclick={confirmDelete} color="danger-subtle" icon={Trash}>
+    <MenuButton onclick={confirmDelete} color="danger-subtle" icon={Trash2}>
       {$t('post.actions.more.delete')}
     </MenuButton>
   {/if}

@@ -3,11 +3,7 @@
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { Button } from '$lib/ui/kit'
   import type { Snippet } from 'svelte'
-  import {
-    ArrowUturnDown,
-    Icon,
-    QuestionMarkCircle,
-  } from '@xylightdev/svelte-hero-icons'
+  import { Icon, CircleHelp, CornerDownRight } from '$lib/ui/kit/icon'
   import type { HTMLButtonAttributes } from 'svelte/elements'
   import type { Action } from './actions.svelte'
 
@@ -35,8 +31,7 @@
     <Avatar url={action.icon} width={20} />
   {:else}
     <Icon
-      src={action.icon ?? QuestionMarkCircle}
-      solid
+      src={action.icon ?? CircleHelp}
       size="20"
       class="text-slate-600 dark:text-zinc-400"
     />
@@ -55,6 +50,6 @@
     </div>
   {/if}
   {#if action.subActions}
-    <Icon src={ArrowUturnDown} size="16" micro class="" />
+    <Icon src={CornerDownRight} size="16" />
   {/if}
 </Button>

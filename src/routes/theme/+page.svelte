@@ -13,13 +13,7 @@
     TextArea,
     toast,
   } from '$lib/ui/kit'
-  import {
-    ArrowDownTray,
-    ArrowPath,
-    ArrowUpTray,
-    Icon,
-    Plus,
-  } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Download, Plus, RefreshCw, Upload } from '$lib/ui/kit/icon'
   import ColorSwatch from './ColorSwatch.svelte'
   import ThemePreset from './ThemePreset.svelte'
 
@@ -67,7 +61,7 @@
         size="lg"
         disabled={themeData.current.id <= 0}
       >
-        <Icon src={ArrowUpTray} size="16" mini />
+        <Icon src={Upload} size="16" />
         {$t('settings.import')}
       </Button>
       <Button
@@ -79,7 +73,7 @@
         }}
         size="lg"
       >
-        <Icon src={ArrowDownTray} size="16" mini />
+        <Icon src={Download} size="16" />
         {$t('settings.export')}
       </Button>
       <Button
@@ -111,7 +105,7 @@
         }}
         size="lg"
       >
-        <Icon src={ArrowPath} size="16" mini />
+        <Icon src={RefreshCw} size="16" />
         {$t('settings.reset')}
       </Button>
     </div>

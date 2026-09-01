@@ -5,17 +5,17 @@
   import type { TextAreaProps } from '$lib/ui/kit/forms/TextArea.svelte'
   import { tick } from 'svelte'
   import {
-    Bold,
-    CodeBracket,
-    ExclamationTriangle,
-    H1,
     Icon,
+    Bold,
+    Code,
+    Heading1,
+    Image,
     Italic,
     Link,
-    ListBullet,
-    Photo,
+    List,
     Strikethrough,
-  } from '@xylightdev/svelte-hero-icons'
+    TriangleAlert,
+  } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
   import { t } from '$lib/app/state/i18n'
   import Markdown from './Markdown.svelte'
@@ -187,7 +187,7 @@
             class="w-8 h-8"
             rounding="lg"
           >
-            <Icon src={Bold} size="15" micro />
+            <Icon src={Bold} size="15" />
           </Button>
           <Button
             onclick={() => wrapSelection('*', '*')}
@@ -196,7 +196,7 @@
             class="w-8 h-8"
             rounding="lg"
           >
-            <Icon src={Italic} size="15" micro />
+            <Icon src={Italic} size="15" />
           </Button>
           <Button
             onclick={() => wrapSelection('[', '](https://example.com)')}
@@ -205,7 +205,7 @@
             class="w-8 h-8"
             rounding="lg"
           >
-            <Icon src={Link} size="15" micro />
+            <Icon src={Link} size="15" />
           </Button>
           <Button
             onclick={() => wrapSelection('\n# ', '')}
@@ -214,7 +214,7 @@
             class="w-8 h-8"
             rounding="lg"
           >
-            <Icon src={H1} size="15" micro />
+            <Icon src={Heading1} size="15" />
           </Button>
           <Button
             onclick={() => wrapSelection('~~', '~~')}
@@ -223,7 +223,7 @@
             class="w-8 h-8"
             rounding="lg"
           >
-            <Icon src={Strikethrough} size="15" micro />
+            <Icon src={Strikethrough} size="15" />
           </Button>
           <Button
             onclick={() => wrapSelection('\n> ', '')}
@@ -241,7 +241,7 @@
             class="w-8 h-8"
             rounding="lg"
           >
-            <Icon src={ListBullet} micro size="15" />
+            <Icon src={List} size="15" />
           </Button>
           <Button
             onclick={() => wrapSelection('`', '`')}
@@ -250,7 +250,7 @@
             class="w-8 h-8"
             rounding="lg"
           >
-            <Icon src={CodeBracket} micro size="15" />
+            <Icon src={Code} size="15" />
           </Button>
           <Button
             onclick={() =>
@@ -260,7 +260,7 @@
             class="w-8 h-8"
             rounding="lg"
           >
-            <Icon src={ExclamationTriangle} micro size="15" />
+            <Icon src={TriangleAlert} size="15" />
           </Button>
           <Button
             onclick={() => wrapSelection('~', '~')}
@@ -294,7 +294,7 @@
               class="w-8 h-8"
               rounding="lg"
             >
-              <Icon src={Photo} size="15" micro />
+              <Icon src={Image} size="15" />
             </Button>
           {/if}
         </div>

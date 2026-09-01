@@ -9,7 +9,7 @@
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { placeholders } from '$lib/app/util/placeholders'
   import { Button, toast } from '$lib/ui/kit'
-  import { Icon, XMark } from '@xylightdev/svelte-hero-icons'
+  import { Icon, X } from '$lib/ui/kit/icon'
   import type { ClassValue, HTMLTextareaAttributes } from 'svelte/elements'
 
   interface Props extends Omit<HTMLTextareaAttributes, 'oncancel'> {
@@ -128,12 +128,7 @@
           class="w-8 h-8"
           rounding="xl"
         >
-          <Icon
-            src={XMark}
-            size="16"
-            micro
-            class="text-slate-600 dark:text-zinc-400"
-          />
+          <Icon src={X} size="16" class="text-slate-600 dark:text-zinc-400" />
         </Button>
         <Button
           submit

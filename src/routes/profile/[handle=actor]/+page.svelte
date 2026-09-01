@@ -11,11 +11,11 @@
   import { Option, Select } from '$lib/ui/kit'
   import { formatRelativeDate } from '$lib/ui/util/RelativeDate.svelte'
   import {
-    AdjustmentsHorizontal,
-    ChatBubbleOvalLeft,
     Icon,
-    PencilSquare,
-  } from '@xylightdev/svelte-hero-icons'
+    MessageSquare,
+    SlidersHorizontal,
+    SquarePen,
+  } from '$lib/ui/kit/icon'
   import { type PageData } from './$types'
   import UserActions from './UserActions.svelte'
 
@@ -100,7 +100,7 @@
             >
               {#snippet customLabel()}
                 <span class="flex items-center gap-1">
-                  <Icon src={AdjustmentsHorizontal} size="15" mini />
+                  <Icon src={SlidersHorizontal} size="15" />
                   {$t('filter.type')}
                 </span>
               {/snippet}
@@ -123,7 +123,7 @@
         <PostFeed {posts} />
       {:else if filterType === 'posts'}
         <Placeholder
-          icon={PencilSquare}
+          icon={SquarePen}
           title="No posts"
           description="This user has no posts."
         />
@@ -140,7 +140,7 @@
               <div
                 class="flex items-center gap-2 text-sm text-slate-500 dark:text-zinc-400 mb-1"
               >
-                <Icon src={ChatBubbleOvalLeft} size="14" mini />
+                <Icon src={MessageSquare} size="14" />
                 {#if comment.author}
                   <UserLink user={comment.author} avatarSize={16} />
                 {:else}
@@ -165,7 +165,7 @@
         </ul>
       {:else if filterType === 'comments'}
         <Placeholder
-          icon={PencilSquare}
+          icon={SquarePen}
           title="No comments"
           description="This user has no comments."
         />
@@ -174,14 +174,14 @@
 
     {#if filterType === 'all' && posts.length === 0 && comments.length === 0}
       <Placeholder
-        icon={PencilSquare}
+        icon={SquarePen}
         title="No submissions"
         description="This user has no submissions."
       />
     {/if}
   {:else}
     <Placeholder
-      icon={PencilSquare}
+      icon={SquarePen}
       title="Failed to load profile"
       description="This profile could not be loaded. It may not exist or there was an error."
     />

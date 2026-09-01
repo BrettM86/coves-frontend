@@ -5,7 +5,7 @@
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { log } from '$lib/app/util/log'
   import { MenuButton, Search } from '$lib/ui/kit'
-  import { Icon, XCircle } from '@xylightdev/svelte-hero-icons'
+  import { Icon, CircleX } from '$lib/ui/kit/icon'
   import { fly } from 'svelte/transition'
 
   interface Props {
@@ -56,7 +56,7 @@
     <div class="w-full h-full">
       {#if showWhenEmpty}
         <MenuButton onclick={() => onselect?.(undefined)}>
-          <Icon src={XCircle} size="16" mini />
+          <Icon src={CircleX} size="16" />
           <div class="flex flex-col text-left">
             <span>None</span>
           </div>

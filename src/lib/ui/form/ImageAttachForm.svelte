@@ -5,7 +5,7 @@
   import { t } from '$lib/app/state/i18n'
   import { uploadImage } from '$lib/api/upload'
   import { Button, toast } from '$lib/ui/kit'
-  import { DocumentPlus, Icon } from '@xylightdev/svelte-hero-icons'
+  import { Icon, FilePlus } from '$lib/ui/kit/icon'
   import { expoOut } from 'svelte/easing'
   import { slide } from 'svelte/transition'
   import ProgressBar from '../info/ProgressBar.svelte'
@@ -103,7 +103,7 @@
         class="flex flex-col justify-center w-full items-center gap-2
         text-slate-600 dark:text-zinc-400"
       >
-        <Icon src={DocumentPlus} size="32" />
+        <Icon src={FilePlus} size="32" />
         <span class="font-medium text-sm">{$t('form.post.selectFile')}</span>
       </div>
     {/if}

@@ -2,14 +2,14 @@
   import { Spinner } from '$lib/ui/kit'
   import type { Snippet } from 'svelte'
   import {
-    Check,
-    CheckCircle,
-    ExclamationCircle,
-    ExclamationTriangle,
     Icon,
-    InformationCircle,
-    XMark,
-  } from '@xylightdev/svelte-hero-icons'
+    Check,
+    CircleAlert,
+    CircleCheck,
+    Info,
+    TriangleAlert,
+    X,
+  } from '$lib/ui/kit/icon'
   import { expoOut } from 'svelte/easing'
   import { fly, scale } from 'svelte/transition'
   import { type Toast, toastColors, toasts } from './toasts'
@@ -46,17 +46,16 @@
   {:else}
     <Icon
       size="28"
-      mini
       class={['relative self-center shrink-0 p-1 rounded-lg']}
       src={toast.type == 'info'
-        ? InformationCircle
+        ? Info
         : toast.type == 'success'
-          ? CheckCircle
+          ? CircleCheck
           : toast.type == 'warning'
-            ? ExclamationTriangle
+            ? TriangleAlert
             : toast.type == 'error'
-              ? ExclamationCircle
-              : ExclamationCircle}
+              ? CircleAlert
+              : CircleAlert}
     />
   {/if}
   <div class="flex flex-col break-words max-w-full text-inherit">
@@ -80,7 +79,7 @@
         }}
         class="rounded-lg w-max transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800 p-1 cursor-pointer"
       >
-        <Icon src={Check} size="20" micro />
+        <Icon src={Check} size="20" />
       </button>
     {/if}
     <button
@@ -89,7 +88,7 @@
       }}
       class="rounded-lg w-max transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800 p-1 cursor-pointer text-slate-600 dark:text-zinc-400"
     >
-      <Icon src={XMark} size="16" micro />
+      <Icon src={X} size="16" />
     </button>
   </div>
 </div>

@@ -18,7 +18,7 @@
     TextInput,
     toast,
   } from '$lib/ui/kit'
-  import { Icon, Plus } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Plus } from '$lib/ui/kit/icon'
   import type { PageData } from './$types'
 
   interface Props {
@@ -127,7 +127,7 @@
               {#snippet target(attachment)}
                 <button {@attach attachment} type="button">
                   <Badge color="blue-subtle">
-                    <Icon src={Plus} micro size="14" />
+                    <Icon src={Plus} size="14" />
                     {$t('common.add')}
                   </Badge>
                 </button>

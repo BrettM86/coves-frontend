@@ -1,8 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
   import { Button, Material, toast } from '$lib/ui/kit'
-  import { ClipboardDocument, Icon } from '@xylightdev/svelte-hero-icons'
-
+  import { Icon, Copy } from '$lib/ui/kit/icon'
   interface Props {
     code: string
     language?: string
@@ -35,12 +34,7 @@
         }
       }}
     >
-      <Icon
-        src={ClipboardDocument}
-        size="16"
-        micro
-        class="text-slate-600 dark:text-zinc-400"
-      />
+      <Icon src={Copy} size="16" class="text-slate-600 dark:text-zinc-400" />
     </Button>
   </div>
   <pre

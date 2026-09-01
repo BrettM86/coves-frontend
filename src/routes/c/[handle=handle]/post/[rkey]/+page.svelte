@@ -11,11 +11,7 @@
   import { postTextFallback } from '$lib/feature/post/helpers'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Material, Spinner, toast } from '$lib/ui/kit'
-  import {
-    ChatBubbleOvalLeft,
-    Icon,
-    NoSymbol,
-  } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Ban, MessageSquare } from '$lib/ui/kit/icon'
   import { tick } from 'svelte'
   import type { PageData } from './$types'
 
@@ -185,7 +181,7 @@
       <h2
         class="flex items-center gap-2 text-lg font-medium text-slate-700 dark:text-zinc-300 px-1"
       >
-        <Icon src={ChatBubbleOvalLeft} size="20" mini />
+        <Icon src={MessageSquare} size="20" />
         Comments
         {#if post.stats?.commentCount}
           <span class="text-sm text-slate-500 dark:text-zinc-400">
@@ -226,7 +222,7 @@
   {:else if data.data.value?.unavailable}
     <Material padding="lg" rounding="2xl" class="py-12">
       <Placeholder
-        icon={NoSymbol}
+        icon={Ban}
         title="Post unavailable"
         description={data.data.value.unavailable === 'blocked'
           ? "You've blocked this post's author."

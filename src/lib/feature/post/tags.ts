@@ -1,5 +1,4 @@
-import type { IconSource } from '@xylightdev/svelte-hero-icons'
-
+import type { IconSource } from '$lib/ui/kit/icon'
 export interface MetaTag {
   readonly content: string
   readonly color?: string

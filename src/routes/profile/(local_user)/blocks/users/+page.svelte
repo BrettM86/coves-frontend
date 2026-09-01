@@ -6,7 +6,7 @@
   import ItemList from '$lib/ui/generic/ItemList.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Button, toast } from '$lib/ui/kit'
-  import { ArrowUturnUp, Check, Trash } from '@xylightdev/svelte-hero-icons'
+  import { Check, Trash2, Undo2 } from '$lib/ui/kit/icon'
   import type { PageData } from './$types'
 
   interface Props {
@@ -45,13 +45,13 @@
         size="square-md"
         href={item.url}
         color="primary"
-        icon={ArrowUturnUp}
+        icon={Undo2}
       />
       <Button
         title={$t('account.unblock')}
         size="square-md"
         onclick={() => unblock(item.id as DID)}
-        icon={Trash}
+        icon={Trash2}
       />
     {/snippet}
   </ItemList>

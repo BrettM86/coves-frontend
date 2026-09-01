@@ -5,13 +5,13 @@
 
   import { CommonList } from '$lib/ui/layout'
   import { Button, Expandable, TextInput } from '$lib/ui/kit'
-  import { Icon, Plus, Trash } from '@xylightdev/svelte-hero-icons'
+  import { Icon, Plus, Trash2 } from '$lib/ui/kit/icon'
   import { removalTemplate } from '$lib/feature/moderation/moderation.svelte'
   import Setting from '../Setting.svelte'
 </script>
 
 <CommonList>
-  <Setting icon={Trash} adaptive={false}>
+  <Setting icon={Trash2} adaptive={false}>
     {#snippet title()}
       <span>{$t('settings.moderation.replyPresets.title')}</span>
     {/snippet}
@@ -71,7 +71,7 @@
             }}
             class="w-max"
           >
-            <Icon src={Trash} size="16" mini />
+            <Icon src={Trash2} size="16" />
             {$t('common.remove')}
           </Button>
         </div>

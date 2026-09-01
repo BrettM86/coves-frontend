@@ -13,17 +13,15 @@
   import { toast } from '$lib/ui/kit/toast/toasts'
   import { Badge, Button, Menu, MenuButton, Modal } from '$lib/ui/kit'
   import {
-    ArrowLeftOnRectangle,
-    ArrowRightOnRectangle,
-    BugAnt,
+    Icon,
+    Bug,
     ChevronDown,
     ChevronUp,
-    EllipsisHorizontal,
-    Icon,
-    Identification,
-    QuestionMarkCircle,
-  } from '@xylightdev/svelte-hero-icons'
-
+    CircleHelp,
+    Ellipsis,
+    IdCard,
+    LogIn,
+  } from '$lib/ui/kit/icon'
   let debugging = $state(false)
   let debugProfile: ProfileInfo | undefined = $state(undefined)
 
@@ -139,7 +137,7 @@
         color="primary"
         size="lg"
         rounding="2xl"
-        icon={ArrowLeftOnRectangle}
+        icon={LogIn}
       >
         {$t('account.login')}
       </Button>
@@ -148,7 +146,7 @@
 </Header>
 {#if profile.meta.profiles.length == 1 && !profile.current.jwt && profile.current.instance == DEFAULT_INSTANCE_URL}
   <Placeholder
-    icon={Identification}
+    icon={IdCard}
     title={$t('routes.accounts.placeholder.title')}
     description={LINKED_INSTANCE_URL
       ? $t('routes.accounts.placeholder.description')
@@ -190,7 +188,7 @@
                   {p.handle ?? 'Guest'}
                   {#if !p.jwt}
                     <Badge class="inline-grid w-6 h-6 p-0! place-items-center">
-                      <Icon src={QuestionMarkCircle} size="16" micro />
+                      <Icon src={CircleHelp} size="16" />
                     </Badge>
                   {/if}
                 </span>
@@ -208,7 +206,7 @@
                     color="tertiary"
                     class="justify-self-end ml-auto z-50"
                     aria-label={$t('post.actions.more.label')}
-                    icon={EllipsisHorizontal}
+                    icon={Ellipsis}
                   ></Button>
                 {/snippet}
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -238,7 +236,7 @@
                       debugProfile = p
                       debugging = !debugging
                     }}
-                    icon={BugAnt}
+                    icon={Bug}
                   >
                     {$t('common.debug')}
                   </MenuButton>
@@ -250,7 +248,7 @@
                       removing.shown = !removing.shown
                     }}
                     color="danger-subtle"
-                    icon={ArrowRightOnRectangle}
+                    icon={LogIn}
                   >
                     {$t('account.logout')}
                   </MenuButton>

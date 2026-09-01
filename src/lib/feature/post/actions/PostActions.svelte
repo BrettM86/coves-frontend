@@ -6,14 +6,14 @@
   import FormattedNumber from '$lib/ui/util/FormattedNumber.svelte'
   import { Button, Menu, Spinner, toast } from '$lib/ui/kit'
   import {
-    Bookmark,
-    BookmarkSlash,
-    BugAnt,
-    ChatBubbleOvalLeft,
-    EllipsisHorizontal,
     Icon,
-    Share,
-  } from '@xylightdev/svelte-hero-icons'
+    Bookmark,
+    BookmarkX,
+    Bug,
+    Ellipsis,
+    MessageSquare,
+    Forward,
+  } from '$lib/ui/kit/icon'
   import {
     EMPTY_POST_STATS,
     EMPTY_POST_VIEWER,
@@ -79,7 +79,7 @@
     target={settings.openLinksInNewTab ? '_blank' : ''}
     aria-label={$t('post.actions.comments')}
   >
-    <Icon src={ChatBubbleOvalLeft} size="16" mini />
+    <Icon src={MessageSquare} size="16" />
     <FormattedNumber number={post.stats?.commentCount ?? 0} />
   </Button>
   <div class="flex-1"></div>
@@ -96,7 +96,7 @@
       size="custom"
       rounding="xl"
       class={buttonSquare}
-      icon={BugAnt}
+      icon={Bug}
     ></Button>
   {/if}
 
@@ -114,7 +114,7 @@
       title={post.viewer?.saved
         ? $t('post.actions.unsave')
         : $t('post.actions.save')}
-      icon={post.viewer?.saved ? BookmarkSlash : Bookmark}
+      icon={post.viewer?.saved ? BookmarkX : Bookmark}
     ></Button>
   {/if}
 
@@ -123,7 +123,7 @@
     size="custom"
     class={buttonSquare}
     onclick={() => share()}
-    icon={Share}
+    icon={Forward}
     title={$t('post.actions.more.share')}
   />
 
@@ -136,7 +136,7 @@
           rounding="xl"
           size="custom"
           class={buttonSquare}
-          icon={EllipsisHorizontal}
+          icon={Ellipsis}
         ></Button>
       {/snippet}
       {#snippet children(open)}

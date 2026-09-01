@@ -4,32 +4,45 @@
   import { Option, Select } from '$lib/ui/kit'
   import { type SelectProps } from '$lib/ui/kit/forms/select/Select.svelte'
   import {
-    Bars3,
     Icon,
-    RectangleGroup,
-    ViewColumns,
-  } from '@xylightdev/svelte-hero-icons'
-
+    CloudDrizzle,
+    Columns3,
+    Rows4,
+    type IconSource,
+  } from '$lib/ui/kit/icon'
   interface Props extends SelectProps<string> {
     showLabel?: boolean
   }
 
   let { showLabel = true, ...rest }: Props = $props()
+
+  // Resolved in an effect (browser-only) rather than inline: `settings.view`
+  // comes from localStorage, so the server always renders the default view.
+  // An SSR'd icon for the wrong view would get patched — not replaced — during
+  // hydration, leaving a chimera of both icons' SVG nodes in the DOM.
+  let viewIcon: IconSource | undefined = $state(undefined)
+  $effect(() => {
+    viewIcon = settings.view == 'cozy' ? CloudDrizzle : Rows4
+  })
 </script>
 
-<Select {...rest} bind:value={settings.view}>
+<Select
+  {...rest}
+  bind:value={settings.view}
+  icon={viewIcon}
+>
   {#snippet customLabel()}
     {#if showLabel}
       <span class="flex items-center gap-1">
-        <Icon src={ViewColumns} size="14" micro />
+        <Icon src={Columns3} size="14" />
         {$t('filter.view.label')}
       </span>
     {/if}
   {/snippet}
-  <Option value="cozy" icon={RectangleGroup}>
+  <Option value="cozy" icon={CloudDrizzle}>
     {$t('filter.view.cozy')}
   </Option>
-  <Option value="compact" icon={Bars3}>
+  <Option value="compact" icon={Rows4}>
     {$t('filter.view.compact')}
   </Option>
 </Select>

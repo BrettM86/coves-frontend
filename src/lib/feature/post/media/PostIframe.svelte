@@ -1,13 +1,7 @@
 <script lang="ts" module>
   import { settings } from '$lib/app/state/settings.svelte'
   import Blobs from '$lib/ui/generic/Blobs.svelte'
-  import {
-    Icon,
-    type IconSource,
-    Play,
-    PuzzlePiece,
-    VideoCamera,
-  } from '@xylightdev/svelte-hero-icons'
+  import { Icon, type IconSource, Play, Puzzle, Video } from '$lib/ui/kit/icon'
   import { type IframeType, streamableEmbedUrl } from '../helpers'
   import { withPreset } from '$lib/api/coves/image-proxy'
   import {
@@ -91,25 +85,25 @@
     switch (type) {
       case 'youtube': {
         return {
-          icon: VideoCamera,
+          icon: Video,
           text: 'YouTube Video',
         }
       }
       case 'streamable': {
         return {
-          icon: VideoCamera,
+          icon: Video,
           text: 'Streamable Video',
         }
       }
       case 'video': {
         return {
-          icon: VideoCamera,
+          icon: Video,
           text: 'Video',
         }
       }
       default: {
         return {
-          icon: PuzzlePiece,
+          icon: Puzzle,
           text: 'Embed',
         }
       }
@@ -187,7 +181,7 @@
     <button onclick={() => (opened = true)} class="iframe-preview">
       <div role="presentation" class="preview-start">
         <div class="start-button">
-          <Icon src={Play} size="32" mini />
+          <Icon src={Play} size="32" />
         </div>
       </div>
       {#if thumbnail && !thumbError}
@@ -202,7 +196,7 @@
           <Blobs seed={title ?? data.text} />
         </div>
       {/if}
-      <Icon src={data.icon} solid size="40" />
+      <Icon src={data.icon} size="40" />
       <h1
         class="font-display text-xl md:text-2xl xl:text-3xl font-medium text-left overflow-hidden overflow-ellipsis line-clamp-2"
       >

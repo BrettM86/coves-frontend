@@ -13,13 +13,13 @@
   } from '$lib/feature/post'
   import { action, Button, Menu, MenuButton, modal, toast } from '$lib/ui/kit'
   import {
-    ChatBubbleOvalLeft,
-    EllipsisHorizontal,
+    Ellipsis,
     Flag,
-    PencilSquare,
-    Share,
-    Trash,
-  } from '@xylightdev/svelte-hero-icons'
+    MessageSquare,
+    Forward,
+    SquarePen,
+    Trash2,
+  } from '$lib/ui/kit/icon'
   import { deletedContentPlaceholder } from './comments.svelte'
   import {
     EMPTY_COMMENT_STATS,
@@ -113,7 +113,7 @@
     class="text-slate-500 dark:text-zinc-400 gap-1!"
     onclick={() => (replying = !replying)}
     disabled={disabled || !profile.current?.jwt}
-    icon={ChatBubbleOvalLeft}
+    icon={MessageSquare}
   >
     {$t('comment.reply')}
   </Button>
@@ -126,7 +126,7 @@
         rounding="pill"
         size="square-md"
         class="text-slate-600 dark:text-zinc-400"
-        icon={EllipsisHorizontal}
+        icon={Ellipsis}
       ></Button>
     {/snippet}
     <MenuButton
@@ -147,7 +147,7 @@
           })
         }
       }}
-      icon={Share}
+      icon={Forward}
     >
       {$t('post.actions.more.share')}
     </MenuButton>
@@ -159,7 +159,7 @@
         <MenuButton
           disabled={comment.isDeleted}
           onclick={() => onedit?.(comment)}
-          icon={PencilSquare}
+          icon={SquarePen}
         >
           {$t('post.actions.more.edit')}
         </MenuButton>
@@ -169,7 +169,7 @@
           disabled={comment.isDeleted}
           color="danger-subtle"
           onclick={confirmDelete}
-          icon={Trash}
+          icon={Trash2}
         >
           {$t('post.actions.more.delete')}
         </MenuButton>

@@ -9,8 +9,7 @@
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { Header } from '$lib/ui/layout'
   import { Button, Option, Select, TextInput, toast } from '$lib/ui/kit'
-  import { GlobeAlt, LockClosed, MapPin } from '@xylightdev/svelte-hero-icons'
-
+  import { Globe, Lock, MapPin } from '$lib/ui/kit/icon'
   interface Props {
     formtitle?: import('svelte').Snippet
   }
@@ -89,9 +88,9 @@
   />
 
   <Select label="Visibility" class="w-max" bind:value={formData.visibility}>
-    <Option icon={GlobeAlt} value="public">Public</Option>
+    <Option icon={Globe} value="public">Public</Option>
     <Option icon={MapPin} value="unlisted">Unlisted</Option>
-    <Option icon={LockClosed} value="private">Private</Option>
+    <Option icon={Lock} value="private">Private</Option>
   </Select>
 
   <Button

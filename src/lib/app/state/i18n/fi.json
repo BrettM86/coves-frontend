@@ -77,7 +77,6 @@
         },
         "instances": "Instanssit",
         "createPost": "Luo julkaisu",
-        "accounts": "Käyttäjätilit",
         "search": {
             "title": "Haku",
             "query": "Hakusanat",
@@ -426,11 +425,8 @@
         "login": "Kirjaudu sisään",
         "logout": "Kirjaudu ulos",
         "signup": "Luo tili",
-        "accounts": "Käyttäjätilit",
         "changeinstance": "Vaihda instanssia",
         "resetColor": "Palauta oletusväri",
-        "moveUp": "Siirrä ylös",
-        "moveDown": "Siirrä alas",
         "guest": "Vieras",
         "versionGate": "Tämä Kelp-versio tukee instansseja versiosta {{version}} eteenpäin."
     },

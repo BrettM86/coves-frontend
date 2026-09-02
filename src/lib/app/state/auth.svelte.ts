@@ -1,6 +1,5 @@
 import { browser } from '$app/environment'
 import { DEFAULT_INSTANCE_URL } from './instance/env'
-import { moveItem } from '../util/array'
 import { log } from '$lib/app/util/log'
 import { currentRequestEvent } from '$lib/app/util/request-event'
 import type {
@@ -304,8 +303,17 @@ class Profile {
       // The server is the source of truth. If it reports no session (cookie
       // expired, revoked, or cleared) drop any persisted authenticated
       // profile so a shared device doesn't keep showing the previous user's
-      // handle and avatar as if they were still signed in.
-      if (this.meta.profiles.some(isAuthenticated)) {
+      // handle and avatar as if they were still signed in. Signed-out state
+      // is exactly one guest: Photon let readers keep several guest profiles
+      // pointed at different instances, and with the switcher gone a stale
+      // list would have no UI left to fix it through.
+      const [only] = this.meta.profiles
+      const canonical =
+        this.meta.profiles.length === 1 &&
+        only.type === 'guest' &&
+        only.id === 'guest' &&
+        only.instance === DEFAULT_INSTANCE_URL
+      if (!canonical || this.meta.profile !== 'guest') {
         this.meta.profiles = [createGuestProfile()]
         this.meta.profile = 'guest'
       }
@@ -402,26 +410,11 @@ class Profile {
     return result
   }
 
-  move(id: string, up: boolean) {
-    try {
-      const index = this.meta.profiles.findIndex((i) => i.id === id)
-      this.meta.profiles = moveItem(
-        this.meta.profiles,
-        index,
-        index + (up ? -1 : 1),
-      )
-    } catch (err) {
-      log.warn('Failed to move profile', err)
-    }
-  }
-
   get isDefaultProfile(): boolean {
     // Reads `current`, not `#current`: on the server the profile belongs to
     // the in-flight request, and module state has no say in it.
     const current = this.current
-    return (
-      current.type === 'guest' && current.instance == DEFAULT_INSTANCE_URL
-    )
+    return current.type === 'guest' && current.instance == DEFAULT_INSTANCE_URL
   }
 
   /**

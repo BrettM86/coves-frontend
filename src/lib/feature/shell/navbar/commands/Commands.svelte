@@ -31,7 +31,6 @@
     groups = getGroups(
       resumables.items,
       profile.current,
-      profile.meta.profiles,
       theme.data,
       page.data.contextual?.actions,
     )

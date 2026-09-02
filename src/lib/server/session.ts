@@ -113,8 +113,8 @@ export interface ApiMeResponse {
  */
 export function toClientAccount(account: AccountSession): ClientAccount {
   return {
-    // Use DID as the client-facing ID because the UI components (ProfileSelection,
-    // accounts page, etc.) identify accounts by an `id` field rather than `did`.
+    // Use DID as the client-facing ID because the client profile store
+    // identifies accounts by an `id` field rather than `did`.
     id: account.did,
     did: account.did,
     handle: account.handle,

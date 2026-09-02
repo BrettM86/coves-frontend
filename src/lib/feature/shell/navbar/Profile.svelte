@@ -4,6 +4,7 @@
   import { settings } from '$lib/app/state/settings.svelte'
   import { theme } from '$lib/app/state/theme/theme.svelte'
   import CovesSidebar from '$lib/feature/instance/CovesSidebar.svelte'
+  import { logout } from '$lib/feature/user/logout'
   import {
     Badge,
     Button,
@@ -19,6 +20,7 @@
     Bug,
     CircleUser,
     LogIn,
+    LogOut,
     Monitor,
     Moon,
     Server,
@@ -26,7 +28,6 @@
     Sun,
     SwatchBook,
     Terminal,
-    Users,
   } from '$lib/ui/kit/icon'
   import { chords } from './commands/CommandsHost.svelte'
 </script>
@@ -35,24 +36,22 @@
   <CovesSidebar />
 {/snippet}
 
-{#if profile.current?.jwt}
+{#if profile.current.type === 'authenticated'}
   <MenuDivider>{$t('profile.profile')}</MenuDivider>
   <MenuButton
-    href={profile.current.type === 'authenticated'
-      ? `/profile/${encodeURIComponent(profile.current.handle)}`
-      : '/login'}
+    href={`/profile/${encodeURIComponent(profile.current.handle)}`}
     icon={CircleUser}
   >
     {$t('profile.profile')}
   </MenuButton>
+  <MenuButton onclick={() => logout()} icon={LogOut}>
+    {$t('account.logout')}
+  </MenuButton>
 {:else}
-  <MenuButton href="/accounts/login" icon={LogIn}>
+  <MenuButton href="/login" icon={LogIn}>
     {$t('account.login')}
   </MenuButton>
 {/if}
-<MenuButton href="/accounts" icon={Users}>
-  {$t('account.accounts')}
-</MenuButton>
 <MenuDivider>{$t('nav.menu.app')}</MenuDivider>
 <MenuButton href="/settings" icon={Settings}>
   {$t('nav.menu.settings')}

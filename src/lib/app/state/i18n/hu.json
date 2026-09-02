@@ -46,7 +46,6 @@
     "account": {
         "login": "Bejelentkezés",
         "signup": "Regisztráció",
-        "accounts": "Fiókok",
         "changeinstance": "Szerver váltás",
         "guest": "Vendég",
         "logout": "Kijelentkezés"
@@ -201,7 +200,6 @@
             },
             "welcome": "Üdvözöljük, {{default}}!"
         },
-        "accounts": "Fiókok",
         "search": {
             "title": "Keresés",
             "federating": "Federáció",

@@ -51,11 +51,8 @@
         "login": "Iniciar sesión",
         "logout": "Cerrar sesión",
         "signup": "Unirse",
-        "accounts": "Cuentas",
         "changeinstance": "Cambiar instancia",
         "resetColor": "Reestablecer el color",
-        "moveUp": "Mover hacia arriba",
-        "moveDown": "Mover hacia abajo",
         "guest": "Invitado",
         "versionGate": "Esta versión de Kelp soporta instancias ejecutando {{version}} o posterior."
     },
@@ -207,7 +204,6 @@
             "settings": "Ajustes",
             "logins": "Ingresos"
         },
-        "accounts": "Cuentas",
         "communities": "Comunidades",
         "search": {
             "title": "Buscar",

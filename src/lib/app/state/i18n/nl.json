@@ -99,7 +99,6 @@
                 "warning": "Dit kan niet ongedaan gemaakt worden, weet je het zeker?"
             }
         },
-        "accounts": "Accounts",
         "communities": "Gemeenschappen",
         "search": {
             "title": "Zoeken",
@@ -552,11 +551,8 @@
         "login": "Inloggen",
         "logout": "Uitloggen",
         "signup": "Aanmelden",
-        "accounts": "Accounts",
         "changeinstance": "Wijzig instantie",
         "resetColor": "Reset kleur",
-        "moveUp": "Omhoog verplaatsen",
-        "moveDown": "Omlaag verplaatsen",
         "guest": "Gast",
         "versionGate": "Deze versie van Kelp ondersteunt instanties die draaien op {{version}} of hoger."
     },

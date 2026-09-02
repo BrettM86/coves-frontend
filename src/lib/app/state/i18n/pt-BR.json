@@ -52,12 +52,9 @@
     "account": {
         "login": "Iniciar Sessão",
         "signup": "Registrar-se",
-        "accounts": "Contas",
         "changeinstance": "Trocar Instância",
         "resetColor": "Redefinir Cor",
-        "moveUp": "Mover para cima",
         "guest": "Convidado",
-        "moveDown": "Mover para baixo",
         "logout": "Terminar Sessão",
         "versionGate": "Esta versão do Kelp suporta instâncias rodando a versão {{version}} ou acima."
     },
@@ -241,7 +238,6 @@
             "downvoted": "Votado Negativamente",
             "welcome": "Bem-vindo(a), {{default}}!"
         },
-        "accounts": "Contas",
         "communities": {
             "title": "Comunidades",
             "trending": "Tendências",

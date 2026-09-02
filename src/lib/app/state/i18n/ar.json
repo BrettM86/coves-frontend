@@ -50,10 +50,7 @@
     "account": {
         "logout": "تسجيل الخروج",
         "signup": "الاشتراك",
-        "accounts": "حسابات",
         "changeinstance": "غير الخادوم",
-        "moveUp": "ارفع",
-        "moveDown": "نزل",
         "guest": "صيف",
         "login": "تسجيل الدخول",
         "resetColor": "إعادة ضبط اللون",
@@ -224,7 +221,6 @@
             "overview": "إظهار عامة",
             "submissions": "تقديمات"
         },
-        "accounts": "حواسب",
         "communities": {
             "title": "مجتمعات",
             "trending": "رائجة",

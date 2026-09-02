@@ -1,14 +1,10 @@
-import { goto } from '$app/navigation'
-import { page } from '$app/state'
-import {
-  profile as currentProfile,
-  type ProfileInfo,
-} from '$lib/app/state/auth.svelte'
+import type { ProfileInfo } from '$lib/app/state/auth.svelte'
 import { t } from '$lib/app/state/i18n'
 import { settings } from '$lib/app/state/settings.svelte'
 import { TIMEFRAME_OPTIONS } from '$lib/api/coves/sort'
 import { theme, type ThemeData } from '$lib/app/state/theme/theme.svelte'
 import type { ResumableItem } from '$lib/feature/legacy/item.svelte'
+import { logout } from '$lib/feature/user/logout'
 import {
   type IconSource,
   ChartColumn,
@@ -20,6 +16,7 @@ import {
   Compass,
   House,
   LogIn,
+  LogOut,
   Monitor,
   Moon,
   Newspaper,
@@ -31,7 +28,6 @@ import {
   Sun,
   SwatchBook,
   Trophy,
-  Users,
 } from '$lib/ui/kit/icon'
 export interface Group {
   name: string
@@ -52,7 +48,6 @@ export interface Action {
 export function getGroups(
   resumables: readonly ResumableItem[],
   profile: ProfileInfo,
-  profiles: ProfileInfo[],
   td: ThemeData,
   contextual?: Action[],
 ): Group[] {
@@ -137,14 +132,9 @@ export function getGroups(
                 icon: CircleUser,
               },
               {
-                href: '/accounts',
-                name: t.get('account.accounts'),
-                icon: Users,
-              },
-              {
-                href: '/login',
-                name: t.get('account.login'),
-                icon: LogIn,
+                name: t.get('account.logout'),
+                icon: LogOut,
+                handle: () => void logout(),
               },
             ]
           : [
@@ -153,29 +143,7 @@ export function getGroups(
                 name: t.get('account.login'),
                 icon: LogIn,
               },
-              {
-                href: '/accounts',
-                name: t.get('account.accounts'),
-                icon: Users,
-              },
             ],
-    },
-    {
-      name: t.get('account.accounts'),
-      actions: profiles.map((p) => ({
-        name: p.handle ?? t.get('account.guest'),
-        icon: p.avatar ?? CircleUser,
-        detail: p.instance,
-        handle: async () => {
-          if (profile.id != p.id) {
-            currentProfile.meta.profile = p.id
-          }
-
-          await goto(page.url, {
-            invalidateAll: true,
-          })
-        },
-      })),
     },
     {
       name: t.get('nav.menu.app'),

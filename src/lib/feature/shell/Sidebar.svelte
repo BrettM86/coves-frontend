@@ -3,8 +3,8 @@
   import { t } from '$lib/app/state/i18n'
   import { LINKED_INSTANCE_URL } from '$lib/app/state/instance.svelte'
   import { theme } from '$lib/app/state/theme/theme.svelte'
-  import ProfileSelection from '$lib/feature/user/ProfileSelection.svelte'
-  import { Option, Select } from '$lib/ui/kit'
+  import Avatar from '$lib/ui/generic/Avatar.svelte'
+  import { Button, Option, Select } from '$lib/ui/kit'
   import {
     Icon,
     ChevronsUpDown,
@@ -16,7 +16,6 @@
     Settings,
     Sun,
     SwatchBook,
-    Users,
   } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
@@ -36,30 +35,43 @@
   {style}
 >
   <SidebarButton href="/" label={$t('nav.home')} icon={House} exact />
-  <ProfileSelection
-    selectable={!(
-      LINKED_INSTANCE_URL &&
-      !profile.current.jwt &&
-      profile.meta.profiles.length == 1
-    )}
-    profiles={profile.meta.profiles}
-  />
+  <Button
+    href={profile.current.type === 'authenticated'
+      ? `/profile/${encodeURIComponent(profile.current.handle)}`
+      : '/login'}
+    color="tertiary"
+    alignment="left"
+    size="md"
+    rounding="xl"
+    class="flex flex-row gap-2! items-center"
+  >
+    {#snippet prefix()}
+      <Avatar
+        url={profile.current.avatar}
+        alt={profile.current.handle}
+        width={24}
+      />
+    {/snippet}
+    <div class="flex-1">
+      <div class="font-medium">
+        {profile.current.handle ?? $t('account.guest')}
+      </div>
+      {#if !LINKED_INSTANCE_URL}
+        <div class="text-xs text-slate-500 dark:text-zinc-500">
+          {profile.current.instance}
+        </div>
+      {/if}
+    </div>
+  </Button>
   <EndPlaceholder margin="sm" size="xs">{$t('profile.profile')}</EndPlaceholder>
-  {#if profile.current?.jwt}
+  {#if profile.current.type === 'authenticated'}
     <SidebarButton
       icon={CircleUser}
-      href={profile.current.type === 'authenticated'
-        ? `/profile/${encodeURIComponent(profile.current.handle)}`
-        : '/login'}
+      href={`/profile/${encodeURIComponent(profile.current.handle)}`}
       label={$t('profile.profile')}
     />
   {:else}
     <SidebarButton href="/login" label={$t('account.login')} icon={LogIn} />
-    <SidebarButton
-      href="/accounts"
-      label={$t('account.accounts')}
-      icon={Users}
-    />
   {/if}
   <EndPlaceholder margin="sm" size="xs">{$t('nav.menu.app')}</EndPlaceholder>
   <SidebarButton

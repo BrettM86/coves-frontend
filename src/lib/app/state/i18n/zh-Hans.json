@@ -278,7 +278,6 @@
             "title": "条款",
             "noLegal": "此实例未设置任何条款。"
         },
-        "accounts": "账户",
         "communities": {
             "title": "社群",
             "trending": "热门",
@@ -376,11 +375,8 @@
         "login": "登录",
         "logout": "退出",
         "signup": "注册",
-        "accounts": "账号",
         "changeinstance": "更改实例",
         "resetColor": "重置颜色",
-        "moveUp": "上移",
-        "moveDown": "下移",
         "guest": "游客",
         "versionGate": "当前版本的 Kelp 支持 {{version}} 或更高版本的实例。"
     },

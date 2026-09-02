@@ -53,11 +53,8 @@
         "login": "Anmelden",
         "logout": "Abmelden",
         "signup": "Registrieren",
-        "accounts": "Konten",
         "changeinstance": "Instanz wechseln",
         "resetColor": "Farbe zurücksetzen",
-        "moveUp": "Nach oben",
-        "moveDown": "Nach unten",
         "guest": "Gast",
         "versionGate": "Diese Version von Kelp unterstützt Instanzen mit {{version}} oder höher."
     },
@@ -425,7 +422,6 @@
             "description": "Ein neues Passwort auswählen.",
             "instance": "Auf welcher Instanz ist dein Konto gehostet?"
         },
-        "accounts": "Konten",
         "createCommunity": "Gemeinschaft erstellen",
         "resetLogin": {
             "title": "Passwort zurücksetzen",

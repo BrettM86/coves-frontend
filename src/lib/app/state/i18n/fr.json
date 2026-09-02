@@ -52,10 +52,7 @@
         "login": "Connexion",
         "logout": "Déconnexion",
         "signup": "S'inscrire",
-        "accounts": "Comptes",
         "changeinstance": "Changer d'instance",
-        "moveUp": "Monter",
-        "moveDown": "Descendre",
         "guest": "invité",
         "versionGate": "Cette version de Kelp prend en charge des instances en version {{version}} ou supérieure.",
         "resetColor": "Réinitialiser les couleurs"
@@ -223,7 +220,6 @@
             "overview": "Vue d'ensemble",
             "submissions": "Soumissions"
         },
-        "accounts": "Comptes",
         "communities": {
             "title": "Communautés",
             "trending": "Tendance",

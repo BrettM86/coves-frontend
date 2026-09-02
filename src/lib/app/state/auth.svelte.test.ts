@@ -427,9 +427,9 @@ describe('Profile.meta — server render', () => {
     const { profile, installRequestEventAccessor } = await freshAuth()
     installRequestEventAccessor(() => eventFor(authedLocals(MARI)))
 
-    // `meta` is what ProfileSelection renders from — the account switcher
-    // lists `meta.profiles`. On the server it must describe this request, not
-    // whatever the process last wrote.
+    // `meta.profiles` is what the shell renders the signed-in account from.
+    // On the server it must describe this request, not whatever the process
+    // last wrote.
     expect(profile.meta.profiles).toHaveLength(1)
     expect(profile.meta.profiles[0]).toEqual(profile.current)
     expect(profile.meta.profile).toBe(MARI.did)

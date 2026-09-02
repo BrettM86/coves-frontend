@@ -303,10 +303,7 @@
         "login": "ログイン",
         "logout": "ログアウト",
         "signup": "新規登録",
-        "accounts": "アカウント",
         "resetColor": "元の色に戻す",
-        "moveUp": "上に動かす",
-        "moveDown": "下に動かす",
         "guest": "ゲスト",
         "changeinstance": "インスタンスを変える",
         "versionGate": "このKelpバージョンは{{version}}以上のインスタンスバージョンに対応しています。"
@@ -464,7 +461,6 @@
                 "warning": "この操作は元に戻せません。よろしいですか？"
             }
         },
-        "accounts": "アカウント",
         "communities": "コミュニティ",
         "search": {
             "title": "検索",

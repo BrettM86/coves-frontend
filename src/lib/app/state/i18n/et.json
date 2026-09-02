@@ -48,11 +48,8 @@
         "login": "Logi sisse",
         "logout": "Logi Välja",
         "signup": "Registreeru",
-        "accounts": "Kasutajad",
         "changeinstance": "vaheta Instance",
         "resetColor": "Restarti värv",
-        "moveUp": "Liigu ülesse",
-        "moveDown": "Liigu alla",
         "versionGate": "See versioon Kelpist Toetab servereid millel on {{version}} Või üles.",
         "guest": "Külaline"
     },

@@ -135,7 +135,6 @@
             "title": "Informacje prawne",
             "noLegal": "Ta instancja nie zawiera żadnych informacji prawnych."
         },
-        "accounts": "Konta",
         "communities": {
             "trending": "Popularne",
             "title": "Społeczności",
@@ -470,11 +469,8 @@
         "login": "Zaloguj się",
         "logout": "Wyloguj się",
         "signup": "Zarejestruj się",
-        "accounts": "Konta",
         "changeinstance": "Zmień instancję",
         "resetColor": "Resetuj kolor",
-        "moveUp": "Przesuń w górę",
-        "moveDown": "Przesuń w dół",
         "guest": "Gość",
         "versionGate": "Ta wersja Kelp obsługuje instancje działające na {{version}} lub nowszej."
     },

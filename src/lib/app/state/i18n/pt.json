@@ -47,14 +47,11 @@
     },
     "account": {
         "login": "Iniciar sessão",
-        "moveDown": "Mover para baixo",
         "versionGate": "Esta versão do Kelp suporta instâncias na versão {{version}} ou superior.",
         "logout": "Terminar sessão",
         "signup": "Registar",
-        "accounts": "Contas",
         "changeinstance": "Trocar de instância",
         "resetColor": "Repor cor",
-        "moveUp": "Mover para cima",
         "guest": "Convidado"
     },
     "filter": {
@@ -320,7 +317,6 @@
             "upvoted": "Votou positivamente",
             "downvoted": "Votou negativamente"
         },
-        "accounts": "Contas",
         "communities": "Comunidades",
         "saved": "Guardados",
         "createPost": "Criar publicação",

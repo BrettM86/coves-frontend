@@ -94,3 +94,53 @@ describe('syncFromServer', () => {
     expect(profile.meta.profile).toBe('guest')
   })
 })
+
+describe('syncFromServer without a session', () => {
+  const guest = (id: string, instance: string) => ({
+    type: 'guest',
+    id,
+    instance,
+  })
+
+  it('collapses a legacy multi-guest list to the single canonical guest', async () => {
+    // Photon let readers keep several guest profiles pointed at different
+    // instances. The switcher that managed them is gone, so a persisted list
+    // like this would otherwise be stuck forever.
+    store.set(
+      'profileData',
+      JSON.stringify({
+        profile: 'guest-2',
+        profiles: [
+          guest('guest', 'https://coves.social'),
+          guest('guest-2', 'https://other.example'),
+        ],
+      }),
+    )
+    const { profile } = await import('./auth.svelte')
+
+    profile.syncFromServer(undefined)
+
+    expect(profile.meta.profiles).toEqual([
+      guest('guest', 'https://coves.social'),
+    ])
+    expect(profile.meta.profile).toBe('guest')
+    expect(profile.current.instance).toBe('https://coves.social')
+  })
+
+  it('leaves an already-canonical guest untouched', async () => {
+    store.set(
+      'profileData',
+      JSON.stringify({
+        profile: 'guest',
+        profiles: [guest('guest', 'https://coves.social')],
+      }),
+    )
+    const { profile } = await import('./auth.svelte')
+    const before = profile.meta.profiles[0]
+
+    profile.syncFromServer(undefined)
+
+    expect(profile.meta.profiles[0]).toBe(before)
+    expect(profile.meta.profile).toBe('guest')
+  })
+})

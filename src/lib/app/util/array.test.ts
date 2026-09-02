@@ -1,24 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { moveItem, recursiveEqual } from './array'
-
-describe('moveItem', () => {
-  it('moves an item forward and backward without mutating the input', () => {
-    const source = ['a', 'b', 'c']
-    expect(moveItem(source, 0, 2)).toEqual(['b', 'c', 'a'])
-    expect(moveItem(source, 2, 0)).toEqual(['c', 'a', 'b'])
-    expect(source).toEqual(['a', 'b', 'c'])
-  })
-
-  // auth.svelte.ts reorders the account list through this; an out-of-range
-  // index must throw rather than silently corrupt the list.
-  it.each([
-    [-1, 0],
-    [0, 3],
-    [3, 0],
-  ])('throws on an out-of-range index (%i -> %i)', (from, to) => {
-    expect(() => moveItem(['a', 'b', 'c'], from, to)).toThrow('Invalid index')
-  })
-})
+import { recursiveEqual } from './array'
 
 // recursiveEqual gates the feed cache in feature/feeds/feed.svelte.ts.
 describe('recursiveEqual', () => {

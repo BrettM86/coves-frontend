@@ -52,11 +52,8 @@
         "login": "Giriş Yap",
         "logout": "Oturumu Kapat",
         "signup": "Üye ol",
-        "accounts": "Hesaplar",
         "changeinstance": "Sunucuyu Değiştir",
         "resetColor": "Rengi Sıfırla",
-        "moveUp": "Yukarı Taşı",
-        "moveDown": "Aşağı Taşı",
         "guest": "Misafir",
         "versionGate": "Kelp'un bu sürümü {{version}} veya daha üstü versiyonda çalışan sunucuları destekler."
     },
@@ -225,7 +222,6 @@
             "overview": "Genel Bakış",
             "submissions": "Gönderimler"
         },
-        "accounts": "Hesaplar",
         "communities": {
             "title": "Topluluklar",
             "trending": "Trend olan",

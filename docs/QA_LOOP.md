@@ -6,13 +6,13 @@ any bugs found, and committing the fixes.
 
 ## Environment
 
-| Thing | Value |
-|---|---|
-| App URL | `http://localhost:8080` (Caddy proxy → Go backend :8081 + Vite :5173) |
-| Start stack | `make dev-up` in your Coves backend checkout (run in background if not already up) |
-| Health check | `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080` → expect `200` |
-| Test account | any seeded local dev account on your `*.local.coves.dev` PDS |
-| Browser | whichever browser your Playwright MCP is configured for |
+| Thing        | Value                                                                              |
+| ------------ | ---------------------------------------------------------------------------------- |
+| App URL      | `http://localhost:8080` (Caddy proxy → Go backend :8081 + Vite :5173)              |
+| Start stack  | `make dev-up` in your Coves backend checkout (run in background if not already up) |
+| Health check | `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080` → expect `200`      |
+| Test account | any seeded local dev account on your `*.local.coves.dev` PDS                       |
+| Browser      | whichever browser your Playwright MCP is configured for                            |
 
 Machine-specific values (backend checkout path, test-account credentials, and
 the dated status log) live in `docs/QA_LOOP.local.md`, which is gitignored —
@@ -52,31 +52,33 @@ create it locally from the tables above.
 The per-section status log (status, last-run date, session notes) is kept in
 `docs/QA_LOOP.local.md`, which is gitignored. Seed it with a table like:
 
-| # | Section | Status | Last run | Notes |
-|---|---|---|---|---|
-| 1 | Auth & Session | pending | — | |
-| 2 | Home Feed | pending | — | |
-| 3 | Community Pages | pending | — | |
-| 4 | Post Detail & Comments | pending | — | |
-| 5 | Creation Flows | pending | — | |
-| 6 | Profiles & Blocks | pending | — | |
-| 7 | Explore & Discovery | pending | — | |
-| 8 | Settings, Theme & Shell | pending | — | |
+| #   | Section                 | Status  | Last run | Notes |
+| --- | ----------------------- | ------- | -------- | ----- |
+| 1   | Auth & Session          | pending | —        |       |
+| 2   | Home Feed               | pending | —        |       |
+| 3   | Community Pages         | pending | —        |       |
+| 4   | Post Detail & Comments  | pending | —        |       |
+| 5   | Creation Flows          | pending | —        |       |
+| 6   | Profiles & Blocks       | pending | —        |       |
+| 7   | Explore & Discovery     | pending | —        |       |
+| 8   | Settings, Theme & Shell | pending | —        |       |
 
 ---
 
 ## Section 1 — Auth & Session
 
-**Scope**: `src/routes/login/`, `src/routes/accounts/`, `src/routes/api/auth/`
+**Scope**: `src/routes/login/`, `src/routes/accounts/` (redirects only), `src/routes/api/auth/`
 
 **Scenarios**:
+
 - Load `/login`; form renders with handle + password fields, no console errors.
 - Log in as the local test account; lands back in the app with the
   account visible in the nav/profile menu.
 - Bad password shows a user-visible error (not a silent failure or blank page).
 - Guest login flow at `/login/guest` loads and functions.
-- `/accounts` lists the logged-in account; switching/logout works and returns
-  the app to a logged-out state without stale user data in the UI.
+- Log out from the top-right avatar menu (and from the command palette);
+  the app returns to a logged-out state without stale user data in the UI.
+- `/accounts` and `/accounts/login` redirect to `/login` (legacy links).
 - Session persists across a full page reload.
 
 **Pass when**: login, logout, guest, and bad-credential paths all behave, with
@@ -88,6 +90,7 @@ zero console errors.
 `src/lib/feature/post/PostItem.svelte`, `PostVote.svelte`, `src/lib/feature/feeds/`
 
 **Scenarios**:
+
 - `/` renders a feed of posts while logged out and logged in.
 - Post items show title, community link, author, timestamp, vote counts;
   timestamps and counts are sane (no `NaN`, `undefined`, `Invalid Date`).
@@ -105,6 +108,7 @@ zero console errors.
 `src/lib/feature/community/`
 
 **Scenarios**:
+
 - Navigate to a community from the feed; `/c/<handle>` shows header (name,
   avatar/banner, description, member count) and its post list.
 - Join/leave toggles state, updates membership count, persists on reload.
@@ -121,6 +125,7 @@ zero console errors.
 `src/lib/feature/comment/`, `src/lib/feature/post/Post.svelte`, `PostBody.svelte`
 
 **Scenarios**:
+
 - Open a post from the feed; body, meta, and comment tree render.
 - Post a top-level comment and a nested reply as the test account; both appear
   in the tree immediately and persist after reload.
@@ -141,6 +146,7 @@ permalink, tombstone rendering) works with no console errors.
 `src/lib/feature/post/form/`, `src/lib/feature/community/CommunityForm.svelte`
 
 **Scenarios**:
+
 - `/create/post`: create a text post in a community; redirected to the new post,
   and it appears in the community feed.
 - Create a link post; URL is validated and the link renders on the post page.
@@ -157,6 +163,7 @@ permalink, tombstone rendering) works with no console errors.
 `src/lib/feature/user/`
 
 **Scenarios**:
+
 - Own profile (`/profile`) shows the test account's posts/comments; tabs switch content.
 - Another user's profile via `/u/<handle>` loads their content; action buttons
   fit a foreign profile (no self-only actions).
@@ -174,6 +181,7 @@ round-trip behave.
 `src/lib/feature/community/CommunityItem*.svelte`
 
 **Scenarios**:
+
 - `/explore/communities` lists communities with names, avatars, member counts.
 - Search/filter narrows the list; empty query restores it; no-results state is
   a designed empty state, not a blank page.
@@ -189,6 +197,7 @@ round-trip behave.
 app shell (navbar/sidebar in `src/lib/ui/`), `src/routes/error/`, `src/routes/legal/`
 
 **Scenarios**:
+
 - Every `/settings/*` page (`app`, `embeds`, `moderation`, `other`) loads without
   console errors; toggling a setting persists across reload.
 - `/theme`: switch theme/colors; UI updates live and persists; no unreadable

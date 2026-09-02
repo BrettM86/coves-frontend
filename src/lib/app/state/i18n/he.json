@@ -190,7 +190,6 @@
             "overview": "סקירה",
             "submissions": "הגשות"
         },
-        "accounts": "חשבונות",
         "communities": {
             "title": "קהילות",
             "search": {
@@ -455,11 +454,8 @@
         "login": "התחברות",
         "logout": "התנתקות",
         "signup": "הרשמה",
-        "accounts": "חשבונות",
         "changeinstance": "שינוי שרת",
         "resetColor": "איפוס צבעים",
-        "moveUp": "הזזה למעלה",
-        "moveDown": "הזזה למטה",
         "guest": "אורח",
         "versionGate": "הגרסה הזו של Kelp תומכת בשרתים המריצים {{version}} או גרסה עדכנית יותר."
     },

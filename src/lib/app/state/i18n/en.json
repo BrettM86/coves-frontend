@@ -55,10 +55,7 @@
         "login": "Log in",
         "logout": "Log out",
         "signup": "Sign up",
-        "accounts": "Accounts",
         "resetColor": "Reset color",
-        "moveUp": "Move up",
-        "moveDown": "Move down",
         "guest": "Guest",
         "block": "Block user",
         "unblock": "Unblock user",
@@ -288,12 +285,6 @@
             "overview": "Overview",
             "submissions": "Submissions",
             "edit": "Edit"
-        },
-        "accounts": "Accounts",
-        "accounts.placeholder": {
-            "title": "Not logged in",
-            "description": "You aren't logged in. You can sign up or log in here.",
-            "descriptionWithGuest": "You aren't logged in. You can log in, sign up, or add a new guest account here."
         },
         "explore": {
             "title": "Explore",
@@ -1008,8 +999,7 @@
             "score": "Score: {{default}}"
         },
         "sidebar": {
-            "title": "Sidebar",
-            "accounts": "Accounts selector"
+            "title": "Sidebar"
         },
         "loading": "Loading",
         "element": {

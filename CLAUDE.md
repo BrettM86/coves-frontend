@@ -1,149 +1,49 @@
-**Project**: Coves Frontend (Kelp) - A fork of Photon, building the web frontend for Coves, a forum-like atproto social media platform.
+# Coves frontend (Kelp)
 
-> **Note**: This is a **Coves-only frontend** (forked from Photon for UI/data models). There is no need to maintain Lemmy/PiFed compatibility - we are migrating entirely to Coves/ATProto.
+SvelteKit web client for Coves, forked from Photon for its UI and data models. Coves-only: no Lemmy or PiFed compatibility is kept. Global working rules are in `~/.claude/CLAUDE.md`; this file is project facts only.
 
-**Related Projects**:
-- Backend: `/home/bretton/Code/Coves`
-- Mobile: `/home/bretton/Code/coves-mobile`
+Backend: `~/Code/coves`. Mobile: `~/Code/coves-mobile`.
 
-## Tech Stack
-**Framework**: SvelteKit 2 + Svelte 5 (runes)
-**Styling**: Tailwind CSS 4
-**Language**: TypeScript (strict mode)
-**Build**: Vite
-**Testing**: Vitest
+## Stack
 
-## Builder Mindset
-- Ship working features today, refactor tomorrow
-- Security is built-in, not bolted-on
-- TDD for stores, utilities, load functions, form actions, and any pure logic
-- ASK QUESTIONS about requirements - DON'T ASSUME
-- Follow YAGNI, DRY, KISS principles
+SvelteKit 2, Svelte 5 runes, TypeScript strict, Tailwind CSS 4, Vite, Vitest. Package manager is pnpm.
 
-## No Stubs, No Shortcuts
-- **NEVER** use `unimplemented!()`, `todo!()`, or stub implementations
-- **NEVER** leave placeholder code or incomplete implementations
-- **NEVER** skip functionality because it seems complex
-- Every function must be fully implemented and working
-- Every feature must be complete before moving on
-
-## Svelte 5 Requirements
-
-**CRITICAL**: Always use the `svelte:svelte-file-editor` agent when creating or editing any `.svelte` file or `.svelte.ts`/`.svelte.js` module. This ensures Svelte 5 patterns are followed correctly.
-
-### Runes (NOT Stores)
-- Use `$state` for reactive state, NOT writable stores
-- Use `$derived` for computed values, NOT `$:` reactive statements
-- Use `$effect` for side effects, NOT `onMount` with reactive dependencies
-- Use `$props` for component props, NOT `export let`
-- Use `$bindable` for two-way binding props
-
-### Component Patterns
-- Prefer `{#snippet}` over slots for content projection
-- Use `{@render}` to render snippets
-- Event handlers use `onclick` not `on:click`
-- Spread props with `{...restProps}` pattern
-
-## TypeScript Guidelines
-
-### Type Safety
-- Prefer `unknown` over `any` - safer handling of dynamic types
-- Use explicit return types on public functions
-- Prefer interfaces over type aliases for object shapes
-- Use `readonly` for immutable data structures
-- Prefer `const` assertions for literal types
-- Use discriminated unions over optional properties for state
-
-### Code Quality
-- Prefer `const` and `let` over `var`
-- Use nullish coalescing (`??`) over logical OR for defaults
-- Use optional chaining (`?.`) for nested property access
-- Prefer `map`/`filter`/`reduce` over manual loops
-- Use template literals over string concatenation
-
-### Avoid
-- Don't use `@ts-ignore` - fix the type instead
-- Don't use non-null assertions (`!`) without validation
-- Don't use `Function` type - specify signature instead
-- Don't leave unused variables - remove or prefix with `_`
-
-## Tailwind CSS Guidelines
-
-### Organization
-- Define design tokens in `tailwind.config.js` for consistency
-- Use `@apply` sparingly - prefer utility classes in templates
-- Use `@layer` directives for custom base/component styles
-- Keep class strings readable - break long strings across lines
-
-### Performance
-- Ensure content paths in config are correct for purging
-- Prefer built-in utilities over arbitrary values `[]`
-- Use container queries for component-level responsiveness
-
-### Avoid
-- Don't duplicate giant class strings - extract to components
-- Don't use arbitrary values for design-token-able properties
-- Don't forget accessibility - Tailwind doesn't handle `alt`, `aria-*`
-- Don't mix inline styles with Tailwind classes
-
-## Commands
 ```bash
-pnpm dev          # Start dev server
-pnpm build        # Production build
-pnpm check        # TypeScript + Svelte type checking
-pnpm lint         # ESLint
-pnpm format       # Prettier
-pnpm test         # Vitest
+pnpm dev      # Vite dev server
+pnpm check    # svelte-check, error threshold
+pnpm lint     # ESLint, zero warnings allowed
+pnpm test     # Vitest
+pnpm format   # Prettier
 ```
 
-## Pre-Commit Checklist
-1. `pnpm check` passes without errors
-2. `pnpm lint` passes without warnings
-3. No `any` types without justification
-4. Svelte 5 runes used (no legacy stores/reactive statements)
-5. Components use proper TypeScript typing
+`pnpm check` and `pnpm lint` must pass before a commit. TDD stores, utilities, load functions, form actions, and other pure logic.
 
-## Project Structure
+## Svelte 5, not Svelte 4
+
+- `$state`, `$derived`, `$effect`, `$props`, `$bindable`. No writable stores for component state, no `$:` statements, no `export let`.
+- `{#snippet}` and `{@render}` instead of slots. `onclick`, not `on:click`.
+- Design tokens live in the `@theme` block of `src/app.css`. There is no `tailwind.config.js`.
+- No `@ts-ignore`, no unchecked non-null `!`. Fix the type.
+
+## Layout
+
 ```
-src/
-├── lib/
-│   ├── api/          # Coves API client, sort/image-proxy mappings (bottom layer)
-│   ├── app/
-│   │   ├── state/    # auth, settings, instance, session, theme, i18n
-│   │   └── util/     # pure helpers, one concern per file (links, url, text…)
-│   │                 # (except util/log and util/request-event, which hold
-│   │                 #  server-installed singletons — see their module docs)
-│   ├── ui/           # presentational components; may use app/ + api/, never feature/
-│   │   └── kit/      # hard fork of mono-svelte — imports nothing from app/feature/api
-│   ├── feature/      # feature modules (post, comment, community, markdown, shell…)
-│   ├── server/       # server-only code
-│   └── types/        # shared types, importable from every layer
-├── routes/           # SvelteKit routes
-└── app.html          # HTML template
+src/lib/
+├── api/        # Coves API client, sort/image-proxy mappings (bottom layer)
+├── app/
+│   ├── state/  # auth, settings, instance, session, theme, i18n
+│   └── util/   # pure helpers, one concern per file
+│               # (util/log and util/request-event hold server-installed singletons)
+├── ui/         # presentational components; may use app/ + api/, never feature/
+│   └── kit/    # hard fork of mono-svelte; imports nothing from app/feature/api
+├── feature/    # feature modules (post, comment, community, markdown, shell…)
+├── server/     # server-only code
+└── types/      # shared types, importable from every layer
 ```
 
-**Layering** (enforced by `no-restricted-imports` in `eslint.config.js`):
-`routes → feature → ui → app → api`, with `ui/kit` as a leaf below `ui`.
-Kit components take app state via props/snippets (e.g. `ToastContainer`'s
-`content` snippet, `ModalContainer`'s `closeLabel`), never by importing it.
-Import the kit as `$lib/ui/kit` — there is no `mono-svelte` alias.
+Layering is enforced by `no-restricted-imports` in `eslint.config.js`: `routes → feature → ui → app → api`, with `ui/kit` as a leaf below `ui`. Kit components take app state via props and snippets, never by importing it. Import the kit as `$lib/ui/kit`; there is no `mono-svelte` alias.
 
-## Browser Testing (Playwright MCP)
-- Always use **Firefox** as the browser — Chrome is not installed
-- Dev environment runs on `http://localhost:8080` (Caddy proxy) with Go backend on :8081 and Vite on :5173
-- Start with `make run-web` from the Coves backend repo
+## Browser testing (Playwright MCP)
 
-## Sub-Agent Pattern
-When using the Task tool to launch multiple agents, prefer **foreground** calls (no `run_in_background`). Multiple foreground Task calls in a single message run concurrently while keeping the main agent active to report results automatically. Background agents go idle and require manual check-ins.
-
-## Success Metrics
-Your code is ready when:
-- [ ] `pnpm check` passes
-- [ ] `pnpm lint` passes
-- [ ] Uses Svelte 5 runes correctly
-- [ ] TypeScript strict mode satisfied
-- [ ] No accessibility regressions
-
-Remember: We're building a working product. Perfect is the enemy of shipped, but the ultimate goal is **production-quality frontend code, not a prototype.**
-
-Every line of code should be something you'd be proud to ship in a production system. Quality over speed. Completeness over convenience.
+- Use Firefox. Chrome is not installed.
+- Dev runs at `http://localhost:8080` (Caddy) with the Go backend on `:8081` and Vite on `:5173`. Start it with `make run-web` in the backend repo.

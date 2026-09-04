@@ -2,6 +2,8 @@ import { XrpcClient } from './xrpc'
 import type {
   AtUri,
   BlockCommunityInput,
+  GetBlockedCommunitiesParams,
+  GetBlockedCommunitiesResponse,
   BlockUserInput,
   GetBlockedUsersParams,
   GetBlockedUsersResponse,
@@ -65,6 +67,7 @@ export const NSID = {
   unsubscribe: 'social.coves.community.unsubscribe',
   blockCommunity: 'social.coves.community.blockCommunity',
   unblockCommunity: 'social.coves.community.unblockCommunity',
+  getBlockedCommunities: 'social.coves.community.getBlockedCommunities',
   createPost: 'social.coves.community.post.create',
   deletePost: 'social.coves.community.post.delete',
   getPost: 'social.coves.community.post.get',
@@ -183,6 +186,12 @@ export class CovesClient {
 
   unblockCommunity(input: BlockCommunityInput): Promise<void> {
     return this.xrpc.procedure(NSID.unblockCommunity, input)
+  }
+
+  getBlockedCommunities(
+    params?: GetBlockedCommunitiesParams,
+  ): Promise<GetBlockedCommunitiesResponse> {
+    return this.xrpc.query(NSID.getBlockedCommunities, params)
   }
 
   // Posts

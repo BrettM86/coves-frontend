@@ -301,6 +301,15 @@ describe('Community methods', () => {
       community: 'did:plc:spam',
     })
   })
+
+  it('getBlockedCommunities() calls query with pagination parameters', async () => {
+    await client.getBlockedCommunities({ limit: 100, cursor: '100' })
+
+    expect(querySpy).toHaveBeenCalledWith(NSID.getBlockedCommunities, {
+      limit: 100,
+      cursor: '100',
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

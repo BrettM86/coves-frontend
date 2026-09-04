@@ -36,6 +36,7 @@
     CommunityViewDetailed,
   } from '$lib/api/coves/types'
   import EntityHeader from '$lib/feature/shell/EntityHeader.svelte'
+  import CommunityBlockMenuItem from './CommunityBlockMenuItem.svelte'
   import SubscribeButton from './SubscribeButton.svelte'
   import {
     communityDisplayName,
@@ -53,6 +54,10 @@
    */
   function isHydratedCommunity(c: CommunityType): c is HydratedCommunity {
     return 'subscriberCount' in c
+  }
+
+  function hasKnownBlockState(c: CommunityType): c is HydratedCommunity {
+    return isHydratedCommunity(c) && c.viewer?.blocked !== undefined
   }
 
   interface Props {
@@ -110,7 +115,7 @@
         label={$t('routes.profile.edit')}
       />
     {/if}
-    {#if profile.current?.jwt && profile.isAdmin}
+    {#if profile.isAuthenticated && (hasKnownBlockState(community) || profile.isAdmin)}
       <Menu placement="bottom-start">
         {#snippet target(attachment)}
           <SidebarButton
@@ -119,32 +124,37 @@
             icon={Ellipsis}
           />
         {/snippet}
-        <MenuButton
-          color="danger-subtle"
-          onclick={() =>
-            modal({
-              title: $t('admin.purgeCommunity.title'),
-              body: `${communityDisplayName(community)}: ${$t('admin.purgeCommunity.warning')}`,
-              actions: [
-                action({
-                  close: true,
-                  content: $t('common.cancel'),
-                }),
-                action({
-                  action: () => purgeCommunity(community.did),
-                  close: true,
-                  content: $t('admin.purge'),
-                  type: 'danger',
-                  icon: Flame,
-                }),
-              ],
-              dismissable: true,
-              type: 'error',
-            })}
-          icon={Flame}
-        >
-          {$t('admin.purge')}
-        </MenuButton>
+        {#if hasKnownBlockState(community)}
+          <CommunityBlockMenuItem {community} />
+        {/if}
+        {#if profile.isAdmin}
+          <MenuButton
+            color="danger-subtle"
+            onclick={() =>
+              modal({
+                title: $t('admin.purgeCommunity.title'),
+                body: `${communityDisplayName(community)}: ${$t('admin.purgeCommunity.warning')}`,
+                actions: [
+                  action({
+                    close: true,
+                    content: $t('common.cancel'),
+                  }),
+                  action({
+                    action: () => purgeCommunity(community.did),
+                    close: true,
+                    content: $t('admin.purge'),
+                    type: 'danger',
+                    icon: Flame,
+                  }),
+                ],
+                dismissable: true,
+                type: 'error',
+              })}
+            icon={Flame}
+          >
+            {$t('admin.purge')}
+          </MenuButton>
+        {/if}
       </Menu>
     {/if}
     <!--

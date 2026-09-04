@@ -18,6 +18,7 @@
   import {
     Icon,
     Bug,
+    Ban,
     CircleUser,
     LogIn,
     LogOut,
@@ -43,6 +44,9 @@
     icon={CircleUser}
   >
     {$t('profile.profile')}
+  </MenuButton>
+  <MenuButton href="/profile/blocks" icon={Ban}>
+    {$t('routes.profile.blocks.title')}
   </MenuButton>
   <MenuButton onclick={() => logout()} icon={LogOut}>
     {$t('account.logout')}

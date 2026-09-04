@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "src/lib/feature/shell/navbar/Profile.svelte"
+        ],
+        "createdAt": "2026-09-04T01:27:39.342Z",
+        "reason": "Codex triage: intentional keyboard-key badge styling; the thicker bottom edge gives the compact keycap physical depth and is not a card accent border"
+      }
+    ]
+  }
+}

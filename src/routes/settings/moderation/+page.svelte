@@ -1,16 +1,30 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
+  import { profile } from '$lib/app/state/auth.svelte'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { settings } from '$lib/app/state/settings.svelte'
 
   import { CommonList } from '$lib/ui/layout'
   import { Button, Expandable, TextInput } from '$lib/ui/kit'
-  import { Icon, Plus, Trash2 } from '$lib/ui/kit/icon'
+  import { Icon, Ban, Plus, Trash2 } from '$lib/ui/kit/icon'
   import { removalTemplate } from '$lib/feature/moderation/moderation.svelte'
   import Setting from '../Setting.svelte'
 </script>
 
 <CommonList>
+  {#if profile.isAuthenticated}
+    <Setting icon={Ban}>
+      {#snippet title()}
+        <span>{$t('settings.moderation.blocks.title')}</span>
+      {/snippet}
+      {#snippet description()}
+        <span>{$t('settings.moderation.blocks.description')}</span>
+      {/snippet}
+      <Button href="/profile/blocks" size="lg">
+        {$t('settings.moderation.blocks.manage')}
+      </Button>
+    </Setting>
+  {/if}
   <Setting icon={Trash2} adaptive={false}>
     {#snippet title()}
       <span>{$t('settings.moderation.replyPresets.title')}</span>

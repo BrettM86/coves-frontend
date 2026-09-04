@@ -257,6 +257,8 @@ export type CommunityVisibility = 'public' | 'unlisted' | 'private'
 export interface CommunityViewerState {
   subscribed?: boolean
   member?: boolean
+  /** Whether the viewer hides this community from aggregate feeds. */
+  blocked?: boolean
 }
 
 export interface CommunityView {
@@ -721,6 +723,23 @@ export interface SubscribeCommunityInput {
 
 export interface BlockCommunityInput {
   community: DID | Handle
+}
+
+export interface GetBlockedCommunitiesParams {
+  limit?: number
+  cursor?: string
+}
+
+export interface BlockedCommunityEntry {
+  communityDid: DID
+  recordUri: AtUri
+  recordCid: CID
+  blockedAt: string
+}
+
+export interface GetBlockedCommunitiesResponse {
+  blocks: BlockedCommunityEntry[]
+  cursor?: string
 }
 
 // ---------------------------------------------------------------------------

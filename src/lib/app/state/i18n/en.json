@@ -578,6 +578,9 @@
                 "share.local": "Your server",
                 "share.photon": "Kelp link",
                 "crosspost": "Crosspost",
+                "blockAccount": "Block account",
+                "blockCommunity": "Block community",
+                "reportPost": "Report post",
                 "delete": "Delete",
                 "deletePostConfirm": "Delete this post permanently? This can't be undone.",
                 "deleteCommentConfirm": "Delete this comment permanently? This can't be undone.",
@@ -927,6 +930,12 @@
         },
         "moderation": {
             "title": "Moderation",
+            "blocks": {
+                "title": "Blocked users and communities",
+                "description": "Review who and what you've blocked, or restore content to your feeds.",
+                "manage": "Manage blocks",
+                "back": "Back to moderation settings"
+            },
             "replyPresets": {
                 "title": "Removal reply presets",
                 "description": "Presets to use for 'reply reason' in the submission removal dialog.",

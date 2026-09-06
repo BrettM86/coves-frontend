@@ -142,3 +142,14 @@ PUBLIC_INTERNAL_INSTANCE=http://appview:8080
 ALLOW_HTTP_INTERNAL_INSTANCE=true
 CSP_VIDEO_ORIGINS=https://pds.coves.me https://coves.me https://tdpl.io
 ```
+
+## Sign-in handle resolution
+
+Before starting OAuth, the SvelteKit server uses `@atcute/identity-resolver` to
+query `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle`.
+Allow outbound HTTPS to this service. It resolves public atProto handles,
+including custom domains; a Bluesky profile is not required. Requests time out
+after 10 seconds. Missing handles stay on the sign-in form with a snackbar;
+network failures and upstream service errors ask the user to retry. Local-only
+handles cannot pass this public resolution check. The Coves backend still
+performs OAuth authentication after the check succeeds.

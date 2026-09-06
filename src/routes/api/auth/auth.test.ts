@@ -3,11 +3,18 @@ import { POST as loginHandler } from './login/+server'
 import { GET as callbackHandler } from './callback/+server'
 import { POST as logoutHandler } from './logout/+server'
 import { generateOAuthState } from '$lib/server/csrf'
+import { DidNotFoundError } from '@atcute/identity-resolver'
 import {
   createMockCookies,
   createMockEvent,
   isRedirect,
 } from '$lib/test-utils/request-event'
+
+const resolveLoginHandle = vi.hoisted(() => vi.fn<() => Promise<void>>())
+vi.mock('$lib/server/resolve-login-handle', () => ({ resolveLoginHandle }))
+beforeEach(() => {
+  resolveLoginHandle.mockReset().mockResolvedValue(undefined)
+})
 
 // Mock environment variables (needed by login endpoint)
 vi.mock('$env/dynamic/private', () => ({
@@ -117,6 +124,97 @@ describe('POST /api/auth/login', () => {
     expect(data.redirectUrl).toContain('https://coves.example.com/oauth/login')
     expect(data.redirectUrl).toContain('handle=user.example.com')
     expect(data.redirectUrl).toContain('redirect_uri=')
+  })
+
+  describe('handle resolution before OAuth', () => {
+    function login(handle: string) {
+      const cookies = createMockCookies()
+      const response = loginHandler(
+        createMockEvent({
+          method: 'POST',
+          body: { handle, instance: 'https://coves.example.com' },
+          cookies,
+          url: 'http://localhost:5173/api/auth/login',
+        }),
+      )
+      return { cookies, response }
+    }
+
+    it('checks the normalized handle and uses it in the OAuth URL', async () => {
+      const { response } = login('  Jerry.Bsky.Social  ')
+      const result = await response
+      const data = await result.json()
+
+      expect(result.status).toBe(200)
+      expect(resolveLoginHandle).toHaveBeenCalledExactlyOnceWith(
+        'jerry.bsky.social',
+      )
+      expect(new URL(data.redirectUrl).searchParams.get('handle')).toBe(
+        'jerry.bsky.social',
+      )
+    })
+
+    it('returns account_not_found without starting OAuth for a missing account', async () => {
+      resolveLoginHandle.mockRejectedValueOnce(
+        new DidNotFoundError('jerry.coves.social'),
+      )
+      const { cookies, response } = login('jerry.coves.social')
+      const result = await response
+
+      expect(result.status).toBe(404)
+      expect(await result.json()).toEqual({ error: 'account_not_found' })
+      expect(cookies.set).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      new TypeError('fetch failed'),
+      new DOMException('Resolution timed out', 'TimeoutError'),
+    ])(
+      'returns a retryable error without starting OAuth on resolution failure: %s',
+      async (error) => {
+        resolveLoginHandle.mockRejectedValueOnce(error)
+        const { cookies, response } = login('jerry.bsky.social')
+        const result = await response
+
+        expect(result.status).toBe(503)
+        expect(await result.json()).toEqual({
+          error: 'handle_resolution_failed',
+        })
+        expect(cookies.set).not.toHaveBeenCalled()
+      },
+    )
+
+    it.each([
+      '   ',
+      'jerry@bsky.social',
+      'https://jerry.bsky.social',
+      'localhost',
+    ])('rejects invalid handle %j before resolution', async (handle) => {
+      const { cookies, response } = login(handle)
+      const result = await response
+
+      expect(result.status).toBe(400)
+      expect(await result.json()).toEqual({ error: 'invalid_handle' })
+      expect(resolveLoginHandle).not.toHaveBeenCalled()
+      expect(cookies.set).not.toHaveBeenCalled()
+    })
+
+    it('waits for resolution before creating pending authentication state', async () => {
+      let finishResolution = () => {}
+      resolveLoginHandle.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishResolution = resolve
+          }),
+      )
+      const { cookies, response } = login('jerry.bsky.social')
+
+      await vi.waitFor(() => expect(resolveLoginHandle).toHaveBeenCalledOnce())
+      expect(cookies.set).not.toHaveBeenCalled()
+      finishResolution()
+      expect((await response).status).toBe(200)
+      expect(cookies.set).toHaveBeenCalledOnce()
+    })
   })
 
   it('stores pending auth state in cookie', async () => {

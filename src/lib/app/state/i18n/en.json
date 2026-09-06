@@ -1037,10 +1037,14 @@
         "admin": "Administrator"
     },
     "oauth": {
-        "loginInfo": "You will be redirected to your instance to complete login.",
+        "continueLogin": "Continue to log in",
+        "loginInfo": "You will be redirected to your PDS to complete login.",
         "redirecting": "Redirecting...",
         "error": {
             "generic": "Login failed. Please try again.",
+            "accountNotFound": "Account not found. Check your handle and try again.",
+            "handleResolutionFailed": "Couldn’t check your account. Please try again.",
+            "invalidHandle": "Enter a valid handle, like jerry.bsky.social.",
             "noSession": "No session was established. Please try logging in again.",
             "noPendingAuth": "Login flow expired or was not started. Please try again.",
             "fetchFailed": "Could not connect to your instance. Please check the URL and try again.",

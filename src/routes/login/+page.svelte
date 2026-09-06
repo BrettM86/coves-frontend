@@ -13,12 +13,15 @@
     pushError,
   } from '$lib/ui/info/ErrorContainer.svelte'
   import { Header } from '$lib/ui/layout'
-  import { Button, Note, Spinner, TextInput } from '$lib/ui/kit'
+  import { Button, Spinner, TextInput, toast } from '$lib/ui/kit'
 
   /**
    * Maps OAuth error codes from URL params to user-friendly i18n keys.
    */
   const ERROR_CODE_MAP: Record<string, string> = {
+    account_not_found: 'oauth.error.accountNotFound',
+    handle_resolution_failed: 'oauth.error.handleResolutionFailed',
+    invalid_handle: 'oauth.error.invalidHandle',
     no_session: 'oauth.error.noSession',
     no_pending_auth: 'oauth.error.noPendingAuth',
     fetch_failed: 'oauth.error.fetchFailed',
@@ -57,7 +60,7 @@
 
       pushError({
         message: errorMessage,
-        scope: page.route.id!,
+        scope: page.route.id ?? '/login',
       })
 
       // Clean up the URL by removing the error param
@@ -81,7 +84,7 @@
       // Validate handle format (basic validation)
       const handle = form.handle.trim()
       if (!handle) {
-        throw new Error('handle_required')
+        throw new Error($t('oauth.error.invalidHandle'))
       }
 
       const instance = form.instance.trim().replace(/^https:\/\//, '')
@@ -99,7 +102,8 @@
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error ?? 'login_failed')
+        const errorKey = ERROR_CODE_MAP[errorData.error]
+        throw new Error(errorKey ? $t(errorKey) : $t('oauth.error.generic'))
       }
 
       const { redirectUrl } = await response.json()
@@ -107,9 +111,10 @@
       // Redirect to OAuth provider
       window.location.href = redirectUrl
     } catch (error) {
-      pushError({
-        message: error instanceof Error ? error.message : $t('error.unknown'),
-        scope: page.route.id!,
+      toast({
+        content:
+          error instanceof Error ? error.message : $t('oauth.error.generic'),
+        type: 'error',
       })
       form.loading = false
     }
@@ -134,17 +139,13 @@
       <ErrorContainer class="pt-2" scope={page.route.id} />
     </div>
 
-    <Note>
-      {$t('oauth.loginInfo')}
-    </Note>
-
     <div class="flex flex-row w-full items-center gap-2">
       <TextInput
         id="handle"
         bind:value={form.handle}
         label={$t('form.handle')}
         placeholder="user.bsky.social"
-        class="flex-1"
+        class="flex-1 placeholder:text-slate-500 dark:placeholder:text-zinc-400 [&>label]:after:content-none"
         required
         autocorrect="off"
         autocapitalize="off"
@@ -178,8 +179,11 @@
         <Spinner width={20} />
         {$t('oauth.redirecting')}
       {:else}
-        {$t('account.login')}
+        {$t('oauth.continueLogin')}
       {/if}
     </Button>
+    <p class="text-center text-sm text-slate-600 dark:text-zinc-400">
+      {$t('oauth.loginInfo')}
+    </p>
   </form>
 </div>

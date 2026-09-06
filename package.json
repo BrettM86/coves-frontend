@@ -4,6 +4,8 @@
   "license": "AGPL-3.0-only",
   "packageManager": "pnpm@10.28.2",
   "dependencies": {
+    "@atcute/identity-resolver": "^2.0.1",
+    "@atcute/lexicons": "^2.1.0",
     "@dicebear/core": "^9.4.3",
     "@dicebear/initials": "^9.4.2",
     "@floating-ui/dom": "^1.8.0",

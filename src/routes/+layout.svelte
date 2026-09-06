@@ -171,7 +171,9 @@
 </Button>
 
 <Shell>
-  <ToastContainer>
+  <ToastContainer
+    class={page.route.id === '/login' ? 'max-md:pb-24' : undefined}
+  >
     {#snippet content(toast)}
       <Markdown
         source={toast.content}

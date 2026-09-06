@@ -1,4 +1,7 @@
 import { json } from '@sveltejs/kit'
+import { DidNotFoundError } from '@atcute/identity-resolver'
+import { isHandle } from '@atcute/lexicons/syntax'
+import { resolveLoginHandle } from '$lib/server/resolve-login-handle'
 import { log } from '$lib/server/log'
 import type { RequestHandler } from './$types'
 import { PENDING_AUTH_COOKIE_OPTIONS } from '$lib/server/cookies'
@@ -16,8 +19,9 @@ interface LoginRequest {
  * POST /api/auth/login
  *
  * Initiates OAuth login flow by:
- * 1. Storing pending auth state (instance, redirect URL) in a cookie
- * 2. Building and returning the OAuth redirect URL
+ * 1. Checking that the handle resolves to an atProto identity
+ * 2. Storing pending auth state in a cookie
+ * 3. Building and returning the OAuth redirect URL
  *
  * The client will navigate to this URL to begin OAuth with Coves.
  */
@@ -43,6 +47,11 @@ export const POST: RequestHandler = async ({
 
   if (!instance || typeof instance !== 'string') {
     return json({ error: 'Missing or invalid instance' }, { status: 400 })
+  }
+
+  const normalizedHandle = handle.trim().toLowerCase()
+  if (!isHandle(normalizedHandle)) {
+    return json({ error: 'invalid_handle' }, { status: 400 })
   }
 
   // Normalize (https:// default) and validate the instance URL
@@ -123,6 +132,16 @@ export const POST: RequestHandler = async ({
     }
   }
 
+  // Keep resolution failures on the login form, before creating OAuth state.
+  try {
+    await resolveLoginHandle(normalizedHandle)
+  } catch (error) {
+    if (error instanceof DidNotFoundError) {
+      return json({ error: 'account_not_found' }, { status: 404 })
+    }
+    return json({ error: 'handle_resolution_failed' }, { status: 503 })
+  }
+
   // Generate CSRF state for OAuth flow (RFC 6749 section 10.12)
   const state = generateOAuthState()
 
@@ -142,7 +161,7 @@ export const POST: RequestHandler = async ({
   // Coves OAuth endpoint: {instance}/oauth/login?handle={handle}&redirect_uri={callback}&state={state}
   const callbackUrl = `${url.origin}/api/auth/callback`
   const oauthUrl = new URL('/oauth/login', instanceUrl.origin)
-  oauthUrl.searchParams.set('handle', handle)
+  oauthUrl.searchParams.set('handle', normalizedHandle)
   oauthUrl.searchParams.set('redirect_uri', callbackUrl)
   oauthUrl.searchParams.set('state', state)
 

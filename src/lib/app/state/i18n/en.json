@@ -592,6 +592,13 @@
                 "score": "Score"
             }
         },
+        "sensitive": {
+            "label": "NSFW Content",
+            "showAction": "Show",
+            "hideAction": "Hide",
+            "show": "Show sensitive content",
+            "hide": "Hide sensitive content"
+        },
         "badges": {
             "nsfw": "NSFW",
             "locked": "Locked",

@@ -17,6 +17,7 @@
   }
 
   interface Props {
+    collapsible?: boolean
     body: string
     /** Rich text facets from the record; when present the body is rendered
      * as canonical plaintext with facet annotations instead of markdown. */
@@ -29,6 +30,7 @@
 
   let {
     body,
+    collapsible = true,
     facets = undefined,
     clickThrough = false,
     element: htmlElement = 'div',
@@ -39,6 +41,7 @@
   let overflows = $derived(element ? isOverflown(element) : false)
 
   let expanded = $state(false)
+  let fullyExpanded = $derived(!collapsible || expanded)
   $effect(() => {
     expanded = !overflows
   })
@@ -48,7 +51,7 @@
   this={htmlElement}
   {style}
   class={[
-    expanded
+    fullyExpanded
       ? 'text-slate-600 dark:text-zinc-400 max-h-full'
       : [
           'overflow-hidden bg-linear-to-b text-transparent from-slate-600 via-slate-600',
@@ -66,9 +69,9 @@
          clamps it visually. -->
     <RichText content={body} {facets} />
   {:else}
-    <Markdown source={expanded ? body : body.slice(0, 1000)} />
+    <Markdown source={fullyExpanded ? body : body.slice(0, 1000)} />
   {/if}
-  {#if overflows}
+  {#if collapsible && overflows}
     <Button
       onclick={() => (expanded = !expanded)}
       size="square-md"

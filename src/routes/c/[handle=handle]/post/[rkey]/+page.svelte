@@ -173,7 +173,7 @@
     {@const post = data.data.value.post}
 
     <Material padding="none" rounding="2xl" class="overflow-hidden px-4">
-      <Post {post} actions={true} view="cozy" />
+      <Post {post} actions={true} view="cozy" expandBody />
     </Material>
 
     <!-- Comments Section -->

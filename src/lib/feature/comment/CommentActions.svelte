@@ -11,7 +11,15 @@
     postLinkRefFromUri,
     type PostLinkRef,
   } from '$lib/feature/post'
-  import { action, Button, Menu, MenuButton, modal, toast } from '$lib/ui/kit'
+  import {
+    action,
+    Button,
+    Menu,
+    MenuButton,
+    MenuDivider,
+    modal,
+    toast,
+  } from '$lib/ui/kit'
   import {
     Ellipsis,
     Flag,
@@ -105,18 +113,19 @@
     emptyStats={EMPTY_COMMENT_STATS}
     emptyViewer={EMPTY_COMMENT_VIEWER}
     variant="comment"
-  />
-  <Button
-    color="tertiary"
-    rounding="pill"
-    size="sm"
-    class="text-slate-500 dark:text-zinc-400 gap-1!"
-    onclick={() => (replying = !replying)}
-    disabled={disabled || !profile.current?.jwt}
-    icon={MessageSquare}
   >
-    {$t('comment.reply')}
-  </Button>
+    <Button
+      color="tertiary"
+      rounding="pill"
+      size="sm"
+      class="text-slate-500 dark:text-zinc-400 gap-1!"
+      onclick={() => (replying = !replying)}
+      disabled={disabled || !profile.current?.jwt}
+      icon={MessageSquare}
+    >
+      {$t('comment.reply')}
+    </Button>
+  </VoteButton>
   <Menu placement="bottom">
     {#snippet target(attachment)}
       <Button
@@ -174,6 +183,7 @@
           {$t('post.actions.more.delete')}
         </MenuButton>
       {/if}
+      <MenuDivider>{$t('settings.moderation.title')}</MenuDivider>
       <MenuButton
         onclick={() => report(comment)}
         color="danger-subtle"

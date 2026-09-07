@@ -22,6 +22,26 @@ const baseCounts: VoteCounts = {
   score: 8,
 }
 
+type VoteDirection = 'up' | 'down'
+type DirectionalToggle = (
+  counts: VoteCounts,
+  currentVote: VoteDirection | undefined,
+  requestedVote?: VoteDirection,
+) => { counts: VoteCounts; vote: VoteDirection | undefined }
+type DirectionalNextState = (
+  currentVote: VoteDirection | undefined,
+  requestedVote?: VoteDirection,
+) => {
+  vote: VoteDirection | undefined
+  voteUri: ReturnType<typeof nextVoteState>['voteUri']
+}
+
+// Passing an optional direction is the smallest generalization of today's
+// helpers. JavaScript lets the current implementation run by ignoring it, so
+// RED fails on downvote behavior rather than on an absent export.
+const toggleVote: DirectionalToggle = toggleUpvote
+const nextDirectionalVoteState: DirectionalNextState = nextVoteState
+
 describe('toggleUpvote', () => {
   // V1 — was "like from no vote increments upvotes and sets score to upvotes",
   // which expected score 11 against a fixture carrying two downvotes.
@@ -97,6 +117,47 @@ describe('toggleUpvote', () => {
   )
 })
 
+describe('requested downvote transitions', () => {
+  it.each([
+    [
+      'adds a downvote from no vote',
+      baseCounts,
+      undefined,
+      { upvotes: 10, downvotes: 3, score: 7 },
+      'down',
+    ],
+    [
+      'toggles off an existing downvote',
+      baseCounts,
+      'down',
+      { upvotes: 10, downvotes: 1, score: 9 },
+      undefined,
+    ],
+    [
+      'switches an upvote to a downvote',
+      baseCounts,
+      'up',
+      { upvotes: 9, downvotes: 3, score: 6 },
+      'down',
+    ],
+    [
+      'clamps a stale downvote at zero when toggling off',
+      { upvotes: 0, downvotes: 0, score: 0 },
+      'down',
+      { upvotes: 0, downvotes: 0, score: 0 },
+      undefined,
+    ],
+  ] as const)('%s', (_, initial, currentVote, expectedCounts, expectedVote) => {
+    const counts: VoteCounts = { ...initial }
+
+    const result = toggleVote(counts, currentVote, 'down')
+
+    expect(counts).toEqual(initial)
+    expect(result.counts).toEqual(expectedCounts)
+    expect(result.vote).toBe(expectedVote)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // nextVoteState()
 //
@@ -130,5 +191,17 @@ describe('nextVoteState', () => {
 
     expect(result.vote).toBe('up')
     expect(result.voteUri).toBeUndefined()
+  })
+
+  it('uses the requested downvote direction and always drops the old vote URI', () => {
+    expect(
+      ([undefined, 'down', 'up'] as const).map((currentVote) =>
+        nextDirectionalVoteState(currentVote, 'down'),
+      ),
+    ).toEqual([
+      { vote: 'down', voteUri: undefined },
+      { vote: undefined, voteUri: undefined },
+      { vote: 'down', voteUri: undefined },
+    ])
   })
 })

@@ -842,7 +842,7 @@
             "downvotes": "{{default}} 踩",
             "upvotes": "{{default}} 赞",
             "score": "分数: {{default}}",
-            "group": "帖子赞踩控制"
+            "group": "投票控件"
         },
         "pagination": {
             "nav": "分页",

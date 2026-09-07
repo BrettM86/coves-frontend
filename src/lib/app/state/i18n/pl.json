@@ -918,7 +918,7 @@
             "current": "Obecna strona"
         },
         "vote": {
-            "group": "Kontrola głosów nad postem",
+            "group": "Kontrolki głosowania",
             "upvotes": "Głosy w górę: {{default}}",
             "downvotes": "Głosy w dół: {{default}}",
             "score": "Ocena: {{default}}"

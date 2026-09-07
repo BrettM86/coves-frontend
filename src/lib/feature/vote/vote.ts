@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Optimistic vote state
 //
-// Pure counter math for an upvote press; `cast.ts` sequences it with the
+// Pure counter math for a vote press; `cast.ts` sequences it with the
 // request. Post and comment stats differ only in the counter they carry
 // alongside (`commentCount` vs `replyCount`), so this module owns the three
 // vote counters and the viewer's vote and callers spread the result over
@@ -10,6 +10,8 @@
 
 import type { AtUri, VoteCounts } from '$lib/api/coves/types'
 import { log } from '$lib/app/util/log'
+
+type VoteDirection = 'up' | 'down'
 
 // Re-exported so vote logic imports its counter type from the module that
 // operates on it. It is declared in the API types module because `PostStats`
@@ -40,7 +42,7 @@ function decrement(count: number, counter: string): number {
 }
 
 /**
- * Applies an upvote press to `counts`, returning the optimistic counters.
+ * Applies a vote press to `counts`, returning the optimistic counters.
  *
  * `score` is always recomputed as `upvotes - downvotes`, the backend's
  * invariant. Stating it is deliberate: the implementation this replaced set
@@ -48,64 +50,60 @@ function decrement(count: number, counter: string): number {
  * invariant is pinned locally by `vote.test.ts`; upstream it is visible in the
  * Coves backend's vote fixtures and end-to-end journey assertions.
  *
- * Switching direction releases the old downvote, because the backend treats a
- * direction switch as delete-then-create — see the "Different direction -
- * delete old vote first" branch in `internal/core/votes/service_impl.go`, and
- * `TestCreateVote_DifferentDirectionReplacesUnderANewRKey`. Leaving
- * `downvotes` untouched would leave the rendered count wrong by one until the
- * next refetch.
- *
- * Caveat on that release: the same backend function has a KNOWN DEFECT where a
- * direction switch does not roll the delete back if the subsequent create
- * fails. "The old downvote no longer exists" therefore describes the happy
- * path only; on that failure the subject is left with no vote at all rather
- * than the original downvote.
+ * Switching direction releases the old vote and adds the new one. The
+ * backend atomically replaces the record under a new rkey, so a rejected
+ * replacement leaves the original vote intact for the caller's rollback.
  *
  * Pure: `counts` is never mutated.
  */
 export function toggleUpvote(
   counts: VoteCounts,
-  currentVote: 'up' | 'down' | undefined,
-): { counts: VoteCounts; vote: 'up' | undefined } {
-  const isToggleOff = currentVote === 'up'
+  currentVote: VoteDirection | undefined,
+  requestedDirection: VoteDirection = 'up',
+): { counts: VoteCounts; vote: VoteDirection | undefined } {
+  const isToggleOff = currentVote === requestedDirection
+  let upvotes = counts.upvotes
+  let downvotes = counts.downvotes
 
-  const upvotes = isToggleOff
-    ? decrement(counts.upvotes, 'upvotes')
-    : counts.upvotes + 1
-  const downvotes =
-    currentVote === 'down'
-      ? decrement(counts.downvotes, 'downvotes')
-      : counts.downvotes
+  if (currentVote === 'up') upvotes = decrement(upvotes, 'upvotes')
+  if (currentVote === 'down') downvotes = decrement(downvotes, 'downvotes')
+
+  if (!isToggleOff) {
+    if (requestedDirection === 'up') upvotes += 1
+    if (requestedDirection === 'down') downvotes += 1
+  }
 
   return {
     counts: { upvotes, downvotes, score: upvotes - downvotes },
-    vote: isToggleOff ? undefined : 'up',
+    vote: isToggleOff ? undefined : requestedDirection,
   }
 }
 
 /**
- * The viewer half of an upvote press: the vote it leaves behind, and the record
+ * The viewer half of a vote press: the vote it leaves behind, and the record
  * URI that vote is backed by.
  *
  * `voteUri` is undefined on every branch, and that is the substance of this
  * function rather than an oversight. Toggling off deletes the record; switching
- * from a downvote deletes it too and creates a new one under a different rkey;
- * a first vote never had one. In all three cases the URI the caller was holding
- * is stale the moment the press is made, and the replacement is not knowable
- * until the server answers. Carrying the old one forward — which the
- * pre-extraction components did inline — leaves the optimistic state claiming an upvote backed
- * by a record the backend has already deleted, and that is the URI a subsequent
- * toggle-off would send.
+ * from the opposite direction atomically replaces it under a different rkey; a first vote never had one. In all three cases the URI the
+ * caller was holding is stale the moment the press is made, and the replacement
+ * is not knowable until the server answers. Carrying the old one forward —
+ * which the pre-extraction components did inline — leaves the optimistic state
+ * claiming a vote backed by a record the backend has already deleted, and that
+ * is the URI a subsequent toggle-off would send.
  *
  * The caller's current URI is therefore not a parameter: there is no branch on
  * which it could be returned, so taking it would only imply otherwise.
  */
-export function nextVoteState(currentVote: 'up' | 'down' | undefined): {
-  vote: 'up' | undefined
+export function nextVoteState(
+  currentVote: VoteDirection | undefined,
+  requestedDirection: VoteDirection = 'up',
+): {
+  vote: VoteDirection | undefined
   voteUri: AtUri | undefined
 } {
   return {
-    vote: currentVote === 'up' ? undefined : 'up',
+    vote: currentVote === requestedDirection ? undefined : requestedDirection,
     voteUri: undefined,
   }
 }

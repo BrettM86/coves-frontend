@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
-// Upvote orchestration
+// Vote orchestration
 //
-// The optimistic-write / request / reconcile-or-rollback sequence for an
-// upvote press, shared by every vote button. `vote.ts` owns the pure counter
+// The optimistic-write / request / reconcile-or-rollback sequence for a
+// vote press, shared by every vote button. `vote.ts` owns the pure counter
 // math; this module owns the side-effect sequence around it so a behavioural
 // fix lands once instead of once per component.
 //
@@ -64,7 +64,7 @@ export type CastUpvoteOutcome =
   | { kind: 'ok' }
   /** The component moved on; the response was discarded. */
   | { kind: 'stale-subject' }
-  /** Server toggled off a vote we did not know about; pre-press state restored. */
+  /** Server toggled off an unseen vote; counts restored and viewer vote cleared. */
   | { kind: 'out-of-sync' }
   /** Deleting an already-absent vote; optimistic (un-voted) state kept. */
   | { kind: 'already-absent' }
@@ -74,18 +74,21 @@ export type CastUpvoteOutcome =
   | { kind: 'error'; error: unknown }
 
 /**
- * Applies an upvote press optimistically, sends it, and reconciles.
+ * Applies a vote press optimistically, sends it, and reconciles.
  *
- * Toggle-off deletes; anything else creates an 'up' vote (a switch from
- * 'down' is delete-then-create on the backend, see `toggleUpvote`).
+ * Toggle-off deletes; anything else creates the requested direction. A switch
+ * atomically replaces the record on the backend; see `toggleUpvote`.
  */
 export async function castUpvote<
   TStats extends VoteCounts,
   TViewer extends VoteViewer,
->(ctx: CastUpvoteContext<TStats, TViewer>): Promise<CastUpvoteOutcome> {
+>(
+  ctx: CastUpvoteContext<TStats, TViewer>,
+  requestedDirection: 'up' | 'down' = 'up',
+): Promise<CastUpvoteOutcome> {
   const { subject } = ctx
   const before = ctx.read()
-  const isToggleOff = before.viewer?.vote === 'up'
+  const isToggleOff = before.viewer?.vote === requestedDirection
 
   // Saved for rollback — shallow copies so later writes cannot alias them.
   const prevStats = before.stats ? { ...before.stats } : undefined
@@ -94,8 +97,15 @@ export async function castUpvote<
   // `toggleUpvote` owns the three vote counters only; spread it over the
   // caller's typed base to carry commentCount/replyCount etc. through.
   const baseStats: TStats = before.stats ?? ctx.emptyStats
-  const { counts } = toggleUpvote(baseStats, before.viewer?.vote)
-  const { vote, voteUri } = nextVoteState(before.viewer?.vote)
+  const { counts } = toggleUpvote(
+    baseStats,
+    before.viewer?.vote,
+    requestedDirection,
+  )
+  const { vote, voteUri } = nextVoteState(
+    before.viewer?.vote,
+    requestedDirection,
+  )
   const nextViewer: TViewer = {
     ...(before.viewer ?? ctx.emptyViewer),
     vote,
@@ -109,7 +119,10 @@ export async function castUpvote<
       return { kind: 'ok' }
     }
 
-    const result = await ctx.api.createVote({ subject, direction: 'up' })
+    const result = await ctx.api.createVote({
+      subject,
+      direction: requestedDirection,
+    })
     if (!ctx.isCurrent()) {
       log.warn(
         '[vote] discarding createVote result — component now shows a different subject',
@@ -121,17 +134,23 @@ export async function castUpvote<
     if (!result.uri) {
       // Create is itself a toggle: handed a vote that already matches the
       // requested direction the backend DELETES it and returns 200 with no
-      // uri. Our `viewer.vote` was stale, so the optimistic +1 was wrong in
-      // both directions — resync from the pre-press state rather than guess.
+      // uri. Our `viewer.vote` was stale, so the optimistic increment was wrong
+      // — resync from the pre-press state rather than guess.
       // Best-effort: a vote `prevViewer` never saw is also uncounted in
-      // `prevStats`; only a stale 'down' leaves the restored counts off until
-      // the next refetch, which is why callers surface an out-of-sync notice.
+      // `prevStats`; an uncounted stale vote leaves the restored counts off
+      // until the next refetch, which is why callers surface an out-of-sync
+      // notice.
       log.warn(
         '[vote] createVote toggled off an unseen existing vote',
         undefined,
         { uri: subject.uri },
       )
-      ctx.write({ stats: prevStats, viewer: prevViewer })
+      ctx.write({
+        stats: prevStats,
+        viewer: prevViewer
+          ? { ...prevViewer, vote: undefined, voteUri: undefined }
+          : undefined,
+      })
       return { kind: 'out-of-sync' }
     }
     // A fresh object rather than a field write on `nextViewer`: the component
@@ -150,7 +169,7 @@ export async function castUpvote<
       err.errorName === 'VoteNotFound'
     ) {
       // Deleting a vote that is already absent is the outcome the user asked
-      // for; rolling back would restore the filled heart and leave them
+      // for; rolling back would restore the selected vote and leave them
       // unable to ever reach un-voted. Scoped by errorName: an infrastructure
       // 404 (proxy misroute, stale AppView) arrives as `UnknownError` and is
       // NOT confirmation the vote is gone — that falls through to rollback.
@@ -162,7 +181,7 @@ export async function castUpvote<
       return { kind: 'already-absent' }
     }
 
-    log.error('[vote] castUpvote failed', err, {
+    log.error('[vote] cast failed', err, {
       uri: subject.uri,
       isToggleOff,
     })

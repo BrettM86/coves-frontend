@@ -928,7 +928,7 @@
     },
     "aria": {
         "vote": {
-            "group": "Julkaisun äänestäminen",
+            "group": "Äänestyspainikkeet",
             "upvotes": "{{default}} ylä-ääntä",
             "downvotes": "{{default}} alaääntä",
             "score": "Pisteet: {{default}}"

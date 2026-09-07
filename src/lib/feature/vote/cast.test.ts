@@ -2,11 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   AtUri,
   CID,
+  CreateVoteOutput,
   PostStats,
   PostViewerState,
 } from '$lib/api/coves/types'
 import { XrpcError } from '$lib/api/coves/xrpc'
-import { castUpvote, type VoteApi, type VoteSnapshot } from './cast'
+import {
+  castUpvote,
+  type CastUpvoteContext,
+  type CastUpvoteOutcome,
+  type VoteApi,
+  type VoteSnapshot,
+} from './cast'
 
 const SUBJECT = {
   uri: 'at://did:plc:a/social.coves.post/1' as AtUri,
@@ -24,9 +31,22 @@ const EMPTY_STATS: PostStats = {
 const EMPTY_VIEWER: PostViewerState = { saved: false }
 
 type Snap = VoteSnapshot<PostStats, PostViewerState>
+type VoteDirection = 'up' | 'down'
+type DirectionalCast = (
+  ctx: CastUpvoteContext<PostStats, PostViewerState>,
+  requestedVote?: VoteDirection,
+) => Promise<CastUpvoteOutcome>
+
+// The optional second argument preserves every existing upvote call while
+// allowing the current implementation to run and expose its hardcoded values.
+const castVote: DirectionalCast = castUpvote
 
 /** A component stand-in: state, plus a flag for "moved to another subject". */
-function harness(initial: Snap, api: Partial<VoteApi> = {}) {
+function harness(
+  initial: Snap,
+  api: Partial<VoteApi> = {},
+  requestedVote: VoteDirection = 'up',
+) {
   let state: Snap = initial
   let current = true
   const writes: Snap[] = []
@@ -45,18 +65,21 @@ function harness(initial: Snap, api: Partial<VoteApi> = {}) {
       current = false
     },
     run: () =>
-      castUpvote<PostStats, PostViewerState>({
-        api: { createVote, deleteVote },
-        subject: SUBJECT,
-        emptyStats: EMPTY_STATS,
-        emptyViewer: EMPTY_VIEWER,
-        read: () => state,
-        write: (s) => {
-          writes.push(s)
-          state = s
+      castVote(
+        {
+          api: { createVote, deleteVote },
+          subject: SUBJECT,
+          emptyStats: EMPTY_STATS,
+          emptyViewer: EMPTY_VIEWER,
+          read: () => state,
+          write: (s) => {
+            writes.push(s)
+            state = s
+          },
+          isCurrent: () => current,
         },
-        isCurrent: () => current,
-      }),
+        requestedVote,
+      ),
   }
 }
 
@@ -243,5 +266,122 @@ describe('castUpvote', () => {
     expect(outcome.kind).toBe('error')
     expect(h.writes).toHaveLength(1)
     expect(h.state.viewer?.vote).toBe('up')
+  })
+})
+
+describe('castUpvote requested downvote', () => {
+  it('writes a fresh downvote optimistically, sends it, and commits its URI', async () => {
+    const response = Promise.withResolvers<CreateVoteOutput>()
+    const h = harness(
+      { stats: EMPTY_STATS, viewer: EMPTY_VIEWER },
+      { createVote: () => response.promise },
+      'down',
+    )
+
+    const outcome = h.run()
+    const optimistic = h.writes[0]
+    response.resolve({ uri: NEW_VOTE_URI })
+
+    expect(optimistic).toEqual({
+      stats: { upvotes: 0, downvotes: 1, score: -1, commentCount: 0 },
+      viewer: { saved: false, vote: 'down', voteUri: undefined },
+    })
+    expect(h.createVote).toHaveBeenCalledWith({
+      subject: SUBJECT,
+      direction: 'down',
+    })
+    expect(await outcome).toEqual({ kind: 'ok' })
+    expect(h.state.viewer).toEqual({
+      saved: false,
+      vote: 'down',
+      voteUri: NEW_VOTE_URI,
+    })
+  })
+
+  it('optimistically removes an existing downvote through deleteVote', async () => {
+    const h = harness(
+      {
+        stats: { upvotes: 3, downvotes: 2, score: 1, commentCount: 4 },
+        viewer: { saved: false, vote: 'down', voteUri: OLD_VOTE_URI },
+      },
+      {},
+      'down',
+    )
+
+    await h.run()
+
+    expect(h.writes[0]).toEqual({
+      stats: { upvotes: 3, downvotes: 1, score: 2, commentCount: 4 },
+      viewer: { saved: false, vote: undefined, voteUri: undefined },
+    })
+    expect(h.deleteVote).toHaveBeenCalledWith({ subject: SUBJECT })
+    expect(h.createVote).not.toHaveBeenCalled()
+  })
+
+  it('switches an existing upvote to a requested downvote', async () => {
+    const h = harness(
+      {
+        stats: { upvotes: 10, downvotes: 2, score: 8, commentCount: 4 },
+        viewer: { saved: false, vote: 'up', voteUri: OLD_VOTE_URI },
+      },
+      {},
+      'down',
+    )
+
+    await h.run()
+
+    expect(h.writes[0]).toEqual({
+      stats: { upvotes: 9, downvotes: 3, score: 6, commentCount: 4 },
+      viewer: { saved: false, vote: 'down', voteUri: undefined },
+    })
+    expect(h.createVote).toHaveBeenCalledWith({
+      subject: SUBJECT,
+      direction: 'down',
+    })
+  })
+
+  it('clears a stale opposite vote when create toggles off the requested vote', async () => {
+    const h = harness(
+      {
+        stats: { upvotes: 10, downvotes: 2, score: 8, commentCount: 4 },
+        viewer: { saved: true, vote: 'up', voteUri: OLD_VOTE_URI },
+      },
+      { createVote: async () => ({}) },
+      'down',
+    )
+
+    const outcome = await h.run()
+
+    expect(outcome).toEqual({ kind: 'out-of-sync' })
+    expect(h.state.viewer).toEqual({
+      saved: true,
+      vote: undefined,
+      voteUri: undefined,
+    })
+  })
+
+  it('restores the exact pre-press state when a requested downvote fails', async () => {
+    const boom = new Error('downvote failed')
+    const before: Snap = {
+      stats: { upvotes: 3, downvotes: 1, score: 2, commentCount: 4 },
+      viewer: { saved: true },
+    }
+    const h = harness(
+      before,
+      {
+        createVote: async () => {
+          throw boom
+        },
+      },
+      'down',
+    )
+
+    await h.run()
+
+    expect(h.state).toEqual(before)
+    expect(h.createVote).toHaveBeenCalledWith({
+      subject: SUBJECT,
+      direction: 'down',
+    })
   })
 })

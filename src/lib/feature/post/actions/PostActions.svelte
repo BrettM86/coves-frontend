@@ -69,19 +69,19 @@
     emptyStats={EMPTY_POST_STATS}
     emptyViewer={EMPTY_POST_VIEWER}
     variant="post"
-  />
-
-  <Button
-    size="custom"
-    href="{postLink(post)}#comments"
-    class="text-inherit! h-full px-3 relative"
-    rounding="xl"
-    target={settings.openLinksInNewTab ? '_blank' : ''}
-    aria-label={$t('post.actions.comments')}
   >
-    <Icon src={MessageSquare} size="16" />
-    <FormattedNumber number={post.stats?.commentCount ?? 0} />
-  </Button>
+    <Button
+      size="custom"
+      href="{postLink(post)}#comments"
+      class="text-inherit! h-full px-3 relative"
+      rounding="xl"
+      target={settings.openLinksInNewTab ? '_blank' : ''}
+      aria-label={$t('post.actions.comments')}
+    >
+      <Icon src={MessageSquare} size="16" />
+      <FormattedNumber number={post.stats?.commentCount ?? 0} />
+    </Button>
+  </VoteButton>
   <div class="flex-1"></div>
 
   {#if settings.debugInfo}

@@ -839,7 +839,7 @@
             "current": "Geçerli sayfa"
         },
         "vote": {
-            "group": "Oylama sonrası kontroller",
+            "group": "Oylama kontrolleri",
             "upvotes": "{{default}} olumlu oylar",
             "downvotes": "{{default}} olumsuz oylar",
             "score": "Gol: {{default}}"

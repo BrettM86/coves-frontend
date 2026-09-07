@@ -1002,7 +1002,7 @@
             "current": "Current page"
         },
         "vote": {
-            "group": "Post voting controls",
+            "group": "Voting controls",
             "upvotes": "{{default}} upvotes",
             "downvotes": "{{default}} downvotes",
             "score": "Score: {{default}}"

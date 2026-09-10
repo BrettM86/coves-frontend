@@ -177,7 +177,7 @@
     {#snippet content(toast)}
       <Markdown
         source={toast.content}
-        class={toast.long ? 'text-[15px]' : 'text-sm font-medium'}
+        class="leading-snug [&_p]:leading-snug"
       />
     {/snippet}
   </ToastContainer>

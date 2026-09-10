@@ -8,11 +8,10 @@
     CircleCheck,
     Info,
     TriangleAlert,
-    X,
   } from '$lib/ui/kit/icon'
   import { expoOut } from 'svelte/easing'
   import { fly, scale } from 'svelte/transition'
-  import { type Toast, toastColors, toasts } from './toasts'
+  import { removeToast, type Toast, toastColors } from './toasts'
 
   interface Props {
     toast: Toast
@@ -21,74 +20,65 @@
   }
 
   let { toast, content }: Props = $props()
+
+  const icons = {
+    info: Info,
+    success: CircleCheck,
+    warning: TriangleAlert,
+    error: CircleAlert,
+  }
+
+  const actionColors = {
+    info: 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100',
+    warning:
+      'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100',
+    success:
+      'bg-green-100 text-green-800 hover:bg-green-200 hover:text-green-900 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800 dark:hover:text-green-100',
+    error:
+      'bg-red-100 text-red-800 hover:bg-red-200 hover:text-red-900 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 dark:hover:text-red-100',
+  }
 </script>
 
 <div
+  role="status"
   class={[
     toastColors[toast.type],
-    'relative rounded-2xl overflow-hidden flex flex-row items-center gap-1 px-2 py-2 backdrop-blur-3xl',
-    'bg-white dark:bg-zinc-925 shadow-lg',
-    toast.long ? 'w-full max-w-lg' : 'w-80',
+    'flex flex-row items-start gap-2 rounded-xl border px-4 py-3.5 shadow-md',
+    'w-[356px] max-w-[calc(100vw-2.5rem)]',
+    toast.long && 'sm:w-full sm:max-w-lg',
   ]}
-  in:fly={{
-    y: 8,
-    easing: expoOut,
-  }}
-  out:scale={{
-    start: 0.97,
-    easing: expoOut,
-  }}
+  in:fly={{ y: 8, easing: expoOut }}
+  out:scale={{ start: 0.97, easing: expoOut }}
 >
   {#if toast.loading}
-    <div class="relative m-2 ml-4 shrink-0">
-      <Spinner width={20} />
-    </div>
+    <div class="shrink-0 mt-px"><Spinner width={20} /></div>
   {:else}
-    <Icon
-      size="28"
-      class={['relative self-center shrink-0 p-1 rounded-lg']}
-      src={toast.type == 'info'
-        ? Info
-        : toast.type == 'success'
-          ? CircleCheck
-          : toast.type == 'warning'
-            ? TriangleAlert
-            : toast.type == 'error'
-              ? CircleAlert
-              : CircleAlert}
-    />
+    <Icon size="20" class="shrink-0 mt-px" src={icons[toast.type]} />
   {/if}
-  <div class="flex flex-col break-words max-w-full text-inherit">
+  <div
+    class="flex flex-col min-w-0 flex-1 break-words text-[15px] font-medium leading-snug"
+  >
     {#if toast.title}
-      <h1 class="text-base font-semibold">{toast.title}</h1>
+      <p class="font-semibold">{toast.title}</p>
     {/if}
     {#if content}
       {@render content(toast)}
     {:else}
-      <p class={toast.long ? 'text-[15px]' : 'text-sm font-medium'}>
-        {toast.content}
-      </p>
+      <p>{toast.content}</p>
     {/if}
   </div>
-  <div class="absolute top-0 right-0 flex items-center gap-1 m-1">
-    {#if toast.action}
-      <button
-        onclick={() => {
-          toast.action?.()
-          toasts.update((toasts) => toasts.filter((t) => t.id != toast.id))
-        }}
-        class="rounded-lg w-max transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800 p-1 cursor-pointer"
-      >
-        <Icon src={Check} size="20" />
-      </button>
-    {/if}
+  {#if toast.action}
     <button
       onclick={() => {
-        toasts.update((toasts) => toasts.filter((t) => t.id != toast.id))
+        toast.action?.()
+        removeToast(toast.id)
       }}
-      class="rounded-lg w-max transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800 p-1 cursor-pointer text-slate-600 dark:text-zinc-400"
+      class={[
+        'shrink-0 -my-1 -mr-1 rounded-md p-1 transition-colors',
+        actionColors[toast.type],
+      ]}
     >
-      <Icon src={X} size="16" />
+      <Icon src={Check} size="18" />
     </button>
-  </div>
+  {/if}
 </div>

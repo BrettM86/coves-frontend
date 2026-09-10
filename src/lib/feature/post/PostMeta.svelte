@@ -263,7 +263,7 @@
       href={attachedUrl
         ? attachedUrl.href
         : community
-          ? postLink({ uri, community })
+          ? postLink({ uri, community, author: user })
           : undefined}
       target={useAttachedUrl ? '_blank' : undefined}
       rel={useAttachedUrl ? 'noopener noreferrer' : undefined}

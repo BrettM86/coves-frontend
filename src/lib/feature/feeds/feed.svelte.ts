@@ -117,7 +117,7 @@ export interface FeedTypes {
       comments: GetActorCommentsResponse
     },
   ]
-  '/c/[handle=handle]/post/[rkey]': [
+  '/c/[handle=handle]/post/[owner=actor]/[rkey]': [
     {
       postUri: string
       comments: GetCommentsParams
@@ -152,7 +152,7 @@ export interface FeedTypes {
       }
     },
   ]
-  '/c/[handle=handle]/post/[rkey]/comment/[crkey]': [
+  '/c/[handle=handle]/post/[owner=actor]/[rkey]/comment/[commenter=actor]/[crkey]': [
     {
       postUri: string
       comments: GetCommentsParams

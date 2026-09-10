@@ -102,26 +102,41 @@ export function streamableEmbedUrl(url: string): string | null {
   return id ? `${STREAMABLE_EMBED_ORIGIN}/e/${id}` : null
 }
 
-/** The ATProto collection NSID for Coves community posts. */
-export const POST_COLLECTION = 'social.coves.community.post'
+/** The ATProto collection NSID for Coves posts, which are author-owned. */
+export const POST_COLLECTION = 'social.coves.community.postv2'
+
+/**
+ * The ATProto collection NSID for the superseded community-owned posts.
+ * Records in it predate `postv2` and live in the community's repo.
+ */
+export const LEGACY_POST_COLLECTION = 'social.coves.community.post'
 
 /**
  * Constructs the canonical DID-based AT-URI for a post.
  * Used as a fallback when navigating directly to a post (or comment permalink)
  * URL without a cache hit or an explicit `?uri=` param. Building it from the
- * community's DID (rather than its handle) keeps the hydration path stable
- * across community renames — the one handle→DID hop is resolved up front via
- * `getCommunity`.
+ * owning repo's DID (rather than a handle) keeps the hydration path stable
+ * across renames — the one handle→DID hop is resolved up front.
  */
-export function buildPostAtUri(communityDid: string, rkey: string): AtUri {
-  return `at://${communityDid}/${POST_COLLECTION}/${rkey}` as AtUri
+export function buildPostAtUri(ownerDid: string, rkey: string): AtUri {
+  return `at://${ownerDid}/${POST_COLLECTION}/${rkey}` as AtUri
+}
+
+/**
+ * Constructs the AT-URI a post would have if it were a legacy community-owned
+ * record. The loader tries this shape when {@link buildPostAtUri} comes back
+ * unavailable, so pre-`postv2` posts still resolve from a permalink.
+ */
+export function buildLegacyPostAtUri(ownerDid: string, rkey: string): AtUri {
+  return `at://${ownerDid}/${LEGACY_POST_COLLECTION}/${rkey}` as AtUri
 }
 
 /**
  * Minimal shape {@link postLink} and {@link commentLink} need to build a
- * permalink: the post's AT-URI plus a community ref. Satisfied by a full
- * `PostView` (whose `community` is a `CommunityRef`) or a hand-built
- * `{ uri, community }` object.
+ * permalink: the post's AT-URI plus a community ref, and optionally the
+ * author ref that supplies the prettier handle form of the owner segment.
+ * Satisfied by a full `PostView` (whose `community` is a `CommunityRef`) or a
+ * hand-built `{ uri, community }` object.
  */
 export interface PostLinkRef {
   uri: string
@@ -131,10 +146,28 @@ export interface PostLinkRef {
     name: string
     origin?: string
   }
+  author?: {
+    did: string
+    handle?: string
+  }
 }
 
 /**
- * Builds the canonical Coves permalink for a post: `/c/<slug>/post/<rkey>`.
+ * The permalink segment naming the repo a record lives in. Defaults to the
+ * record's AT-URI authority DID; the prettier handle is substituted only when
+ * `ref` proves it belongs to that same repo, so the segment always addresses
+ * the record that actually exists.
+ */
+function repoSegment(
+  authority: string,
+  ref: { did: string; handle?: string } | undefined,
+): string {
+  return ref?.did === authority && ref.handle ? ref.handle : authority
+}
+
+/**
+ * Builds the canonical Coves permalink for a post:
+ * `/c/<slug>/post/<owner>/<rkey>`.
  *
  * Single source of truth for post URL generation — route every post link
  * through here instead of hand-rolling the path, so the URL scheme only ever
@@ -146,34 +179,28 @@ export interface PostLinkRef {
  * slug, else the DID — every form the `[handle=handle]` route matcher accepts
  * and the community loaders resolve.
  *
+ * The owner segment identifies the repo the record lives in, which is the
+ * AT-URI authority: the author's DID for a `postv2` record, the community's
+ * DID for a legacy community-owned one. The author's handle is substituted
+ * only when the ref proves the author is that same repo, so the segment
+ * always addresses the record that actually exists.
+ *
  * @param includeUri - When true, appends `?uri=<canonical AT-URI>` to the path.
  *   The post page reads this param to load the post immediately, without a
  *   feed-cache hit or a backend handle→DID resolution — use it right after
  *   creating a post, when the new record is not yet in any feed cache.
  */
 export function postLink(post: PostLinkRef, includeUri = false): string {
-  const { rkey } = parseAtUri(post.uri as AtUri)
-  const path = `${communityLink(post.community)}/post/${encodeURIComponent(rkey)}`
+  const { did, rkey } = parseAtUri(post.uri as AtUri)
+  const owner = repoSegment(did, post.author)
+  const path = `${communityLink(post.community)}/post/${encodeURIComponent(owner)}/${encodeURIComponent(rkey)}`
   if (!includeUri) return path
   return `${path}?${new URLSearchParams({ uri: post.uri })}`
 }
 
 /**
- * Builds a {@link PostLinkRef} from a bare post AT-URI. Post records live in
- * the community's repo, so the URI authority is the community DID — enough
- * for a DID-slug permalink when no community ref is on hand (e.g. sharing a
- * comment whose view only carries a `post: CommentRef` back-reference).
- * Prefer passing a real community ref when one is available: it yields the
- * prettier handle-based slug.
- */
-export function postLinkRefFromUri(postUri: AtUri): PostLinkRef {
-  const { did } = parseAtUri(postUri)
-  return { uri: postUri, community: { did, name: did } }
-}
-
-/**
  * Builds the canonical Coves permalink for a comment:
- * `/c/<slug>/post/<rkey>/comment/<crkey>`.
+ * `/c/<slug>/post/<owner>/<rkey>/comment/<commenter>/<crkey>`.
  *
  * Single source of truth for comment URL generation — route every comment
  * permalink through here instead of hand-rolling the path, mirroring
@@ -181,11 +208,20 @@ export function postLinkRefFromUri(postUri: AtUri): PostLinkRef {
  * object carrying the post's AT-URI and a community ref (see
  * {@link PostLinkRef}) plus the comment's AT-URI
  * (`at://<commenterDid>/social.coves.community.comment/<rkey>`), from which
- * the trailing rkey segment is derived.
+ * the trailing two segments are derived.
+ *
+ * @param commenter - The comment's author ref, supplying the prettier handle
+ *   form of the commenter segment. Omit it (or pass a ref for a different
+ *   repo) and the segment falls back to the comment URI's authority DID.
  */
-export function commentLink(post: PostLinkRef, commentUri: AtUri): string {
-  const { rkey } = parseAtUri(commentUri)
-  return `${postLink(post)}/comment/${encodeURIComponent(rkey)}`
+export function commentLink(
+  post: PostLinkRef,
+  commentUri: AtUri,
+  commenter?: { did: string; handle?: string },
+): string {
+  const { did, rkey } = parseAtUri(commentUri)
+  const segment = repoSegment(did, commenter)
+  return `${postLink(post)}/comment/${encodeURIComponent(segment)}/${encodeURIComponent(rkey)}`
 }
 
 export type MediaType = 'video' | 'image' | 'iframe' | 'embed' | 'none'

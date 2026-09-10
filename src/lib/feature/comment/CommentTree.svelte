@@ -145,7 +145,7 @@
           <!-- Deep threads continue on the comment's permalink page. A real
                anchor keeps this working without JS and middle-clickable. -->
           <Button
-            href={commentLink(post, node.comment.uri)}
+            href={commentLink(post, node.comment.uri, node.comment.author)}
             rounding="pill"
             color="tertiary"
             class="font-normal text-slate-600 dark:text-zinc-400"

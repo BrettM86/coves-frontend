@@ -6,11 +6,7 @@
   import { t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
   import { report } from '$lib/feature/moderation/moderation.svelte'
-  import {
-    commentLink,
-    postLinkRefFromUri,
-    type PostLinkRef,
-  } from '$lib/feature/post'
+  import { commentLink, type PostLinkRef } from '$lib/feature/post'
   import {
     action,
     Button,
@@ -38,9 +34,9 @@
   interface Props {
     comment: CommentView
     /**
-     * Post the comment belongs to — yields a handle-based permalink slug.
-     * When absent, the share link falls back to a DID slug derived from the
-     * comment's post ref (see {@link postLinkRefFromUri}).
+     * Post the comment belongs to, supplying the community and owner segments
+     * of the permalink. When absent there is no addressable comment URL, so
+     * the share action is hidden.
      */
     post?: PostLinkRef
     replying?: boolean
@@ -57,7 +53,7 @@
   }: Props = $props()
 
   let shareUrl = $derived(
-    commentLink(post ?? postLinkRefFromUri(comment.post.uri), comment.uri),
+    post ? commentLink(post, comment.uri, comment.author) : undefined,
   )
 
   async function deleteComment(): Promise<void> {
@@ -138,28 +134,30 @@
         icon={Ellipsis}
       ></Button>
     {/snippet}
-    <MenuButton
-      onclick={async () => {
-        try {
-          const url = new URL(shareUrl, location.origin).toString()
-          if (navigator.share) {
-            await navigator.share({ url })
-          } else {
-            await navigator.clipboard.writeText(url)
-            toast({ content: $t('toast.copied'), type: 'success' })
+    {#if shareUrl}
+      <MenuButton
+        onclick={async () => {
+          try {
+            const url = new URL(shareUrl, location.origin).toString()
+            if (navigator.share) {
+              await navigator.share({ url })
+            } else {
+              await navigator.clipboard.writeText(url)
+              toast({ content: $t('toast.copied'), type: 'success' })
+            }
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') return
+            toast({
+              content: err instanceof Error ? err.message : String(err),
+              type: 'error',
+            })
           }
-        } catch (err) {
-          if (err instanceof Error && err.name === 'AbortError') return
-          toast({
-            content: err instanceof Error ? err.message : String(err),
-            type: 'error',
-          })
-        }
-      }}
-      icon={Forward}
-    >
-      {$t('post.actions.more.share')}
-    </MenuButton>
+        }}
+        icon={Forward}
+      >
+        {$t('post.actions.more.share')}
+      </MenuButton>
+    {/if}
     {#if profile.current?.jwt}
       <!-- `author` is absent on deleted-comment tombstones, so `?.` keeps
            the identity check from throwing (and correctly hides edit/delete

@@ -11,6 +11,7 @@ import type { AtUri, CID } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import {
   bestImageURL,
+  buildLegacyPostAtUri,
   buildPostAtUri,
   commentLink,
   decodeCrosspostDraft,
@@ -25,7 +26,6 @@ import {
   mediaType,
   optimizeImageURL,
   postLink,
-  postLinkRefFromUri,
   postTextFallback,
   streamableEmbedUrl,
 } from './helpers'
@@ -584,9 +584,25 @@ describe('extractEmbedAlt', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildPostAtUri', () => {
-  it('builds the canonical DID-based post AT-URI', () => {
-    expect(buildPostAtUri('did:plc:community1', '3kabc')).toBe(
-      'at://did:plc:community1/social.coves.community.post/3kabc',
+  // Posts are author-owned records in the postv2 collection; the authority is
+  // the author's repo, not the community's.
+  it('builds the canonical DID-based post AT-URI in the postv2 collection', () => {
+    expect(buildPostAtUri('did:plc:author', '3lrkey')).toBe(
+      'at://did:plc:author/social.coves.community.postv2/3lrkey',
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// buildLegacyPostAtUri()
+// ---------------------------------------------------------------------------
+
+describe('buildLegacyPostAtUri', () => {
+  // Community-owned posts predate postv2 and live in the community's repo.
+  // The loader falls back to this shape when postv2 comes back unavailable.
+  it('builds the AT-URI for the legacy community-owned collection', () => {
+    expect(buildLegacyPostAtUri('did:plc:comm', '3lrkey')).toBe(
+      'at://did:plc:comm/social.coves.community.post/3lrkey',
     )
   })
 })
@@ -633,7 +649,7 @@ describe('postLink', () => {
       communityName: 'gaming',
       communityOrigin: 'coves.social',
     })
-    expect(postLink(post)).toBe('/c/gaming/post/rkey1')
+    expect(postLink(post)).toBe('/c/gaming/post/did%3Aplc%3Aabc123/rkey1')
   })
 
   it('uses name@origin for a remote community', () => {
@@ -643,7 +659,9 @@ describe('postLink', () => {
       communityName: 'comicstrips',
       communityOrigin: 'lemmy.world',
     })
-    expect(postLink(post)).toBe('/c/comicstrips@lemmy.world/post/rkey2')
+    expect(postLink(post)).toBe(
+      '/c/comicstrips@lemmy.world/post/did%3Aplc%3Aabc123/rkey2',
+    )
   })
 
   it('strips c- prefix from community handle for the URL slug', () => {
@@ -651,7 +669,9 @@ describe('postLink', () => {
       uri: 'at://did:plc:abc123/social.coves.community.post/rkey123',
       communityHandle: 'c-gaming.coves.social',
     })
-    expect(postLink(post)).toBe('/c/gaming.coves.social/post/rkey123')
+    expect(postLink(post)).toBe(
+      '/c/gaming.coves.social/post/did%3Aplc%3Aabc123/rkey123',
+    )
   })
 
   it('passes through community handle without c- prefix unchanged', () => {
@@ -659,7 +679,9 @@ describe('postLink', () => {
       uri: 'at://did:plc:abc123/social.coves.community.post/rkey456',
       communityHandle: 'tech.coves.social',
     })
-    expect(postLink(post)).toBe('/c/tech.coves.social/post/rkey456')
+    expect(postLink(post)).toBe(
+      '/c/tech.coves.social/post/did%3Aplc%3Aabc123/rkey456',
+    )
   })
 
   it('falls back to the community DID when handle is empty', () => {
@@ -671,7 +693,9 @@ describe('postLink', () => {
       communityHandle: '',
       communityName: 'general',
     })
-    expect(postLink(post)).toBe('/c/did%3Aplc%3Acommunity1/post/rkey789')
+    expect(postLink(post)).toBe(
+      '/c/did%3Aplc%3Acommunity1/post/did%3Aplc%3Aabc123/rkey789',
+    )
   })
 
   it('falls back to the community DID when handle is undefined', () => {
@@ -692,7 +716,9 @@ describe('postLink', () => {
       },
       community,
     }
-    expect(postLink(post)).toBe('/c/did%3Aplc%3Acommunity1/post/rkeyabc')
+    expect(postLink(post)).toBe(
+      '/c/did%3Aplc%3Acommunity1/post/did%3Aplc%3Aabc123/rkeyabc',
+    )
   })
 
   it('correctly parses the rkey from the AT-URI', () => {
@@ -700,7 +726,9 @@ describe('postLink', () => {
       uri: 'at://did:plc:xyz/social.coves.community.post/3jui7kd2xs',
       communityHandle: 'tech.coves.social',
     })
-    expect(postLink(post)).toBe('/c/tech.coves.social/post/3jui7kd2xs')
+    expect(postLink(post)).toBe(
+      '/c/tech.coves.social/post/did%3Aplc%3Axyz/3jui7kd2xs',
+    )
   })
 
   it('encodes special characters in the community slug', () => {
@@ -710,7 +738,9 @@ describe('postLink', () => {
     })
     // communitySlug strips "c-" prefix -> "my community.coves.social"
     // encodeURIComponent encodes the space -> "my%20community.coves.social"
-    expect(postLink(post)).toBe('/c/my%20community.coves.social/post/rkey1')
+    expect(postLink(post)).toBe(
+      '/c/my%20community.coves.social/post/did%3Aplc%3Aabc123/rkey1',
+    )
   })
 
   it('encodes special characters in the rkey', () => {
@@ -719,7 +749,9 @@ describe('postLink', () => {
       communityHandle: 'tech.coves.social',
     })
     // encodeURIComponent encodes "+" -> "%2B"
-    expect(postLink(post)).toBe('/c/tech.coves.social/post/rkey%2Bspecial')
+    expect(postLink(post)).toBe(
+      '/c/tech.coves.social/post/did%3Aplc%3Aabc123/rkey%2Bspecial',
+    )
   })
 
   it('omits the query param by default (includeUri defaults to false)', () => {
@@ -727,14 +759,16 @@ describe('postLink', () => {
       uri: 'at://did:plc:abc123/social.coves.community.post/rkey123',
       communityHandle: 'c-gaming.coves.social',
     })
-    expect(postLink(post)).toBe('/c/gaming.coves.social/post/rkey123')
+    expect(postLink(post)).toBe(
+      '/c/gaming.coves.social/post/did%3Aplc%3Aabc123/rkey123',
+    )
   })
 
   it('appends the canonical AT-URI as ?uri= when includeUri is true', () => {
     const uri = 'at://did:plc:abc123/social.coves.community.post/rkey123'
     const post = makePostView({ uri, communityHandle: 'c-gaming.coves.social' })
     const [path, query] = postLink(post, true).split('?')
-    expect(path).toBe('/c/gaming.coves.social/post/rkey123')
+    expect(path).toBe('/c/gaming.coves.social/post/did%3Aplc%3Aabc123/rkey123')
     // Round-trips the exact canonical URI so the post page can load without a cache hit.
     expect(new URLSearchParams(query).get('uri')).toBe(uri)
   })
@@ -748,7 +782,85 @@ describe('postLink', () => {
         name: 'books',
       },
     })
-    expect(link).toBe('/c/books.coves.social/post/rk')
+    expect(link).toBe('/c/books.coves.social/post/did%3Aplc%3Aabc/rk')
+  })
+
+  // -------------------------------------------------------------------------
+  // Owner segment
+  //
+  // The owner is the repo the post record lives in — the AT-URI authority —
+  // so a legacy community-owned post still addresses correctly. The prettier
+  // handle form is used only when the ref's author is provably that same repo.
+  // -------------------------------------------------------------------------
+
+  const ownedUri = 'at://did:plc:author/social.coves.community.postv2/3lrkey'
+  const gardening = {
+    did: 'did:plc:comm',
+    handle: 'gardening.local.coves.dev',
+    name: 'gardening',
+  }
+
+  it('emits the percent-encoded URI authority when the ref carries no author', () => {
+    expect(postLink({ uri: ownedUri, community: gardening })).toBe(
+      '/c/gardening.local.coves.dev/post/did%3Aplc%3Aauthor/3lrkey',
+    )
+  })
+
+  it('emits the author handle when the author owns the post URI', () => {
+    expect(
+      postLink({
+        uri: ownedUri,
+        community: gardening,
+        author: { did: 'did:plc:author', handle: 'mari.local.coves.dev' },
+      }),
+    ).toBe('/c/gardening.local.coves.dev/post/mari.local.coves.dev/3lrkey')
+  })
+
+  it('ignores an author whose DID is not the URI authority', () => {
+    // The community-owned legacy shape: the post lives in someone else's
+    // repo, so the author handle would address the wrong record.
+    expect(
+      postLink({
+        uri: ownedUri,
+        community: gardening,
+        author: { did: 'did:plc:someoneelse', handle: 'other.local.coves.dev' },
+      }),
+    ).toBe('/c/gardening.local.coves.dev/post/did%3Aplc%3Aauthor/3lrkey')
+  })
+
+  it('falls back to the DID when the owning author carries no handle', () => {
+    expect(
+      postLink({
+        uri: ownedUri,
+        community: gardening,
+        author: { did: 'did:plc:author' },
+      }),
+    ).toBe('/c/gardening.local.coves.dev/post/did%3Aplc%3Aauthor/3lrkey')
+  })
+
+  it('appends ?uri= after the owner segment when includeUri is true', () => {
+    const [path, query] = postLink(
+      {
+        uri: ownedUri,
+        community: gardening,
+        author: { did: 'did:plc:author', handle: 'mari.local.coves.dev' },
+      },
+      true,
+    ).split('?')
+    expect(path).toBe(
+      '/c/gardening.local.coves.dev/post/mari.local.coves.dev/3lrkey',
+    )
+    expect(new URLSearchParams(query).get('uri')).toBe(ownedUri)
+  })
+
+  it('reads the owner off a full PostView, no cast needed', () => {
+    const post = makePostView({
+      uri: 'at://did:plc:author1/social.coves.community.postv2/rkeyown',
+      communityHandle: 'tech.coves.social',
+    })
+    expect(postLink(post)).toBe(
+      '/c/tech.coves.social/post/alice.coves.social/rkeyown',
+    )
   })
 })
 
@@ -770,7 +882,7 @@ describe('commentLink', () => {
       },
     }
     expect(commentLink(post, commentUri)).toBe(
-      '/c/gaming.coves.social/post/rkey123/comment/3kcomment1',
+      '/c/gaming.coves.social/post/did%3Aplc%3Aabc123/rkey123/comment/did%3Aplc%3Acommenter/3kcomment1',
     )
   })
 
@@ -786,7 +898,7 @@ describe('commentLink', () => {
     const uri =
       'at://did:plc:other/social.coves.community.comment/replyrkey' as AtUri
     expect(commentLink(post, uri)).toBe(
-      '/c/tech.coves.social/post/postrkey/comment/replyrkey',
+      '/c/tech.coves.social/post/did%3Aplc%3Aabc123/postrkey/comment/did%3Aplc%3Aother/replyrkey',
     )
   })
 
@@ -796,7 +908,7 @@ describe('commentLink', () => {
       community: { did: 'did:plc:general1', handle: '', name: 'general' },
     }
     expect(commentLink(post, commentUri)).toBe(
-      '/c/did%3Aplc%3Ageneral1/post/rkey789/comment/3kcomment1',
+      '/c/did%3Aplc%3Ageneral1/post/did%3Aplc%3Aabc123/rkey789/comment/did%3Aplc%3Acommenter/3kcomment1',
     )
   })
 
@@ -812,7 +924,7 @@ describe('commentLink', () => {
     const uri =
       'at://did:plc:x/social.coves.community.comment/rk+special' as AtUri
     expect(commentLink(post, uri)).toBe(
-      '/c/tech.coves.social/post/rkey1/comment/rk%2Bspecial',
+      '/c/tech.coves.social/post/did%3Aplc%3Aabc123/rkey1/comment/did%3Aplc%3Ax/rk%2Bspecial',
     )
   })
 
@@ -829,37 +941,55 @@ describe('commentLink', () => {
     }
     expect(commentLink(post, commentUri)).not.toContain('?')
   })
-})
 
-// ---------------------------------------------------------------------------
-// postLinkRefFromUri
-// ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // Commenter segment
+  //
+  // Mirrors postLink's owner rule: the segment names the repo the comment
+  // record lives in (the comment AT-URI authority), and the handle is only
+  // substituted when the passed commenter is provably that same repo.
+  // -------------------------------------------------------------------------
 
-describe('postLinkRefFromUri', () => {
-  it('derives the community DID from the post AT-URI authority', () => {
-    const uri =
-      'at://did:plc:gaming1/social.coves.community.post/rkey123' as AtUri
-    expect(postLinkRefFromUri(uri)).toEqual({
-      uri,
-      community: { did: 'did:plc:gaming1', name: 'did:plc:gaming1' },
-    })
+  const threadPost = {
+    uri: 'at://did:plc:author/social.coves.community.postv2/3lrkey',
+    community: {
+      did: 'did:plc:comm',
+      handle: 'gardening.local.coves.dev',
+      name: 'gardening',
+    },
+    author: { did: 'did:plc:author', handle: 'mari.local.coves.dev' },
+  }
+  const threadPostPath =
+    '/c/gardening.local.coves.dev/post/mari.local.coves.dev/3lrkey'
+  const cmtUri = 'at://did:plc:cmt/social.coves.community.comment/3lc' as AtUri
+
+  it('emits the commenter handle when the commenter owns the comment URI', () => {
+    expect(
+      commentLink(threadPost, cmtUri, {
+        did: 'did:plc:cmt',
+        handle: 'mari.local.coves.dev',
+      }),
+    ).toBe(`${threadPostPath}/comment/mari.local.coves.dev/3lc`)
   })
 
-  it('produces a ref that postLink renders with a DID slug (no handle)', () => {
-    const uri =
-      'at://did:plc:gaming1/social.coves.community.post/rkey123' as AtUri
-    expect(postLink(postLinkRefFromUri(uri))).toBe(
-      '/c/did%3Aplc%3Agaming1/post/rkey123',
+  it('emits the percent-encoded comment URI authority when no commenter is passed', () => {
+    expect(commentLink(threadPost, cmtUri)).toBe(
+      `${threadPostPath}/comment/did%3Aplc%3Acmt/3lc`,
     )
   })
 
-  it('composes with commentLink into a full comment permalink', () => {
-    const postUri =
-      'at://did:plc:books1/social.coves.community.post/postrk' as AtUri
-    const commentUri =
-      'at://did:plc:commenter/social.coves.community.comment/commentrk' as AtUri
-    expect(commentLink(postLinkRefFromUri(postUri), commentUri)).toBe(
-      '/c/did%3Aplc%3Abooks1/post/postrk/comment/commentrk',
+  it('ignores a commenter whose DID is not the comment URI authority', () => {
+    expect(
+      commentLink(threadPost, cmtUri, {
+        did: 'did:plc:someoneelse',
+        handle: 'other.local.coves.dev',
+      }),
+    ).toBe(`${threadPostPath}/comment/did%3Aplc%3Acmt/3lc`)
+  })
+
+  it('falls back to the DID when the owning commenter carries no handle', () => {
+    expect(commentLink(threadPost, cmtUri, { did: 'did:plc:cmt' })).toBe(
+      `${threadPostPath}/comment/did%3Aplc%3Acmt/3lc`,
     )
   })
 })

@@ -43,6 +43,7 @@ export function buildFreshPostView(args: {
   title?: string
   content?: string
   url?: string
+  labels?: unknown
 }): PostView | undefined {
   const viewer = profile.current
   if (viewer.type !== 'authenticated') return undefined
@@ -76,6 +77,7 @@ export function buildFreshPostView(args: {
       createdAt,
       title: args.title,
       content: args.content,
+      labels: args.labels,
     },
     embed: args.url
       ? { $type: 'social.coves.embed.external', external: { uri: args.url } }

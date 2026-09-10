@@ -4,24 +4,13 @@
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { communityAddress } from '$lib/app/util/community'
   import { placeholders } from '$lib/app/util/placeholders'
-  import { isWebUrl } from '$lib/app/util/url'
   import FreeTextInput from '$lib/ui/form/FreeTextInput.svelte'
-  import ImageInputModal from '$lib/ui/form/ImageInputModal.svelte'
   import ObjectAutocomplete from '$lib/ui/form/ObjectAutocomplete.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import ErrorContainer, { pushError } from '$lib/ui/info/ErrorContainer.svelte'
   import { Header } from '$lib/ui/layout'
-  import {
-    Button,
-    ButtonGroup,
-    Label,
-    modal,
-    Switch,
-    TextArea,
-    TextInput,
-  } from '$lib/ui/kit'
+  import { Button, Label, Switch, TextInput } from '$lib/ui/kit'
   import { untrack, type Snippet } from 'svelte'
-  import { Image, MessageSquareText, QrCode } from '$lib/ui/kit/icon'
   import { PostFormState, type PostSubmitResult } from './post-form.svelte'
 
   interface Props {
@@ -37,30 +26,10 @@
   let form = $state<PostFormState>(untrack(() => init) ?? new PostFormState())
 
   let loading = $state<boolean>(false)
-  let uploadImage = $state(false)
-  let customThumbnail = $state(false)
 
   // autofillPost was removed as it depends on the Lemmy getSiteMetadata API.
   // TODO(coves-migration): re-enable when a Coves equivalent is available.
 </script>
-
-{#if uploadImage}
-  <ImageInputModal
-    bind:open={uploadImage}
-    bind:imageUrl={() => '', (v) => (form.url = v)}
-  />
-{/if}
-
-{#if customThumbnail}
-  <ImageInputModal
-    bind:open={customThumbnail}
-    bind:imageUrl={() => form.thumbnail, (v) => (form.thumbnail = v)}
-  />
-{/if}
-
-{#snippet altText()}
-  <TextArea bind:value={form.altText} />
-{/snippet}
 
 <form
   onsubmit={(e) => {
@@ -146,51 +115,6 @@
     bind:value={form.url}
     placeholder={placeholders.get('url')}
   />
-
-  <div class="flex flex-row overflow-auto gap-2 -mx-3 px-3 relative">
-    <div
-      class="bg-gradient-to-r from-slate-25 to-slate-25/0 dark:from-zinc-925 dark:to-zinc-925/0 absolute left-0 w-3 h-full z-10"
-    ></div>
-    <div
-      class="bg-gradient-to-l from-slate-25 to-slate-25/0 dark:from-zinc-925 dark:to-zinc-925/0 absolute right-0 w-3 h-full z-10"
-    ></div>
-    <ButtonGroup
-      orientation="horizontal"
-      class="flex flex-row *:flex-shrink-0 w-full"
-    >
-      <Button
-        onclick={() => {
-          uploadImage = !uploadImage
-        }}
-        icon={Image}
-      >
-        {$t('form.post.uploadImage')}
-      </Button>
-      {#if form.url && isWebUrl(form.url)}
-        <Button
-          class="animate-pop-in"
-          color={(form.altText ?? '') != '' ? 'primary' : 'secondary'}
-          onclick={() =>
-            modal({ title: $t('form.post.altText'), snippet: altText })}
-          icon={MessageSquareText}
-        >
-          {$t('form.post.altText')}
-        </Button>
-      {/if}
-      {#if form.url}
-        <Button
-          class="animate-pop-in"
-          onclick={() => {
-            customThumbnail = !customThumbnail
-          }}
-          color={form.thumbnail ? 'primary' : 'secondary'}
-          icon={QrCode}
-        >
-          {$t('form.post.customThumbnail')}
-        </Button>
-      {/if}
-    </ButtonGroup>
-  </div>
 
   <Switch bind:checked={form.nsfw}>{$t('form.post.nsfw')}</Switch>
 

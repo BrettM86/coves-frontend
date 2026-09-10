@@ -10,9 +10,7 @@ import type {
 import { buildFreshPostView } from '$lib/feature/post/fresh-post'
 
 export type CommunityFormValue =
-  | CommunityRef
-  | CommunityView
-  | CommunityViewDetailed
+  CommunityRef | CommunityView | CommunityViewDetailed
 
 /** Result returned from PostFormState.submit(), containing both the API output and community context. */
 export interface PostSubmitResult extends CreatePostOutput {
@@ -31,8 +29,12 @@ export type PostFormInit = {
   body?: string
   url?: string
   nsfw?: boolean
-  alt_text?: string
-  thumbnail?: string
+}
+
+/** Self-label attached to a post the author marked NSFW. */
+const NSFW_SELF_LABELS = {
+  $type: 'com.atproto.label.defs#selfLabels',
+  values: [{ val: 'nsfw' }],
 }
 
 export class PostFormState {
@@ -42,8 +44,6 @@ export class PostFormState {
   body?: string
   url?: string
   nsfw: boolean
-  altText?: string
-  thumbnail?: string
 
   constructor(post?: PostFormInit) {
     this.community = $state(post?.community)
@@ -51,8 +51,6 @@ export class PostFormState {
     this.body = $state(post?.body)
     this.url = $state(post?.url)
     this.nsfw = $state(post?.nsfw ?? false)
-    this.altText = $state(post?.alt_text)
-    this.thumbnail = $state()
   }
 
   validate(): string | null {
@@ -70,6 +68,10 @@ export class PostFormState {
     // After validate() passes, community is guaranteed to be defined
     const community = this.community!
 
+    // Read once, before the request: the toggle is a live form field, so the
+    // optimistic view below has to use the label the record was sent with.
+    const labels = this.nsfw ? NSFW_SELF_LABELS : undefined
+
     const result = await coves().createPost({
       community: community.did,
       title: this.title || undefined,
@@ -81,11 +83,10 @@ export class PostFormState {
       embed: this.url
         ? { $type: 'social.coves.embed.external', external: { uri: this.url } }
         : undefined,
+      // Omit the key when unlabelled so the input object matches the wire
+      // shape (JSON drops undefined values) and tests can assert on it as is.
+      ...(labels ? { labels } : {}),
     })
-
-    // TODO(coves-api): The UI collects nsfw, altText, and thumbnail but
-    // CreatePostInput does not accept these fields yet. Wire them up once
-    // the Coves API supports them (this.nsfw, this.altText, this.thumbnail).
 
     return {
       ...result,
@@ -96,6 +97,7 @@ export class PostFormState {
         title: this.title || undefined,
         content: this.body || undefined,
         url: this.url || undefined,
+        labels,
       }),
     }
   }

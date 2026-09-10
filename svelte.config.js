@@ -29,6 +29,19 @@ const config = {
       // and owns every remaining directive at runtime.
       directives: {
         'script-src': ['self'],
+        // Handler attributes only. `unsafe-hashes` + sha256 admit one inline
+        // handler body: Svelte's SSR event-replay stub `this.__e=event`,
+        // stamped on every element with an onload/onerror handler. Nonces
+        // cannot cover handler attributes, and without this the stub is
+        // refused and image error fallbacks never fire for anything that
+        // fails before hydration. Kept out of `script-src` so the exception
+        // never reaches script elements or Kit's generated script hashes.
+        // `src/lib/server/ssr-event-replay.test.ts` pins the hash to the
+        // string Svelte actually emits.
+        'script-src-attr': [
+          'unsafe-hashes',
+          'sha256-7dQwUgLau1NFCCGjfn9FsYptB6ZtWxJin6VohGIu20I=',
+        ],
         'base-uri': ['self'],
         'object-src': ['none'],
         'frame-ancestors': ['none'],

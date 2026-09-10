@@ -118,6 +118,17 @@ describe('buildContentSecurityPolicy', () => {
     expect(csp).not.toMatch(/'unsafe-eval'/)
   })
 
+  it('keeps the SSR event-replay script-src-attr directive verbatim', () => {
+    const policy = directives(
+      buildContentSecurityPolicy(
+        "script-src 'self' 'nonce-x'; script-src-attr 'unsafe-hashes' 'sha256-abc='",
+        prod,
+      ),
+    )
+    expect(policy['script-src']).toBe("'self' 'nonce-x'")
+    expect(policy['script-src-attr']).toBe("'unsafe-hashes' 'sha256-abc='")
+  })
+
   it('allows inline style attributes but not inline <style> elements in production', () => {
     const policy = directives(buildContentSecurityPolicy('', prod))
     expect(policy['style-src']).toBe("'self' 'unsafe-inline'")

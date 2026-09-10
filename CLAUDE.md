@@ -16,7 +16,7 @@ pnpm test     # Vitest
 pnpm format   # Prettier
 ```
 
-`pnpm check` and `pnpm lint` must pass before a commit. TDD stores, utilities, load functions, form actions, and other pure logic.
+`pnpm check` and `pnpm lint` must pass before a commit. `pnpm run ci` (lint, check, unit tests, node build, SSR tier) is the merge gate; it mirrors GitHub CI and needs no backend or Docker. TDD stores, utilities, load functions, form actions, and other pure logic.
 
 ## Svelte 5, not Svelte 4
 

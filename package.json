@@ -58,7 +58,8 @@
     "lint": "eslint . --max-warnings 0",
     "test:ci": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:ssr": "vitest --run --config vitest.ssr.config.ts"
+    "test:ssr": "vitest --run --config vitest.ssr.config.ts",
+    "ci": "pnpm lint && pnpm check && pnpm test:ci && ADAPTER=node pnpm build && pnpm test:ssr"
   },
   "type": "module",
   "pnpm": {

@@ -241,7 +241,7 @@
 </div>
 
 <style>
-  @reference '../../../../../app.css';
+  @reference '../../../../../../app.css';
 
   /* Applied transiently by the #comment-<rkey> deep-link effect above:
      a primary-tinted background that fades out over the comment row. */

@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit'
+import { error, redirect } from '@sveltejs/kit'
 import { coves } from '$lib/api/client.svelte'
 import {
   type AtUri,
@@ -13,7 +13,7 @@ import { ReactiveState } from '$lib/app/util/reactive.svelte'
 import { MAX_INLINE_DEPTH } from '$lib/feature/comment/comments.svelte'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
 import { feed } from '$lib/feature/feeds/feed.svelte'
-import { buildPostAtUri } from '$lib/feature/post/helpers'
+import { buildPostAtUri, canonicalCommentPath } from '$lib/feature/post/helpers'
 import {
   addressesRecord,
   fetchExactPost,
@@ -145,6 +145,11 @@ export async function load({ params, url, fetch, route }) {
       // Already resolved, but kept as a promise so the page shares the post
       // page's {#await}/reload shape.
       comments: Promise.resolve(subtree.comments),
+      // The focused comment's author, which supplies the handle form of the
+      // commenter segment the canonical permalink is built from. It rides
+      // beside `focused` rather than inside it because `focused` describes the
+      // comment the page renders, not the repo the URL addresses it by.
+      commentAuthor: root.comment.author,
       focused: {
         uri: root.comment.uri,
         rkey: parseAtUri(root.comment.uri).rkey,
@@ -169,13 +174,28 @@ export async function load({ params, url, fetch, route }) {
     }),
   )
 
+  // The commenter and crkey segments are checked against the record above, and
+  // an unknown comment has already 404ed inside the init, so by here the post
+  // and the focused comment both exist. What is still unchecked is which of
+  // their many working aliases the URL used — the community slug, and the DID
+  // form of either actor segment — so send the browser to the one URL
+  // `commentLink` emits and a comment has one address.
+  // 302, not 301: see canonicalPostPath.
+  const { post, focused, commentAuthor } = loaded.value
+  const canonical = canonicalCommentPath(
+    post,
+    { uri: focused.uri, author: commentAuthor },
+    params,
+  )
+  if (canonical) redirect(302, `${canonical}${url.search}`)
+
   return {
     data: loaded,
     communityHandle,
     slots: {
       sidebar: {
         component: CommunityCard,
-        props: { community: loaded.value.post.community },
+        props: { community: post.community },
       },
     },
   }

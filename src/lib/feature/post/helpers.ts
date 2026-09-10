@@ -1,7 +1,8 @@
 import type { AtUri, PostEmbed } from '$lib/api/coves/types'
 import { parseAtUri } from '$lib/api/coves/types'
 import { isImage, isVideo, isWebUrl } from '$lib/app/util/url'
-import { communityLink } from '$lib/app/util/links'
+import { communityLink, communityRouteParam } from '$lib/app/util/links'
+import { usableHandle } from '$lib/types/atproto'
 import { STREAMABLE_EMBED_ORIGIN } from '$lib/app/util/embed-hosts'
 import {
   type ImagePreset,
@@ -156,13 +157,15 @@ export interface PostLinkRef {
  * The permalink segment naming the repo a record lives in. Defaults to the
  * record's AT-URI authority DID; the prettier handle is substituted only when
  * `ref` proves it belongs to that same repo, so the segment always addresses
- * the record that actually exists.
+ * the record that actually exists. An unresolved `handle.invalid` counts as no
+ * handle (see {@link usableHandle}) — emitting it would route to a dead end.
  */
 function repoSegment(
   authority: string,
   ref: { did: string; handle?: string } | undefined,
 ): string {
-  return ref?.did === authority && ref.handle ? ref.handle : authority
+  const handle = ref?.did === authority ? usableHandle(ref.handle) : undefined
+  return handle ?? authority
 }
 
 /**
@@ -222,6 +225,61 @@ export function commentLink(
   const { did, rkey } = parseAtUri(commentUri)
   const segment = repoSegment(did, commenter)
   return `${postLink(post)}/comment/${encodeURIComponent(segment)}/${encodeURIComponent(rkey)}`
+}
+
+/**
+ * The path a post URL should be redirected to, or null when it is already the
+ * canonical one {@link postLink} emits.
+ *
+ * A post is reachable through several working aliases — the community's DID or
+ * DNS handle in place of its canonical `name` / `name@origin` param, the
+ * author's DID in place of their handle — and every alias resolves to the same
+ * record. Only one of them is the link builders' output, so loaders redirect
+ * the rest to it, keeping one URL per post for sharing, history and crawlers.
+ *
+ * Callers must redirect with 302, never 301. The canonical community segment
+ * depends on `LOCAL_INSTANCE_DOMAIN`, which is deployment config
+ * (`PUBLIC_INSTANCE_DOMAIN`, or the hostname of `PUBLIC_INSTANCE_URL`), and
+ * browsers cache 301s indefinitely by default. A 301 issued under a
+ * misconfigured domain would keep bouncing visitors to the wrong form — and,
+ * once the config is fixed, into a cached loop — with no way to clear it
+ * server-side.
+ *
+ * @param params - The route params as SvelteKit hands them to a loader, which
+ *   is to say fully decoded. They are compared against the unencoded segment
+ *   values {@link postLink} builds from, never against the encoded path.
+ */
+export function canonicalPostPath(
+  post: PostLinkRef,
+  params: { handle: string; owner: string },
+): string | null {
+  const { did } = parseAtUri(post.uri as AtUri)
+  const canonical =
+    params.handle === communityRouteParam(post.community) &&
+    params.owner === repoSegment(did, post.author)
+  return canonical ? null : postLink(post)
+}
+
+/**
+ * The path a comment permalink should be redirected to, or null when it is
+ * already the canonical one {@link commentLink} emits. The comment-page
+ * counterpart of {@link canonicalPostPath}: the post's two segments must match
+ * on top of the commenter segment, so a stale community or owner alias in a
+ * comment URL is corrected the same way it is on the post page.
+ *
+ * @param params - The decoded route params, compared against the unencoded
+ *   segment values, exactly as in {@link canonicalPostPath}.
+ */
+export function canonicalCommentPath(
+  post: PostLinkRef,
+  comment: { uri: AtUri; author?: { did: string; handle?: string } },
+  params: { handle: string; owner: string; commenter: string },
+): string | null {
+  const { did } = parseAtUri(comment.uri)
+  const canonical =
+    canonicalPostPath(post, params) === null &&
+    params.commenter === repoSegment(did, comment.author)
+  return canonical ? null : commentLink(post, comment.uri, comment.author)
 }
 
 export type MediaType = 'video' | 'image' | 'iframe' | 'embed' | 'none'

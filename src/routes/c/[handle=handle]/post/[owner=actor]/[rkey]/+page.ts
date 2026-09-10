@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit'
+import { error, redirect } from '@sveltejs/kit'
 import { coves } from '$lib/api/client.svelte'
 import {
   type AtUri,
@@ -20,7 +20,7 @@ import {
   type FeedTypes,
 } from '$lib/feature/feeds/feed.svelte'
 import { takeFreshPost } from '$lib/feature/post/fresh-post'
-import { buildPostAtUri } from '$lib/feature/post/helpers'
+import { buildPostAtUri, canonicalPostPath } from '$lib/feature/post/helpers'
 import {
   addressesRecord,
   fetchExactPost,
@@ -181,6 +181,11 @@ export async function load({ params, url, fetch, route }) {
       ? Promise.resolve([])
       : client.getComments(comments).then((r) => r.comments)
 
+    // The canonical redirect below may abandon this promise; claim its
+    // rejection now so it cannot escape as an unhandled one. The page still
+    // receives the original promise, so its `{#await}` sees the real failure.
+    void commentsPromise.catch(() => undefined)
+
     return {
       post: result,
       comments: commentsPromise,
@@ -207,10 +212,24 @@ export async function load({ params, url, fetch, route }) {
     }),
   )
 
+  // The owner and rkey segments are checked against the record itself, but the
+  // community segment is not, so one post is reachable through every community
+  // slug the matcher admits. Once the post has hydrated it names its own
+  // canonical URL; send the browser there so a post has one address.
+  // 302, not 301: see canonicalPostPath.
+  //
+  // An unavailable post carries no community ref to canonicalise against, so
+  // it renders its "post removed" state on whatever slug was asked for.
+  const hydrated = loaded.value?.post
+  if (hydrated) {
+    const canonical = canonicalPostPath(hydrated, params)
+    if (canonical) redirect(302, `${canonical}${url.search}`)
+  }
+
   // The community ref rides along on the post. When the post is unavailable
   // there's nothing to populate the card with, so fall back to the default
   // sidebar (omitting the slot) rather than rendering a broken CommunityCard.
-  const community = loaded.value?.post?.community
+  const community = hydrated?.community
 
   return {
     data: loaded,

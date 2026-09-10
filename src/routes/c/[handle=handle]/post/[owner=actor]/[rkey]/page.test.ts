@@ -62,8 +62,31 @@ vi.mock('$lib/api/coves/sort', () => ({
   mapSort: () => ({ sort: 'hot' }),
 }))
 
+// Pinned so `LOCAL_INSTANCE_DOMAIN` is a real domain rather than null: the
+// canonical community segment depends on it whenever a ref carries an origin.
+vi.mock('$env/dynamic/public', () => ({
+  env: { PUBLIC_INSTANCE_URL: 'https://coves.social' },
+}))
+
+// `buildFreshPostView` reads the signed-in viewer off `profile.current`, whose
+// real module touches localStorage at import time.
+vi.mock('$lib/app/state/auth.svelte', () => ({
+  profile: {
+    current: {
+      type: 'authenticated',
+      did: 'did:plc:author',
+      handle: 'mari.local.coves.dev',
+      avatar: undefined,
+    },
+  },
+}))
+
+import type { AtUri, CID, CreatePostOutput } from '$lib/api/coves/types'
+import type { DID, Handle } from '$lib/types/atproto'
 import { XrpcError } from '$lib/api/coves/xrpc'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
+import { buildFreshPostView, stashFreshPost } from '$lib/feature/post/fresh-post'
+import { createdPostLink } from '$lib/feature/post/owner'
 import { load } from './+page'
 
 const OWNER_DID = 'did:plc:author'
@@ -88,7 +111,9 @@ function makeArgs(overrides?: {
   query?: string
 }): Parameters<typeof load>[0] {
   const handle = overrides?.handle ?? COMMUNITY_HANDLE
-  const owner = overrides?.owner ?? OWNER_DID
+  // The canonical owner form for the default fixture: its author carries a
+  // handle and owns the record, so a DID here would now be a redirecting alias.
+  const owner = overrides?.owner ?? OWNER_HANDLE
   const rkey = overrides?.rkey ?? RKEY
   const query = overrides?.query ?? ''
   return {
@@ -116,6 +141,39 @@ function hydratedPost(uri: string) {
     },
     record: { title: 'Hello', content: 'World' },
   }
+}
+
+/**
+ * The same fixture with no author ref — nothing proves a handle for the repo
+ * the record lives in, so the URI authority DID is its canonical owner segment.
+ */
+function authorlessPost(uri: string): Record<string, unknown> {
+  const { author: _author, ...rest } = hydratedPost(uri)
+  return rest
+}
+
+/** The one URL this fixture's post is canonically addressed by. */
+const CANONICAL_PATH = `/c/${COMMUNITY_HANDLE}/post/${OWNER_HANDLE}/${RKEY}`
+
+const PERMALINK_PATTERN = /^\/c\/([^/]+)\/post\/([^/]+)\/([^/]+)$/
+
+/**
+ * Turns a redirect `location` back into loader args, standing in for the
+ * router. Used to prove a redirect target does not itself redirect.
+ */
+function argsFromLocation(location: string): Parameters<typeof load>[0] {
+  const [path, query] = location.split('?')
+  const match = PERMALINK_PATTERN.exec(path)
+  if (!match) {
+    throw new Error(`redirect location is not a post permalink: ${location}`)
+  }
+  const [, handle, owner, rkey] = match
+  return makeArgs({
+    handle: decodeURIComponent(handle),
+    owner: decodeURIComponent(owner),
+    rkey: decodeURIComponent(rkey),
+    query: query ? `?${query}` : '',
+  })
 }
 
 /**
@@ -180,14 +238,19 @@ describe('post loader', () => {
   // -------------------------------------------------------------------------
 
   it('probes both collections for a DID owner, with no profile lookup', async () => {
-    const result = await load(makeArgs())
+    // The post carries no author ref, so the DID owner segment is canonical
+    // here and the load runs to completion instead of redirecting.
+    const post = authorlessPost(POSTV2_URI)
+    serve({ [POSTV2_URI]: post })
+
+    const result = await load(makeArgs({ owner: OWNER_DID }))
 
     expect(mockCovesMethods.getProfile).not.toHaveBeenCalled()
     expect(mockCovesMethods.getCommunity).not.toHaveBeenCalled()
     expect(probes()).toEqual([[POSTV2_URI, LEGACY_URI]])
 
     const value = loadedValue(result)
-    expect(value.post).toEqual(hydratedPost(POSTV2_URI))
+    expect(value.post).toEqual(post)
     expect(value.unavailable).toBeUndefined()
     expect(commentedOn()).toBe(POSTV2_URI)
 
@@ -388,5 +451,204 @@ describe('post loader', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  // -------------------------------------------------------------------------
+  // Canonical URL enforcement
+  //
+  // Owner and rkey are checked against the record itself; the community
+  // segment was not, so one post had unlimited working aliases. Once the post
+  // hydrates, any non-canonical segment redirects to the single URL the link
+  // builders emit, carrying the query string across untouched.
+  // -------------------------------------------------------------------------
+
+  it('redirects a wrong community slug to the canonical permalink', async () => {
+    const location = `${CANONICAL_PATH}?sort=top`
+
+    await expect(
+      load(makeArgs({ handle: 'cooking.local.coves.dev', query: '?sort=top' })),
+    ).rejects.toMatchObject({ status: 302, location })
+
+    // The target is stable: the second hop renders instead of bouncing on.
+    const result = await load(argsFromLocation(location))
+    expect(loadedValue(result).post).toEqual(hydratedPost(POSTV2_URI))
+  })
+
+  it('preserves a ?uri= param across the canonical redirect', async () => {
+    // The create flow's one-shot hand-off rides in the query string; dropping
+    // it on the redirect would cost the fresh post its retry budget.
+    serve({ [LEGACY_URI]: hydratedPost(LEGACY_URI) })
+    const query = `?uri=${encodeURIComponent(LEGACY_URI)}`
+    const location = `${CANONICAL_PATH}${query}`
+
+    await expect(
+      load(makeArgs({ handle: 'cooking.local.coves.dev', query })),
+    ).rejects.toMatchObject({ status: 302, location })
+
+    const result = await load(argsFromLocation(location))
+    expect(loadedValue(result).post).toEqual(hydratedPost(LEGACY_URI))
+  })
+
+  it('redirects a DID-form community slug to the handle form', async () => {
+    // The DID resolves and the matcher accepts it, so it is a working alias
+    // rather than an error — which is exactly why it needs canonicalising.
+    await expect(
+      load(makeArgs({ handle: COMMUNITY_DID })),
+    ).rejects.toMatchObject({ status: 302, location: CANONICAL_PATH })
+
+    const result = await load(argsFromLocation(CANONICAL_PATH))
+    expect(loadedValue(result).post).toEqual(hydratedPost(POSTV2_URI))
+  })
+
+  it('redirects a DID-form owner segment to the author handle form', async () => {
+    await expect(load(makeArgs({ owner: OWNER_DID }))).rejects.toMatchObject({
+      status: 302,
+      location: CANONICAL_PATH,
+    })
+
+    const result = await load(argsFromLocation(CANONICAL_PATH))
+    expect(loadedValue(result).post).toEqual(hydratedPost(POSTV2_URI))
+  })
+
+  it('does not redirect a URL that is already canonical', async () => {
+    const result = await load(makeArgs({ query: '?sort=top' }))
+
+    const value = loadedValue(result)
+    expect(value.post).toEqual(hydratedPost(POSTV2_URI))
+    expect(value.unavailable).toBeUndefined()
+  })
+
+  it('renders a just-created post on the URL the create flow redirects to', async () => {
+    // The create flow writes the record, stashes an optimistic view, and
+    // navigates to `createdPostLink`. That link is built from the community
+    // the form was submitted against — which carries `origin`, so its
+    // canonical segment is the bare name. If the stashed view canonicalises
+    // to anything else the very first load redirects, and the one-shot stash
+    // is spent on a URL nobody renders.
+    const community = {
+      did: COMMUNITY_DID as DID,
+      handle: 'c-gardening.coves.social' as Handle,
+      name: 'gardening',
+      origin: 'coves.social',
+    }
+    const output: CreatePostOutput = {
+      uri: POSTV2_URI as AtUri,
+      cid: 'bafyreigh2akiscaildc' as CID,
+    }
+
+    const view = buildFreshPostView({ output, community })
+    if (!view) throw new Error('buildFreshPostView returned no view')
+    stashFreshPost(view)
+
+    const link = createdPostLink({ ...output, community, post: view })
+    const [path, query] = link.split('?')
+    expect(path).toBe(`/c/gardening/post/${OWNER_HANDLE}/${RKEY}`)
+
+    const result = await load(
+      makeArgs({ handle: 'gardening', query: `?${query}` }),
+    )
+
+    expect(loadedValue(result).post).toEqual(view)
+    // The stash answered the load outright; nothing was fetched.
+    expect(mockCovesMethods.getPosts).not.toHaveBeenCalled()
+  })
+
+  it('does not leak an unhandled rejection when it redirects away from an alias', async () => {
+    // The feed init fires the comments request and hands the promise back for
+    // the page to stream. A redirect throws past that return value, so nobody
+    // is left to observe a failure — and in Node an unobserved rejection is a
+    // process-level warning (a crash under --unhandled-rejections=strict).
+    mockCovesMethods.getComments.mockRejectedValue(new Error('comments down'))
+
+    const unhandled: unknown[] = []
+    const onUnhandled = (reason: unknown): void => {
+      unhandled.push(reason)
+    }
+    process.on('unhandledRejection', onUnhandled)
+
+    try {
+      await expect(
+        load(
+          makeArgs({ handle: 'cooking.local.coves.dev', query: '?sort=top' }),
+        ),
+      ).rejects.toMatchObject({
+        status: 302,
+        location: `${CANONICAL_PATH}?sort=top`,
+      })
+
+      // Node reports an unobserved rejection only once the microtask queue
+      // has drained, so give it a turn of the event loop before asserting.
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(unhandled).toEqual([])
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+    }
+  })
+
+  it('still hands the page a rejecting comments promise on a canonical URL', async () => {
+    // The guard above must not become a blanket swallow: when the page does
+    // render, a failed comments fetch has to reach its {#await} as an error
+    // rather than an empty thread.
+    mockCovesMethods.getComments.mockRejectedValue(new Error('comments down'))
+
+    const result = await load(makeArgs())
+
+    await expect(loadedValue(result).comments).rejects.toThrow('comments down')
+  })
+
+  it('redirects a remote community to its name@origin form, @ left literal', async () => {
+    // A bridged Lemmy community. `@` is a legal path character, and encoding
+    // it would make the canonical URL unreadable — and would not survive the
+    // round trip back through the router as the same param.
+    const remotePost = {
+      ...hydratedPost(POSTV2_URI),
+      community: {
+        did: COMMUNITY_DID,
+        handle: 'gaming.lemmy-world.tdpl.io',
+        name: 'gaming',
+        origin: 'lemmy.world',
+      },
+    }
+    serve({ [POSTV2_URI]: remotePost })
+    const location = `/c/gaming@lemmy.world/post/${OWNER_HANDLE}/${RKEY}`
+
+    await expect(
+      load(makeArgs({ handle: 'gaming.lemmy-world.tdpl.io' })),
+    ).rejects.toMatchObject({ status: 302, location })
+
+    // Replayed through the router, the `@` decodes back to itself, so the
+    // target is canonical and does not bounce.
+    const result = await load(argsFromLocation(location))
+    expect(loadedValue(result).post).toEqual(remotePost)
+  })
+
+  it('does not redirect a community-owned legacy post addressed by the community DID', async () => {
+    // The record lives in the community's repo, so the author's handle would
+    // address a record that does not exist. The authority DID is canonical
+    // here, and nothing needs resolving to know it.
+    const communityOwnedUri = `at://${COMMUNITY_DID}/${LEGACY_POST_COLLECTION}/${RKEY}`
+    const legacy = hydratedPost(communityOwnedUri)
+    serve({ [communityOwnedUri]: legacy })
+
+    const result = await load(makeArgs({ owner: COMMUNITY_DID }))
+
+    const value = loadedValue(result)
+    expect(value.post).toEqual(legacy)
+    expect(value.unavailable).toBeUndefined()
+    expect(mockCovesMethods.getProfile).not.toHaveBeenCalled()
+  })
+
+  it('does not redirect an unavailable post, whatever the slug', async () => {
+    // There is no hydrated community ref to canonicalise against, so the
+    // "post removed" state must render rather than bounce.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    serve({})
+
+    const result = await load(makeArgs({ handle: 'cooking.local.coves.dev' }))
+
+    expect(loadedValue(result).unavailable).toBe('notFound')
+
+    warn.mockRestore()
   })
 })

@@ -13,6 +13,8 @@ import {
   bestImageURL,
   buildLegacyPostAtUri,
   buildPostAtUri,
+  canonicalCommentPath,
+  canonicalPostPath,
   commentLink,
   decodeCrosspostDraft,
   encodeCrosspostDraft,
@@ -30,6 +32,7 @@ import {
   streamableEmbedUrl,
 } from './helpers'
 import { EMBED_FRAME_ORIGINS } from '$lib/app/util/embed-hosts'
+import { INVALID_HANDLE } from '$lib/types/atproto'
 
 vi.mock('$env/dynamic/public', () => ({
   env: { PUBLIC_INSTANCE_URL: 'https://coves.social' },
@@ -991,6 +994,218 @@ describe('commentLink', () => {
     expect(commentLink(threadPost, cmtUri, { did: 'did:plc:cmt' })).toBe(
       `${threadPostPath}/comment/did%3Aplc%3Acmt/3lc`,
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// canonicalPostPath() / canonicalCommentPath()
+//
+// The route-canonicalisation rule, kept beside the link builders it mirrors:
+// given the hydrated record and the DECODED route params SvelteKit hands a
+// loader, return the path to redirect to, or null when the URL is already the
+// one the link builder would emit. The returned path is percent-encoded (it is
+// a URL); the params compared against it are not.
+// ---------------------------------------------------------------------------
+
+const OWNED_URI = 'at://did:plc:author/social.coves.community.postv2/3lrkey'
+const AUTHOR = { did: 'did:plc:author', handle: 'mari.local.coves.dev' }
+const GARDENING = {
+  did: 'did:plc:comm',
+  handle: 'gardening.local.coves.dev',
+  name: 'gardening',
+}
+
+describe('canonicalPostPath', () => {
+  const post = { uri: OWNED_URI, community: GARDENING, author: AUTHOR }
+
+  it('returns null when both params already match the link postLink emits', () => {
+    expect(
+      canonicalPostPath(post, {
+        handle: 'gardening.local.coves.dev',
+        owner: 'mari.local.coves.dev',
+      }),
+    ).toBeNull()
+  })
+
+  it('returns the canonical path when the community segment names another community', () => {
+    expect(
+      canonicalPostPath(post, {
+        handle: 'cooking.local.coves.dev',
+        owner: 'mari.local.coves.dev',
+      }),
+    ).toBe(postLink(post))
+  })
+
+  it('returns the canonical path for a DID-form community param', () => {
+    // The DID is matcher-valid and resolves, so it is a working alias — but
+    // the handle/name form is the one link builders emit.
+    expect(
+      canonicalPostPath(post, {
+        handle: 'did:plc:comm',
+        owner: 'mari.local.coves.dev',
+      }),
+    ).toBe('/c/gardening.local.coves.dev/post/mari.local.coves.dev/3lrkey')
+  })
+
+  it('returns the canonical path for a DID-form owner param when the author has a handle', () => {
+    expect(
+      canonicalPostPath(post, {
+        handle: 'gardening.local.coves.dev',
+        owner: 'did:plc:author',
+      }),
+    ).toBe('/c/gardening.local.coves.dev/post/mari.local.coves.dev/3lrkey')
+  })
+
+  it('accepts a DID owner param when the post carries no author ref', () => {
+    // Nothing proves a handle for that repo, so the DID is canonical.
+    expect(
+      canonicalPostPath(
+        { uri: OWNED_URI, community: GARDENING },
+        { handle: 'gardening.local.coves.dev', owner: 'did:plc:author' },
+      ),
+    ).toBeNull()
+  })
+
+  it('accepts a DID owner param for a legacy community-owned post', () => {
+    // The record lives in the community's repo; the author is a different
+    // DID, so substituting their handle would address a record that does not
+    // exist. The authority DID stays canonical.
+    const legacy = {
+      uri: 'at://did:plc:comm/social.coves.community.post/3lrkey',
+      community: GARDENING,
+      author: AUTHOR,
+    }
+    expect(
+      canonicalPostPath(legacy, {
+        handle: 'gardening.local.coves.dev',
+        owner: 'did:plc:comm',
+      }),
+    ).toBeNull()
+  })
+
+  it('canonicalises a remote community to its name@origin form', () => {
+    // A bridged Lemmy community: its DNS handle resolves and the matcher
+    // accepts it, but `name@origin` is the address link builders emit.
+    const remote = {
+      uri: OWNED_URI,
+      community: {
+        did: 'did:plc:comm',
+        handle: 'gaming.lemmy-world.tdpl.io',
+        name: 'gaming',
+        origin: 'lemmy.world',
+      },
+      author: AUTHOR,
+    }
+    const canonical = '/c/gaming@lemmy.world/post/mari.local.coves.dev/3lrkey'
+
+    expect(
+      canonicalPostPath(remote, {
+        handle: 'gaming@lemmy.world',
+        owner: 'mari.local.coves.dev',
+      }),
+    ).toBeNull()
+    expect(
+      canonicalPostPath(remote, {
+        handle: 'gaming.lemmy-world.tdpl.io',
+        owner: 'mari.local.coves.dev',
+      }),
+    ).toBe(canonical)
+    expect(
+      canonicalPostPath(remote, {
+        handle: 'did:plc:comm',
+        owner: 'mari.local.coves.dev',
+      }),
+    ).toBe(canonical)
+  })
+
+  it('canonicalises a local-origin community to its bare name', () => {
+    // PUBLIC_INSTANCE_URL is pinned to coves.social at the top of this file.
+    const local = {
+      uri: OWNED_URI,
+      community: {
+        did: 'did:plc:comm',
+        handle: 'c-gaming.coves.social',
+        name: 'gaming',
+        origin: 'coves.social',
+      },
+      author: AUTHOR,
+    }
+    expect(
+      canonicalPostPath(local, {
+        handle: 'gaming',
+        owner: 'mari.local.coves.dev',
+      }),
+    ).toBeNull()
+    expect(
+      canonicalPostPath(local, {
+        handle: 'gaming.coves.social',
+        owner: 'mari.local.coves.dev',
+      }),
+    ).toBe('/c/gaming/post/mari.local.coves.dev/3lrkey')
+  })
+})
+
+describe('canonicalCommentPath', () => {
+  const post = { uri: OWNED_URI, community: GARDENING, author: AUTHOR }
+  const comment = {
+    uri: 'at://did:plc:cmt/social.coves.community.comment/3lc' as AtUri,
+    author: { did: 'did:plc:cmt', handle: 'ravi.local.coves.dev' },
+  }
+  const canonicalParams = {
+    handle: 'gardening.local.coves.dev',
+    owner: 'mari.local.coves.dev',
+    commenter: 'ravi.local.coves.dev',
+  }
+
+  it('returns null when all three params match the link commentLink emits', () => {
+    expect(canonicalCommentPath(post, comment, canonicalParams)).toBeNull()
+  })
+
+  it('returns the canonical comment path when the community segment is wrong', () => {
+    expect(
+      canonicalCommentPath(post, comment, {
+        ...canonicalParams,
+        handle: 'cooking.local.coves.dev',
+      }),
+    ).toBe(commentLink(post, comment.uri, comment.author))
+  })
+
+  it('returns the canonical comment path for a DID-form commenter param', () => {
+    expect(
+      canonicalCommentPath(post, comment, {
+        ...canonicalParams,
+        commenter: 'did:plc:cmt',
+      }),
+    ).toBe(
+      '/c/gardening.local.coves.dev/post/mari.local.coves.dev/3lrkey/comment/ravi.local.coves.dev/3lc',
+    )
+  })
+})
+
+describe('unresolved author handles (handle.invalid)', () => {
+  // `handle.invalid` is what ATProto serves for a handle that no longer
+  // resolves. Emitting it as the owner segment would send a working DID URL
+  // to a 404, so both the link builder and the canonicalisation rule must
+  // treat it as no handle at all.
+  const post = {
+    uri: OWNED_URI,
+    community: GARDENING,
+    author: { did: 'did:plc:author', handle: INVALID_HANDLE },
+  }
+
+  it('postLink emits the DID owner segment for an unresolved author handle', () => {
+    expect(postLink(post)).toBe(
+      '/c/gardening.local.coves.dev/post/did%3Aplc%3Aauthor/3lrkey',
+    )
+  })
+
+  it('canonicalPostPath accepts the DID owner param for an unresolved author handle', () => {
+    expect(
+      canonicalPostPath(post, {
+        handle: 'gardening.local.coves.dev',
+        owner: 'did:plc:author',
+      }),
+    ).toBeNull()
   })
 })
 

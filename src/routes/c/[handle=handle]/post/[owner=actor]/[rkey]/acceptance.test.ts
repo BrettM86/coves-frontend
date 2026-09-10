@@ -56,6 +56,12 @@ vi.mock('$lib/api/coves/sort', () => ({
   mapSort: () => ({ sort: 'hot' }),
 }))
 
+// Pinned so `LOCAL_INSTANCE_DOMAIN` is a real domain rather than null: the
+// canonical community segment depends on it whenever a ref carries an origin.
+vi.mock('$env/dynamic/public', () => ({
+  env: { PUBLIC_INSTANCE_URL: 'https://coves.social' },
+}))
+
 import { postLink } from '$lib/feature/post/helpers'
 import { load } from './+page'
 
@@ -72,6 +78,10 @@ const POSTV2_URI = `at://${AUTHOR_DID}/${POST_COLLECTION}/${RKEY}`
 const LEGACY_URI = `at://${AUTHOR_DID}/${LEGACY_POST_COLLECTION}/${RKEY}`
 
 const EXPECTED_LINK = `/c/${COMMUNITY_HANDLE}/post/${AUTHOR_HANDLE}/${RKEY}`
+
+// A different, perfectly valid community slug: the post is not in it, so a
+// permalink built on it is an alias that must not render.
+const OTHER_COMMUNITY_HANDLE = 'cooking.local.coves.dev'
 
 // An author-owned post: the URI authority is the author's DID, not the
 // community's. Assigned to a variable (not passed as a fresh object literal)
@@ -192,6 +202,31 @@ describe('owner-carrying post permalink (acceptance)', () => {
     expect(mockCovesMethods.getCommunity).not.toHaveBeenCalled()
 
     // 5. The hydrated post reaches the page.
+    const value = loadedValue(result)
+    expect(value.post).toEqual(post)
+    expect(value.unavailable).toBeUndefined()
+  })
+
+  it('redirects a wrong community segment to the canonical permalink, which then loads without bouncing', async () => {
+    const canonicalPath = postLink(post)
+    const search = '?sort=top'
+
+    // Same owner and rkey — only the community segment is an alias.
+    const aliasPath = `/c/${OTHER_COMMUNITY_HANDLE}/post/${AUTHOR_HANDLE}/${RKEY}`
+    expect(aliasPath).not.toBe(canonicalPath)
+
+    await expect(
+      load(makeArgs(routeParamsFromLink(aliasPath), aliasPath + search)),
+    ).rejects.toMatchObject({
+      status: 302,
+      location: canonicalPath + search,
+    })
+
+    // ...and the target of that redirect is stable: it resolves to the post
+    // instead of bouncing on to another location.
+    const result = await load(
+      makeArgs(routeParamsFromLink(canonicalPath), canonicalPath + search),
+    )
     const value = loadedValue(result)
     expect(value.post).toEqual(post)
     expect(value.unavailable).toBeUndefined()

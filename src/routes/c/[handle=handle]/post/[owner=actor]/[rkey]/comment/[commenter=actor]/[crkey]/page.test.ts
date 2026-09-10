@@ -57,7 +57,14 @@ vi.mock('$lib/api/coves/sort', () => ({
   mapSort: () => ({ sort: 'hot' }),
 }))
 
+// Pinned so `LOCAL_INSTANCE_DOMAIN` is a real domain rather than null: the
+// canonical community segment depends on it whenever a ref carries an origin.
+vi.mock('$env/dynamic/public', () => ({
+  env: { PUBLIC_INSTANCE_URL: 'https://coves.social' },
+}))
+
 import { XrpcError } from '$lib/api/coves/xrpc'
+import { INVALID_HANDLE } from '$lib/types/atproto'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
 import { load } from './+page'
 
@@ -94,9 +101,12 @@ function makeArgs(overrides?: {
   query?: string
 }): Parameters<typeof load>[0] {
   const handle = overrides?.handle ?? COMMUNITY_HANDLE
-  const owner = overrides?.owner ?? OWNER_DID
+  // The canonical actor forms for the default fixture: both the post author
+  // and the comment author carry handles and own their records, so a DID in
+  // either segment is now a redirecting alias.
+  const owner = overrides?.owner ?? OWNER_HANDLE
   const rkey = overrides?.rkey ?? RKEY
-  const commenter = overrides?.commenter ?? COMMENTER_DID
+  const commenter = overrides?.commenter ?? COMMENTER_HANDLE
   const crkey = overrides?.crkey ?? CRKEY
   const query = overrides?.query ?? ''
   return {
@@ -172,6 +182,70 @@ function subtree(
       },
     ],
   }
+}
+
+/**
+ * The same two fixtures with an author whose handle no longer resolves —
+ * `handle.invalid` is what ATProto serves for one, and it is the shape the
+ * API types actually admit (the handle field is not optional).
+ *
+ * `repoSegment` treats it as absent, so nothing proves a handle for either
+ * repo and the URI authority DIDs are the canonical actor segments. That is
+ * what lets a DID-segment test load without redirecting, and it exercises the
+ * unresolved-handle guard on the way through.
+ */
+function unresolvedAuthorPost(uri: string): ReturnType<typeof hydratedPost> {
+  return {
+    ...hydratedPost(uri),
+    author: { did: OWNER_DID, handle: INVALID_HANDLE },
+  }
+}
+
+function unresolvedCommenterSubtree(
+  crkey: string,
+  parentUri?: string,
+  postUri: string = POSTV2_URI,
+): ReturnType<typeof subtree> {
+  const tree = subtree(crkey, parentUri, postUri)
+  return {
+    ...tree,
+    comments: tree.comments.map((entry) => ({
+      ...entry,
+      comment: {
+        ...entry.comment,
+        author: { did: COMMENTER_DID, handle: INVALID_HANDLE },
+      },
+    })),
+  }
+}
+
+/** The one URL this fixture's comment is canonically addressed by. */
+const CANONICAL_COMMENT_PATH =
+  `/c/${COMMUNITY_HANDLE}/post/${OWNER_HANDLE}/${RKEY}` +
+  `/comment/${COMMENTER_HANDLE}/${CRKEY}`
+
+const COMMENT_PERMALINK_PATTERN =
+  /^\/c\/([^/]+)\/post\/([^/]+)\/([^/]+)\/comment\/([^/]+)\/([^/]+)$/
+
+/**
+ * Turns a redirect `location` back into loader args, standing in for the
+ * router. Used to prove a redirect target does not itself redirect.
+ */
+function argsFromLocation(location: string): Parameters<typeof load>[0] {
+  const [path, query] = location.split('?')
+  const match = COMMENT_PERMALINK_PATTERN.exec(path)
+  if (!match) {
+    throw new Error(`redirect location is not a comment permalink: ${location}`)
+  }
+  const [, handle, owner, rkey, commenter, crkey] = match
+  return makeArgs({
+    handle: decodeURIComponent(handle),
+    owner: decodeURIComponent(owner),
+    rkey: decodeURIComponent(rkey),
+    commenter: decodeURIComponent(commenter),
+    crkey: decodeURIComponent(crkey),
+    query: query ? `?${query}` : '',
+  })
 }
 
 /**
@@ -265,15 +339,20 @@ describe('comment permalink loader', () => {
   // -------------------------------------------------------------------------
 
   it('returns the post, focused comment, subtree, and a CommunityCard slot on the happy path', async () => {
-    const post = hydratedPost(POSTV2_URI)
-    const tree = subtree(CRKEY, POSTV2_URI)
+    // Neither ref carries a usable handle, so both DID segments are canonical
+    // here and the load runs to completion with no profile lookup at all.
+    const post = unresolvedAuthorPost(POSTV2_URI)
+    const tree = unresolvedCommenterSubtree(CRKEY, POSTV2_URI)
+    serve({ [POSTV2_URI]: post })
     mockCovesMethods.getComments.mockResolvedValue(tree)
 
     // Hold the probe open so the two requests can be told apart in time.
     const probe = deferred<{ posts: unknown[] }>()
     mockCovesMethods.getPosts.mockReturnValue(probe.promise)
 
-    const pending = load(makeArgs())
+    const pending = load(
+      makeArgs({ owner: OWNER_DID, commenter: COMMENTER_DID }),
+    )
     await flush()
 
     // The subtree is asked for on the postv2 URI without waiting for the
@@ -320,11 +399,19 @@ describe('comment permalink loader', () => {
       sidebar: { component: unknown; props: { community: unknown } }
     }
     expect(slots.sidebar.component).toBe(CommunityCard)
-    expect(slots.sidebar.props.community).toEqual(post.community)
+    expect(slots.sidebar.props.community).toEqual(
+      hydratedPost(POSTV2_URI).community,
+    )
   })
 
   it('resolves a handle owner through getProfile and probes with its DID', async () => {
-    await load(makeArgs({ owner: OWNER_HANDLE }))
+    // A DID commenter over an unresolved comment author, so the one profile
+    // lookup this asserts is unambiguously the owner's.
+    mockCovesMethods.getComments.mockResolvedValue(
+      unresolvedCommenterSubtree(CRKEY, POSTV2_URI),
+    )
+
+    await load(makeArgs({ owner: OWNER_HANDLE, commenter: COMMENTER_DID }))
 
     expect(mockCovesMethods.getProfile).toHaveBeenCalledTimes(1)
     expect(mockCovesMethods.getProfile).toHaveBeenCalledWith({
@@ -548,5 +635,74 @@ describe('comment permalink loader', () => {
 
     expect(probes()).toEqual([[POSTV2_URI, LEGACY_URI]])
     expect(commentedOn()).toBe(POSTV2_URI)
+  })
+
+  // -------------------------------------------------------------------------
+  // Canonical URL enforcement
+  //
+  // Same rule as the post page, extended to the commenter segment: once the
+  // post and the focused comment are in hand, a non-canonical segment
+  // redirects to the single URL `commentLink` emits. Ordering is unchanged —
+  // the 404s above still fire first, so a bad crkey never becomes a redirect.
+  // -------------------------------------------------------------------------
+
+  it('redirects a wrong community slug to the canonical comment permalink', async () => {
+    const location = `${CANONICAL_COMMENT_PATH}?sort=top`
+
+    await expect(
+      load(makeArgs({ handle: 'cooking.local.coves.dev', query: '?sort=top' })),
+    ).rejects.toMatchObject({ status: 302, location })
+
+    // The target is stable: the second hop renders the comment.
+    const result = await load(argsFromLocation(location))
+    expect(loadedValue(result).focused).toMatchObject({ rkey: CRKEY })
+  })
+
+  it('redirects a DID-form commenter segment to the handle form', async () => {
+    await expect(
+      load(makeArgs({ commenter: COMMENTER_DID })),
+    ).rejects.toMatchObject({
+      status: 302,
+      location: CANONICAL_COMMENT_PATH,
+    })
+
+    const result = await load(argsFromLocation(CANONICAL_COMMENT_PATH))
+    expect(loadedValue(result).focused).toMatchObject({ rkey: CRKEY })
+  })
+
+  it('redirects a DID-form owner segment to the author handle form', async () => {
+    await expect(load(makeArgs({ owner: OWNER_DID }))).rejects.toMatchObject({
+      status: 302,
+      location: CANONICAL_COMMENT_PATH,
+    })
+
+    const result = await load(argsFromLocation(CANONICAL_COMMENT_PATH))
+    expect(loadedValue(result).focused).toMatchObject({ rkey: CRKEY })
+  })
+
+  it('does not redirect a comment URL that is already canonical', async () => {
+    const result = await load(makeArgs({ query: '?sort=top' }))
+
+    expect(loadedValue(result).focused).toEqual({
+      uri: `at://${COMMENTER_DID}/${COMMENT_COLLECTION}/${CRKEY}`,
+      rkey: CRKEY,
+      parentUri: undefined,
+    })
+  })
+
+  it('404s a missing comment under a wrong slug instead of redirecting', async () => {
+    // The comment is what the page is; an unknown crkey is a dead URL whether
+    // or not the community segment happens to be wrong, so the 404 wins.
+    mockCovesMethods.getComments.mockResolvedValue({
+      post: hydratedPost(POSTV2_URI),
+      comments: [],
+    })
+
+    await expect(
+      load(makeArgs({ handle: 'cooking.local.coves.dev' })),
+    ).rejects.toMatchObject({
+      status: 404,
+      body: { message: 'couldnt_find_comment' },
+    })
   })
 })

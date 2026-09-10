@@ -58,7 +58,6 @@ import { feeds } from '$lib/feature/feeds/feed.svelte'
 import { load } from './+page'
 
 const OWNER_DID = 'did:plc:author'
-const OWNER_HANDLE = 'mari.local.coves.dev'
 const COMMUNITY_DID = 'did:plc:comm'
 const COMMUNITY_HANDLE = 'gardening.local.coves.dev'
 const COMMENTER_DID = 'did:plc:commenter456'
@@ -91,6 +90,10 @@ function makeArgs(): Parameters<typeof load>[0] {
   } as unknown as Parameters<typeof load>[0]
 }
 
+// Both fixtures below are deliberately author-less / handle-less: nothing
+// proves a handle for either repo, so the DID actor segments are canonical.
+// That keeps the URL free of a redirect and the file free of any identity
+// resolution — the cache is what these tests are about.
 function hydratedPost(uri: string) {
   return {
     uri,
@@ -98,7 +101,6 @@ function hydratedPost(uri: string) {
     rkey: RKEY,
     indexedAt: '2026-01-01T00:00:00.000Z',
     createdAt: '2026-01-01T00:00:00.000Z',
-    author: { did: OWNER_DID, handle: OWNER_HANDLE },
     community: {
       did: COMMUNITY_DID,
       handle: COMMUNITY_HANDLE,
@@ -128,7 +130,7 @@ function subtree(postUri: string) {
             },
             createdAt: '2026-01-02T00:00:00.000Z',
           },
-          author: { did: COMMENTER_DID, handle: 'commenter.coves.test' },
+          author: { did: COMMENTER_DID },
           post: { uri: postUri, cid: 'bafyreigh2akiscaildc' },
           stats: { upvotes: 0, downvotes: 0, score: 0, replyCount: 0 },
         },

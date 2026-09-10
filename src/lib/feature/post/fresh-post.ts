@@ -39,7 +39,13 @@ export function takeFreshPost(rkey: string): PostView | undefined {
  */
 export function buildFreshPostView(args: {
   output: CreatePostOutput
-  community: { did: DID; handle?: Handle; name: string; avatar?: string }
+  community: {
+    did: DID
+    handle?: Handle
+    name: string
+    avatar?: string
+    origin?: string
+  }
   title?: string
   content?: string
   url?: string
@@ -69,6 +75,9 @@ export function buildFreshPostView(args: {
       handle: community.handle,
       name: community.name,
       avatar: community.avatar,
+      // The origin decides the community's canonical route param, so a view
+      // that drops it is not addressed by the URL the create flow redirects to.
+      origin: community.origin,
     },
     record: {
       $type: 'social.coves.community.post',

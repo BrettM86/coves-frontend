@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CovesClient, NSID } from './client'
 import { XrpcClient } from './xrpc'
 import type { DID } from '$lib/types/atproto'
-import type { AtUri, CID } from './types'
+import type { AtUri, CID, GetCommunityParams } from './types'
 
 // ---------------------------------------------------------------------------
 // Setup: spy on XrpcClient prototype methods
@@ -234,6 +234,27 @@ describe('Actor methods', () => {
 // Community methods
 // ---------------------------------------------------------------------------
 
+describe('Identity methods', () => {
+  it('resolveHandle() calls query with the atproto identity NSID', async () => {
+    querySpy.mockResolvedValue({ did: 'did:plc:alice' })
+
+    await client.resolveHandle({ handle: 'alice.coves.social' })
+
+    expect(querySpy).toHaveBeenCalledWith(NSID.resolveHandle, {
+      handle: 'alice.coves.social',
+    })
+    expect(NSID.resolveHandle).toBe('com.atproto.identity.resolveHandle')
+  })
+
+  it('resolveHandle() returns the did from the response', async () => {
+    querySpy.mockResolvedValue({ did: 'did:plc:alice' })
+
+    const result = await client.resolveHandle({ handle: 'alice.coves.social' })
+
+    expect(result).toEqual({ did: 'did:plc:alice' })
+  })
+})
+
 describe('Community methods', () => {
   it('getCommunity() calls query with correct NSID', async () => {
     await client.getCommunity({ community: 'did:plc:tech' as DID })
@@ -241,6 +262,19 @@ describe('Community methods', () => {
     expect(querySpy).toHaveBeenCalledWith(NSID.getCommunity, {
       community: 'did:plc:tech',
     })
+  })
+
+  it.each([
+    { kind: 'a name@origin address', community: 'gaming@coves.social' },
+    { kind: 'a bare community name', community: 'gaming' },
+  ])('getCommunity() accepts $kind', async ({ community }) => {
+    // Type-level too: these literals only assign to GetCommunityParams once
+    // `community` is widened past DID | Handle, which `pnpm check` enforces —
+    // vitest does not type-check, so the runtime half is what runs here.
+    const params: GetCommunityParams = { community }
+    await client.getCommunity(params)
+
+    expect(querySpy).toHaveBeenCalledWith(NSID.getCommunity, { community })
   })
 
   it('listCommunities() calls query with correct NSID', async () => {

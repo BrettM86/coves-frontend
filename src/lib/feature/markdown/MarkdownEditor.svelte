@@ -2,7 +2,7 @@
   import SegmentedControl from '$lib/ui/form/SegmentedControl.svelte'
   import { Button, Label, TextArea } from '$lib/ui/kit'
   import type { TextAreaProps } from '$lib/ui/kit/forms/TextArea.svelte'
-  import { tick } from 'svelte'
+  import { tick, type Snippet } from 'svelte'
   import {
     Icon,
     Bold,
@@ -11,57 +11,44 @@
     Italic,
     Link,
     Strikethrough,
+    Terminal,
     TriangleAlert,
   } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
   import { t } from '$lib/app/state/i18n'
   import Markdown from './Markdown.svelte'
+  import { insertMarkup, type MarkupKind } from './insert-markup'
 
   let textArea: HTMLTextAreaElement | undefined = $state()
 
-  function replaceTextAtIndices(
-    str: string,
-    startIndex: number,
-    endIndex: number,
-    replacement: string,
-  ) {
-    return str.substring(0, startIndex) + replacement + str.substring(endIndex)
-  }
-
-  function wrapSelection(start: string, end: string) {
+  /**
+   * Apply a toolbar insertion. The caret arithmetic lives in `insertMarkup`;
+   * this only moves it from the textarea and back, so the selection the author
+   * is left with is the one that module decided on.
+   */
+  function apply(kind: MarkupKind) {
     if (!textArea) return
-    const startPos = textArea.selectionStart
-    const endPos = textArea.selectionEnd
-
-    const substring = textArea.value.substring(startPos, endPos)
-    let newText = `${start}${substring}${end}`
-
-    textArea.value = replaceTextAtIndices(
+    const inserted = insertMarkup(
       textArea.value,
-      startPos,
-      endPos,
-      newText,
+      textArea.selectionStart,
+      textArea.selectionEnd,
+      kind,
     )
-
+    textArea.value = inserted.value
+    value = inserted.value
     textArea.focus()
-    textArea.selectionStart = startPos + start.length
-    textArea.selectionEnd = endPos + start.length
-
-    value = textArea.value
+    textArea.selectionStart = inserted.selectionStart
+    textArea.selectionEnd = inserted.selectionEnd
   }
 
   // Indexed by the raw KeyboardEvent.key, so the lookup is a plain string and
-  // may miss. Handlers ignore the event; the parameter is declared so the call
-  // site can pass it without the map claiming zero-arity.
-  const shortcuts: Record<
-    string,
-    ((event: KeyboardEvent) => void) | undefined
-  > = {
-    b: () => wrapSelection('**', '**'),
-    i: () => wrapSelection('*', '*'),
-    s: () => wrapSelection('~~', '~~'),
-    h: () => wrapSelection('\n# ', ''),
-    k: () => wrapSelection('[](', ')'),
+  // may miss.
+  const shortcuts: Record<string, MarkupKind | undefined> = {
+    b: 'bold',
+    i: 'italic',
+    s: 'strikethrough',
+    h: 'heading',
+    k: 'link',
   }
 
   async function adjustHeight() {
@@ -92,6 +79,12 @@
     disabled?: boolean
     rows?: number
     beforePreview?: (input?: string) => string
+    /**
+     * Replaces the built-in markdown preview. PostForm and CommentForm hand in
+     * a snippet that renders the compiled rich text, so the preview shows what
+     * every client will render rather than what a markdown parser makes of it.
+     */
+    preview?: Snippet<[string]>
     previewing?: boolean
     class?: ClassValue
     customLabel?: import('svelte').Snippet
@@ -108,6 +101,7 @@
     rows = 2,
     // should be preprocess instead
     beforePreview = (input) => input ?? '',
+    preview,
     previewing = $bindable(false),
     class: clazz = '',
     customLabel,
@@ -148,7 +142,11 @@
       <div
         class="p-5 overflow-auto text-sm resize-y bg-white dark:bg-zinc-950 min-h-48"
       >
-        <Markdown source={beforePreview(value)} />
+        {#if preview}
+          {@render preview(value ?? '')}
+        {:else}
+          <Markdown source={beforePreview(value)} />
+        {/if}
       </div>
     {:else}
       {#if tools}
@@ -160,7 +158,7 @@
           ]}
         >
           <Button
-            onclick={() => wrapSelection('**', '**')}
+            onclick={() => apply('bold')}
             title="Bold"
             size="custom"
             class="w-8 h-8"
@@ -169,7 +167,7 @@
             <Icon src={Bold} size="15" />
           </Button>
           <Button
-            onclick={() => wrapSelection('*', '*')}
+            onclick={() => apply('italic')}
             title="Italic"
             size="custom"
             class="w-8 h-8"
@@ -178,7 +176,7 @@
             <Icon src={Italic} size="15" />
           </Button>
           <Button
-            onclick={() => wrapSelection('[', '](https://example.com)')}
+            onclick={() => apply('link')}
             title="Link"
             size="custom"
             class="w-8 h-8"
@@ -187,7 +185,7 @@
             <Icon src={Link} size="15" />
           </Button>
           <Button
-            onclick={() => wrapSelection('\n# ', '')}
+            onclick={() => apply('heading')}
             title="Header"
             size="custom"
             class="w-8 h-8"
@@ -196,7 +194,7 @@
             <Icon src={Heading1} size="15" />
           </Button>
           <Button
-            onclick={() => wrapSelection('~~', '~~')}
+            onclick={() => apply('strikethrough')}
             title="Strikethrough"
             size="custom"
             class="w-8 h-8"
@@ -205,7 +203,7 @@
             <Icon src={Strikethrough} size="15" />
           </Button>
           <Button
-            onclick={() => wrapSelection('\n> ', '')}
+            onclick={() => apply('quote')}
             title="Quote"
             size="custom"
             class="w-8 h-8"
@@ -214,7 +212,7 @@
             <span class="font-bold font-serif text-lg">"</span>
           </Button>
           <Button
-            onclick={() => wrapSelection('`', '`')}
+            onclick={() => apply('code')}
             title="Code"
             size="custom"
             class="w-8 h-8"
@@ -223,8 +221,16 @@
             <Icon src={Code} size="15" />
           </Button>
           <Button
-            onclick={() =>
-              wrapSelection('::: spoiler <spoiler title>\n', '\n:::')}
+            onclick={() => apply('codeBlock')}
+            title="Code block"
+            size="custom"
+            class="w-8 h-8"
+            rounding="lg"
+          >
+            <Icon src={Terminal} size="15" />
+          </Button>
+          <Button
+            onclick={() => apply('spoiler')}
             title="Spoiler"
             size="custom"
             class="w-8 h-8"
@@ -243,10 +249,10 @@
           if (disabled) return
           if (e.ctrlKey || e.metaKey) {
             handleKeydown(e)
-            const shortcut = shortcuts[e.key]
-            if (shortcut) {
+            const kind = shortcuts[e.key]
+            if (kind) {
               e.preventDefault()
-              shortcut?.(e)
+              apply(kind)
             }
           }
         }}

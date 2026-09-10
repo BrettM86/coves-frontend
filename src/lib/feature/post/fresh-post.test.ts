@@ -59,4 +59,25 @@ describe('buildFreshPostView', () => {
       name: 'gardening',
     })
   })
+
+  it('carries facets into the optimistic record', () => {
+    // The page renders the optimistic view before the AppView indexes the
+    // record, so it must carry the same facets the record was written with.
+    const facets = [
+      {
+        index: { byteStart: 0, byteEnd: 5 },
+        features: [{ $type: 'social.coves.richtext.facet#bold' }],
+      },
+    ]
+    const view = buildFreshPostView({
+      output,
+      community,
+      title: 'a post',
+      content: 'hello world',
+      facets,
+    })
+
+    expect(view?.record?.content).toBe('hello world')
+    expect(view?.record?.facets).toEqual(facets)
+  })
 })

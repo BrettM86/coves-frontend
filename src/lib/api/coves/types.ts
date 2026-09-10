@@ -558,8 +558,17 @@ export interface GetActorCommentsResponse {
 // Request / response types — communities
 // ---------------------------------------------------------------------------
 
+/**
+ * Anything the AppView accepts as a community: a DID, a handle, a
+ * `name@origin` address (`gaming@coves.social`), or a bare community name
+ * (`gaming`). The last two are ordinary strings, so the real gate is runtime
+ * validation with `isValidCommunityAddress` / `isValidCommunityName` before
+ * the value reaches the wire.
+ */
+export type CommunityIdentifier = DID | Handle | string
+
 export interface GetCommunityParams {
-  community: DID | Handle
+  community: CommunityIdentifier
 }
 
 export interface ListCommunitiesParams {
@@ -640,6 +649,15 @@ export interface CreatePostInput {
   embed?: unknown
   labels?: unknown
   facets?: unknown[]
+}
+
+/** Params for `com.atproto.identity.resolveHandle`. */
+export interface ResolveHandleParams {
+  handle: string
+}
+
+export interface ResolveHandleOutput {
+  did: DID
 }
 
 export interface CreatePostOutput {

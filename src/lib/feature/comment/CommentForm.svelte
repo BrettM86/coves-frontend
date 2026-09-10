@@ -5,8 +5,10 @@
   import { errorMessage } from '$lib/app/util/error'
   import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
-  import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
+  import { parseMarkup } from '$lib/feature/richtext/compose'
+  import RichText from '$lib/feature/richtext/RichText.svelte'
+  import { buildCommentCreate } from './comment-submit'
   import { placeholders } from '$lib/app/util/placeholders'
   import { Button, toast } from '$lib/ui/kit'
   import { Icon, X } from '$lib/ui/kit/icon'
@@ -28,7 +30,15 @@
     id?: string
     label?: string
     editing?: boolean
-    oncomment?: (output: CreateCommentOutput, content: string) => void
+    /**
+     * The canonical content and facets that were sent, so a caller building an
+     * optimistic view annotates the same text the server stored.
+     */
+    oncomment?: (
+      output: CreateCommentOutput,
+      content: string,
+      facets?: unknown[],
+    ) => void
     onconfirm?: (value: string) => void
     oncancel?: (cancel: boolean) => void
   }
@@ -51,7 +61,6 @@
   }: Props = $props()
 
   let loading = $state(false)
-  let preview = false
 
   async function submit() {
     // In editing mode, submission (e.g. Ctrl+Enter) is delegated to the
@@ -69,14 +78,16 @@
     loading = true
 
     try {
-      const response = await coves().createComment({
-        reply: {
-          root: postRef,
-          parent: parentRef ?? postRef,
-        },
-        content: value,
+      // The textarea holds markup; the record carries canonical plaintext plus
+      // facets, compiled here.
+      const input = await buildCommentCreate({
+        source: value,
+        postRef,
+        parentRef,
+        resolver: coves(),
       })
-      oncomment?.(response, value)
+      const response = await coves().createComment(input)
+      oncomment?.(response, input.content, input.facets)
 
       value = ''
     } catch (err) {
@@ -98,48 +109,43 @@
   }}
   class="flex flex-col gap-2 relative"
 >
-  {#if preview}
-    <div
-      class="bg-slate-100 dark:bg-zinc-900 px-3 py-2.5 h-64 border
-      border-slate-300 dark:border-zinc-700 rounded-md overflow-auto text-sm resize-y"
-    >
-      <Markdown source={value} />
-    </div>
-  {:else}
-    <MarkdownEditor
-      {...rest}
-      {rows}
-      placeholder={locked
-        ? $t('comment.locked')
-        : banned
-          ? $t('comment.banned')
-          : (placeholder ?? placeholders.get('comment'))}
-      bind:value
-      disabled={locked || loading || banned}
-      previewButton={previewAction}
-    >
-      <div class="flex-1"></div>
-      {#if actions}
-        <Button
-          size="custom"
-          title={$t('common.cancel')}
-          onclick={() => oncancel?.(true)}
-          color="tertiary"
-          class="w-8 h-8"
-          rounding="xl"
-        >
-          <Icon src={X} size="16" class="text-slate-600 dark:text-zinc-400" />
-        </Button>
-        <Button
-          submit
-          color="primary"
-          rounding="xl"
-          {loading}
-          disabled={locked || loading || banned}
-        >
-          {$t('form.submit')}
-        </Button>
-      {/if}
-    </MarkdownEditor>
-  {/if}
+  <MarkdownEditor
+    {...rest}
+    {rows}
+    placeholder={locked
+      ? $t('comment.locked')
+      : banned
+        ? $t('comment.banned')
+        : (placeholder ?? placeholders.get('comment'))}
+    bind:value
+    disabled={locked || loading || banned}
+    previewButton={previewAction}
+  >
+    {#snippet preview(source)}
+      {@const parsed = parseMarkup(source)}
+      <RichText content={parsed.content} facets={parsed.facets} />
+    {/snippet}
+    <div class="flex-1"></div>
+    {#if actions}
+      <Button
+        size="custom"
+        title={$t('common.cancel')}
+        onclick={() => oncancel?.(true)}
+        color="tertiary"
+        class="w-8 h-8"
+        rounding="xl"
+      >
+        <Icon src={X} size="16" class="text-slate-600 dark:text-zinc-400" />
+      </Button>
+      <Button
+        submit
+        color="primary"
+        rounding="xl"
+        {loading}
+        disabled={locked || loading || banned}
+      >
+        {$t('form.submit')}
+      </Button>
+    {/if}
+  </MarkdownEditor>
 </form>

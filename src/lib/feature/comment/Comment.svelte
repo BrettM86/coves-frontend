@@ -6,6 +6,7 @@
   import type { DID } from '$lib/types/atproto'
   import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
+  import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
   import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import RichText from '$lib/feature/richtext/RichText.svelte'
@@ -22,6 +23,7 @@
   import UserLink from '../user/UserLink.svelte'
   import CommentActions from './CommentActions.svelte'
   import CommentForm from './CommentForm.svelte'
+  import { buildCommentUpdate, editorSourceFor } from './comment-submit'
   import {
     type CommentNodeI,
     createOptimisticCommentView,
@@ -59,7 +61,9 @@
   }: Props = $props()
 
   let editing = $state(false)
-  let newComment = $state(node.comment.record.content)
+  // The editor works in markup, so an existing comment is serialized back into
+  // it: what the author sees is what recompiles to the stored record.
+  let newComment = $state(editorSourceFor(node.comment.record))
   let editingLoad = $state(false)
 
   // Stable anchor id (`comment-<rkey>`) so permalinks can deep-link to this
@@ -87,31 +91,24 @@
     editingLoad = true
 
     try {
-      // The backend performs a full record replace on update, so pass the
-      // existing rich-text fields through to avoid erasing them. Facets are
-      // byte-offset annotations over the exact content, so they only survive
-      // an edit that leaves the content unchanged — otherwise stale offsets
-      // would silently corrupt the annotations. This guard is the real
-      // protection: the backend only rejects offsets that land outside the
-      // new content, not stale ones that still fit within it.
-      const record = node.comment.record
-      const keptFacets =
-        newComment === record.content ? record.facets : undefined
-      const response = await coves().updateComment({
+      // The edit is recompiled from the editor source rather than reusing the
+      // stored facets, which index the old text. The update is a full record
+      // replace, so everything the edit does not touch is carried through.
+      const input = await buildCommentUpdate({
+        source: newComment,
         uri: node.comment.uri,
-        content: newComment,
-        facets: keptFacets,
-        embed: record.embed,
-        langs: record.langs,
-        labels: record.labels,
+        record: node.comment.record,
+        resolver: coves(),
       })
+      const response = await coves().updateComment(input)
       // Mirror exactly what the server now stores, so the re-render can't
       // apply old byte offsets to the new content.
-      node.comment.record.content = newComment
-      node.comment.record.facets = keptFacets
+      node.comment.record.content = input.content
+      node.comment.record.facets = input.facets
       node.comment.cid = response.cid
       editing = false
     } catch (err) {
+      log.error('[Comment] update failed', err)
       toast({
         content: errorMessage(err),
         type: 'error',
@@ -271,7 +268,7 @@
             {post}
             bind:replying
             onedit={() => {
-              newComment = node.comment.record.content
+              newComment = editorSourceFor(node.comment.record)
               editing = true
             }}
             disabled={false}
@@ -285,7 +282,7 @@
             label={$t('comment.reply')}
             {postRef}
             parentRef={{ uri: node.comment.uri, cid: node.comment.cid }}
-            oncomment={(output, content) => {
+            oncomment={(output, content, facets) => {
               const currentProfile = profile.current
               if (!currentProfile || currentProfile.type !== 'authenticated') {
                 replying = false
@@ -301,6 +298,7 @@
                   handle: currentProfile.handle,
                   avatar: currentProfile.avatar,
                 },
+                facets,
               )
               node.children = [
                 {

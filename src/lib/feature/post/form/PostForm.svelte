@@ -2,6 +2,8 @@
   import { errorMessage } from '$lib/app/util/error'
   import { t } from '$lib/app/state/i18n'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
+  import { parseMarkup } from '$lib/feature/richtext/compose'
+  import RichText from '$lib/feature/richtext/RichText.svelte'
   import { communityAddress } from '$lib/app/util/community'
   import { placeholders } from '$lib/app/util/placeholders'
   import FreeTextInput from '$lib/ui/form/FreeTextInput.svelte'
@@ -108,7 +110,14 @@
     bind:value={form.body}
     placeholder={placeholders.get('body')}
     previewButton
-  />
+  >
+    <!-- The preview compiles the markup, so it shows what every client will
+         render rather than what a markdown parser makes of it. -->
+    {#snippet preview(source)}
+      {@const parsed = parseMarkup(source)}
+      <RichText content={parsed.content} facets={parsed.facets} />
+    {/snippet}
+  </MarkdownEditor>
 
   <TextInput
     label={$t('form.post.url')}

@@ -129,7 +129,7 @@
   {:else}
     <CommentForm
       {postRef}
-      oncomment={(output, content) => {
+      oncomment={(output, content, facets) => {
         const cv = createOptimisticCommentView(
           output,
           content,
@@ -140,6 +140,7 @@
             handle: profile.current?.handle ?? '',
             avatar: undefined,
           },
+          facets,
         )
         insertCommentIntoTree(tree, cv, false)
       }}

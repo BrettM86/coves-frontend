@@ -8,6 +8,7 @@ import type {
   PostView,
 } from '$lib/api/coves/types'
 import { buildFreshPostView } from '$lib/feature/post/fresh-post'
+import { composeRichText } from '$lib/feature/richtext/mentions'
 
 export type CommunityFormValue =
   CommunityRef | CommunityView | CommunityViewDetailed
@@ -72,10 +73,15 @@ export class PostFormState {
     // optimistic view below has to use the label the record was sent with.
     const labels = this.nsfw ? NSFW_SELF_LABELS : undefined
 
+    // The body is lightweight markup; the record carries canonical plaintext
+    // plus facets. Compiling here is what makes every client render the same
+    // thing, and it is the step that resolves an @handle to a DID.
+    const { content, facets } = await composeRichText(this.body ?? '', coves())
+
     const result = await coves().createPost({
       community: community.did,
       title: this.title || undefined,
-      content: this.body || undefined,
+      content: content || undefined,
       // social.coves.embed.external requires the $type discriminator and an
       // `external` wrapper. A bare { uri } matches neither the backend's
       // validate/unfurl gate nor the frontend's $type switch, so it's silently
@@ -83,8 +89,10 @@ export class PostFormState {
       embed: this.url
         ? { $type: 'social.coves.embed.external', external: { uri: this.url } }
         : undefined,
-      // Omit the key when unlabelled so the input object matches the wire
-      // shape (JSON drops undefined values) and tests can assert on it as is.
+      // Omit these keys when there is nothing to send, so the input object
+      // matches the wire shape (JSON drops undefined values) and tests can
+      // assert on it as is.
+      ...(facets ? { facets } : {}),
       ...(labels ? { labels } : {}),
     })
 
@@ -95,7 +103,8 @@ export class PostFormState {
         output: result,
         community,
         title: this.title || undefined,
-        content: this.body || undefined,
+        content: content || undefined,
+        facets,
         url: this.url || undefined,
         labels,
       }),

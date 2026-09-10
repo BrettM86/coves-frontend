@@ -50,6 +50,7 @@ export function buildFreshPostView(args: {
   content?: string
   url?: string
   labels?: unknown
+  facets?: unknown[]
 }): PostView | undefined {
   const viewer = profile.current
   if (viewer.type !== 'authenticated') return undefined
@@ -86,6 +87,7 @@ export function buildFreshPostView(args: {
       createdAt,
       title: args.title,
       content: args.content,
+      facets: args.facets,
       labels: args.labels,
     },
     embed: args.url

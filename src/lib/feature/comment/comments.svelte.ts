@@ -215,6 +215,7 @@ export function createOptimisticCommentView(
   postRef: StrongRef,
   parentRef: StrongRef,
   author: { did: string; handle: string; avatar?: string },
+  facets?: unknown[],
 ): NormalizedCommentView {
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one-shot timestamp, never held as reactive state
   const now = new Date().toISOString()
@@ -226,6 +227,7 @@ export function createOptimisticCommentView(
     record: {
       $type: 'social.coves.community.comment',
       content,
+      facets,
       reply: {
         root: postRef,
         parent: parentRef,

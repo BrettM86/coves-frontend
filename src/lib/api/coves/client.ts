@@ -35,6 +35,8 @@ import type {
   ListCommunitiesResponse,
   PostViewUnion,
   ProfileViewDetailed,
+  ResolveHandleParams,
+  ResolveHandleOutput,
   SearchCommunitiesParams,
   SubmitReportInput,
   SubmitReportOutput,
@@ -60,6 +62,7 @@ export const NSID = {
   unblockUser: 'social.coves.actor.unblockUser',
   getBlockedUsers: 'social.coves.actor.getBlockedUsers',
   getCommunity: 'social.coves.community.get',
+  resolveHandle: 'com.atproto.identity.resolveHandle',
   listCommunities: 'social.coves.community.list',
   searchCommunities: 'social.coves.community.search',
   createCommunity: 'social.coves.community.create',
@@ -92,6 +95,11 @@ export class CovesClient {
 
   getCommunityFeed(params: GetCommunityFeedParams): Promise<FeedResponse> {
     return this.xrpc.query(NSID.getCommunityFeed, params)
+  }
+
+  // Identity
+  resolveHandle(params: ResolveHandleParams): Promise<ResolveHandleOutput> {
+    return this.xrpc.query(NSID.resolveHandle, params)
   }
 
   // Comments

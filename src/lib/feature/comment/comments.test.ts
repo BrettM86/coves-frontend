@@ -13,6 +13,7 @@ import type { DID, Handle } from '$lib/types/atproto'
 import {
   MAX_INLINE_DEPTH,
   buildCommentsTree,
+  createOptimisticCommentView,
   buildSubtreeChildren,
   findTopLevelIndexByRkey,
   insertCommentIntoTree,
@@ -889,5 +890,44 @@ describe('insertCommentIntoTree', () => {
     // Second insertion should be first (unshift = LIFO)
     expect(rootNode.children[0].comment.uri).toBe(secondUri)
     expect(rootNode.children[1].comment.uri).toBe(firstUri)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Optimistic comment view
+// ---------------------------------------------------------------------------
+
+describe('createOptimisticCommentView', () => {
+  const output = {
+    uri: 'at://did:plc:me/social.coves.community.comment/one' as AtUri,
+    cid: 'bafycomment' as CID,
+  }
+  const postRef: CommentRef = {
+    uri: 'at://did:plc:author/social.coves.community.post/one' as AtUri,
+    cid: 'bafypost' as CID,
+  }
+  const author = { did: 'did:plc:me', handle: 'me.test' }
+
+  it('threads facets through to the optimistic record', () => {
+    // The comment renders from this view until the indexer catches up, so a
+    // dropped facet shows as unformatted text that formats itself moments later.
+    const facets = [
+      {
+        index: { byteStart: 0, byteEnd: 3 },
+        features: [{ $type: 'social.coves.richtext.facet#bold' }],
+      },
+    ]
+
+    const view = createOptimisticCommentView(
+      output,
+      'hi there',
+      postRef,
+      postRef,
+      author,
+      facets,
+    )
+
+    expect(view.record.content).toBe('hi there')
+    expect(view.record.facets).toEqual(facets)
   })
 })

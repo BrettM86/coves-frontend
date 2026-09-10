@@ -28,6 +28,7 @@ interface LoginRequest {
 export const POST: RequestHandler = async ({
   request,
   cookies,
+  getClientAddress,
   locals,
   url,
 }) => {
@@ -134,11 +135,20 @@ export const POST: RequestHandler = async ({
 
   // Keep resolution failures on the login form, before creating OAuth state.
   try {
-    await resolveLoginHandle(normalizedHandle)
+    await resolveLoginHandle(normalizedHandle, getClientAddress)
   } catch (error) {
+    // A handle with no account is the visitor's own typo, not an operator's
+    // problem; at error level it would drown the lines that need someone.
     if (error instanceof DidNotFoundError) {
       return json({ error: 'account_not_found' }, { status: 404 })
     }
+    // The 503 body is deliberately opaque, so without this line an AppView
+    // that is down, unreachable, or rate-limiting the frontend looks the same
+    // as every other cause in the operator's logs.
+    log.error(
+      `[auth/login] Handle resolution failed: ${describeFailure(error)}`,
+      logContext,
+    )
     return json({ error: 'handle_resolution_failed' }, { status: 503 })
   }
 
@@ -166,4 +176,21 @@ export const POST: RequestHandler = async ({
   oauthUrl.searchParams.set('state', state)
 
   return json({ redirectUrl: oauthUrl.toString() })
+}
+
+/**
+ * Names a resolution failure for the log without repeating its message.
+ *
+ * atcute embeds the submitted handle in `DidNotFoundError` and
+ * `FailedHandleResolutionError` messages, and the handle is the visitor's
+ * identity, so only the class name is taken from the error itself. The cause
+ * is the underlying transport failure and says what actually went wrong.
+ */
+function describeFailure(error: unknown): string {
+  if (!(error instanceof Error)) return typeof error
+  const { cause } = error
+  if (cause instanceof Error) {
+    return `${error.name} (cause: ${cause.name}: ${cause.message})`
+  }
+  return error.name
 }

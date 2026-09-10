@@ -10,7 +10,9 @@ import {
   isRedirect,
 } from '$lib/test-utils/request-event'
 
-const resolveLoginHandle = vi.hoisted(() => vi.fn<() => Promise<void>>())
+const resolveLoginHandle = vi.hoisted(() =>
+  vi.fn<(handle: string, getClientAddress: () => string) => Promise<void>>(),
+)
 vi.mock('$lib/server/resolve-login-handle', () => ({ resolveLoginHandle }))
 beforeEach(() => {
   resolveLoginHandle.mockReset().mockResolvedValue(undefined)
@@ -129,15 +131,14 @@ describe('POST /api/auth/login', () => {
   describe('handle resolution before OAuth', () => {
     function login(handle: string) {
       const cookies = createMockCookies()
-      const response = loginHandler(
-        createMockEvent({
-          method: 'POST',
-          body: { handle, instance: 'https://coves.example.com' },
-          cookies,
-          url: 'http://localhost:5173/api/auth/login',
-        }),
-      )
-      return { cookies, response }
+      const event = createMockEvent({
+        method: 'POST',
+        body: { handle, instance: 'https://coves.example.com' },
+        cookies,
+        url: 'http://localhost:5173/api/auth/login',
+      })
+      const response = loginHandler(event)
+      return { cookies, event, response }
     }
 
     it('checks the normalized handle and uses it in the OAuth URL', async () => {
@@ -148,10 +149,36 @@ describe('POST /api/auth/login', () => {
       expect(result.status).toBe(200)
       expect(resolveLoginHandle).toHaveBeenCalledExactlyOnceWith(
         'jerry.bsky.social',
+        expect.any(Function),
       )
       expect(new URL(data.redirectUrl).searchParams.get('handle')).toBe(
         'jerry.bsky.social',
       )
+    })
+
+    it('gives resolution this request’s own client address', async () => {
+      // TEST-NET-3 (RFC 5737), so the mock event's default 127.0.0.1 cannot
+      // make this pass by accident.
+      const clientAddress = '203.0.113.7'
+      const cookies = createMockCookies()
+      const event = createMockEvent({
+        method: 'POST',
+        body: {
+          handle: 'jerry.bsky.social',
+          instance: 'https://coves.example.com',
+        },
+        cookies,
+        url: 'http://localhost:5173/api/auth/login',
+      })
+      Object.assign(event, { getClientAddress: () => clientAddress })
+
+      expect((await loginHandler(event)).status).toBe(200)
+
+      // The AppView rate-limits handle resolution per client IP. The resolver
+      // needs the address of the visitor who submitted the login form, which
+      // only the request event knows, or every login shares one bucket.
+      const [, getClientAddress] = resolveLoginHandle.mock.calls[0]
+      expect(getClientAddress()).toBe(clientAddress)
     })
 
     it('returns account_not_found without starting OAuth for a missing account', async () => {
@@ -1041,6 +1068,10 @@ function spyOnWarn() {
   return vi.spyOn(console, 'warn').mockImplementation(() => {})
 }
 
+function spyOnError() {
+  return vi.spyOn(console, 'error').mockImplementation(() => {})
+}
+
 describe('POST /api/auth/login structured logging', () => {
   // Spies are created and restored per test rather than inline, so a failing
   // assertion cannot skip its restore and leak calls into the next test.
@@ -1087,6 +1118,61 @@ describe('POST /api/auth/login structured logging', () => {
       expect(line.msg).toContain('Rejected')
     })
   }
+})
+
+describe('POST /api/auth/login handle resolution logging', () => {
+  let errorSpy: ReturnType<typeof spyOnError>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    errorSpy = spyOnError()
+  })
+
+  afterEach(() => {
+    errorSpy.mockRestore()
+  })
+
+  function login() {
+    return loginHandler(
+      createMockEvent({
+        method: 'POST',
+        body: {
+          handle: 'jerry.bsky.social',
+          instance: 'https://coves.example.com',
+        },
+        cookies: createMockCookies(),
+        url: 'http://localhost:5173/api/auth/login',
+      }),
+    )
+  }
+
+  it('logs one JSON error line naming the failure, and still returns 503', async () => {
+    resolveLoginHandle.mockRejectedValueOnce(new TypeError('fetch failed'))
+
+    const result = await login()
+
+    expect(result.status).toBe(503)
+    expect(await result.json()).toEqual({ error: 'handle_resolution_failed' })
+    // The 503 body is deliberately opaque to the visitor, so without this line
+    // an AppView that is down, unreachable, or rate-limiting the frontend is
+    // indistinguishable from every other cause in the operator's logs.
+    const { raw, line } = singleJsonLine(errorSpy.mock.calls)
+    expect(line.level).toBe('error')
+    expect(raw).toContain('TypeError')
+  })
+
+  it('does not log an error when the account simply does not exist', async () => {
+    resolveLoginHandle.mockRejectedValueOnce(
+      new DidNotFoundError('jerry.bsky.social'),
+    )
+
+    const result = await login()
+
+    // A typo in the login form is the user's business, not an operator's. At
+    // error level it would drown the lines that do need someone to look.
+    expect(result.status).toBe(404)
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
 })
 
 describe('POST /api/auth/logout structured logging', () => {

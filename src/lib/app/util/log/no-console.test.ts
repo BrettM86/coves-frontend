@@ -34,7 +34,7 @@ const SVELTE_SOURCE = '<script lang="ts">\n  console.error(\'x\')\n</script>\n'
 // all, which would make every "reports" case below pass vacuously — so the
 // helper turns any fatal into a thrown error rather than a silent `false`.
 const APP = 'src/lib/app/util/array.ts'
-const API = 'src/lib/api/upload.ts'
+const API = 'src/lib/api/coves/sort.ts'
 const FEATURE = 'src/lib/feature/post/helpers.ts'
 const FEATURE_SVELTE = 'src/lib/feature/post/Post.svelte'
 const HOOKS = 'src/hooks.server.ts'

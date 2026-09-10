@@ -65,7 +65,6 @@
           <MarkdownEditor
             bind:value={preset.content}
             label="Content"
-            images={false}
             previewButton
             beforePreview={(input) =>
               removalTemplate(input ?? '', {

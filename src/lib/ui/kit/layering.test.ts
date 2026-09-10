@@ -29,7 +29,7 @@ const REPO_ROOT = findRepoRoot(dirname(fileURLToPath(import.meta.url)))
 const KIT = 'src/lib/ui/kit/forms/helper.ts'
 const UI = 'src/lib/ui/layout/index.ts'
 const APP = 'src/lib/app/util/array.ts'
-const API = 'src/lib/api/upload.ts'
+const API = 'src/lib/api/coves/sort.ts'
 const FEATURE = 'src/lib/feature/post/helpers.ts'
 const ROUTE = 'src/routes/+page.ts'
 const SERVER_ROUTE = 'src/routes/+layout.server.ts'
@@ -64,7 +64,7 @@ describe('layering rule', () => {
   it.each([
     [KIT, '$lib/app/state/settings.svelte'],
     [KIT, '$lib/feature/post/helpers'],
-    [KIT, '$lib/api/upload'],
+    [KIT, '$lib/api/coves/sort'],
     [KIT, '$lib/server/session'],
     [KIT, '$lib/ui/generic/Avatar.svelte'],
     [KIT, '../../generic/Avatar.svelte'],
@@ -90,7 +90,7 @@ describe('layering rule', () => {
     [KIT, '$lib/ui/kit/button/Button.svelte'],
     [KIT, '$lib/types/atproto'],
     [UI, '$lib/app/util/array'],
-    [UI, '$lib/api/upload'],
+    [UI, '$lib/api/coves/sort'],
     [UI, '$lib/ui/kit'],
     [APP, '$lib/api/coves/sort'],
     [FEATURE, '$lib/ui/kit'],

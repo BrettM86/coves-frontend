@@ -1,8 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
   import { Button, Modal, TextInput } from '$lib/ui/kit'
-  import ImageAttachForm from './ImageAttachForm.svelte'
-  import SegmentedControl from './SegmentedControl.svelte'
 
   let {
     open = $bindable(),
@@ -10,17 +8,10 @@
   }: { open: boolean; imageUrl?: string } = $props()
 
   let imageUrl = $derived(passedImageUrl)
-  let customUrl = $state(false)
 </script>
 
 <Modal bind:open title={$t('form.post.uploadImage')}>
-  <div class="flex justify-between gap-1 flex-wrap">
-    <SegmentedControl
-      options={[false, true]}
-      optionNames={[$t('common.attach'), $t('content.url')]}
-      bind:selected={customUrl}
-    />
-
+  <div class="flex justify-end gap-1 flex-wrap">
     <Button
       onclick={() => {
         passedImageUrl = undefined
@@ -33,37 +24,27 @@
     </Button>
   </div>
 
-  {#if customUrl}
-    <form
-      onsubmit={(e) => {
-        e.preventDefault()
-        if (!imageUrl) throw new Error('missing imageurl')
+  <form
+    onsubmit={(e) => {
+      e.preventDefault()
+      if (!imageUrl) throw new Error('missing imageurl')
 
-        if (URL.canParse != undefined) {
-          if (!URL.canParse(imageUrl)) throw new Error('invalid URL')
-        }
+      if (URL.canParse != undefined) {
+        if (!URL.canParse(imageUrl)) throw new Error('invalid URL')
+      }
 
-        passedImageUrl = imageUrl
-        open = false
-      }}
-      class="contents"
-    >
-      <TextInput
-        label={$t('content.url')}
-        bind:value={imageUrl}
-        pattern="http(s)?:\/\/(.*).(png|jpg|gif|avif|webp|jpeg|jxl|svg|bmp)"
-      />
-      <Button submit color="primary" size="lg">
-        {$t('form.submit')}
-      </Button>
-    </form>
-  {:else}
-    <ImageAttachForm
-      multiple={false}
-      onupload={(uploaded) => {
-        open = false
-        passedImageUrl = uploaded[0]
-      }}
+      passedImageUrl = imageUrl
+      open = false
+    }}
+    class="contents"
+  >
+    <TextInput
+      label={$t('content.url')}
+      bind:value={imageUrl}
+      pattern="http(s)?:\/\/(.*).(png|jpg|gif|avif|webp|jpeg|jxl|svg|bmp)"
     />
-  {/if}
+    <Button submit color="primary" size="lg">
+      {$t('form.submit')}
+    </Button>
+  </form>
 </Modal>

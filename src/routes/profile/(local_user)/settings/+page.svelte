@@ -83,7 +83,6 @@
       placeholder="Optional"
     />
     <MarkdownEditor
-      images={false}
       bind:value={() => formData.bio ?? '', (v) => (formData.bio = v)}
       label={$t('form.profile.bio')}
       previewButton

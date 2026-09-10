@@ -1,7 +1,6 @@
 <script lang="ts">
-  import ImageAttachForm from '$lib/ui/form/ImageAttachForm.svelte'
   import SegmentedControl from '$lib/ui/form/SegmentedControl.svelte'
-  import { Button, Label, Modal, TextArea } from '$lib/ui/kit'
+  import { Button, Label, TextArea } from '$lib/ui/kit'
   import type { TextAreaProps } from '$lib/ui/kit/forms/TextArea.svelte'
   import { tick } from 'svelte'
   import {
@@ -9,10 +8,8 @@
     Bold,
     Code,
     Heading1,
-    Image,
     Italic,
     Link,
-    List,
     Strikethrough,
     TriangleAlert,
   } from '$lib/ui/kit/icon'
@@ -53,9 +50,6 @@
     value = textArea.value
   }
 
-  let uploadingImage = $state(false)
-  let image = $state<FileList | null | undefined>(null)
-
   // Indexed by the raw KeyboardEvent.key, so the lookup is a plain string and
   // may miss. Handlers ignore the event; the parameter is declared so the call
   // site can pass it without the map claiming zero-arity.
@@ -91,7 +85,6 @@
   }
 
   interface Props extends TextAreaProps {
-    images?: boolean
     value?: string
     label?: string | undefined
     previewButton?: boolean
@@ -106,7 +99,6 @@
   }
 
   let {
-    images = true,
     value = $bindable(),
     label = undefined,
     previewButton = true,
@@ -127,19 +119,6 @@
     if (!previewing && value) adjustHeight()
   })
 </script>
-
-{#if uploadingImage && images}
-  <Modal title={$t('form.post.uploadImage')} bind:open={uploadingImage}>
-    <ImageAttachForm
-      bind:image
-      onupload={(e) => {
-        e.forEach((i) => {
-          wrapSelection(`![](${i})\n\n`, '')
-        })
-      }}
-    />
-  </Modal>
-{/if}
 
 <div>
   {#if label || customLabel}
@@ -235,15 +214,6 @@
             <span class="font-bold font-serif text-lg">"</span>
           </Button>
           <Button
-            onclick={() => wrapSelection('\n- ', '')}
-            title="List"
-            size="custom"
-            class="w-8 h-8"
-            rounding="lg"
-          >
-            <Icon src={List} size="15" />
-          </Button>
-          <Button
             onclick={() => wrapSelection('`', '`')}
             title="Code"
             size="custom"
@@ -262,41 +232,6 @@
           >
             <Icon src={TriangleAlert} size="15" />
           </Button>
-          <Button
-            onclick={() => wrapSelection('~', '~')}
-            title="Subscript"
-            size="custom"
-            class="w-8 h-8"
-            rounding="lg"
-          >
-            <span class="font-bold">
-              X
-              <sub>1</sub>
-            </span>
-          </Button>
-          <Button
-            onclick={() => wrapSelection('^', '^')}
-            title="Superscript"
-            size="custom"
-            class="w-8 h-8"
-            rounding="lg"
-          >
-            <span class="font-bold">
-              X
-              <sup>1</sup>
-            </span>
-          </Button>
-          {#if images}
-            <Button
-              onclick={() => (uploadingImage = !uploadingImage)}
-              title="Image"
-              size="custom"
-              class="w-8 h-8"
-              rounding="lg"
-            >
-              <Icon src={Image} size="15" />
-            </Button>
-          {/if}
         </div>
       {/if}
       <!--Actual text area-->
@@ -316,14 +251,6 @@
           }
         }}
         oninput={adjustHeight}
-        onpaste={(e) => {
-          if (!e.clipboardData?.files) return
-          const files = Array.from(e.clipboardData.files)
-          if (files[0]?.type.startsWith('image/')) {
-            image = e.clipboardData.files as FileList
-            uploadingImage = true
-          }
-        }}
         {rows}
         {required}
         {...rest}

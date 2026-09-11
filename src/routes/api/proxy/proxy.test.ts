@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { SealedToken, InstanceURL } from '$lib/server/session'
-import { createMockEvent } from '$lib/test-utils/request-event'
+import type { Cookies } from '@sveltejs/kit'
+import {
+  createMockCookies,
+  createMockEvent,
+} from '$lib/test-utils/request-event'
 
 /**
  * Mutable env, so a test can describe a different deployment (an internal
@@ -85,6 +89,7 @@ describe('API Proxy', () => {
     headers?: Record<string, string>
     body?: unknown
     locals?: App.Locals
+    cookies?: Cookies
   }
 
   function createEvent(options: ProxyEventOptions): ProxyEvent {
@@ -94,6 +99,7 @@ describe('API Proxy', () => {
       params: { path: options.path },
       headers: options.headers,
       body: options.body,
+      cookies: options.cookies,
       locals: options.locals ?? unauthenticatedLocals(),
     })
     // The upstream hop goes through the platform fetch. The event's own fetch
@@ -134,14 +140,14 @@ describe('API Proxy', () => {
         createEvent({
           path: 'api/v1/feed',
           headers: { 'Content-Type': 'application/json' },
-          locals: authenticatedLocals('test-jwt-token', 'test.coves.social'),
+          cookies: createMockCookies({ coves_session: 'test-jwt-token' }),
         }),
       )
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
       const [url, options] = getLastFetchCall()
-      // A bare hostname in the session is normalised to an absolute https URL.
-      expect(url).toBe('https://test.coves.social/api/v1/feed')
+      // Cookie credentials use the operator-configured upstream.
+      expect(url).toBe('https://coves.social/api/v1/feed')
       expect(options.method).toBe('GET')
       expect(options.headers.get('Authorization')).toBe('Bearer test-jwt-token')
       expect(response.status).toBe(200)
@@ -160,13 +166,13 @@ describe('API Proxy', () => {
           method: 'POST',
           headers: { Origin: APP_ORIGIN },
           body: { title: 'Test Post', content: 'Hello' },
-          locals: authenticatedLocals('test-jwt-token', 'test.coves.social'),
+          cookies: createMockCookies({ coves_session: 'test-jwt-token' }),
         }),
       )
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
       const [url, options] = getLastFetchCall()
-      expect(url).toBe('https://test.coves.social/api/v1/posts')
+      expect(url).toBe('https://coves.social/api/v1/posts')
       expect(options.method).toBe('POST')
       expect(options.headers.get('Authorization')).toBe('Bearer test-jwt-token')
       expect(options.body).toBeDefined()
@@ -187,7 +193,7 @@ describe('API Proxy', () => {
       const response = await GET(
         createEvent({
           path: 'api/v1/posts',
-          locals: authenticatedLocals('token', 'coves.social'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -234,7 +240,7 @@ describe('API Proxy', () => {
       const response = await GET(
         createEvent({
           path: 'api/v1/data',
-          locals: authenticatedLocals('token', 'coves.social'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -256,7 +262,7 @@ describe('API Proxy', () => {
       const response = await GET(
         createEvent({
           path: 'api/v1/posts/999',
-          locals: authenticatedLocals('token', 'coves.social'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -275,7 +281,7 @@ describe('API Proxy', () => {
       const response = await GET(
         createEvent({
           path: 'api/v1/protected',
-          locals: authenticatedLocals('expired-token', 'coves.social'),
+          cookies: createMockCookies({ coves_session: 'expired-token' }),
         }),
       )
 
@@ -307,7 +313,7 @@ describe('API Proxy', () => {
         createEvent({
           path: 'api/v1/data',
           headers: { Host: 'localhost:5173' },
-          locals: authenticatedLocals('token', 'coves.social'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -345,7 +351,7 @@ describe('API Proxy', () => {
           method: 'PUT',
           headers: { Origin: APP_ORIGIN },
           body: { title: 'Updated' },
-          locals: authenticatedLocals('token', 'coves.social'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -363,7 +369,7 @@ describe('API Proxy', () => {
           path: 'api/v1/posts/1',
           method: 'DELETE',
           headers: { Origin: APP_ORIGIN },
-          locals: authenticatedLocals('token', 'coves.social'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -384,7 +390,7 @@ describe('API Proxy', () => {
           method: 'PATCH',
           headers: { Origin: APP_ORIGIN },
           body: { title: 'Patched' },
-          locals: authenticatedLocals('token', 'coves.social'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -395,22 +401,31 @@ describe('API Proxy', () => {
   })
 
   describe('instance routing', () => {
-    it('uses active account instance when available', async () => {
+    it('uses the configured internal upstream even when locals name another instance', async () => {
+      setEnv({
+        PUBLIC_INSTANCE_URL: APP_ORIGIN,
+        PUBLIC_INTERNAL_INSTANCE: 'upstream.example.test',
+      })
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
       await GET(
         createEvent({
           path: 'api/v1/data',
-          locals: authenticatedLocals('token', 'custom.instance.com'),
+          cookies: createMockCookies({ coves_session: 'token' }),
+          locals: authenticatedLocals(
+            'different-local-token',
+            'custom.instance.com',
+          ),
         }),
       )
 
-      const [url] = getLastFetchCall()
-      expect(url).toBe('https://custom.instance.com/api/v1/data')
+      const [url, options] = getLastFetchCall()
+      expect(url).toBe('https://upstream.example.test/api/v1/data')
+      expect(options.headers.get('authorization')).toBe('Bearer token')
     })
 
-    it('falls back to default instance when no active account', async () => {
+    it('uses the configured default instance without a session cookie', async () => {
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
@@ -550,13 +565,17 @@ describe('API Proxy', () => {
      * configured rather than silently rewritten to https.
      */
     it('allows HTTP URLs in development/test environment', async () => {
+      setEnv({
+        PUBLIC_INSTANCE_URL: APP_ORIGIN,
+        PUBLIC_INTERNAL_INSTANCE: 'http://localhost:8080',
+      })
       const mockResponse = new Response('OK', { status: 200 })
       mockFetch.mockResolvedValue(mockResponse)
 
       const response = await GET(
         createEvent({
           path: 'api/v1/data',
-          locals: authenticatedLocals('token', 'http://localhost:8080'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -598,7 +617,7 @@ describe('API Proxy', () => {
       const response = await GET(
         createEvent({
           path: 'api/v1/data',
-          locals: authenticatedLocals('token', 'http://appview:8080'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -616,7 +635,7 @@ describe('API Proxy', () => {
           method: 'POST',
           headers: { Origin: 'https://evil.example.com' },
           body: { title: 'forged' },
-          locals: authenticatedLocals('token', 'test.coves.social'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -633,7 +652,7 @@ describe('API Proxy', () => {
           path: 'api/v1/posts',
           method: 'DELETE',
           headers: { Referer: 'https://evil.example.com/attack-page' },
-          locals: authenticatedLocals('token', 'test.coves.social'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -650,7 +669,7 @@ describe('API Proxy', () => {
           method: 'POST',
           headers: { Origin: APP_ORIGIN },
           body: { title: 'legit' },
-          locals: authenticatedLocals('token', 'test.coves.social'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 
@@ -667,7 +686,7 @@ describe('API Proxy', () => {
           path: 'api/v1/posts',
           method: 'POST',
           body: { title: 'no-origin client' },
-          locals: authenticatedLocals('token', 'test.coves.social'),
+          cookies: createMockCookies({ coves_session: 'token' }),
         }),
       )
 

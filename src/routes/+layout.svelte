@@ -1,7 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment'
   import { navigating, page } from '$app/state'
-  import { profile } from '$lib/app/state/auth.svelte'
+  import { initializeSessionRecovery } from '$lib/app/state/session-recovery.svelte'
   import { locale, t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
   import { getDefaultColors } from '$lib/app/state/theme/presets'
@@ -80,12 +80,7 @@
     })
   }
 
-  // Sync server-validated session into client-side profile state.
-  // hooks.server.ts validates the coves_session cookie and returns the user
-  // via +layout.server.ts; this effect hydrates the client profile from it.
-  $effect(() => {
-    profile.syncFromServer(page.data.session ?? undefined)
-  })
+  initializeSessionRecovery()
 
   // Tell the user their session ended rather than letting them discover it by
   // being silently logged out. hooks.server.ts deletes the stale cookie and
@@ -111,20 +106,26 @@
     }
   })
 
-  // Surface auth infrastructure failures from hooks.server.ts (mirrors the
-  // sessionExpired handling above): the backend couldn't be reached to
-  // validate the session, so the user may appear logged out even though their
-  // session cookie is preserved. Warn once per outage rather than on every
-  // navigation while the backend stays unreachable.
-  let notifiedAuthNetworkError = false
+  // A failed session check can make the user appear logged out while their
+  // cookie is preserved. Warn once for each ongoing failure kind, and reset
+  // after recovery so a later outage can notify again.
+  let notifiedAuthError: App.AuthErrorKind | null = null
   $effect(() => {
-    if (page.data.authError === 'network_error') {
-      if (!notifiedAuthNetworkError) {
-        notifiedAuthNetworkError = true
-        toast({ content: $t('toast.serverUnreachable'), type: 'warning' })
+    const authError = page.data.authError
+    if (authError === 'network_error' || authError === 'rate_limited') {
+      if (notifiedAuthError !== authError) {
+        notifiedAuthError = authError
+        toast({
+          content: $t(
+            authError === 'rate_limited'
+              ? 'toast.sessionRateLimited'
+              : 'toast.serverUnreachable',
+          ),
+          type: 'warning',
+        })
       }
     } else {
-      notifiedAuthNetworkError = false
+      notifiedAuthError = null
     }
   })
 

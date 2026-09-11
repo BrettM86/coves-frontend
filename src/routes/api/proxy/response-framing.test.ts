@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { createMockCookies } from '$lib/test-utils/request-event'
 
 vi.mock('$env/dynamic/private', () => ({ env: {} }))
 vi.mock('$env/dynamic/public', () => ({
@@ -47,6 +48,7 @@ function createEvent(upstream: Response) {
     url: new URL(
       'http://localhost/api/proxy/xrpc/social.coves.community.get?community=linux.lemmy-ml.tdpl.io',
     ),
+    cookies: createMockCookies(),
     locals: { auth: { authenticated: false } },
     getClientAddress: () => '127.0.0.1',
     fetch: vi.fn(() => {
@@ -151,17 +153,9 @@ function createFailingEvent(error: Error) {
       headers: { origin: 'http://localhost' },
     }),
     url: new URL(PROXY_URL),
+    cookies: createMockCookies({ coves_session: 'sealed-token-value' }),
     locals: {
-      auth: {
-        authenticated: true,
-        account: {
-          did: 'did:plc:tqa2ago3uxir2kdn44zdslxs',
-          handle: 'user1.example.com',
-          instance: 'https://coves.social',
-          sealedToken: 'sealed-token-value',
-        },
-        authToken: 'sealed-token-value',
-      },
+      auth: { authenticated: false },
       requestId: 'req-proxy-1',
     },
     getClientAddress: () => '127.0.0.1',
@@ -226,6 +220,7 @@ describe('proxy error logging', () => {
         headers: { origin: 'https://evil.example.com' },
       }),
       url: new URL(PROXY_URL),
+      cookies: createMockCookies(),
       locals: { auth: { authenticated: false }, requestId: 'req-proxy-2' },
       fetch: vi.fn(),
     } as unknown as Parameters<typeof POST>[0]

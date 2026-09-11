@@ -18,19 +18,18 @@ import { enforceSameOrigin, validateProxyPath } from '../validate'
  * This proxy exists to keep authentication tokens secure by never exposing them
  * to the browser. Authentication is managed via a backend-delegated session: the
  * Coves Go backend sets a sealed (encrypted) session cookie during OAuth, and
- * the SvelteKit frontend forwards that cookie to the backend's /api/me endpoint
- * for validation. The proxy injects the Authorization header (using the sealed
- * token from the cookie) on behalf of the client, so the client never needs to
- * handle or store tokens.
+ * the proxy relays that opaque credential as a Bearer Authorization header.
+ * The backend validates it on the requested endpoint; proxy requests skip
+ * /api/me prevalidation and do not establish authenticated frontend locals.
+ * The client never needs to handle or store tokens.
  *
  * TRUST MODEL:
  * - Client -> Proxy: Client is untrusted. All paths are validated for security
- *   issues (traversal, injection, etc.). The proxy only forwards to one of two
- *   server-chosen destinations: the instance registered in the user's session,
- *   or — for anonymous requests — the operator-configured upstream. The client
- *   never influences the target host.
- * - Proxy -> Backend: Backend is trusted. The proxy forwards requests with
- *   auth headers to the Coves server at the user's registered instance URL.
+ *   issues (traversal, injection, etc.). Every request goes to the normalized
+ *   operator-configured upstream. The client and session account data never
+ *   influence the target host.
+ * - Proxy -> Backend: Backend is trusted to validate the supplied credential
+ *   and authorize the requested operation.
  *
  * PATH VALIDATION:
  * The path is validated to prevent:
@@ -90,14 +89,15 @@ import { enforceSameOrigin, validateProxyPath } from '../validate'
  *      one today. Note X-Forwarded-Host is only as trustworthy as adapter-node's
  *      URL resolution: ORIGIN must be set in production, or url.host is derived
  *      from the client's raw Host header and the value is a client claim.
- *    - 'Authorization': Bearer token from the sealed session (if authenticated).
+ *    - 'Authorization': Bearer token from the session cookie, when supplied.
  *
- * 3. FAIL-CLOSED: the session cookie is never forwarded, so the sealed
- *    Authorization header is the single channel by which a proxied request can
- *    authenticate. When hooks.server.ts cannot validate the session against
- *    /api/me, locals.auth is unauthenticated and the request reaches the
- *    backend with no credential at all — the backend cannot re-authenticate a
- *    session the frontend just rejected.
+ * 3. The incoming Cookie and Authorization headers are never forwarded. The
+ *    sealed session cookie is read only to inject the Bearer credential; it
+ *    does not prove authentication. The backend owns session validation.
+ *    Generic XRPC errors do not clear the browser's session cookie.
+ *    Expiration cleanup belongs to page /api/me validation; authenticated
+ *    browser 401 responses trigger invalidateAll() to rerun that validation.
+ *    OptionalAuth endpoints returning anonymous 200 responses cannot trigger it.
  *
  * 4. Denylisted from the response (DENIED_RESPONSE_HEADERS): connection framing,
  *    the backend's credential/cookie headers, and the headers that set policy
@@ -107,12 +107,14 @@ import { enforceSameOrigin, validateProxyPath } from '../validate'
  *    nominated header is no more forwardable than a hardcoded one. Rationale
  *    per group lives on that constant.
  *
- * 5. Authenticated responses are marked `cache-control: private, no-store` and
+ * 5. Responses to requests supplying a session credential are marked
+ *    `cache-control: private, no-store` and
  *    stripped of their validators (CACHE_VALIDATOR_HEADERS). The backend
  *    describes what it returns as if answering a bare request, unaware the
  *    proxy attached a session, so its caching headers are not safe to relay for
- *    a response that is specific to one account. Unauthenticated responses keep
- *    the backend's caching headers exactly as sent.
+ *    a response that may be specific to one account. This applies even when
+ *    the credential is invalid or the backend returns an error. Requests with
+ *    no session credential keep the backend's caching headers exactly as sent.
  *
  * =============================================================================
  */
@@ -225,23 +227,25 @@ const CACHE_VALIDATOR_HEADERS = [
  * The slice of the SvelteKit request event the proxy actually uses. Narrowing
  * structurally (rather than taking a full RequestEvent) keeps the exported
  * handlers assignable to RequestHandler while enforcing least privilege on the
- * handler itself: it cannot reach `cookies`, or anything else not listed here,
- * even by accident. A future edit that tries to read the session cookie
- * directly fails to compile rather than quietly reopening the channel that
- * item 3 of the banner closes.
+ * handler itself. The cookie API is read-only; the handler cannot set or
+ * delete cookies.
  */
 type ProxyRequestEvent = Pick<
   RequestEvent<{ path: string }>,
-  'params' | 'request' | 'locals' | 'url' | 'getClientAddress'
->
+  'params' | 'request' | 'url' | 'getClientAddress'
+> & {
+  cookies: Pick<RequestEvent['cookies'], 'get'>
+  locals: Pick<App.Locals, 'requestId'>
+}
 
 /**
  * Handles proxying requests to the upstream Coves server.
- * Injects the Authorization header from the session if available.
+ * Injects the Authorization header from the selected opaque cookie if available.
  */
 async function handler({
   params,
   request,
+  cookies,
   locals,
   url,
   getClientAddress,
@@ -272,25 +276,15 @@ async function handler({
     )
   }
 
-  // Determine target instance: the session's registered instance for
-  // authenticated users, else the operator-configured upstream. Either may be
-  // a bare hostname, so both are normalised to an absolute https:// URL.
+  // Every request targets the operator-configured upstream, normalized so a
+  // bare hostname still becomes an absolute https:// URL.
   let baseUrl: string | null
-  if (locals.auth.authenticated) {
-    baseUrl = normalizeInstanceUrl(locals.auth.account.instance)
-  } else {
-    try {
-      // Normalised like the session branch: the operator may configure a bare
-      // hostname, which must still reach the upstream as an absolute URL.
-      baseUrl = normalizeInstanceUrl(upstreamInstanceUrl())
-    } catch (error) {
-      // The 500 below says only "No instance URL configured"; without this the
-      // reason (missing env var vs. unparseable value) is lost entirely, and a
-      // misconfigured deployment is indistinguishable from a code bug in the
-      // logs.
-      log.error('[proxy] upstream instance unresolved', undefined, error)
-      baseUrl = null
-    }
+  try {
+    baseUrl = normalizeInstanceUrl(upstreamInstanceUrl())
+  } catch (error) {
+    // Preserve the configuration failure in logs while returning a generic 500.
+    log.error('[proxy] upstream instance unresolved', undefined, error)
+    baseUrl = null
   }
   if (!baseUrl) {
     return new Response(
@@ -358,8 +352,27 @@ async function handler({
   // Inject Authorization header from the sealed session cookie.
   // The sealed token is opaque to the browser (encrypted by the Go backend),
   // so raw access/refresh tokens are never exposed to client-side code.
-  if (locals.auth.authenticated) {
-    headers.set('Authorization', `Bearer ${locals.auth.authToken}`)
+  const covesSession = cookies.get('coves_session')
+  if (covesSession) {
+    try {
+      headers.set('Authorization', `Bearer ${covesSession}`)
+    } catch {
+      // Reject values that cannot be represented in an HTTP header without
+      // exposing the credential through the platform's exception message.
+      return new Response(
+        JSON.stringify({
+          error: 'Bad Request',
+          message: 'Invalid session credential header',
+        }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'private, no-store',
+          },
+        },
+      )
+    }
   }
 
   try {
@@ -415,18 +428,15 @@ async function handler({
       responseHeaders.delete(name)
     }
 
-    // An authenticated response was assembled from a session token, but the
-    // backend answered as if to a bare request and described the result as
-    // shared. The credential is injected on this side of the browser-facing
-    // cache boundary, so no cache in front of the frontend can see it or key on
-    // it: relaying `public, max-age=...` invites one to serve this account's
-    // data to the next caller, and a validator makes that copy revalidatable
-    // rather than merely stale. Unauthenticated responses are genuinely shared
-    // artefacts and keep the backend's caching headers untouched.
+    // A supplied credential may personalize any response, including errors.
+    // Caches in front of the frontend cannot see the injected Authorization
+    // header, so prevent storage and revalidation regardless of whether the
+    // backend accepted the credential. Without a credential, preserve the
+    // backend's caching policy.
     //
     // Dropping the validators costs nothing today: the backend only honours
     // If-None-Match on the image proxy, which does not route through here.
-    if (locals.auth.authenticated) {
+    if (covesSession) {
       responseHeaders.set('cache-control', 'private, no-store')
       for (const name of CACHE_VALIDATOR_HEADERS) {
         responseHeaders.delete(name)

@@ -825,6 +825,7 @@
         "sortFailed": "Couldn't change the sort. Please try again.",
         "userLoading": "Still loading your user data...",
         "sessionExpired": "Your session has expired. Please log in again.",
+        "sessionRateLimited": "Too many requests to check your session right now. You may appear logged out, but your session is preserved. Try again shortly.",
         "serverUnreachable": "Can't reach the server right now. You may appear logged out, but your session is preserved."
     },
     "settings": {

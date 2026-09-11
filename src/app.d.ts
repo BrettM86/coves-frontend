@@ -25,10 +25,9 @@ declare global {
       readonly account: AccountSession
       /**
        * Convenience alias for `account.sealedToken`.
-       * Duplicated at the top level so the proxy layer (`/api/proxy/[...path]`)
-       * (and the logout endpoint, and `$lib/api/client.svelte`'s server-side
-       * token fallback) can read it directly from `locals.auth.authToken` without
-       * reaching into the nested account object on every proxied request.
+       * Used by the logout endpoint and the server-side token fallback in
+       * `$lib/api/client.svelte` after frontend session validation. The proxy
+       * reads the opaque cookie directly and does not use this auth claim.
        */
       readonly authToken: SealedToken
     }
@@ -53,10 +52,12 @@ declare global {
      *
      * - 'network_error': Infrastructure failure (DNS, TLS, timeout, connection refused).
      *   The session cookie is preserved because the error may be temporary.
+     * - 'rate_limited': /api/me could not check the session due to rate limiting.
+     *   The session cookie is preserved so validation can be retried.
      * - 'validation_error': The /api/me response was received but contained invalid data.
      *   Indicates a server-side bug or protocol mismatch.
      */
-    type AuthErrorKind = 'network_error' | 'validation_error'
+    type AuthErrorKind = 'network_error' | 'rate_limited' | 'validation_error'
 
     /**
      * Server-side request-local state populated by hooks.server.ts.
@@ -76,7 +77,7 @@ declare global {
       requestId: string
       auth: AuthState
       /**
-       * Set when authentication failed due to an infrastructure or validation error
+       * Set when session validation failed due to infrastructure, rate limiting, or invalid data
        * (as opposed to simply not having a session cookie).
        * The layout can use this to show a warning banner to the user.
        */

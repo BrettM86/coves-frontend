@@ -162,8 +162,8 @@ export interface PlaintextPolicyEnv extends InstanceEnv {
  * `https://` targets are always fine. Plaintext is allowed ONLY when the
  * operator opted in with `ALLOW_HTTP_INTERNAL_INSTANCE=true` AND the target's
  * origin equals the operator-configured `PUBLIC_INTERNAL_INSTANCE` (which must
- * therefore carry an explicit `http://` scheme). A session-derived instance
- * can never downgrade a server-side hop to plaintext.
+ * therefore carry an explicit `http://` scheme). The opt-in permits plaintext
+ * only for that exact origin; all other HTTP origins remain blocked.
  */
 export function isUpstreamSchemeAllowed(
   target: string,

@@ -187,6 +187,12 @@ const session: Handle = async ({ event, resolve }) => {
 
   event.locals.auth = { authenticated: false }
 
+  // The proxy relays the opaque credential; the backend validates it on the
+  // requested endpoint. Cookie presence does not establish authenticated locals.
+  if (event.route.id === '/api/proxy/[...path]') {
+    return resolve(event)
+  }
+
   const covesSession = event.cookies.get('coves_session')
   if (!covesSession) {
     return resolve(event)
@@ -197,15 +203,11 @@ const session: Handle = async ({ event, resolve }) => {
   const instance = asInstanceURL(upstreamInstanceUrl())
   const sealedToken = asSealedToken(covesSession)
 
-  // TODO: Consider caching /api/me responses or skipping validation for proxy
-  // requests to reduce latency. Currently /api/me is called on every request.
-  //
   // Built from scratch — nothing the client sent is forwarded — and stamped
-  // with the observed client address. This hop runs once per authenticated
-  // page view and the backend's global rate limiter keys on X-Real-IP; without
-  // the stamp every user on the site would share this container's one bucket
-  // and, past the limit, be silently logged out (429 is handled below as
-  // "unauthenticated").
+  // with the observed client address. This /api/me hop runs on cookie-bearing
+  // non-proxy requests. The backend's global rate limiter keys on X-Real-IP;
+  // without the stamp every user on the site would share this container's bucket
+  // and, past the limit, receive a temporary rate_limited auth warning.
   const upstreamHeaders = new Headers({
     Cookie: `coves_session=${covesSession}`,
   })
@@ -214,7 +216,7 @@ const session: Handle = async ({ event, resolve }) => {
     const response = await fetch(`${instance}/api/me`, {
       headers: upstreamHeaders,
       // A hung backend must not pile up requests until the Node process
-      // exhausts sockets — this fetch runs on every authenticated request.
+      // exhausts sockets — this fetch runs on cookie-bearing non-proxy requests.
       signal: AbortSignal.timeout(10_000),
     })
 
@@ -226,6 +228,11 @@ const session: Handle = async ({ event, resolve }) => {
         // Flag so the layout can show "Your session has expired" to the user
         event.locals.sessionExpired = true
       } else {
+        if (response.status === 429) {
+          // Rate limiting does not establish that the session expired. Preserve
+          // the cookie and let the layout explain the temporary auth failure.
+          event.locals.authError = 'rate_limited'
+        }
         log.warn(
           `[hooks] /api/me returned ${response.status} - treating as unauthenticated`,
           { ...requestContext(event), status: response.status },

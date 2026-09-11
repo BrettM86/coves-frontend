@@ -12,6 +12,12 @@ without the prefix is server-only. All are read at **runtime** (via
 
 ## Backend instance
 
+For cookie-bearing requests outside `/api/proxy/[...path]`, the hook validates
+the session through `/api/me`. Proxy requests skip that preflight and relay the
+opaque cookie to the requested backend endpoint. An authenticated browser's
+401 response triggers page session revalidation through `invalidateAll()`;
+anonymous 200 responses from OptionalAuth endpoints cannot signal expiration.
+
 | Variable                       | Read by         | Required              | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------------ | --------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PUBLIC_INSTANCE_URL`          | browser, server | **yes in production** | The Coves backend as reachable from the browser (e.g. `https://coves.social`). The server refuses to boot in production without it, even if `PUBLIC_INTERNAL_INSTANCE` is set, because the browser can only ever see this value. In dev the OAuth cookie is scoped to this host, so `hooks.server.ts` redirects any other hostname to it (RFC 8252 requires `127.0.0.1`, not `localhost`).                                                                                                                                                                                            |
@@ -23,8 +29,8 @@ without the prefix is server-only. All are read at **runtime** (via
 Resolution precedence:
 
 - **Browser** → `PUBLIC_INSTANCE_URL`.
-- **Server** (SSR fetches, hooks, proxy fallback) → `PUBLIC_INTERNAL_INSTANCE`, else `PUBLIC_INSTANCE_URL`.
-- **Proxy for an authenticated user** → the instance stored in the session, normalised to `https://` when it has no scheme.
+- **Server** (SSR fetches, hooks, all proxy requests) → `PUBLIC_INTERNAL_INSTANCE`, else `PUBLIC_INSTANCE_URL`.
+- **Proxy** → the operator-configured upstream above, normalised to `https://` when it has no scheme. Session account data never selects the destination. The proxy relays the opaque session cookie as a Bearer credential and lets the requested backend endpoint validate it; the hook skips `/api/me` for proxy requests.
 - Neither set → hooks and proxy return a hard configuration error; nothing ever falls back to a third-party host.
 
 ## Deployment (adapter-node)

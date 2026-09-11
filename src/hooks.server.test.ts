@@ -290,6 +290,55 @@ describe('hooks.server handle', () => {
     warnSpy = spyOnWarn()
   })
 
+  it('skips /api/me for the exact proxy route without authenticating locals', async () => {
+    mockFetch.mockResolvedValue(Response.json({}, { status: 429 }))
+    const event = createMockEvent({
+      url: 'http://localhost:5173/api/proxy/xrpc/social.coves.feed.get',
+      routeId: '/api/proxy/[...path]',
+      cookies: createMockCookies({ coves_session: 'sealed-token' }),
+    })
+    const resolve = createMockResolve()
+
+    await handle({ event, resolve })
+
+    expect(mockFetch).not.toHaveBeenCalled()
+    expect(event.locals.auth).toEqual({ authenticated: false })
+    expect(event.cookies.delete).not.toHaveBeenCalled()
+    expect(resolve).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['/api/proxy-extra', '/api/proxy-extra', false],
+    ['/api/proxy/status', '/api/proxy/status', false],
+    ['/c/general', '/c/[handle]', false],
+    ['/c/general/__data.json', '/c/[handle]', true],
+  ])(
+    'still validates a session on %s',
+    async (path, routeId, isDataRequest) => {
+      mockFetch.mockResolvedValue(Response.json({}, { status: 401 }))
+      const event = Object.assign(
+        createMockEvent({
+          url: `http://localhost:5173${path}`,
+          routeId,
+          cookies: createMockCookies({ coves_session: 'sealed-token' }),
+        }),
+        { isDataRequest },
+      )
+
+      await handle({ event, resolve: createMockResolve() })
+
+      expect(mockFetch).toHaveBeenCalledOnce()
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:4000/api/me',
+        expect.any(Object),
+      )
+      expect(event.cookies.delete).toHaveBeenCalledWith('coves_session', {
+        path: '/',
+      })
+      expect(event.locals.sessionExpired).toBe(true)
+    },
+  )
+
   describe('no coves_session cookie', () => {
     it('results in unauthenticated state and no fetch called', async () => {
       const cookies = createMockCookies({})
@@ -505,6 +554,54 @@ describe('hooks.server handle', () => {
     })
   })
 
+  it('exposes a distinct rate-limit warning through page data while retaining the session cookie', async () => {
+    const { load } = await import('./routes/+layout.server')
+    mockFetch.mockResolvedValue(
+      Response.json({ error: 'RateLimitExceeded' }, { status: 429 }),
+    )
+    const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
+    const event = createMockEvent({
+      url: 'http://localhost:5173/c/general/__data.json',
+      routeId: '/c/[handle=handle]',
+      cookies,
+    })
+    event.isDataRequest = true
+
+    const response = await handle({
+      event,
+      resolve: async (resolvedEvent) =>
+        Response.json(
+          await load({
+            ...resolvedEvent,
+            route: { id: '/c/[handle=handle]' },
+            parent: async () => ({}),
+            depends: () => {},
+            untrack: (callback) => callback(),
+          }),
+        ),
+    })
+
+    expect(mockFetch).toHaveBeenCalledOnce()
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:4000/api/me',
+      expect.any(Object),
+    )
+    expect(event.locals.authError).toBe('rate_limited')
+    expect(event.locals.auth).toEqual({ authenticated: false })
+    expect(event.locals.sessionExpired).toBeUndefined()
+    expect(cookies.get('coves_session')).toBe('sealed-token-value')
+    expect(cookies.delete).not.toHaveBeenCalled()
+    expect(cookies.set).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+    expect(await response.json()).toEqual({
+      lang: 'en',
+      session: null,
+      sessionExpired: false,
+      authError: 'rate_limited',
+    })
+  })
+
   describe('valid cookie and /api/me returns 500', () => {
     it('results in unauthenticated state and logs warning', async () => {
       mockFetch.mockResolvedValue(
@@ -518,6 +615,7 @@ describe('hooks.server handle', () => {
       await handle({ event, resolve })
 
       expect(event.locals.auth.authenticated).toBe(false)
+      expect(event.locals.authError).toBeUndefined()
       const { line } = singleJsonLine(warnSpy.mock.calls)
       expect(line.level).toBe('warn')
       expect(line.msg).toContain('/api/me returned 500')

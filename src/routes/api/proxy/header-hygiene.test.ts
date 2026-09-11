@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import type { SealedToken, InstanceURL } from '$lib/server/session'
-import { createMockEvent } from '$lib/test-utils/request-event'
+import type { Cookies } from '@sveltejs/kit'
+import {
+  createMockCookies,
+  createMockEvent,
+} from '$lib/test-utils/request-event'
 
 vi.mock('$env/dynamic/private', () => ({ env: {} }))
 vi.mock('$env/dynamic/public', () => ({
@@ -26,19 +29,6 @@ const { GET, POST } = await import('./[...path]/+server')
 const CLIENT_ADDRESS = '203.0.113.9'
 /** TEST-NET-2, used wherever a client forges an address it is not entitled to. */
 const FORGED_ADDRESS = '198.51.100.1'
-
-function authenticatedLocals(
-  token = 'sealed-tok',
-  instance = 'https://coves.social',
-): App.Locals {
-  return {
-    auth: {
-      authenticated: true,
-      authToken: token as SealedToken,
-      account: { instance: instance as InstanceURL },
-    },
-  } as unknown as App.Locals
-}
 
 /** Exactly what the upstream request is allowed to carry — nothing more. */
 const EXPECTED_UPSTREAM_HEADERS = {
@@ -70,8 +60,8 @@ interface ProxyEventOptions {
   method?: string
   headers: Record<string, string>
   body?: unknown
-  /** Defaults to createMockEvent's unauthenticated locals. */
-  locals?: App.Locals
+  /** Defaults to no session cookie. */
+  cookies?: Cookies
   /** Proxy path segment; defaults to the vote endpoint. */
   path?: string
   /** Defaults to `https://coves.social/api/proxy/${path}`. */
@@ -99,7 +89,7 @@ function createEvent(options: ProxyEventOptions) {
     params: { path },
     body: options.body,
     headers: options.headers,
-    locals: options.locals,
+    cookies: options.cookies,
   })
   const upstreamFetch = vi
     .fn()
@@ -132,7 +122,7 @@ describe('proxy header hygiene (acceptance)', () => {
     const { event, upstreamFetch } = createEvent({
       method: 'POST',
       body: { a: 1 },
-      locals: authenticatedLocals(),
+      cookies: createMockCookies({ coves_session: 'sealed-tok' }),
       headers: {
         // Required for the CSRF check on a state-changing method.
         origin: 'https://coves.social',
@@ -186,7 +176,7 @@ describe('upstream transport', () => {
     const { event, upstreamFetch } = createEvent({
       method: 'GET',
       path: 'xrpc/x',
-      locals: authenticatedLocals(),
+      cookies: createMockCookies({ coves_session: 'sealed-tok' }),
       headers: { accept: 'application/json', cookie: 'coves_session=abc' },
     })
 
@@ -247,12 +237,9 @@ describe('request header allowlist', () => {
     expect(headers.has('accept-encoding')).toBe(false)
   })
 
-  it('fails closed: an unauthenticated request forwards neither the session cookie nor an authorization header', async () => {
-    // The shape hooks.server.ts leaves behind when /api/me could not validate
-    // the session: the cookie is still on the request, but `locals.auth` says
-    // unauthenticated. Forwarding the raw cookie here would let the backend
-    // re-authenticate a session the frontend just decided was not valid, so
-    // the request must reach upstream with no credential at all.
+  it('does not copy a raw Cookie header when the selected session cookie is absent', async () => {
+    // Only the cookie API selects the session credential. The request header
+    // is never forwarded or parsed as a fallback credential channel.
     const { event, upstreamFetch } = createEvent({
       method: 'GET',
       headers: { cookie: 'coves_session=abc' },
@@ -392,10 +379,63 @@ describe('client address failure is logged once', () => {
  * were ever added to the request allowlist to "pass a token through".
  */
 describe('authorization', () => {
+  it.each([
+    { name: 'carriage return', token: 'private-session-sentinel\rinjected' },
+    { name: 'line feed', token: 'private-session-sentinel\ninjected' },
+    { name: 'NUL', token: 'private-session-sentinel\u0000injected' },
+    {
+      name: 'non-byte Unicode',
+      token: 'private-session-sentinel\u0100injected',
+    },
+  ])(
+    'rejects a session cookie containing $name before contacting upstream',
+    async ({ token }) => {
+      const cookies = createMockCookies({ coves_session: token })
+      // Supply the decoded value through Kit's cookie API. Putting it in a
+      // Request header would fail during fixture construction instead.
+      const { event, upstreamFetch } = createEvent({
+        method: 'GET',
+        cookies,
+        headers: {},
+      })
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const result = await Promise.resolve(
+        GET(event as unknown as ProxyEvent),
+      ).catch((error: unknown) => error)
+
+      // A malformed client credential must produce an ordinary 400 response,
+      // not let the platform's Headers exception escape the public handler.
+      expect(result instanceof Response).toBe(true)
+      if (!(result instanceof Response)) return
+      expect(result.status).toBe(400)
+      expect(result.headers.get('cache-control')).toBe('private, no-store')
+      expect(result.headers.get('content-type')).toContain('application/json')
+      expect(result.headers.has('etag')).toBe(false)
+      expect(result.headers.getSetCookie()).toEqual([])
+      const body: unknown = await result.json()
+      expect(body).toEqual({
+        error: expect.stringMatching(/\S/),
+        message: expect.stringMatching(/\S/),
+      })
+      expect(JSON.stringify(body)).not.toContain('private-session-sentinel')
+      expect(upstreamFetch).not.toHaveBeenCalled()
+      expect(event.fetch).not.toHaveBeenCalled()
+      expect(cookies.get('coves_session')).toBe(token)
+      expect(cookies.set).not.toHaveBeenCalled()
+      expect(cookies.delete).not.toHaveBeenCalled()
+      // Invalid input needs no diagnostic; in particular never log the native
+      // Headers exception, whose message can include the supplied credential.
+      expect(warnSpy).not.toHaveBeenCalled()
+      expect(errorSpy).not.toHaveBeenCalled()
+    },
+  )
+
   it('replaces a client-supplied authorization with the sealed session token', async () => {
     const { event, upstreamFetch } = createEvent({
       method: 'GET',
-      locals: authenticatedLocals(),
+      cookies: createMockCookies({ coves_session: 'sealed-tok' }),
       headers: { authorization: 'Bearer client-forged' },
     })
 
@@ -503,7 +543,7 @@ describe('upstream redirects', () => {
     const { event, upstreamFetch } = createEvent({
       method: 'GET',
       path: 'xrpc/x',
-      locals: authenticatedLocals(),
+      cookies: createMockCookies({ coves_session: 'sealed-tok' }),
       headers: {},
       upstream: new Response(null, {
         status: 302,
@@ -529,7 +569,7 @@ describe('upstream redirects', () => {
       method: 'POST',
       path: 'xrpc/x',
       body: { a: 1 },
-      locals: authenticatedLocals(),
+      cookies: createMockCookies({ coves_session: 'sealed-tok' }),
       headers: { origin: 'https://coves.social' },
       upstream: new Response(null, {
         status: 307,
@@ -595,6 +635,48 @@ describe('origin-policy response headers', () => {
 })
 
 describe('authenticated response caching', () => {
+  it.each([200, 401, 429])(
+    'protects cookie-bearing upstream %i responses and leaves session validity to the backend',
+    async (status) => {
+      const cookies = createMockCookies({
+        coves_session: 'invalid-opaque-token',
+      })
+      const payload = { result: 'upstream-response' }
+      const { event, upstreamFetch } = createEvent({
+        cookies,
+        headers: { authorization: 'Bearer forged-token' },
+        upstream: Response.json(payload, {
+          status,
+          headers: {
+            'cache-control': 'public, max-age=600',
+            etag: '"shared"',
+            'last-modified': 'Wed, 09 Sep 2026 12:00:00 GMT',
+            expires: 'Thu, 10 Sep 2026 12:00:00 GMT',
+            'retry-after': '30',
+            'x-ratelimit-remaining': '0',
+          },
+        }),
+      })
+
+      const response = await GET(event as unknown as ProxyEvent)
+
+      const headers = upstreamHeadersFrom(upstreamFetch)
+      expect(headers.get('authorization')).toBe('Bearer invalid-opaque-token')
+      expect(headers.has('cookie')).toBe(false)
+      expect(response.status).toBe(status)
+      expect(await response.json()).toEqual(payload)
+      expect(response.headers.get('retry-after')).toBe('30')
+      expect(response.headers.get('x-ratelimit-remaining')).toBe('0')
+      expect(response.headers.get('cache-control')).toBe('private, no-store')
+      for (const name of ['etag', 'last-modified', 'expires']) {
+        expect(response.headers.has(name)).toBe(false)
+      }
+      expect(event.locals.auth).toEqual({ authenticated: false })
+      expect(cookies.delete).not.toHaveBeenCalled()
+      expect(cookies.set).not.toHaveBeenCalled()
+    },
+  )
+
   function cacheableUpstream(): Response {
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
@@ -614,7 +696,7 @@ describe('authenticated response caching', () => {
     const { event } = createEvent({
       method: 'GET',
       path: 'xrpc/x',
-      locals: authenticatedLocals(),
+      cookies: createMockCookies({ coves_session: 'sealed-tok' }),
       headers: {},
       upstream: cacheableUpstream(),
     })

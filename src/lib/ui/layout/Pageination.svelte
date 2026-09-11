@@ -31,18 +31,16 @@
       const current = new SvelteURLSearchParams(pageData.url.searchParams)
       const newParams = new SvelteURLSearchParams(href)
 
-      current.delete(Array.from(newParams.keys())[0])
-      current.append(
-        Array.from(newParams.entries())[0][0],
-        Array.from(newParams.entries())[0][1],
-      )
+      for (const [key, value] of newParams) {
+        current.set(key, value)
+      }
 
       return `?${current.toString()}`
     } else return href
   }
 </script>
 
-{#if hasMore || page != 1}
+{#if hasMore || (back && page != 1)}
   <nav
     aria-label={$t('aria.pagination.nav')}
     class={[

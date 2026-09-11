@@ -117,6 +117,7 @@ export async function load({ params, url, fetch, route }) {
     sort,
     depth: maxDepth,
     limit: 50,
+    cursor: url.searchParams.get('cursor') ?? undefined,
   })
 
   // Every request lives inside this callback: the feed cache serves a
@@ -165,7 +166,7 @@ export async function load({ params, url, fetch, route }) {
       log.warn(`[post-loader] Post unavailable (${reason}) for ${postUri}`)
       return {
         unavailable: reason,
-        comments: Promise.resolve([]),
+        comments: Promise.resolve({ comments: [] }),
         params: p,
       }
     }
@@ -178,8 +179,8 @@ export async function load({ params, url, fetch, route }) {
     // fallback and the retry above can both change.
     const comments = commentParams(postUri)
     const commentsPromise = p.freshPost
-      ? Promise.resolve([])
-      : client.getComments(comments).then((r) => r.comments)
+      ? Promise.resolve({ comments: [] })
+      : client.getComments(comments)
 
     // The canonical redirect below may abandon this promise; claim its
     // rejection now so it cannot escape as an unhandled one. The page still

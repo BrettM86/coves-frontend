@@ -4,13 +4,12 @@
   import { errorMessage } from '$lib/app/util/error'
   import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
-  import { settings } from '$lib/app/state/settings.svelte'
-  import { mapSort } from '$lib/api/coves/sort'
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
   import { Post } from '$lib/feature/post'
   import { postTextFallback } from '$lib/feature/post/helpers'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
-  import { Material, Spinner, toast } from '$lib/ui/kit'
+  import { Pageination } from '$lib/ui/layout'
+  import { Button, Material, Spinner, toast } from '$lib/ui/kit'
   import { Icon, Ban, MessageSquare } from '$lib/ui/kit/icon'
   import { tick } from 'svelte'
   import type { PageData } from './$types'
@@ -123,16 +122,8 @@
   async function reloadComments(): Promise<void> {
     const value = data.data.value
     if (!value?.post) return
-    // Mirror the loader's precedence: an explicit ?sort= URL param wins over
-    // the user's default comment sort.
-    const { sort } = mapSort(
-      page.url.searchParams.get('sort') ?? settings.defaultSort.comments,
-    )
     try {
-      const { comments } = await coves().getComments({
-        ...value.params.comments,
-        sort,
-      })
+      const comments = await coves().getComments(value.params.comments)
       // Only swap in the (already-resolved) result on success so a transient
       // failure keeps the previously loaded comment tree on screen.
       value.comments = Promise.resolve(comments)
@@ -198,25 +189,39 @@
         >
           <Spinner width={24} />
         </div>
-      {:then comments}
+      {:then commentsPage}
+        {@const comments = commentsPage.comments}
         <CommentProvider
           bind:this={commentProvider}
           {post}
           {comments}
+          sort={data.data.value.params.comments.sort}
           focus={data.data.value.params.thread.focus}
           onupdate={reloadComments}
           showContext={data.data.value.params.thread.showContext}
           singleThread={data.data.value.params.thread.singleThread}
         />
+        {#if commentsPage.cursor}
+          <Pageination
+            cursor={{ next: commentsPage.cursor }}
+            hasMore={!!commentsPage.cursor}
+            href={(cursor) =>
+              `?cursor=${encodeURIComponent(cursor)}&sort=${encodeURIComponent(data.data.value.params.comments.sort ?? 'hot')}`}
+            back={false}
+          />
+        {/if}
         {#if comments.length === 0}
           <p class="text-sm text-slate-500 dark:text-zinc-400 py-4 text-center">
             No comments yet. Be the first to comment!
           </p>
         {/if}
       {:catch}
-        <p class="text-sm text-red-500 py-4 text-center">
-          Failed to load comments.
-        </p>
+        <div class="flex flex-col items-center gap-2 py-4">
+          <p class="text-sm text-red-500 text-center">
+            Failed to load comments.
+          </p>
+          <Button onclick={reloadComments}>{$t('message.retry')}</Button>
+        </div>
       {/await}
     </section>
   {:else if data.data.value?.unavailable}

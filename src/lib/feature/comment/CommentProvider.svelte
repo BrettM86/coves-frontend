@@ -1,6 +1,10 @@
 <script lang="ts">
   import { browser } from '$app/environment'
   import { page } from '$app/state'
+  import { goto } from '$app/navigation'
+  import { mapSort } from '$lib/api/coves/sort'
+  import { errorMessage } from '$lib/app/util/error'
+  import { log } from '$lib/app/util/log'
   import type {
     PostView,
     StrongRef,
@@ -20,7 +24,7 @@
   import CommentTree from '$lib/feature/comment/CommentTree.svelte'
   import { postLink } from '$lib/feature/post'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
-  import { Button, Option, Select } from '$lib/ui/kit'
+  import { Button, Option, Select, toast } from '$lib/ui/kit'
   import { onMount, untrack } from 'svelte'
   import {
     Icon,
@@ -53,6 +57,31 @@
     singleThread,
   }: Props = $props()
   let commenting = $state(false)
+  const activeSort = $derived(
+    mapSort(
+      sort ??
+        page.url.searchParams.get('sort') ??
+        settings.defaultSort.comments,
+    ).sort,
+  )
+  let selectedSort = $derived(activeSort)
+
+  async function changeSort(): Promise<void> {
+    const nextSort = selectedSort
+    const url = new URL(page.url)
+    url.searchParams.set('sort', nextSort)
+    url.searchParams.delete('cursor')
+    try {
+      // Cursors belong to a sort order. Navigation keeps the URL, loader cache,
+      // and Back/Forward history on the same page as the displayed comments.
+      await goto(url, { noScroll: true, keepFocus: true })
+      settings.defaultSort.comments = nextSort
+    } catch (err) {
+      selectedSort = activeSort
+      log.error('[comments] Failed to change sort', err)
+      toast({ content: errorMessage(err), type: 'error' })
+    }
+  }
 
   const postRef: StrongRef = $derived({ uri: post.uri, cid: post.cid })
 
@@ -105,11 +134,7 @@
 
       {#snippet action()}
         <div class="gap-2 flex items-center">
-          <Select
-            size="md"
-            bind:value={settings.defaultSort.comments}
-            onchange={onupdate}
-          >
+          <Select size="md" bind:value={selectedSort} onchange={changeSort}>
             <Option icon={Flame} value="hot">{$t('filter.sort.hot')}</Option>
             <Option icon={Trophy} value="top">
               {$t('filter.sort.top.label')}
@@ -156,11 +181,7 @@
 
 {#if commenting || !profile.current.jwt}
   <div class="gap-2 flex items-center">
-    <Select
-      size="md"
-      bind:value={settings.defaultSort.comments}
-      onchange={onupdate}
-    >
+    <Select size="md" bind:value={selectedSort} onchange={changeSort}>
       <Option icon={Flame} value="hot">{$t('filter.sort.hot')}</Option>
       <Option icon={Trophy} value="top">
         {$t('filter.sort.top.label')}

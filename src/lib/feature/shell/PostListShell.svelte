@@ -147,8 +147,11 @@
   >
     <Pageination
       cursor={{ next: cursor }}
+      hasMore={!!cursor}
       href={(page) =>
-        typeof page == 'number' ? `?page=${page}` : `?cursor=${page}`}
+        typeof page == 'number'
+          ? `?page=${page}`
+          : `?cursor=${encodeURIComponent(page)}`}
       back={false}
     />
   </svelte:element>

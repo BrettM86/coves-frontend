@@ -1,11 +1,8 @@
 <script lang="ts">
-  import { page } from '$app/state'
   import { coves } from '$lib/api/client.svelte'
   import { errorMessage } from '$lib/app/util/error'
   import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
-  import { settings } from '$lib/app/state/settings.svelte'
-  import { mapSort } from '$lib/api/coves/sort'
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
   import { commentLink, Post, postLink } from '$lib/feature/post'
   import { Button, Material, Spinner, toast } from '$lib/ui/kit'
@@ -23,16 +20,8 @@
 
   async function reloadComments(): Promise<void> {
     const value = data.data.value
-    // Mirror the loader's precedence: an explicit ?sort= URL param wins over
-    // the user's default comment sort.
-    const { sort } = mapSort(
-      page.url.searchParams.get('sort') ?? settings.defaultSort.comments,
-    )
     try {
-      const { comments } = await coves().getComments({
-        ...value.params.comments,
-        sort,
-      })
+      const { comments } = await coves().getComments(value.params.comments)
       // Only swap in the (already-resolved) result on success so a transient
       // failure keeps the previously loaded comment tree on screen.
       value.comments = Promise.resolve(comments)
@@ -115,7 +104,12 @@
         <Spinner width={24} />
       </div>
     {:then comments}
-      <CommentProvider {post} {comments} onupdate={reloadComments} />
+      <CommentProvider
+        {post}
+        {comments}
+        sort={data.data.value.params.comments.sort}
+        onupdate={reloadComments}
+      />
     {:catch}
       <p class="text-sm text-red-500 py-4 text-center">
         {$t('comment.permalink.failed')}

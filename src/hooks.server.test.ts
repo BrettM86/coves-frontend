@@ -12,6 +12,7 @@ let mockPublicInstanceUrl: string | undefined = undefined
 
 // Variable to control dev mode (default false to avoid hostname redirects in most tests)
 let mockDev = false
+let mockBuilding = false
 
 // Variable to control the mocked LOG_STACKS private env var
 let mockLogStacks: string | undefined = undefined
@@ -22,7 +23,9 @@ vi.mock('$app/environment', () => ({
     return mockDev
   },
   browser: false,
-  building: false,
+  get building() {
+    return mockBuilding
+  },
   version: 'test',
 }))
 
@@ -38,11 +41,16 @@ vi.mock('$env/dynamic/public', () => ({
   },
 }))
 
+let mockOrigin: string | undefined
+
 let mockCspVideoOrigins: string | undefined = 'https://pds.coves.me'
 
 // Mock private environment variables (LOG_STACKS gates stack inclusion)
 vi.mock('$env/dynamic/private', () => ({
   env: {
+    get ORIGIN() {
+      return mockOrigin
+    },
     get LOG_STACKS() {
       return mockLogStacks
     },
@@ -1852,5 +1860,52 @@ describe('hooks.server cache policy', () => {
     const response = await handle({ event, resolve })
 
     expect(response.headers.get('cache-control')).toBe('private, no-store')
+  })
+})
+
+describe('production origin startup gate', () => {
+  it('refuses to initialize production hooks without ORIGIN', async () => {
+    vi.stubEnv('PROD', true)
+    mockOrigin = undefined
+    vi.resetModules()
+    try {
+      await expect(import('./hooks.server')).rejects.toThrow(
+        /ORIGIN is not set/,
+      )
+    } finally {
+      vi.unstubAllEnvs()
+      vi.resetModules()
+    }
+  })
+
+  it('allows production builds without deployment environment variables', async () => {
+    vi.stubEnv('PROD', true)
+    mockBuilding = true
+    mockOrigin = undefined
+    vi.resetModules()
+    try {
+      await expect(import('./hooks.server')).resolves.toHaveProperty('handle')
+    } finally {
+      mockBuilding = false
+      vi.unstubAllEnvs()
+      vi.resetModules()
+    }
+  })
+
+  it('allows configured production and unconfigured development startup', async () => {
+    try {
+      vi.stubEnv('PROD', true)
+      mockOrigin = 'https://coves.test'
+      vi.resetModules()
+      await expect(import('./hooks.server')).resolves.toHaveProperty('handle')
+      vi.stubEnv('PROD', false)
+      mockOrigin = undefined
+      vi.resetModules()
+      await expect(import('./hooks.server')).resolves.toHaveProperty('handle')
+    } finally {
+      mockOrigin = undefined
+      vi.unstubAllEnvs()
+      vi.resetModules()
+    }
   })
 })

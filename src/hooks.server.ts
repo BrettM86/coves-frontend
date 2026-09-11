@@ -5,7 +5,7 @@ import {
   type HandleServerError,
   type RequestEvent,
 } from '@sveltejs/kit'
-import { dev } from '$app/environment'
+import { building, dev } from '$app/environment'
 import { getRequestEvent } from '$app/server'
 import { env as privateEnv } from '$env/dynamic/private'
 import { installRequestEventAccessor } from '$lib/app/util/request-event'
@@ -34,10 +34,10 @@ import {
 // module load, so they appear in the boot log rather than never.
 const startupWarning = addressHeaderConfigWarning()
 if (startupWarning) log.warn(startupWarning)
-// ORIGIN is logged at error rather than warn: with it unset, adapter-node
-// trusts the client Host header for event.url and Kit's origin checks.
-const originStartupError = originConfigWarning()
-if (originStartupError) log.error(originStartupError)
+// Refuse production startup when adapter-node would trust the client Host
+// header for event.url and origin checks. Builds have no deployment env yet.
+const originStartupError = building ? null : originConfigWarning()
+if (originStartupError) throw new Error(originStartupError)
 
 // Universal modules cannot import `$app/server`, so they reach the in-flight
 // request through an accessor this server-only file installs at module load.

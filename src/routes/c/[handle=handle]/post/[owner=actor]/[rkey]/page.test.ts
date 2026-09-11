@@ -85,7 +85,10 @@ import type { AtUri, CID, CreatePostOutput } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import { XrpcError } from '$lib/api/coves/xrpc'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
-import { buildFreshPostView, stashFreshPost } from '$lib/feature/post/fresh-post'
+import {
+  buildFreshPostView,
+  stashFreshPost,
+} from '$lib/feature/post/fresh-post'
 import { createdPostLink } from '$lib/feature/post/owner'
 import { load } from './+page'
 
@@ -236,6 +239,20 @@ describe('post loader', () => {
   // -------------------------------------------------------------------------
   // Owner resolution
   // -------------------------------------------------------------------------
+
+  it('follows the root-comment cursor and retains the next cursor for navigation', async () => {
+    const response = { comments: [], cursor: 'roots3' }
+    mockCovesMethods.getComments.mockResolvedValue(response)
+    const result = await load(makeArgs({ query: '?cursor=roots2' }))
+    expect(mockCovesMethods.getComments).toHaveBeenCalledWith({
+      post: POSTV2_URI,
+      sort: 'hot',
+      depth: 3,
+      limit: 50,
+      cursor: 'roots2',
+    })
+    await expect(loadedValue(result).comments).resolves.toEqual(response)
+  })
 
   it('probes both collections for a DID owner, with no profile lookup', async () => {
     // The post carries no author ref, so the DID owner segment is canonical

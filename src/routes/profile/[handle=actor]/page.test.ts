@@ -88,7 +88,10 @@ describe('profile loader', () => {
   // Every other test here asserts a rejection, so a loader that threw
   // unconditionally would fail exactly one of them. This is the one.
   it('returns the profile, posts and comments for a valid actor', async () => {
-    const args = makeArgs('alice.coves.social', '?cursor=page2')
+    const args = makeArgs(
+      'alice.coves.social',
+      '?postsCursor=posts2&commentsCursor=comments2',
+    )
     const result = await load(args)
 
     expect(result.data.value).toEqual({
@@ -106,14 +109,34 @@ describe('profile loader', () => {
     expect(mockCovesMethods.getActorPosts).toHaveBeenCalledWith({
       actor: 'alice.coves.social',
       limit: 20,
-      cursor: 'page2',
+      cursor: 'posts2',
     })
     expect(mockCovesMethods.getActorComments).toHaveBeenCalledWith({
       actor: 'alice.coves.social',
       limit: 20,
-      cursor: 'page2',
+      cursor: 'comments2',
     })
   })
+
+  it.each([
+    ['?postsCursor=posts2', 'posts2', undefined],
+    ['?commentsCursor=comments2', undefined, 'comments2'],
+  ])(
+    'keeps cursors independent for %s',
+    async (query, postsCursor, commentsCursor) => {
+      await load(makeArgs('alice.coves.social', query))
+      expect(mockCovesMethods.getActorPosts).toHaveBeenCalledWith({
+        actor: 'alice.coves.social',
+        limit: 20,
+        cursor: postsCursor,
+      })
+      expect(mockCovesMethods.getActorComments).toHaveBeenCalledWith({
+        actor: 'alice.coves.social',
+        limit: 20,
+        cursor: commentsCursor,
+      })
+    },
+  )
 
   // B1 — an upstream 404 must reach the router as a 404 whose message is the
   // i18n key `couldnt_find_person`. The key shape is load-bearing: `errorMessage`

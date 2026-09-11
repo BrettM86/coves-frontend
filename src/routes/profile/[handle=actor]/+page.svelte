@@ -6,7 +6,7 @@
   import UserLink from '$lib/feature/user/UserLink.svelte'
   import EntityHeader from '$lib/feature/shell/EntityHeader.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
-  import { Header } from '$lib/ui/layout'
+  import { Header, Pageination } from '$lib/ui/layout'
   import { publishedToDate } from '$lib/ui/util/date'
   import { Option, Select } from '$lib/ui/kit'
   import { formatRelativeDate } from '$lib/ui/util/RelativeDate.svelte'
@@ -27,8 +27,8 @@
   let { data, inline = false }: Props = $props()
 
   // Seed from the URL so deep links / hard reloads honor ?type=
-  const initialType = page.url.searchParams.get('type')
-  let filterType = $state<'all' | 'posts' | 'comments'>(
+  const initialType = $derived(page.url.searchParams.get('type'))
+  let filterType = $derived<'all' | 'posts' | 'comments'>(
     initialType === 'posts' || initialType === 'comments' ? initialType : 'all',
   )
   let sortForm = $state<HTMLFormElement>()
@@ -128,6 +128,16 @@
           description="This user has no posts."
         />
       {/if}
+      {#if data.data.value.posts.cursor}
+        <Pageination
+          cursor={{ next: data.data.value.posts.cursor }}
+          hasMore={!!data.data.value.posts.cursor}
+          href={(cursor) => `?postsCursor=${encodeURIComponent(cursor)}`}
+          back={false}
+        >
+          {$t('content.posts')}
+        </Pageination>
+      {/if}
     {/if}
 
     {#if filterType === 'all' || filterType === 'comments'}
@@ -169,6 +179,16 @@
           title="No comments"
           description="This user has no comments."
         />
+      {/if}
+      {#if data.data.value.comments.cursor}
+        <Pageination
+          cursor={{ next: data.data.value.comments.cursor }}
+          hasMore={!!data.data.value.comments.cursor}
+          href={(cursor) => `?commentsCursor=${encodeURIComponent(cursor)}`}
+          back={false}
+        >
+          {$t('content.comments')}
+        </Pageination>
       {/if}
     {/if}
 

@@ -8,6 +8,7 @@ import type {
   GetActorCommentsResponse,
   GetActorPostsResponse,
   GetCommentsParams,
+  GetCommentsResponse,
   PostView as CovesPostView,
   ProfileViewDetailed,
   ThreadViewComment,
@@ -110,7 +111,12 @@ export interface FeedTypes {
     },
   ]
   '/profile/[handle=actor]': [
-    { actor: string; limit?: number; cursor?: string },
+    {
+      actor: string
+      limit?: number
+      postsCursor?: string
+      commentsCursor?: string
+    },
     {
       profile: ProfileViewDetailed
       posts: GetActorPostsResponse
@@ -140,7 +146,7 @@ export interface FeedTypes {
       | { post: CovesPostView; unavailable?: never }
       | { post?: never; unavailable: 'notFound' | 'blocked' }
     ) & {
-      comments: Promise<ThreadViewComment[]>
+      comments: Promise<Pick<GetCommentsResponse, 'comments' | 'cursor'>>
       params: {
         postUri: string
         comments: GetCommentsParams

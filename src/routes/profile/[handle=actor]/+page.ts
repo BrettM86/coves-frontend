@@ -6,7 +6,8 @@ import { ReactiveState } from '$lib/app/util/reactive.svelte'
 import { feed } from '$lib/feature/feeds/feed.svelte'
 
 export async function load({ params, url, fetch, route }) {
-  const cursor = url.searchParams.get('cursor') ?? undefined
+  const postsCursor = url.searchParams.get('postsCursor') ?? undefined
+  const commentsCursor = url.searchParams.get('commentsCursor') ?? undefined
 
   const feedData = await feed(route.id, async (p) => {
     if (!isValidHandle(p.actor) && !isValidDID(p.actor)) {
@@ -30,8 +31,8 @@ export async function load({ params, url, fetch, route }) {
         }
         throw e
       }),
-      api.getActorPosts({ actor, limit: p.limit, cursor: p.cursor }),
-      api.getActorComments({ actor, limit: p.limit, cursor: p.cursor }),
+      api.getActorPosts({ actor, limit: p.limit, cursor: p.postsCursor }),
+      api.getActorComments({ actor, limit: p.limit, cursor: p.commentsCursor }),
     ])
 
     return {
@@ -42,7 +43,8 @@ export async function load({ params, url, fetch, route }) {
   }).load({
     actor: params.handle,
     limit: 20,
-    cursor,
+    postsCursor,
+    commentsCursor,
   })
 
   return {

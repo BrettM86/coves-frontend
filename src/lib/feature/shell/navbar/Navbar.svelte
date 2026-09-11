@@ -2,7 +2,13 @@
   import { profile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
   import { Menu, Spinner } from '$lib/ui/kit'
-  import { Icon, Compass, Menu as MenuIcon, SquarePen } from '$lib/ui/kit/icon'
+  import {
+    Icon,
+    Compass,
+    House,
+    Menu as MenuIcon,
+    SquarePen,
+  } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import CommandsWrapper from './commands/CommandsHost.svelte'
@@ -19,6 +25,12 @@
 <CommandsWrapper />
 <nav class={['navbar @container', clazz]} {style} data-sveltekit-preload-data>
   <div class="hidden md:block md:flex-1"></div>
+  <NavButton
+    href="/"
+    label={$t('nav.home')}
+    icon={House}
+    class="order-0 md:hidden!"
+  />
   <NavButton
     href="/explore/communities"
     label={$t('routes.explore.title')}

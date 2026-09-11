@@ -75,7 +75,7 @@
    * The server handles OAuth state generation and redirect URL construction.
    */
   async function startOAuthLogin(): Promise<void> {
-    if (!browser) return
+    if (!browser || form.loading) return
 
     form.loading = true
     clearErrorScope(page.route.id)

@@ -142,6 +142,7 @@
   role={href ? 'link' : 'button'}
   {href}
   {...rest}
+  disabled={href ? undefined : disabled || loading}
   tabindex={disabled ? -1 : undefined}
   class={[
     type == 'button' && 'btn',

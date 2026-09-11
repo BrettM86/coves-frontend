@@ -36,10 +36,16 @@
 <form
   onsubmit={(e) => {
     e.preventDefault()
+    if (loading) return
     loading = true
 
     form
       .submit()
+      .catch((err: unknown) => {
+        // Only failed creation can be retried; navigation must not create another post.
+        loading = false
+        throw err
+      })
       .then((result) => {
         onsubmit?.(result)
       })
@@ -51,7 +57,6 @@
           scope: 'post-form',
         }),
       )
-      .finally(() => (loading = false))
   }}
   class="flex flex-col gap-4 h-full"
 >

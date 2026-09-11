@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { View } from '$lib/app/state/settings.svelte'
-  import { parseWebUrl } from '$lib/app/util/url'
+  import { isWebUrl, parseWebUrl } from '$lib/app/util/url'
   import { Material } from '$lib/ui/kit'
   import { Icon, ExternalLink, Link } from '$lib/ui/kit/icon'
   import { withPreset } from '$lib/api/coves/image-proxy'
@@ -19,6 +19,13 @@
   // becomes an href; anything else renders as inert text so a stored
   // javascript:/data: URI cannot become a navigation.
   let richURL = $derived(parseWebUrl(url))
+  // The thumbnail is an `<img src>` sink fed by the same untrusted embed
+  // record, and a prop is not a gate: a caller may hand over anything. Only an
+  // absolute http(s) address becomes an image; anything else leaves the card
+  // with no image slot at all rather than an `<img src="">` placeholder.
+  let richThumbnail = $derived(
+    thumbnail_url && isWebUrl(thumbnail_url) ? thumbnail_url : undefined,
+  )
 </script>
 
 <!--
@@ -33,7 +40,7 @@
     <Icon src={Link} size="16" class="shrink-0" />
     {url}
   </span>
-{:else if (embed_title || thumbnail_url) && view == 'cozy'}
+{:else if (embed_title || richThumbnail) && view == 'cozy'}
   <Material
     color="default"
     class={[
@@ -46,7 +53,7 @@
     target="_blank"
     rel="noopener noreferrer"
   >
-    <div class={['post-link-url', thumbnail_url && '-mt-2 sm:mt-0']}>
+    <div class={['post-link-url', richThumbnail && '-mt-2 sm:mt-0']}>
       <div class="link-hostname">
         {richURL.hostname}
       </div>
@@ -54,10 +61,10 @@
         <p class="post-link-title">{embed_title}</p>
       {/if}
     </div>
-    {#if thumbnail_url && !imgError}
+    {#if richThumbnail && !imgError}
       <div class="post-link-image">
         <img
-          src={withPreset(thumbnail_url, 'embed_thumbnail')}
+          src={withPreset(richThumbnail, 'embed_thumbnail')}
           onerror={() => (imgError = true)}
           class=""
           width={600}

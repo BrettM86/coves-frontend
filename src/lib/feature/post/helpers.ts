@@ -12,7 +12,20 @@ import {
 } from '$lib/api/coves/image-proxy'
 
 /**
+ * A record-supplied media URL, or '' when it is not an absolute http(s) URL.
+ *
+ * External and video embed fields are plain strings on a record that may have
+ * been written straight to a PDS, so the `<img src>` sinks they feed decide
+ * safety here rather than trusting whatever produced the record.
+ */
+const webMediaUrl = (url: string | undefined): string =>
+  url && isWebUrl(url) ? url : ''
+
+/**
  * Returns the best image URL for a post embed.
+ *
+ * The selected external or video URL is gated with {@link isWebUrl}: anything
+ * that is not an absolute http(s) URL yields '' rather than a second choice.
  *
  * @param embed - The post embed to extract an image URL from.
  * @param thumbnail - For external embeds only: when true, prefer the external
@@ -35,13 +48,13 @@ export const bestImageURL = (
     }
     case 'social.coves.embed.external':
     case 'social.coves.embed.external#view': {
-      if (embed.external.thumb && thumbnail) return embed.external.thumb
-      return embed.external.uri ?? ''
+      if (embed.external.thumb && thumbnail)
+        return webMediaUrl(embed.external.thumb)
+      return webMediaUrl(embed.external.uri)
     }
     case 'social.coves.embed.video':
     case 'social.coves.embed.video#view': {
-      if (embed.thumbnail) return embed.thumbnail
-      return ''
+      return webMediaUrl(embed.thumbnail)
     }
     case 'social.coves.embed.post':
     case 'social.coves.embed.post#view':
@@ -361,7 +374,8 @@ export function extractEmbedUrl(embed?: PostEmbed): string | undefined {
 }
 
 /**
- * Extracts the thumbnail URL from a PostEmbed, if any.
+ * Extracts the thumbnail URL from a PostEmbed, if any. An external or video
+ * thumbnail that is not an absolute http(s) URL comes back undefined.
  */
 export function extractEmbedThumbnail(embed?: PostEmbed): string | undefined {
   if (!embed) return undefined
@@ -373,10 +387,10 @@ export function extractEmbedThumbnail(embed?: PostEmbed): string | undefined {
     }
     case 'social.coves.embed.external':
     case 'social.coves.embed.external#view':
-      return embed.external.thumb
+      return webMediaUrl(embed.external.thumb) || undefined
     case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
-      return embed.thumbnail
+      return webMediaUrl(embed.thumbnail) || undefined
     case 'social.coves.embed.post':
     case 'social.coves.embed.post#view':
     case 'social.coves.embed.record':

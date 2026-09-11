@@ -1304,3 +1304,196 @@ describe('postTextFallback', () => {
     expect(postTextFallback('short post', 120)).toBe('short post')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Embed media URL gating
+//
+// `external.thumb`, `external.uri` and a video embed's `thumbnail` are plain
+// strings on a record that may have been written straight to a PDS, so nothing
+// upstream guarantees they are http(s). Both helpers feed `<img src>` sinks
+// (PostLink, PostIframe, PostImage), so an address the browser would still
+// fetch — or hand to the navigator — must never come back out.
+//
+// Selection semantics are unchanged: bestImageURL still picks thumb-or-uri
+// exactly as before. Validation happens on the SELECTED value only, with no
+// second-choice fallback: a rejected thumb yields nothing, not the uri.
+// ---------------------------------------------------------------------------
+
+const UNSAFE_MEDIA_URLS: readonly string[] = [
+  'file:///etc/passwd',
+  'javascript:alert(1)',
+  'data:text/html,x.png',
+  '//example.com/x.png',
+  '/x.png',
+  'relative/x.png',
+  'https://',
+]
+
+const SAFE_MEDIA_URLS: readonly string[] = [
+  'https://cdn.example.com/x.png',
+  'http://cdn.example.com/x.png',
+]
+
+const SAFE_URI = 'https://example.com/article'
+
+const EXTERNAL_TYPES: readonly ExternalEmbed['$type'][] = [
+  'social.coves.embed.external',
+  'social.coves.embed.external#view',
+]
+
+const VIDEO_TYPES: readonly VideoEmbed['$type'][] = [
+  'social.coves.embed.video',
+  'social.coves.embed.video#view',
+]
+
+const external = (
+  $type: ExternalEmbed['$type'],
+  uri: string,
+  thumb?: string,
+): ExternalEmbed => ({
+  $type,
+  external: { uri, ...(thumb === undefined ? {} : { thumb }) },
+})
+
+const video = ($type: VideoEmbed['$type'], thumbnail?: string): VideoEmbed => ({
+  $type,
+  video: 'https://cdn.example.com/video.mp4',
+  ...(thumbnail === undefined ? {} : { thumbnail }),
+})
+
+describe.each(EXTERNAL_TYPES)('bestImageURL - %s media URLs', ($type) => {
+  it.each(UNSAFE_MEDIA_URLS)('rejects the thumb %j', (thumb) => {
+    expect(bestImageURL(external($type, SAFE_URI, thumb), true)).toBe('')
+  })
+
+  it.each(UNSAFE_MEDIA_URLS)(
+    'rejects the uri %j when there is no thumb',
+    (uri) => {
+      expect(bestImageURL(external($type, uri), true)).toBe('')
+    },
+  )
+
+  it.each(UNSAFE_MEDIA_URLS)(
+    'rejects the uri %j when thumbnail=false',
+    (uri) => {
+      expect(
+        bestImageURL(external($type, uri, SAFE_MEDIA_URLS[0]), false),
+      ).toBe('')
+    },
+  )
+
+  it.each(SAFE_MEDIA_URLS)('returns the thumb %j unchanged', (thumb) => {
+    expect(bestImageURL(external($type, SAFE_URI, thumb), true)).toBe(thumb)
+  })
+
+  it.each(SAFE_MEDIA_URLS)(
+    'returns the uri %j unchanged when there is no thumb',
+    (uri) => {
+      expect(bestImageURL(external($type, uri), true)).toBe(uri)
+    },
+  )
+
+  it('falls back to a safe uri when the thumb is absent', () => {
+    expect(bestImageURL(external($type, SAFE_URI), true)).toBe(SAFE_URI)
+  })
+
+  it('falls back to a safe uri when the thumb is an empty string', () => {
+    expect(bestImageURL(external($type, SAFE_URI, ''), true)).toBe(SAFE_URI)
+  })
+
+  it('does not fall back to a safe uri when the thumb is unsafe', () => {
+    expect(
+      bestImageURL(external($type, SAFE_URI, 'file:///etc/passwd'), true),
+    ).toBe('')
+  })
+
+  it('returns the uri when thumbnail=false and the thumb is unsafe', () => {
+    expect(
+      bestImageURL(external($type, SAFE_URI, 'javascript:alert(1)'), false),
+    ).toBe(SAFE_URI)
+  })
+})
+
+describe.each(VIDEO_TYPES)('bestImageURL - %s media URLs', ($type) => {
+  it.each(UNSAFE_MEDIA_URLS)('rejects the thumbnail %j', (thumbnail) => {
+    expect(bestImageURL(video($type, thumbnail))).toBe('')
+  })
+
+  it.each(SAFE_MEDIA_URLS)(
+    'returns the thumbnail %j unchanged',
+    (thumbnail) => {
+      expect(bestImageURL(video($type, thumbnail))).toBe(thumbnail)
+    },
+  )
+
+  it('returns an empty string when the thumbnail is absent', () => {
+    expect(bestImageURL(video($type))).toBe('')
+  })
+})
+
+describe.each(EXTERNAL_TYPES)(
+  'extractEmbedThumbnail - %s media URLs',
+  ($type) => {
+    it.each(UNSAFE_MEDIA_URLS)('rejects the thumb %j', (thumb) => {
+      expect(
+        extractEmbedThumbnail(external($type, SAFE_URI, thumb)),
+      ).toBeUndefined()
+    })
+
+    it.each(SAFE_MEDIA_URLS)('returns the thumb %j unchanged', (thumb) => {
+      expect(extractEmbedThumbnail(external($type, SAFE_URI, thumb))).toBe(
+        thumb,
+      )
+    })
+
+    it('never falls back to the uri when the thumb is absent', () => {
+      expect(extractEmbedThumbnail(external($type, SAFE_URI))).toBeUndefined()
+    })
+
+    it('never falls back to the uri when the thumb is unsafe', () => {
+      expect(
+        extractEmbedThumbnail(external($type, SAFE_URI, 'file:///etc/passwd')),
+      ).toBeUndefined()
+    })
+  },
+)
+
+describe.each(VIDEO_TYPES)('extractEmbedThumbnail - %s media URLs', ($type) => {
+  it.each(UNSAFE_MEDIA_URLS)('rejects the thumbnail %j', (thumbnail) => {
+    expect(extractEmbedThumbnail(video($type, thumbnail))).toBeUndefined()
+  })
+
+  it.each(SAFE_MEDIA_URLS)(
+    'returns the thumbnail %j unchanged',
+    (thumbnail) => {
+      expect(extractEmbedThumbnail(video($type, thumbnail))).toBe(thumbnail)
+    },
+  )
+
+  it('returns undefined when the thumbnail is absent', () => {
+    expect(extractEmbedThumbnail(video($type))).toBeUndefined()
+  })
+})
+
+describe('extractEmbedThumbnail - images#view is unchanged', () => {
+  it('still returns the proxy-selected image URL', () => {
+    expect(extractEmbedThumbnail(imageEmbed)).toBe(
+      'https://cdn.example.com/pic.jpg',
+    )
+  })
+
+  it('still prefers the thumb variant when one is present', () => {
+    const withThumb: ImageEmbed = {
+      $type: 'social.coves.embed.images#view',
+      images: [
+        {
+          image: 'https://cdn.example.com/pic.jpg',
+          thumb: 'https://cdn.example.com/pic-thumb.jpg',
+        },
+      ],
+    }
+    expect(extractEmbedThumbnail(withThumb)).toBe(
+      'https://cdn.example.com/pic-thumb.jpg',
+    )
+  })
+})

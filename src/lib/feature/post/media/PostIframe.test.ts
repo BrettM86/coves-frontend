@@ -31,6 +31,7 @@ interface Options {
   readonly type?: IframeType
   readonly opened?: boolean
   readonly autoplay?: boolean
+  readonly thumbnail?: string
 }
 
 /** Renders with the embed opened, which is what both call sites do on SSR. */
@@ -41,8 +42,12 @@ const renderIframe = (url: string, options: Options = {}): string =>
       type: options.type ?? 'youtube',
       opened: options.opened ?? true,
       autoplay: options.autoplay ?? false,
+      thumbnail: options.thumbnail,
     },
   }).body
+
+const imageTags = (html: string): string[] =>
+  [...html.matchAll(/<img\b[^>]*>/gi)].map((match) => match[0])
 
 const iframeAttribute = (html: string, name: string): string | undefined => {
   const tag = /<iframe\b[^>]*>/i.exec(html)?.[0]
@@ -187,6 +192,34 @@ describe('PostIframe - video files', () => {
     expect(html).toContain('<video')
     expect(/<source\b[^>]*\bsrc="([^"]*)"/i.exec(html)?.[1]).toBe(url)
   })
+
+  // The `video` branch is the one path that never rewrites its input: the raw
+  // `url` prop becomes the `<source src>`. `iframeType` classifies by file
+  // extension alone, so `file:///share/clip.mp4` and `javascript:alert(1)#.mp4`
+  // both land here — and a <source> is a fetch the browser performs, on a
+  // scheme we never intended to hand it. A rejected URL means no player at all,
+  // for the same reason an empty iframe src is refused above: an element with
+  // no usable source is a broken affordance, not a safe one.
+  const UNSAFE_VIDEO_URLS: readonly string[] = [
+    'file:///etc/passwd',
+    'javascript:alert(1)',
+    'data:text/html,x.png',
+    '//example.com/x.png',
+    '/x.png',
+    'relative/x.png',
+    'https://',
+  ]
+
+  it.each(UNSAFE_VIDEO_URLS)('emits no video element for %j', (url: string) => {
+    const html = renderIframe(url, { type: 'video' })
+
+    expect(html).not.toMatch(/<(?:video|source)\b/i)
+    expect(html).not.toContain('src=""')
+  })
+
+  it.each(UNSAFE_VIDEO_URLS)('renders %j without throwing', (url: string) => {
+    expect(() => renderIframe(url, { type: 'video' })).not.toThrow()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -264,5 +297,61 @@ describe('PostIframe - streamable', () => {
   ])('emits no iframe for %j', (url: string) => {
     expect(() => renderIframe(url, { type: 'streamable' })).not.toThrow()
     expect(countIframes(renderIframe(url, { type: 'streamable' }))).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 7. Preview thumbnail
+//
+// `thumbnail` is a second untrusted sink alongside `url`: it comes from an
+// embed record's `thumbnail` / `external.thumb`, and the closed player paints
+// it as a background `<img>`. A prop is not a gate — the component cannot
+// assume its caller ran the URL through the helpers — so a non-http(s) value
+// falls back to the generated Blobs backdrop rather than reaching an img src.
+// ---------------------------------------------------------------------------
+
+describe('PostIframe - preview thumbnail', () => {
+  const UNSAFE_THUMBNAILS: readonly string[] = [
+    'file:///etc/passwd',
+    'javascript:alert(1)',
+    'data:text/html,x.png',
+    '//example.com/x.png',
+    '/x.png',
+    'relative/x.png',
+    'https://',
+  ]
+
+  const SAFE_THUMBNAILS: readonly string[] = [
+    'https://cdn.example.com/x.png',
+    'http://cdn.example.com/x.png',
+  ]
+
+  it.each(UNSAFE_THUMBNAILS)('emits no preview image for %j', (thumbnail) => {
+    const html = renderIframe(WATCH_URL, { opened: false, thumbnail })
+    expect(imageTags(html)).toEqual([])
+    expect(html).toContain('<button')
+  })
+
+  it.each(SAFE_THUMBNAILS)('renders %j unchanged', (thumbnail) => {
+    const images = imageTags(
+      renderIframe(WATCH_URL, { opened: false, thumbnail }),
+    )
+    expect(images).toHaveLength(1)
+    expect(images[0]).toContain(`src="${thumbnail}"`)
+  })
+
+  it('emits no image when no thumbnail is supplied', () => {
+    expect(imageTags(renderIframe(WATCH_URL, { opened: false }))).toEqual([])
+  })
+
+  it('emits no image once the embed is opened', () => {
+    expect(
+      imageTags(
+        renderIframe(WATCH_URL, {
+          opened: true,
+          thumbnail: 'https://cdn.example.com/x.png',
+        }),
+      ),
+    ).toEqual([])
   })
 })

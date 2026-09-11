@@ -8,7 +8,7 @@
     YOUTUBE_EMBED_HOSTS,
     type YouTubeFrontend,
   } from '$lib/app/util/embed-hosts'
-  import { parseWebUrl } from '$lib/app/util/url'
+  import { isWebUrl, parseWebUrl } from '$lib/app/util/url'
 
   // Fixed allowlist shared with the server's CSP `frame-src`; a host outside
   // it would be blocked by the browser anyway.
@@ -37,7 +37,11 @@
   // of throwing; '' means "no embed", and the template then emits no iframe.
   const urlToEmbed = (inputUrl: string): string => {
     if (type == 'video') {
-      return inputUrl
+      // The one branch that never rewrites its input — the raw URL becomes a
+      // `<source src>`, which is a fetch the browser performs — and `iframeType`
+      // classifies by file extension alone, so `file:///share/clip.mp4` reaches
+      // here. Gate it like every other src in this file.
+      return isWebUrl(inputUrl) ? inputUrl : ''
     }
 
     if (type == 'youtube') {
@@ -133,6 +137,12 @@
   let thumbError = $state(false)
   let data = $derived(typeData(type))
   let embedUrl = $derived(urlToEmbed(url))
+  // `thumbnail` is a second untrusted sink alongside `url`, and its caller is
+  // not guaranteed to have gated it. Anything that is not an absolute http(s)
+  // address falls through to the generated backdrop instead of an img src.
+  let previewThumbnail = $derived(
+    thumbnail && isWebUrl(thumbnail) ? thumbnail : undefined,
+  )
 </script>
 
 <!-- 
@@ -148,9 +158,9 @@
       about:blank, which inherits this page's origin — precisely the frame in
       which `allow-scripts allow-same-origin` stops being a sandbox at all.
     -->
-    {#if type == 'video'}
+    {#if type == 'video' && embedUrl}
       <video {autoplay} controls>
-        <source src={url} />
+        <source src={embedUrl} />
       </video>
     {:else if embedUrl}
       <!--
@@ -184,9 +194,9 @@
           <Icon src={Play} size="32" />
         </div>
       </div>
-      {#if thumbnail && !thumbError}
+      {#if previewThumbnail && !thumbError}
         <img
-          src={withPreset(thumbnail, 'embed_thumbnail')}
+          src={withPreset(previewThumbnail, 'embed_thumbnail')}
           onerror={() => (thumbError = true)}
           class="absolute top-0 left-0 -z-10 w-full object-cover h-full mask-b-from-0 brightness-75"
           alt=""

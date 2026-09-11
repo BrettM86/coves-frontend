@@ -69,6 +69,7 @@
     data.blockedCommunities.value = data.blockedCommunities.value.filter(
       ({ block }) => block.communityDid !== did,
     )
+    toast({ content: $t('toast.unblockedCommunity'), type: 'success' })
   }
 </script>
 

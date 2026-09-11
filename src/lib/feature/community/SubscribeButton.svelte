@@ -40,6 +40,13 @@
     const outcome = await toggleSubscription(community, coves())
     if (outcome.kind === 'error') {
       toast({ content: errorMessage(outcome.error), type: 'error' })
+    } else if (outcome.kind === 'ok') {
+      toast({
+        content: outcome.subscribed
+          ? $t('toast.subscribedCommunity')
+          : $t('toast.unsubscribedCommunity'),
+        type: 'success',
+      })
     }
   }
 </script>

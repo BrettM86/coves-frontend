@@ -40,7 +40,6 @@
 </script>
 
 <div
-  role="status"
   class={[
     toastColors[toast.type],
     'flex flex-row items-start gap-2 rounded-xl border px-4 py-3.5 shadow-md',

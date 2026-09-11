@@ -21,6 +21,7 @@
       data.blockedUsers.value = data.blockedUsers.value.filter(
         (row) => row.block.blockedDid !== did,
       )
+      toast({ content: $t('toast.unblockUser'), type: 'success' })
     } catch (err) {
       toast({ content: errorMessage(err), type: 'error' })
     }

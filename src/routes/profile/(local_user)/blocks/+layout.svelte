@@ -17,7 +17,7 @@
 
 <Header pageHeader class="items-center">
   <Button
-    href="/settings/moderation"
+    href="/settings"
     size="custom"
     color="ghost"
     rounding="xl"

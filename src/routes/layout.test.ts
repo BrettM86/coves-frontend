@@ -67,6 +67,34 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+describe('root universal load — session propagation', () => {
+  it.each([
+    {
+      authenticated: true,
+      activeAccountId: 'did:plc:testaccount',
+      account: {
+        id: 'did:plc:testaccount',
+        did: 'did:plc:testaccount',
+        handle: 'account.test',
+        instance: 'http://localhost:8081',
+      },
+    },
+    null,
+  ])(
+    'forwards server data to descendant layouts for session %j',
+    async (session) => {
+      const data = {
+        lang: 'en',
+        session,
+        sessionExpired: false,
+        authError: null,
+      }
+
+      await expect(callLoad(data)).resolves.toEqual(data)
+    },
+  )
+})
+
 describe('root universal load — locale resolution order', () => {
   it('prefers the user setting over everything else', async () => {
     vi.stubGlobal('navigator', { language: 'ja' })

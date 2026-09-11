@@ -768,6 +768,8 @@
         "voteOutOfSync": "Your vote was already recorded elsewhere and has been withdrawn. Please try again.",
         "blockedCommunity": "Blocked that community.",
         "unblockedCommunity": "Unblocked that community.",
+        "subscribedCommunity": "Subscribed to that community.",
+        "unsubscribedCommunity": "Unsubscribed from that community.",
         "purgedCommunity": "Purged that community.",
         "blockedInstance": "Blocked that server.",
         "updatedCommunity": "Your community was updated.",
@@ -941,7 +943,7 @@
                 "title": "Blocked users and communities",
                 "description": "Review who and what you've blocked, or restore content to your feeds.",
                 "manage": "Manage blocks",
-                "back": "Back to moderation settings"
+                "back": "Back to settings"
             },
             "replyPresets": {
                 "title": "Removal reply presets",

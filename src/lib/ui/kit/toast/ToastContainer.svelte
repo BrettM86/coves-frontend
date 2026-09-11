@@ -15,6 +15,9 @@
 </script>
 
 <div
+  aria-live="polite"
+  aria-atomic="false"
+  aria-relevant="additions text"
   class={[
     'fixed right-0 bottom-0 flex flex-col items-end justify-end z-200 p-5 group overflow-hidden h-screen pointer-events-none gap-2',
     className,

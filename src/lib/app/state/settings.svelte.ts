@@ -24,11 +24,6 @@ const toBool = (str: string | undefined) => {
   return str.toLowerCase() === 'true'
 }
 
-interface Preset {
-  title?: string
-  content: string
-}
-
 interface Settings {
   settingsVer: number
   expandableImages: boolean
@@ -63,10 +58,6 @@ interface Settings {
     accounts: boolean
   }
   nsfwBlur: boolean
-  moderation: {
-    presets: Preset[]
-    defaultRemoveAction: 'comment' | 'message' | null
-  }
   modlogCardView: boolean | undefined
   debugInfo: boolean
   expandImages: boolean
@@ -134,15 +125,6 @@ export const defaultSettings: Settings = {
     accounts: true,
   },
   nsfwBlur: toBool(env.PUBLIC_NSFW_BLUR) ?? true,
-  moderation: {
-    presets: [
-      {
-        title: 'Preset 1',
-        content: `Your submission in *"{{post}}"* was removed for {{reason}}.`,
-      },
-    ],
-    defaultRemoveAction: null,
-  },
   modlogCardView: toBool(env.PUBLIC_MODLOG_CARD_VIEW) ?? undefined,
   debugInfo: toBool(env.PUBLIC_DEBUG_INFO) ?? false,
   expandImages: toBool(env.PUBLIC_EXPAND_IMAGES) ?? true,

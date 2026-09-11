@@ -32,6 +32,13 @@
     const outcome = await toggleCommunityBlock(community, coves())
     if (outcome.kind === 'error') {
       toast({ content: errorMessage(outcome.error), type: 'error' })
+    } else if (outcome.kind === 'ok') {
+      toast({
+        content: outcome.blocked
+          ? $t('toast.blockedCommunity')
+          : $t('toast.unblockedCommunity'),
+        type: 'success',
+      })
     }
   }
 </script>

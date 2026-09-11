@@ -50,8 +50,8 @@
       name: $t('settings.embeds.title'),
     },
     {
-      href: '/settings/moderation',
-      name: $t('settings.moderation.title'),
+      href: '/profile/blocks',
+      name: $t('routes.profile.blocks.title'),
     },
     {
       href: '/settings/other',

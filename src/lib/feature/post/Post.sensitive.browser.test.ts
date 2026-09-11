@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
 import type { AtUri, CID, PostView } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 
@@ -26,10 +26,22 @@ vi.mock('svelte/reactivity', () =>
 let target: HTMLDivElement
 let mounted: ReturnType<(typeof import('svelte'))['mount']> | undefined
 let client: typeof import('svelte')
+let settings: (typeof import('$lib/app/state/settings.svelte'))['settings']
+let SvelteMap: (typeof import('svelte/reactivity'))['SvelteMap']
+let Post: (typeof import('./Post.svelte'))['default']
 
-beforeEach(async () => {
+// Cold-loading Post.svelte and its tree takes seconds under full-suite load.
+// Paying it inside the first test's 5 s budget made that test time out, and
+// its still-running body then mounted into the next test's target and
+// revealed media there. Load everything once, outside any per-test timeout.
+beforeAll(async () => {
   client = await import('svelte')
-  const { settings } = await import('$lib/app/state/settings.svelte')
+  settings = (await import('$lib/app/state/settings.svelte')).settings
+  SvelteMap = (await import('svelte/reactivity')).SvelteMap
+  Post = (await import('./Post.svelte')).default
+}, 60_000)
+
+beforeEach(() => {
   settings.nsfwBlur = true
   target = document.createElement('div')
   document.body.appendChild(target)
@@ -73,12 +85,7 @@ const fixture = (key: string): PostView =>
     },
   }) as PostView
 
-async function mountPost(
-  view: 'cozy' | 'compact' = 'compact',
-  expandBody = false,
-) {
-  const { SvelteMap } = await import('svelte/reactivity')
-  const Post = (await import('./Post.svelte')).default
+function mountPost(view: 'cozy' | 'compact' = 'compact', expandBody = false) {
   const values = new SvelteMap([['post', fixture('one')]])
   const props = {
     get post(): PostView {
@@ -119,7 +126,7 @@ function previewToggle(): HTMLButtonElement {
 }
 
 it('provides a focusable reveal control and lets the viewer hide media again', async () => {
-  await mountPost()
+  mountPost()
   expect(target.querySelector('img:not([aria-hidden="true"])')).toBeNull()
   const show = toggle('Show sensitive content')
   expect(show.tabIndex).toBe(0)
@@ -135,7 +142,7 @@ it('provides a focusable reveal control and lets the viewer hide media again', a
 })
 
 it('requires a new reveal when the component receives a different post with the same media', async () => {
-  const props = await mountPost()
+  const props = mountPost()
   toggle('Show sensitive content').click()
   client.flushSync()
   expect(target.querySelector('img[alt="Sensitive image"]')).not.toBeNull()
@@ -146,7 +153,7 @@ it('requires a new reveal when the component receives a different post with the 
 })
 
 it('does not restore an earlier reveal after switching away and back', async () => {
-  const props = await mountPost()
+  const props = mountPost()
   toggle('Show sensitive content').click()
   client.flushSync()
   props.post = fixture('two')
@@ -158,7 +165,7 @@ it('does not restore an earlier reveal after switching away and back', async () 
 })
 
 it('reveals and re-hides body text and inline images together with media', async () => {
-  const props = await mountPost('cozy')
+  const props = mountPost('cozy')
   const post = fixture('body')
   if (!post.record) throw new Error('Missing post record')
   post.record.content =
@@ -180,7 +187,7 @@ it('reveals and re-hides body text and inline images together with media', async
 it.each(['compact', 'cozy'] as const)(
   'keeps %s content revealed when a refreshed post object has the same URI',
   async (view) => {
-    const props = await mountPost(view)
+    const props = mountPost(view)
     toggle('Show sensitive content').click()
     client.flushSync()
     expect(target.querySelector('img[alt="Sensitive image"]')).not.toBeNull()
@@ -196,7 +203,7 @@ it.each(['compact', 'cozy'] as const)(
 )
 
 it('shows the NSFW Content row with Show and Hide actions', async () => {
-  const props = await mountPost('cozy')
+  const props = mountPost('cozy')
   props.post = {
     ...fixture('link'),
     embed: {
@@ -218,7 +225,7 @@ it('shows the NSFW Content row with Show and Hide actions', async () => {
 it.each(['compact', 'cozy'] as const)(
   'shows a decorative blurred native-image thumbnail in %s view',
   async (view) => {
-    await mountPost(view)
+    mountPost(view)
     const show = previewToggle()
     expect(show.textContent).toContain('NSFW Content')
     expect(show.textContent).toMatch(/\bShow\b/)
@@ -236,7 +243,7 @@ it.each(['compact', 'cozy'] as const)(
 )
 
 it('keeps keyboard focus on the sensitive-content toggle across image reveal and hide', async () => {
-  await mountPost('cozy')
+  mountPost('cozy')
   const show = toggle('Show sensitive content')
   show.focus()
   expect(document.activeElement).toBe(show)
@@ -252,7 +259,7 @@ it('keeps keyboard focus on the sensitive-content toggle across image reveal and
 it.each(['compact', 'cozy'] as const)(
   'keeps a persistent banner above the %s preview and reveals from either control',
   async (view) => {
-    await mountPost(view)
+    mountPost(view)
     expect(
       target.querySelectorAll('button[aria-label="Show sensitive content"]'),
     ).toHaveLength(2)
@@ -290,7 +297,7 @@ it.each([false, true])(
   async (expandBody) => {
     // jsdom has no layout; model a body that exceeds PostBody's height boundary.
     vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(600)
-    const props = await mountPost('cozy', expandBody)
+    const props = mountPost('cozy', expandBody)
     const post = fixture('long-body')
     if (!post.record) throw new Error('Missing post record')
     post.record.content = 'Long paragraph. '.repeat(100) + ' END_OF_FULL_BODY'

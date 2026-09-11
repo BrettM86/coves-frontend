@@ -1,13 +1,12 @@
 <script lang="ts">
   import Markdown from '$lib/feature/markdown/Markdown.svelte'
-  import { Header } from '$lib/ui/layout'
-
-  import guidelinesSource from '$lib/assets/community-guidelines.md?raw'
+  import legalSource from '$lib/assets/legal.md?raw'
 </script>
 
-<div class="flex flex-row w-full">
-  <div class="flex flex-col flex-1 gap-4">
-    <Header pageHeader>Community Guidelines</Header>
-    <Markdown source={guidelinesSource} />
-  </div>
-</div>
+<svelte:head>
+  <title>Legal &amp; source — Coves</title>
+</svelte:head>
+
+<article class="w-full max-w-prose pb-6" data-sveltekit-reload>
+  <Markdown source={legalSource} />
+</article>

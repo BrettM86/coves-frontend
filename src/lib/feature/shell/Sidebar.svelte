@@ -11,6 +11,7 @@
     CircleUser,
     House,
     LogIn,
+    Info,
     Monitor,
     Moon,
     Settings,
@@ -105,6 +106,7 @@
     {/snippet}
   </Select>
   <SidebarButton href="/theme" label={$t('nav.menu.theme')} icon={SwatchBook} />
+  <SidebarButton href="/legal" label="Legal &amp; source" icon={Info} />
   <!-- TODO: Re-enable communities/moderates lists when Coves API provides user data -->
 
   <div class="flex-1 h-full mt-auto"></div>

@@ -1,5 +1,5 @@
-# Only package.json, pnpm-lock.yaml, src/, static/ and the build configs are
-# needed in the build context. Everything else is noise (or a leak risk).
+# Build inputs include package manifests, src/, static/, LICENSE, NOTICE and
+# build configs. Everything else is noise (or a leak risk).
 
 # VCS + CI
 .git
@@ -41,7 +41,6 @@ network-*.txt
 docs
 README.md
 CLAUDE.md
-LICENSE
 *.local.md
 .eslint*
 .prettier*

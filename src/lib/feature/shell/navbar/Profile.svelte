@@ -25,6 +25,7 @@
     Monitor,
     Moon,
     Server,
+    Info,
     Settings,
     Sun,
     SwatchBook,
@@ -88,6 +89,7 @@
 <MenuButton href="/theme" icon={SwatchBook}>
   {$t('nav.menu.theme')}
 </MenuButton>
+<MenuButton href="/legal" icon={Info}>Legal &amp; source</MenuButton>
 {#snippet key(label: string)}
   <span
     class="text-[12px] rounded-md border border-slate-300 dark:border-zinc-700 border-b-2 px-2 py-0.5"

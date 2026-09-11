@@ -22,4 +22,6 @@ Configuration (environment variables) is documented in
 
 ## License
 
-[AGPL-3.0](LICENSE), same as the upstream Photon project.
+[AGPL-3.0-only](LICENSE), same as the upstream Photon project. Attribution and
+modification details are in [NOTICE](NOTICE). The app exposes source and licence
+links at `/legal`, and the complete licence at `/license`.

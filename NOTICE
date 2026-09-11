@@ -1,0 +1,21 @@
+Coves (Kelp)
+
+This frontend is derived from Photon, created by Xyphyn (Xylight).
+Copyright (C) Photon contributors, including Xyphyn (Xylight).
+Upstream: https://github.com/Xyphyn/photon
+
+Coves modifications copyright (C) Coves contributors.
+This is a modified work, not an official Photon release. Coves adaptations
+include atProto authentication, Coves API integration, community and moderation
+features, and the application interface. This notice was added September 10,
+2026. The repository history records modification dates and contributors.
+Source: https://github.com/BrettM86/coves-frontend
+
+The frontend is licensed under the GNU Affero General Public License,
+version 3 only (AGPL-3.0-only). See LICENSE for the full terms, including
+redistribution and modification rights and the disclaimer of warranty.
+The Free Software Foundation copyright in that text applies to the licence
+document itself, not to Photon or the Coves application.
+
+Third-party dependencies and assets retain their respective licences and
+copyright notices. This notice does not replace their licence terms.

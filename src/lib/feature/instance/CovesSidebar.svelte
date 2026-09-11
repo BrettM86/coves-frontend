@@ -6,7 +6,7 @@
   import SidebarButton from '$lib/ui/sidebar/SidebarButton.svelte'
   import { Spinner } from '$lib/ui/kit'
   import { onMount } from 'svelte'
-  import { Building, Compass } from '$lib/ui/kit/icon'
+  import { Building, CodeXml, Compass, Icon } from '$lib/ui/kit/icon'
   import type { ClassValue } from 'svelte/elements'
   import { siteStats } from './siteStats.svelte'
 
@@ -45,7 +45,11 @@
       label={$t('routes.explore.title')}
       icon={Compass}
     />
-    <SidebarButton href="/legal" label="Community Guidelines" icon={Building} />
+    <SidebarButton
+      href="/community-guidelines"
+      label="Community Guidelines"
+      icon={Building}
+    />
 
     {#if siteStats.data || siteStats.loading}
       <EndPlaceholder size="xs" margin="sm">
@@ -81,4 +85,29 @@
       {/if}
     {/if}
   </div>
+  <nav aria-label="Instance links" class="flex items-center gap-2 px-3">
+    <a
+      href="/privacy"
+      data-sveltekit-reload
+      class="py-1 underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-2 focus-visible:outline-offset-4"
+    >
+      Privacy
+    </a>
+    <span aria-hidden="true" class="text-slate-400 dark:text-zinc-500">·</span>
+    <a
+      href="/legal"
+      class="py-1 underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-2 focus-visible:outline-offset-4"
+    >
+      Terms
+    </a>
+    <span aria-hidden="true" class="text-slate-400 dark:text-zinc-500">·</span>
+    <a
+      href="https://tangled.org/bretton.dev/coves"
+      aria-label="Coves source code on Tangled"
+      title="Coves source code on Tangled"
+      class="inline-flex items-center justify-center p-1 rounded-sm hover:text-slate-900 dark:hover:text-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-4"
+    >
+      <Icon src={CodeXml} size="18" />
+    </a>
+  </nav>
 </aside>

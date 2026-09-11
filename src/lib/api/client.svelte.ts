@@ -1,5 +1,4 @@
 import { browser } from '$app/environment'
-import { requestSessionRecovery } from '$lib/app/state/session-recovery.svelte'
 import { profile } from '$lib/app/state/auth.svelte'
 import { DEFAULT_INSTANCE_URL } from '$lib/app/state/instance.svelte'
 import { instanceToURL } from '$lib/app/util/url'
@@ -25,17 +24,6 @@ class SiteData {
 }
 
 export const site = new SiteData()
-
-/**
- * Queue recovery without delaying the original error or interrupting a route
- * load. OptionalAuth endpoints returning anonymous 200 responses cannot signal
- * session expiration here.
- */
-function refreshSessionOnUnauthorized(response: Response): void {
-  if (response.status === 401 && profile.isAuthenticated) {
-    requestSessionRecovery()
-  }
-}
 
 /**
  * Converts an API URL to use the proxy path for client-side requests.
@@ -163,8 +151,10 @@ async function customFetch(
       proxyInit.cache = 'no-store'
     }
 
+    const generation = profile.sessionGeneration
+    const authenticated = profile.isAuthenticated
     const res = await f(proxyInput, proxyInit)
-    refreshSessionOnUnauthorized(res)
+    if (authenticated && res.status === 401) profile.expireSession(generation)
     if (!res.ok) {
       const body = await res.text().catch(() => res.statusText)
       error(res.status, body)
@@ -274,9 +264,12 @@ async function covesCustomFetch(
       proxyInit.cache = 'no-store'
     }
 
-    const res = await f(proxyInput, proxyInit)
-    refreshSessionOnUnauthorized(res)
-    return res
+    const generation = profile.sessionGeneration
+    const authenticated = profile.isAuthenticated
+    const response = await f(proxyInput, proxyInit)
+    if (authenticated && response.status === 401)
+      profile.expireSession(generation)
+    return response
   } else {
     const token = auth ?? requestToken(input)
     if (token) {

@@ -156,7 +156,12 @@
   })
 </script>
 
-{#if profile.current?.jwt}
+<!--
+  An expired session keeps the editor mounted: the draft lives in the form's
+  local state, and the recovery prompt lets the reader log back in without
+  leaving this page. Only a genuine guest loses the composer.
+-->
+{#if profile.sessionExpired || profile.current?.jwt}
   {#if !commenting}
     <EndPlaceholder border={false}>
       <Button color="primary" rounding="xl" onclick={() => (commenting = true)}>
@@ -201,7 +206,7 @@
   {/if}
 {/if}
 
-{#if commenting || !profile.current.jwt}
+{#if commenting || !(profile.sessionExpired || profile.current.jwt)}
   <div class="gap-2 flex items-center">
     <Select size="md" bind:value={selectedSort} onchange={changeSort}>
       <Option icon={Flame} value="hot">{$t('filter.sort.hot')}</Option>

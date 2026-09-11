@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockProfile = vi.hoisted(() => ({
   current: { jwt: undefined as string | undefined },
+  sessionExpired: false,
 }))
 vi.mock('$lib/app/state/auth.svelte', () => ({ profile: mockProfile }))
 import { load } from './+page'
@@ -29,6 +30,7 @@ function loadUrl(href: string): URL {
 describe('create post authentication redirect', () => {
   beforeEach(() => {
     mockProfile.current.jwt = undefined
+    mockProfile.sessionExpired = false
   })
 
   it('preserves the requested create page path and query for a guest', () => {
@@ -51,6 +53,13 @@ describe('create post authentication redirect', () => {
 
   it('allows an authenticated browser to compose a post', () => {
     mockProfile.current.jwt = 'fixture-session'
+    expect(() =>
+      loadPage({ url: loadUrl('https://web.example.invalid/create/post') }),
+    ).not.toThrow()
+  })
+
+  it('keeps the page (and its draft) while the session is expired', () => {
+    mockProfile.sessionExpired = true
     expect(() =>
       loadPage({ url: loadUrl('https://web.example.invalid/create/post') }),
     ).not.toThrow()

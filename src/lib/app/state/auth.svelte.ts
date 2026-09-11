@@ -227,6 +227,85 @@ export interface LogoutResult {
 }
 
 class Profile {
+  #sessionGeneration = $state<string>()
+  #sessionExpired = $state(false)
+  /**
+   * The server said the current generation is dead. A client-side 401 alone
+   * only makes the expiration suspected: the backend may have answered one
+   * write with 401 during an outage while the cookie is still good, and a
+   * suspected generation must be able to come back.
+   */
+  #sessionExpirationConfirmed = $state(false)
+  /**
+   * The reader dismissed the expiration prompt. Only the prompt goes away:
+   * the session stays expired, so open drafts keep their editors, until a
+   * real verdict or a new login replaces it.
+   */
+  #sessionExpirationDismissed = $state(false)
+  /**
+   * SessionRecovery has asked the server for the current session state, and
+   * the next root data is that answer rather than a response that was already
+   * in flight. While an expiration is suspected, that answer is the verdict:
+   * only it may revive the generation the 401 named, and an answer with no
+   * cookie at all confirms the expiration instead of being ignored as stale.
+   */
+  #verdictRequested = false
+  /** Generations that can never authenticate again: confirmed dead, or superseded. */
+  #retiredGenerations = new Set<string>()
+
+  get sessionGeneration(): string | undefined {
+    return browser ? this.#sessionGeneration : undefined
+  }
+
+  get sessionExpired(): boolean {
+    return browser ? this.#sessionExpired : false
+  }
+
+  get sessionExpirationConfirmed(): boolean {
+    return browser ? this.#sessionExpirationConfirmed : false
+  }
+
+  get sessionExpirationDismissed(): boolean {
+    return browser ? this.#sessionExpirationDismissed : false
+  }
+
+  expireSession(generation: string | undefined): void {
+    if (
+      !browser ||
+      !this.isAuthenticated ||
+      generation !== this.#sessionGeneration
+    )
+      return
+    this.#sessionExpired = true
+    this.#sessionExpirationConfirmed = false
+    this.#sessionExpirationDismissed = false
+    this.#verdictRequested = false
+    this.#meta.profiles = [createGuestProfile()]
+    this.#meta.profile = 'guest'
+  }
+
+  /**
+   * Marks the next root session data as an answer SessionRecovery asked for.
+   * Called right before `invalidate('app:session')`. While an expiration is
+   * suspected that answer is the server's verdict: re-authenticating the same
+   * generation restores the session, and no cookie at all confirms the
+   * expiration.
+   */
+  beginSessionRevalidation(): void {
+    if (!browser) return
+    this.#verdictRequested = true
+  }
+
+  /**
+   * Hides the expiration prompt after the reader dismissed it. The session
+   * stays expired, not a guest, so editors holding drafts stay mounted; a
+   * later login is adopted from root data as usual.
+   */
+  dismissSessionExpiration(): void {
+    if (!browser) return
+    if (this.#sessionExpired) this.#sessionExpirationDismissed = true
+  }
+
   #meta = $state<ProfileData>(
     getFromStorage<ProfileData>('profileData', isValidProfileData) ?? {
       profiles: [createGuestProfile()],
@@ -298,7 +377,67 @@ class Profile {
    *
    * @param serverSession - The session data from the server (passed via page data)
    */
-  syncFromServer(serverSession: ServerSession | undefined): void {
+  syncFromServer(
+    serverSession: ServerSession | undefined,
+    metadata?: { sessionGeneration?: string; sessionExpired?: boolean },
+  ): void {
+    if (browser) {
+      const generation = serverSession?.authenticated
+        ? serverSession.sessionGeneration
+        : metadata?.sessionGeneration
+      if (generation && this.#retiredGenerations.has(generation)) return
+      const suspected =
+        this.#sessionExpired && !this.#sessionExpirationConfirmed
+      if (
+        !serverSession?.authenticated &&
+        metadata &&
+        !generation &&
+        this.#verdictRequested &&
+        this.#sessionGeneration
+      ) {
+        // The answer we asked for found no cookie at all: it expired in the
+        // browser or another tab removed it. The generation we remember is
+        // dead, and the verdict is confirmed rather than ignored as stale.
+        this.#retiredGenerations.add(this.#sessionGeneration)
+        this.#sessionExpired = true
+        this.#sessionExpirationConfirmed = true
+        this.#verdictRequested = false
+        this.#meta.profiles = [createGuestProfile()]
+        this.#meta.profile = 'guest'
+        return
+      }
+      if (!serverSession?.authenticated && metadata) {
+        // Unidentified anonymous data can predate login. A failed validation
+        // without expiration is not evidence that our live session ended.
+        if (this.#sessionGeneration && generation !== this.#sessionGeneration)
+          return
+        if (
+          this.#sessionGeneration &&
+          (this.isAuthenticated || suspected) &&
+          !metadata.sessionExpired
+        )
+          return
+      } else if (
+        serverSession?.authenticated &&
+        suspected &&
+        generation === this.#sessionGeneration &&
+        !this.#verdictRequested
+      ) {
+        // Authenticated data for the suspected generation that nobody asked
+        // for was in flight before the 401 and cannot outrank it.
+        return
+      }
+      if (generation !== this.#sessionGeneration && this.#sessionGeneration) {
+        this.#retiredGenerations.add(this.#sessionGeneration)
+      }
+      this.#sessionGeneration = generation
+      this.#sessionExpired = metadata?.sessionExpired ?? false
+      this.#sessionExpirationConfirmed = this.#sessionExpired
+      if (!this.#sessionExpired) this.#sessionExpirationDismissed = false
+      this.#verdictRequested = false
+      if (this.#sessionExpired && generation)
+        this.#retiredGenerations.add(generation)
+    }
     if (!serverSession || !serverSession.authenticated) {
       // The server is the source of truth. If it reports no session (cookie
       // expired, revoked, or cleared) drop any persisted authenticated
@@ -394,6 +533,16 @@ class Profile {
       }
     } catch (err) {
       log.warn('[auth] Failed to parse logout response JSON', err)
+    }
+
+    if (browser) {
+      if (this.#sessionGeneration)
+        this.#retiredGenerations.add(this.#sessionGeneration)
+      this.#sessionGeneration = undefined
+      this.#sessionExpired = false
+      this.#sessionExpirationConfirmed = false
+      this.#sessionExpirationDismissed = false
+      this.#verdictRequested = false
     }
 
     // Remove from local state only after successful server logout

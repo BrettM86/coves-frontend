@@ -15,8 +15,10 @@ without the prefix is server-only. All are read at **runtime** (via
 For cookie-bearing requests outside `/api/proxy/[...path]`, the hook validates
 the session through `/api/me`. Proxy requests skip that preflight and relay the
 opaque cookie to the requested backend endpoint. An authenticated browser's
-401 response triggers page session revalidation through `invalidateAll()`;
-anonymous 200 responses from OptionalAuth endpoints cannot signal expiration.
+401 response expires the client session for that cookie generation, shows a
+persistent re-login prompt, and revalidates the root session data
+(`invalidate('app:session')`) once the router is idle; anonymous 200 responses
+from OptionalAuth endpoints cannot signal expiration.
 
 | Variable                       | Read by         | Required              | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------------ | --------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

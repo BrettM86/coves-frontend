@@ -144,3 +144,54 @@ describe('syncFromServer without a session', () => {
     expect(profile.meta.profile).toBe('guest')
   })
 })
+
+describe('failed root session validation', () => {
+  it('keeps a live session live when the server could not check it', async () => {
+    const { profile } = await freshAuth()
+    profile.syncFromServer({
+      ...session(),
+      sessionGeneration: 'generation-1',
+    } as ServerSession)
+    expect(profile.isAuthenticated).toBe(true)
+
+    // /api/me failed (5xx, rate limit, network): no session in page data, the
+    // cookie's generation still present, and no expiration reported.
+    profile.syncFromServer(undefined, {
+      sessionGeneration: 'generation-1',
+      sessionExpired: false,
+    })
+
+    expect(profile.isAuthenticated).toBe(true)
+    expect(profile.sessionExpired).toBe(false)
+  })
+})
+
+describe('initial root session validation', () => {
+  it('clears a persisted authenticated profile when the initial root confirms no cookie', async () => {
+    store.set(
+      'profileData',
+      JSON.stringify({
+        profile: 'did:plc:abcdefghijklmnopqrstuvwx',
+        profiles: [
+          {
+            type: 'authenticated',
+            id: 'did:plc:abcdefghijklmnopqrstuvwx',
+            did: 'did:plc:abcdefghijklmnopqrstuvwx',
+            handle: 'mari.test',
+            instance: 'https://coves.social',
+            jwt: 'authenticated',
+          },
+        ],
+      }),
+    )
+    const { profile } = await import('./auth.svelte')
+    expect(profile.isAuthenticated).toBe(true)
+    profile.syncFromServer(undefined, {
+      sessionGeneration: undefined,
+      sessionExpired: false,
+    })
+    expect(profile.isAuthenticated).toBe(false)
+    expect(profile.current.type).toBe('guest')
+    expect(profile.sessionExpired).toBe(false)
+  })
+})

@@ -3,6 +3,7 @@
   import type { StrongRef } from '$lib/api/coves/types'
   import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
+  import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
@@ -106,10 +107,12 @@
       value = ''
     } catch (err) {
       log.error('[CommentForm] createComment failed', err)
-      toast({
-        content: errorMessage(err),
-        type: 'error',
-      })
+      if (!(isExpiredSessionError(err) && profile.sessionExpired)) {
+        toast({
+          content: errorMessage(err),
+          type: 'error',
+        })
+      }
     }
 
     loading = false

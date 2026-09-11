@@ -1,6 +1,8 @@
 <script lang="ts">
   import { coves } from '$lib/api/client.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
+  import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
@@ -27,6 +29,7 @@
       value.comments = Promise.resolve(comments)
     } catch (err) {
       log.error('[comment-permalink] Failed to reload comments', err)
+      if (isExpiredSessionError(err) && profile.sessionExpired) return
       toast({ content: errorMessage(err), type: 'error' })
     }
   }

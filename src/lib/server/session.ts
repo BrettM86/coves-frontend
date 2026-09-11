@@ -19,6 +19,23 @@ export {
 import { isValidDID, isValidHandle } from '$lib/types/atproto'
 import type { DID, Handle, InstanceURL } from '$lib/types/atproto'
 import { log, type LogContext } from '$lib/server/log'
+import { createHash } from 'node:crypto'
+
+// ============================================================================
+// Session Generation
+// ============================================================================
+
+/**
+ * The opaque digest that identifies which cookie a page was rendered under.
+ *
+ * `hooks.server.ts` stamps this on `locals.sessionGeneration` for every
+ * cookie-bearing request, and the client hands it back when it reports that
+ * generation dead, so a newer login's cookie is never mistaken for the one
+ * that expired. A one-way digest: it identifies the cookie without being one.
+ */
+export function sessionGenerationOf(cookie: string): string {
+  return createHash('sha256').update(cookie).digest('hex')
+}
 
 // ============================================================================
 // Server-Only Branded Types
@@ -74,6 +91,7 @@ export type ClientAccount = Omit<AccountSession, 'sealedToken'> & { id: string }
  * Unauthenticated client session -- no valid account.
  */
 interface UnauthenticatedClientSession {
+  readonly sessionGeneration?: string
   readonly authenticated: false
   readonly activeAccountId: null
   readonly account: null
@@ -83,6 +101,7 @@ interface UnauthenticatedClientSession {
  * Authenticated client session -- valid account present.
  */
 interface AuthenticatedClientSession {
+  readonly sessionGeneration?: string
   readonly authenticated: true
   readonly activeAccountId: string
   readonly account: ClientAccount

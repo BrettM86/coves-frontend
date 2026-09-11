@@ -68,8 +68,6 @@ export type CastUpvoteOutcome =
   | { kind: 'out-of-sync' }
   /** Deleting an already-absent vote; optimistic (un-voted) state kept. */
   | { kind: 'already-absent' }
-  /** 401 — rolled back. */
-  | { kind: 'session-expired' }
   /** Any other failure — rolled back. */
   | { kind: 'error'; error: unknown }
 
@@ -194,9 +192,6 @@ export async function castUpvote<
       ctx.write({ stats: prevStats, viewer: prevViewer })
     }
 
-    if (err instanceof XrpcError && err.status === 401) {
-      return { kind: 'session-expired' }
-    }
     return { kind: 'error', error: err }
   }
 }

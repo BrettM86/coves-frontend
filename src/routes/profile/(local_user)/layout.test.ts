@@ -4,6 +4,7 @@ import type { LayoutLoad, LayoutLoadEvent } from './$types'
 
 const mockProfile = vi.hoisted(() => ({
   current: { type: 'guest' as 'guest' | 'authenticated' },
+  sessionExpired: false,
 }))
 
 vi.mock('$lib/app/state/auth.svelte', () => ({ profile: mockProfile }))
@@ -15,9 +16,10 @@ const loadLayout: LayoutLoad = load
 function makeEvent(
   session: { authenticated: boolean } | null | undefined,
   pathname = '/profile/settings',
+  sessionExpired = false,
 ): LayoutLoadEvent {
   return {
-    parent: vi.fn().mockResolvedValue({ session }),
+    parent: vi.fn().mockResolvedValue({ session, sessionExpired }),
     url: new URL(pathname, 'https://coves.test'),
   } as unknown as LayoutLoadEvent
 }
@@ -37,6 +39,7 @@ async function expectLoginRedirect(event: LayoutLoadEvent) {
 describe('authenticated profile layout', () => {
   beforeEach(() => {
     mockProfile.current.type = 'guest'
+    mockProfile.sessionExpired = false
   })
 
   it.each(['/profile/settings', '/profile/blocks'])(
@@ -78,5 +81,28 @@ describe('authenticated profile layout', () => {
     } as Awaited<ReturnType<LayoutLoadEvent['parent']>>)
 
     await expectLoginRedirect(event)
+  })
+
+  it('stays on the page while the session is expired, so the recovery prompt can restore it', async () => {
+    await expect(
+      Promise.resolve().then(() =>
+        loadLayout(makeEvent(null, '/profile/settings', true)),
+      ),
+    ).resolves.toEqual({ my_user: undefined })
+  })
+
+  it('stays on the page while the client still shows the recovery prompt after the dead cookie was removed', async () => {
+    // The confirmed expiration deleted the cookie, so the server now reports a
+    // plain guest; the reader is still on this page with the prompt open.
+    mockProfile.sessionExpired = true
+    await expect(
+      Promise.resolve().then(() =>
+        loadLayout(makeEvent(null, '/profile/settings', false)),
+      ),
+    ).resolves.toEqual({ my_user: undefined })
+  })
+
+  it('still redirects a genuine guest whose session did not expire', async () => {
+    await expectLoginRedirect(makeEvent(null, '/profile/settings', false))
   })
 })

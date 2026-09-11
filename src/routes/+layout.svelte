@@ -2,7 +2,7 @@
   import { errorMessage } from '$lib/app/util/error'
   import { browser } from '$app/environment'
   import { navigating, page } from '$app/state'
-  import { initializeSessionRecovery } from '$lib/app/state/session-recovery.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
   import { locale, t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
   import { getDefaultColors } from '$lib/app/state/theme/presets'
@@ -19,10 +19,11 @@
   import { Shell } from '$lib/ui/layout'
   import Navbar from '$lib/feature/shell/navbar/Navbar.svelte'
   import Sidebar from '$lib/feature/shell/Sidebar.svelte'
+  import SessionRecovery from '$lib/feature/shell/SessionRecovery.svelte'
   import { Button, ModalContainer, toast, ToastContainer } from '$lib/ui/kit'
   import nProgress from 'nprogress'
   import 'nprogress/nprogress.css'
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import { Forward } from '$lib/ui/kit/icon'
   import '../app.css'
 
@@ -81,30 +82,17 @@
     })
   }
 
-  initializeSessionRecovery()
-
-  // Tell the user their session ended rather than letting them discover it by
-  // being silently logged out. hooks.server.ts deletes the stale cookie and
-  // sets locals.sessionExpired on a 401 from /api/me; +layout.server.ts
-  // forwards it as page.data.sessionExpired.
-  //
-  // The latch is REQUIRED, not defensive. The root layout's server load reads
-  // only `request` and `locals` — no params, no url, no depends() — so plain
-  // client-side navigations never re-run it: page.data.sessionExpired stays
-  // true (and this effect re-runs on each one) until something re-runs the
-  // load — an invalidateAll navigation (every sort/search change via
-  // searchParam()), a form action, or a full reload. Without the latch that
-  // is a toast on every navigation in between.
-  let notifiedSessionExpired = false
+  // Sync server-validated session into client-side profile state.
+  // hooks.server.ts validates the coves_session cookie and returns the user
+  // via +layout.server.ts; this effect hydrates the client profile from it.
   $effect(() => {
-    if (page.data.sessionExpired) {
-      if (!notifiedSessionExpired) {
-        notifiedSessionExpired = true
-        toast({ content: $t('toast.sessionExpired'), type: 'warning' })
-      }
-    } else {
-      notifiedSessionExpired = false
-    }
+    const { session, sessionGeneration, sessionExpired } = page.data
+    untrack(() =>
+      profile.syncFromServer(session ?? undefined, {
+        sessionGeneration,
+        sessionExpired,
+      }),
+    )
   })
 
   // A failed session check can make the user appear logged out while their
@@ -196,6 +184,7 @@
       style={s}
       id="main"
     >
+      <SessionRecovery />
       {@render children?.()}
     </main>
   {/snippet}

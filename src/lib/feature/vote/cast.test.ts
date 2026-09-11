@@ -227,15 +227,16 @@ describe('castUpvote', () => {
     expect(h.state).toEqual(before)
   })
 
-  it('401 rolls back and reports session-expired', async () => {
+  it('401 rolls back and returns the error for the caller to classify', async () => {
+    const expired = new XrpcError(401, 'AuthRequired', 'expired')
     const before: Snap = { stats: EMPTY_STATS, viewer: EMPTY_VIEWER }
     const h = harness(before, {
       createVote: async () => {
-        throw new XrpcError(401, 'AuthRequired', 'expired')
+        throw expired
       },
     })
     const outcome = await h.run()
-    expect(outcome).toEqual({ kind: 'session-expired' })
+    expect(outcome).toEqual({ kind: 'error', error: expired })
     expect(h.state).toEqual(before)
   })
 

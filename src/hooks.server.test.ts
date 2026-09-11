@@ -315,8 +315,28 @@ describe('hooks.server handle', () => {
     expect(resolve).toHaveBeenCalledOnce()
   })
 
+  it('skips /api/me for the expire route, which reads the cookie itself', async () => {
+    mockFetch.mockResolvedValue(Response.json({}, { status: 401 }))
+    const event = createMockEvent({
+      url: 'http://localhost:5173/api/auth/expire',
+      routeId: '/api/auth/expire',
+      method: 'POST',
+      cookies: createMockCookies({ coves_session: 'sealed-token' }),
+    })
+    const resolve = createMockResolve()
+
+    await handle({ event, resolve })
+
+    expect(mockFetch).not.toHaveBeenCalled()
+    expect(event.locals.auth).toEqual({ authenticated: false })
+    expect(event.locals.sessionExpired).toBeUndefined()
+    expect(event.cookies.delete).not.toHaveBeenCalled()
+    expect(resolve).toHaveBeenCalledOnce()
+  })
+
   it.each([
     ['/api/proxy-extra', '/api/proxy-extra', false],
+    ['/api/auth/logout', '/api/auth/logout', false],
     ['/api/proxy/status', '/api/proxy/status', false],
     ['/c/general', '/c/[handle]', false],
     ['/c/general/__data.json', '/c/[handle]', true],
@@ -340,9 +360,7 @@ describe('hooks.server handle', () => {
         'http://localhost:4000/api/me',
         expect.any(Object),
       )
-      expect(event.cookies.delete).toHaveBeenCalledWith('coves_session', {
-        path: '/',
-      })
+      expect(event.cookies.delete).not.toHaveBeenCalled()
       expect(event.locals.sessionExpired).toBe(true)
     },
   )
@@ -504,6 +522,37 @@ describe('hooks.server handle', () => {
     })
   })
 
+  describe('session generation identifies the cookie, including expired sessions', () => {
+    it('is stable for the same cookie, changes after same-DID re-login, and never exposes the cookie', async () => {
+      const generations: unknown[] = []
+      for (const [cookie, status] of [
+        ['first-opaque-cookie', 200],
+        ['first-opaque-cookie', 401],
+        ['replacement-opaque-cookie', 200],
+      ] as const) {
+        mockFetch.mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              did: 'did:plc:user1',
+              handle: 'user1.example.com',
+            }),
+            { status },
+          ),
+        )
+        const event = createMockEvent({
+          cookies: createMockCookies({ coves_session: cookie }),
+        })
+        await handle({ event, resolve: createMockResolve() })
+        const locals: Record<string, unknown> = { ...event.locals }
+        expect(locals.sessionGeneration).toEqual(expect.any(String))
+        expect(locals.sessionGeneration).not.toBe(cookie)
+        generations.push(locals.sessionGeneration)
+      }
+      expect(generations[0]).toBe(generations[1])
+      expect(generations[0]).not.toBe(generations[2])
+    })
+  })
+
   describe('valid cookie and /api/me returns 401', () => {
     it('results in unauthenticated state without console.warn', async () => {
       mockFetch.mockResolvedValue(new Response('Unauthorized', { status: 401 }))
@@ -523,7 +572,7 @@ describe('hooks.server handle', () => {
       )
     })
 
-    it('deletes the stale coves_session cookie on 401', async () => {
+    it('does not let a passive 401 delete a cookie belonging to a later login', async () => {
       mockFetch.mockResolvedValue(new Response('Unauthorized', { status: 401 }))
 
       const cookies = createMockCookies({ coves_session: 'sealed-token-value' })
@@ -532,9 +581,7 @@ describe('hooks.server handle', () => {
 
       await handle({ event, resolve })
 
-      expect(cookies.delete).toHaveBeenCalledWith('coves_session', {
-        path: '/',
-      })
+      expect(cookies.delete).not.toHaveBeenCalled()
     })
 
     it('sets sessionExpired flag on 401', async () => {
@@ -606,6 +653,7 @@ describe('hooks.server handle', () => {
       lang: 'en',
       session: null,
       sessionExpired: false,
+      sessionGeneration: expect.any(String),
       authError: 'rate_limited',
     })
   })

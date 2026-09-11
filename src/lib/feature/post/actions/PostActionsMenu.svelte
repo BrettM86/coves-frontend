@@ -6,6 +6,7 @@
   import { t } from '$lib/app/state/i18n'
   import { communityLink } from '$lib/app/util/links'
   import { errorMessage } from '$lib/app/util/error'
+  import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import { log } from '$lib/app/util/log'
   import { settings } from '$lib/app/state/settings.svelte'
   import {
@@ -67,6 +68,11 @@
         replaceState: true,
         invalidateAll: true,
       })
+    } catch (err) {
+      // Thrown errors render inside the confirmation; a 401 from the live
+      // session is already covered by the recovery prompt, so close quietly.
+      if (isExpiredSessionError(err) && profile.sessionExpired) return
+      throw err
     } finally {
       deleting = false
     }
@@ -105,6 +111,7 @@
     const outcome = await setCommunityBlocked(post.community, true, coves())
     if (outcome.kind === 'pending') return
     if (outcome.kind === 'error') {
+      if (isExpiredSessionError(outcome.error) && profile.sessionExpired) return
       toast({ content: errorMessage(outcome.error), type: 'error' })
       return
     }
@@ -117,6 +124,7 @@
     const outcome = await setUserBlocked(post.author, true, coves())
     if (outcome.kind === 'pending') return
     if (outcome.kind === 'error') {
+      if (isExpiredSessionError(outcome.error) && profile.sessionExpired) return
       toast({ content: errorMessage(outcome.error), type: 'error' })
       return
     }

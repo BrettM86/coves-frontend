@@ -86,6 +86,8 @@ declare global {
       authError?: AuthErrorKind
       /** Set to true when a 401 from /api/me indicates the session has expired or been revoked */
       sessionExpired?: boolean
+      /** Opaque digest of the request cookie; never an authentication credential. */
+      sessionGeneration?: string
       /**
        * Language this request renders in, resolved from the visitor's
        * `Accept-Language` header. Read by `$lib/app/state/i18n` through the

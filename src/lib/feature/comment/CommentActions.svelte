@@ -2,6 +2,7 @@
   import type { CommentView } from '$lib/api/coves/types'
   import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/state/auth.svelte'
+  import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import { t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
   import { report } from '$lib/feature/moderation/moderation.svelte'
@@ -57,11 +58,20 @@
 
   async function deleteComment(): Promise<void> {
     if (!profile.current?.jwt) {
+      // The recovery prompt already says this while the session is expired.
+      if (profile.sessionExpired) return
       throw new Error($t('toast.sessionExpired'))
     }
     // Refresh can remove this bound tree slot while the request is pending.
     const target = comment
-    await coves().deleteComment({ uri: target.uri })
+    try {
+      await coves().deleteComment({ uri: target.uri })
+    } catch (err) {
+      // Thrown errors render inside the confirmation; a 401 from the live
+      // session is already covered by the recovery prompt, so close quietly.
+      if (isExpiredSessionError(err) && profile.sessionExpired) return
+      throw err
+    }
     target.isDeleted = true
     if (target.record) {
       target.record.content = deletedContentPlaceholder()

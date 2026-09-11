@@ -2,7 +2,8 @@ import { aliases, loadTranslations, locales } from '$lib/app/state/i18n'
 import { get } from 'svelte/store'
 import { toClientSession, type ClientSession } from '$lib/server/session'
 
-export const load = async ({ request, locals }) => {
+export const load = async ({ request, locals, depends }) => {
+  depends('app:session')
   const languages = request.headers.get('Accept-Language')?.split(',')
   const availableLangs = get(locales)
 
@@ -29,13 +30,17 @@ export const load = async ({ request, locals }) => {
 
   // Build client-safe session (without sensitive tokens)
   const session: ClientSession | null = locals.auth.authenticated
-    ? toClientSession(locals.auth.account)
+    ? {
+        ...toClientSession(locals.auth.account),
+        sessionGeneration: locals.sessionGeneration,
+      }
     : null
 
   return {
     lang: preferredLanguage,
     session,
     sessionExpired: locals.sessionExpired ?? false,
+    sessionGeneration: locals.sessionGeneration,
     authError: locals.authError ?? null,
   }
 }

@@ -7,6 +7,7 @@
   import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
+  import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import { t } from '$lib/app/state/i18n'
   import FormattedNumber from '$lib/ui/util/FormattedNumber.svelte'
   import AnimatedHeart from '$lib/ui/icon/AnimatedHeart.svelte'
@@ -92,10 +93,11 @@
         case 'out-of-sync':
           toast({ content: $t('toast.voteOutOfSync'), type: 'warning' })
           break
-        case 'session-expired':
-          toast({ content: $t('toast.sessionExpired'), type: 'warning' })
-          break
         case 'error':
+          // The recovery banner already covers a 401 from the live session;
+          // a stale one leaves the session live, so the toast is the feedback.
+          if (isExpiredSessionError(outcome.error) && profile.sessionExpired)
+            break
           toast({ content: errorMessage(outcome.error), type: 'error' })
           break
         default:

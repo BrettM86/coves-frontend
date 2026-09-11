@@ -53,6 +53,7 @@ function makeEvent({ header, authenticated = false }: CallOptions) {
   const headers: Record<string, string> = {}
   if (header !== undefined) headers['Accept-Language'] = header
   return {
+    depends: vi.fn(),
     request: new Request('http://localhost/', { headers }),
     locals: {
       auth: authenticated
@@ -176,5 +177,35 @@ describe('root server load — session passthrough', () => {
     const { data } = await callLoad({ authenticated: false })
 
     expect(data.session).toBeNull()
+  })
+})
+
+describe('root server load — session generation', () => {
+  it.each([true, false])(
+    'forwards the validated request generation even when authenticated is %s',
+    async (authenticated) => {
+      const event = makeEvent({ authenticated })
+      Object.assign(event.locals, {
+        sessionGeneration: 'opaque-session-generation',
+        sessionExpired: !authenticated,
+      })
+      const data = await load(event as unknown as Parameters<typeof load>[0])
+      expect(data).toMatchObject({
+        sessionGeneration: 'opaque-session-generation',
+        sessionExpired: !authenticated,
+      })
+      if (authenticated)
+        expect(data.session).toMatchObject({
+          sessionGeneration: 'opaque-session-generation',
+        })
+      expect(JSON.stringify(data)).not.toContain('sealed-token')
+    },
+  )
+})
+
+describe('root server load — explicit session refresh dependency', () => {
+  it('declares the dependency recovery invalidates without navigating away from a draft', async () => {
+    const { event } = await callLoad()
+    expect(event.depends).toHaveBeenCalledWith('app:session')
   })
 })

@@ -826,6 +826,7 @@
         "userLoading": "Still loading your user data...",
         "sessionExpired": "Your session has expired. Please log in again.",
         "deletedPost": "Post deleted.",
+        "sessionExpiredDismiss": "Dismiss",
         "sessionRateLimited": "Too many requests to check your session right now. You may appear logged out, but your session is preserved. Try again shortly.",
         "serverUnreachable": "Can't reach the server right now. You may appear logged out, but your session is preserved."
     },

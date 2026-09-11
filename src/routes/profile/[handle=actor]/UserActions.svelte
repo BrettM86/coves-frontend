@@ -1,10 +1,10 @@
 <script lang="ts">
   import { coves } from '$lib/api/client.svelte'
   import type { ProfileViewDetailed } from '$lib/api/coves/types'
-  import { XrpcError } from '$lib/api/coves/xrpc'
   import { profile as authProfile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
   import { errorMessage } from '$lib/app/util/error'
+  import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import {
     isUserBlocked,
     isUserBlockPending,
@@ -30,11 +30,11 @@
     const outcome = await toggleUserBlock(userProfile, coves())
     if (outcome.kind === 'pending') return
     if (outcome.kind === 'error') {
-      if (outcome.error instanceof XrpcError && outcome.error.status === 401) {
-        toast({ content: $t('toast.sessionExpired'), type: 'warning' })
-      } else {
-        toast({ content: errorMessage(outcome.error), type: 'error' })
-      }
+      // The recovery banner already covers a 401 from the live session; a
+      // stale one leaves the session live, so the toast is the feedback.
+      if (isExpiredSessionError(outcome.error) && authProfile.sessionExpired)
+        return
+      toast({ content: errorMessage(outcome.error), type: 'error' })
       return
     }
 

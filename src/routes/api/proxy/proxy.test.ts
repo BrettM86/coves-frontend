@@ -204,6 +204,37 @@ describe('API Proxy', () => {
     })
   })
 
+  describe('session validation outages', () => {
+    it.each<App.AuthErrorKind>(['network_error', 'rate_limited'])(
+      'still relays the cookie credential on a write when locals report %s',
+      async (authError) => {
+        // hooks.server.ts skips /api/me for this route, so an outage of that
+        // check can never leave a cookie-bearing write without its credential.
+        // The backend decides whether the cookie is good; a 401 here is its
+        // verdict, never a side effect of a failed frontend prevalidation.
+        mockFetch.mockResolvedValue(
+          new Response(JSON.stringify({ ok: true }), { status: 200 }),
+        )
+
+        const response = await POST(
+          createEvent({
+            path: 'xrpc/social.coves.interaction.createVote',
+            method: 'POST',
+            headers: { Origin: APP_ORIGIN, 'Content-Type': 'application/json' },
+            body: { direction: 'up' },
+            cookies: createMockCookies({ coves_session: 'sealed-token' }),
+            locals: { ...unauthenticatedLocals(), authError },
+          }),
+        )
+
+        expect(mockFetch).toHaveBeenCalledTimes(1)
+        const [, options] = getLastFetchCall()
+        expect(options.headers.get('Authorization')).toBe('Bearer sealed-token')
+        expect(response.status).toBe(200)
+      },
+    )
+  })
+
   describe('unauthenticated requests', () => {
     it('forwards request without Authorization header when no session', async () => {
       const mockResponse = new Response(JSON.stringify({ public: true }), {

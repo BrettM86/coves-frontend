@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import {
   redirect,
   type Handle,
@@ -190,7 +191,13 @@ const session: Handle = async ({ event, resolve }) => {
 
   // The proxy relays the opaque credential; the backend validates it on the
   // requested endpoint. Cookie presence does not establish authenticated locals.
-  if (event.route.id === '/api/proxy/[...path]') {
+  // The expire endpoint reads the cookie itself and needs no auth locals; a
+  // /api/me round trip there would only hold the deletion open longer, widening
+  // the window in which another tab's fresh login can be the cookie it removes.
+  if (
+    event.route.id === '/api/proxy/[...path]' ||
+    event.route.id === '/api/auth/expire'
+  ) {
     return resolve(event)
   }
 
@@ -198,6 +205,10 @@ const session: Handle = async ({ event, resolve }) => {
   if (!covesSession) {
     return resolve(event)
   }
+
+  event.locals.sessionGeneration = createHash('sha256')
+    .update(covesSession)
+    .digest('hex')
 
   // Validate configuration eagerly — these throw on invalid input and must
   // NOT be caught so that misconfiguration surfaces immediately on the first request.
@@ -223,9 +234,8 @@ const session: Handle = async ({ event, resolve }) => {
 
     if (!response.ok) {
       if (response.status === 401) {
-        // Session expired or revoked — clear the stale cookie so we don't
-        // make a wasted /api/me round-trip on every subsequent request.
-        event.cookies.delete('coves_session', { path: '/' })
+        // Never delete cookies from passive responses: an older request may
+        // finish after a new login has installed a replacement cookie.
         // Flag so the layout can show "Your session has expired" to the user
         event.locals.sessionExpired = true
       } else {

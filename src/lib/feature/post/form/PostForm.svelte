@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
+  import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import { t } from '$lib/app/state/i18n'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { parseMarkup } from '$lib/feature/richtext/compose'
@@ -49,14 +51,15 @@
       .then((result) => {
         onsubmit?.(result)
       })
-      .catch((err: unknown) =>
+      .catch((err: unknown) => {
+        if (isExpiredSessionError(err) && profile.sessionExpired) return
         pushError({
           message: errorMessage(
             err instanceof Error ? err.message : String(err),
           ),
           scope: 'post-form',
-        }),
-      )
+        })
+      })
   }}
   class="flex flex-col gap-4 h-full"
 >

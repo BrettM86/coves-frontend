@@ -2,6 +2,7 @@
   import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
+  import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import { t } from '$lib/app/state/i18n'
   import { Button, toast } from '$lib/ui/kit'
   import { Check, Plus } from '$lib/ui/kit/icon'
@@ -39,6 +40,7 @@
   async function onPress(): Promise<void> {
     const outcome = await toggleSubscription(community, coves())
     if (outcome.kind === 'error') {
+      if (isExpiredSessionError(outcome.error) && profile.sessionExpired) return
       toast({ content: errorMessage(outcome.error), type: 'error' })
     } else if (outcome.kind === 'ok') {
       toast({

@@ -1058,16 +1058,12 @@
         "redirecting": "Redirecting...",
         "error": {
             "generic": "Login failed. Please try again.",
+            "invalidRequest": "Sign-in expired or cookies were blocked. Allow cookies and sign in again.",
+            "serverError": "The sign-in service could not complete your request. Please try again later.",
+            "accessDenied": "Login was cancelled. Please try again when you are ready.",
             "accountNotFound": "Account not found. Check your handle and try again.",
             "handleResolutionFailed": "Couldn’t check your account. Please try again.",
             "invalidHandle": "Enter a valid handle, like jerry.bsky.social.",
-            "noSession": "No session was established. Please try logging in again.",
-            "noPendingAuth": "Login flow expired or was not started. Please try again.",
-            "fetchFailed": "Could not connect to your instance. Please check the URL and try again.",
-            "invalidUserInfo": "Your instance returned invalid user information. Please try again.",
-            "invalidCredentialFormat": "Invalid credentials received from your instance.",
-            "serverConfig": "Server configuration error. Please contact the administrator.",
-            "invalidState": "Session verification failed. Please try logging in again.",
             "remoteLogoutFailed": "You were logged out locally, but the server could not revoke your session. For security, you may want to revoke access from your account settings."
         }
     }

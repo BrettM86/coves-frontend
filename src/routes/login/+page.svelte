@@ -1,16 +1,17 @@
 <script lang="ts">
   import { browser } from '$app/environment'
-  import { goto } from '$app/navigation'
+  import { afterNavigate, replaceState } from '$app/navigation'
   import { page } from '$app/state'
+  import { tick } from 'svelte'
   import { t } from '$lib/app/state/i18n'
   import {
     DEFAULT_INSTANCE_URL,
     LINKED_INSTANCE_URL,
   } from '$lib/app/state/instance.svelte'
+  import { consumeLoginError } from '$lib/app/util/login-error'
   import { DOMAIN_REGEX_FORMS } from '$lib/app/util/url'
   import ErrorContainer, {
     clearErrorScope,
-    pushError,
   } from '$lib/ui/info/ErrorContainer.svelte'
   import { Header } from '$lib/ui/layout'
   import { Button, Spinner, TextInput, toast } from '$lib/ui/kit'
@@ -22,22 +23,46 @@
     account_not_found: 'oauth.error.accountNotFound',
     handle_resolution_failed: 'oauth.error.handleResolutionFailed',
     invalid_handle: 'oauth.error.invalidHandle',
-    no_session: 'oauth.error.noSession',
-    no_pending_auth: 'oauth.error.noPendingAuth',
-    fetch_failed: 'oauth.error.fetchFailed',
-    invalid_user_info: 'oauth.error.invalidUserInfo',
-    invalid_credential_format: 'oauth.error.invalidCredentialFormat',
-    server_config: 'oauth.error.serverConfig',
-    invalid_state: 'oauth.error.invalidState',
+    access_denied: 'oauth.error.accessDenied',
+    invalid_request: 'oauth.error.invalidRequest',
+    server_error: 'oauth.error.serverError',
+    temporarily_unavailable: 'oauth.error.serverError',
   }
 
   interface Props {
-    ref?: string
     children?: import('svelte').Snippet
   }
 
-  let { ref = page.url.searchParams.get('redirect') ?? '/', children }: Props =
-    $props()
+  let { children }: Props = $props()
+  let returnTarget = $derived(page.url.searchParams.get('redirect') ?? '/')
+  let errorCode = $state<string | null>(null)
+
+  afterNavigate(async () => {
+    // Initial hydration invokes afterNavigate before the router is initialized.
+    await tick()
+    // Shallow replaceState retains page.url for routing, so read the browser's
+    // current history URL to avoid reviving a consumed error on back navigation.
+    const arrival = consumeLoginError(new URL(window.location.href))
+    errorCode = arrival.errorCode
+    if (arrival.replaceUrl) {
+      try {
+        replaceState(arrival.replaceUrl, page.state)
+      } catch {
+        // The router may not be ready yet; still drop the consumed error
+        // from history rather than leaving ?error= in the URL.
+        history.replaceState(history.state, '', arrival.replaceUrl)
+      }
+    }
+  })
+  let errorMessage = $derived(
+    errorCode
+      ? $t(
+          Object.hasOwn(ERROR_CODE_MAP, errorCode)
+            ? ERROR_CODE_MAP[errorCode]
+            : 'oauth.error.generic',
+        )
+      : undefined,
+  )
 
   let form = $state<{
     instance: string
@@ -49,35 +74,16 @@
     loading: false,
   })
 
-  // Check for error query param on mount and display appropriate message
-  $effect(() => {
-    if (!browser) return
-
-    const errorCode = page.url.searchParams.get('error')
-    if (errorCode) {
-      const errorKey = ERROR_CODE_MAP[errorCode]
-      const errorMessage = errorKey ? $t(errorKey) : $t('oauth.error.generic')
-
-      pushError({
-        message: errorMessage,
-        scope: page.route.id ?? '/login',
-      })
-
-      // Clean up the URL by removing the error param
-      const url = new URL(page.url)
-      url.searchParams.delete('error')
-      goto(url.pathname + url.search, { replaceState: true })
-    }
-  })
-
   /**
-   * Start OAuth login by calling the server-side login endpoint.
-   * The server handles OAuth state generation and redirect URL construction.
+   * Start OAuth login by calling the SvelteKit login endpoint, which
+   * validates the return destination and returns the Go-owned login URL.
+   * Go generates the OAuth state and the browser binding.
    */
   async function startOAuthLogin(): Promise<void> {
     if (!browser || form.loading) return
 
     form.loading = true
+    errorCode = null
     clearErrorScope(page.route.id)
 
     try {
@@ -96,13 +102,15 @@
         body: JSON.stringify({
           handle,
           instance,
-          redirect: ref,
+          redirect: returnTarget,
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        const errorKey = ERROR_CODE_MAP[errorData.error]
+        const errorKey = Object.hasOwn(ERROR_CODE_MAP, errorData.error)
+          ? ERROR_CODE_MAP[errorData.error]
+          : undefined
         throw new Error(errorKey ? $t(errorKey) : $t('oauth.error.generic'))
       }
 
@@ -136,7 +144,11 @@
     <div class="flex flex-col">
       {@render children?.()}
       <Header>{$t('account.login')}</Header>
-      <ErrorContainer class="pt-2" scope={page.route.id} />
+      <ErrorContainer
+        class="pt-2"
+        scope={page.route.id}
+        message={errorMessage}
+      />
     </div>
 
     <div class="flex flex-row w-full items-center gap-2">

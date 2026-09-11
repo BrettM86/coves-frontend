@@ -1,3 +1,5 @@
+import { page } from '$app/state'
+import { loginUrl } from '$lib/app/util/login-url'
 import type { ProfileInfo } from '$lib/app/state/auth.svelte'
 import { t } from '$lib/app/state/i18n'
 import { settings } from '$lib/app/state/settings.svelte'
@@ -139,7 +141,7 @@ export function getGroups(
             ]
           : [
               {
-                href: '/login',
+                href: loginUrl(page.url),
                 name: t.get('account.login'),
                 icon: LogIn,
               },

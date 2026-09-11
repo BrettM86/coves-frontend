@@ -162,3 +162,48 @@ limits per user rather than per frontend container. Requests time out after
 10 seconds. Missing handles stay on the sign-in form with a snackbar; network
 failures and AppView errors ask the user to retry and are logged. The Coves
 backend still performs OAuth authentication after the check succeeds.
+
+## OAuth return pages and local regression tests
+
+The frontend passes a local `redirect` destination to Go's `/oauth/login`.
+Go owns browser binding, provider state, the callback, and session creation.
+Successful login returns to the saved path, query, and fragment; failures return
+to `/login?error=<known-code>&redirect=<saved-path>`. The frontend displays the
+error on arrival, removes only the `error` query parameter, and clears the
+message when retry begins. Reloading or returning through browser history does
+not restore the consumed error; the destination remains available for retry.
+Component login links preserve fragments, while protected-route load functions
+preserve the path and query without reading SvelteKit's restricted URL hash.
+The frontend no longer has a callback route; Go's `/oauth/callback` completes
+login. Deploy this frontend with the matching backend and its migration
+`047_web_oauth_binding.sql`; keep the provider callback at `/oauth/callback`.
+
+`pnpm test:oauth` is a separate Firefox tier against real local services. Start
+the backend's local PDS/PLC/database infrastructure, then run `make run-web` and
+use the configured Caddy proxy. The normal browser origin is
+`http://127.0.0.1:8080`. Use a disposable account registered on that local PDS,
+with its `handle`, `password`, and `did` in a private JSON file outside the repo.
+Restrict the file to its owner (`chmod 600`). The tests do not create or delete
+the account and never use a public Bluesky resolver.
+
+```sh
+pnpm exec playwright install firefox
+OAUTH_WEB_BASE_URL=http://127.0.0.1:8080 \
+PDS_URL=http://localhost:3001 \
+OAUTH_TEST_ACCOUNT_FILE="$HOME/.config/coves/oauth-test-account.json" \
+pnpm test:oauth
+```
+
+For isolated worktrees, give the proxy a unique port and set both
+`PUBLIC_INSTANCE_URL` and `APPVIEW_PUBLIC_URL` to that browser origin; set
+`OAUTH_WEB_BASE_URL` to match. Point the proxy at the worktrees' own Vite and Go
+ports. Reuse the configured local PDS and PLC. Avoid running multiple proxies on
+the same port: Caddy can share the listener, sending requests to different
+checkouts.
+
+This tier covers return links, successful authorization, denied consent, stable
+error rendering, and retry. Missing infrastructure or account configuration
+fails the run. It is separate from the backend-free `pnpm run ci` gate.
+Credential-bearing traces, screenshots, videos, and page snapshots are disabled.
+The pinned Playwright 1.63 harness uses its internal `PLAYWRIGHT_NO_COPY_PROMPT`
+switch to suppress failure page snapshots; verify that behavior when upgrading.

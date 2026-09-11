@@ -16,7 +16,7 @@
  * actually received, which is the only way to catch a render that displays the
  * right account while fetching its data as somebody else.
  *
- * Every test asserts `status === 200` and a home-page marker before any content
+ * Every rendered-page test asserts `status === 200` and a home-page marker before any content
  * claim: an upstream failure renders Kit's error page, which contains neither a
  * login string nor a handle, and would otherwise satisfy every "must not
  * contain the other one" assertion by accident.
@@ -153,6 +153,22 @@ afterEach(async () => {
 })
 
 describe('SSR request isolation', () => {
+  it.each(['/create/post?community=orchids'])(
+    'redirects signed-out SSR request %s to login preserving path and query',
+    async (destination) => {
+      const response = await fetch(`${baseUrl}${destination}`, {
+        redirect: 'manual',
+      })
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).not.toBeNull()
+      const target = new URL(location ?? '', baseUrl)
+      expect(target.origin).toBe(baseUrl)
+      expect(target.pathname).toBe('/login')
+      expect(target.searchParams.get('redirect')).toBe(destination)
+    },
+  )
+
   it('renders CORS-free internal feed routes on full-page requests', async () => {
     const [homeResponse, communitiesResponse] = await Promise.all([
       fetch(`${baseUrl}/`),

@@ -85,11 +85,13 @@ describe('createMockEvent', () => {
   })
 
   it('accepts a URL instance and preserves it', () => {
-    const url = new URL('https://kelp.example.com/api/auth/callback?state=x')
+    const url = new URL(
+      'https://kelp.example.com/api/auth/login?redirect=%2Ffeed',
+    )
     const event = createMockEvent({ url })
 
     expect(event.url).toBe(url)
-    expect(event.url.searchParams.get('state')).toBe('x')
+    expect(event.url.searchParams.get('redirect')).toBe('/feed')
   })
 
   it('defaults route.id to the pathname and honors routeId', () => {

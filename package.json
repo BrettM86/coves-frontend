@@ -24,6 +24,7 @@
   "devDependencies": {
     "@eslint/compat": "^1.4.1",
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "1.63.0",
     "@sveltejs/adapter-auto": "^3.3.1",
     "@sveltejs/adapter-node": "^5.5.7",
     "@sveltejs/adapter-static": "^3.0.10",
@@ -59,6 +60,7 @@
     "lint": "eslint . --max-warnings 0",
     "test:ci": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:oauth": "playwright test --config playwright.oauth.config.ts",
     "test:ssr": "vitest --run --config vitest.ssr.config.ts",
     "ci": "pnpm lint && pnpm check && pnpm test:ci && ADAPTER=node pnpm build && pnpm test:ssr"
   },

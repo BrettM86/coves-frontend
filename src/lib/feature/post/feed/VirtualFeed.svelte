@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { page } from '$app/state'
+  import { loginUrl } from '$lib/app/util/login-url'
   import { browser } from '$app/environment'
   import { XrpcError } from '$lib/api/coves/xrpc'
   import type { FeedViewPost, FeedPaginationParams } from '$lib/api/coves/types'
@@ -384,7 +386,7 @@
           {/if}
         </div>
         {#if isAuthError}
-          <Button color="primary" href="/login">
+          <Button color="primary" href={loginUrl(page.url)}>
             {$t('account.login')}
           </Button>
         {:else}

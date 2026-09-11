@@ -35,3 +35,7 @@ coverage/
 
 # Local-only Claude Code commands (contains prod host references) — same convention as the backend repo
 .claude/commands/deploy.md
+
+test-results/
+
+playwright-report/

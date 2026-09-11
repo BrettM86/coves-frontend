@@ -4,8 +4,6 @@ import { isHandle } from '@atcute/lexicons/syntax'
 import { resolveLoginHandle } from '$lib/server/resolve-login-handle'
 import { log } from '$lib/server/log'
 import type { RequestHandler } from './$types'
-import { PENDING_AUTH_COOKIE_OPTIONS } from '$lib/server/cookies'
-import { generateOAuthState } from '$lib/server/csrf'
 import { normalizeInstanceUrl } from '$lib/app/state/instance/resolve'
 import { loginLockedOrigin } from '$lib/server/instance'
 
@@ -20,14 +18,13 @@ interface LoginRequest {
  *
  * Initiates OAuth login flow by:
  * 1. Checking that the handle resolves to an atProto identity
- * 2. Storing pending auth state in a cookie
- * 3. Building and returning the OAuth redirect URL
+ * 2. Validating the local return destination
+ * 3. Returning the Go-owned OAuth login URL
  *
  * The client will navigate to this URL to begin OAuth with Coves.
  */
 export const POST: RequestHandler = async ({
   request,
-  cookies,
   getClientAddress,
   locals,
   url,
@@ -84,52 +81,31 @@ export const POST: RequestHandler = async ({
     )
   }
 
-  // Validate redirect URL to prevent open redirect attacks
-  // Only allow relative URLs (starting with /) or same-origin URLs
+  // Go owns OAuth state and completion. Send only a safe local destination.
   let safeRedirect = '/'
   if (redirect && typeof redirect === 'string') {
     const trimmedRedirect = redirect.trim()
-    // Check for protocol-relative URLs (// or \\) which could redirect to external sites
-    // Backslash can bypass validation as browsers may treat \\ as //
-    if (
-      trimmedRedirect.startsWith('/') &&
-      !trimmedRedirect.startsWith('//') &&
-      !trimmedRedirect.startsWith('/\\') &&
-      !trimmedRedirect.startsWith('\\')
-    ) {
-      // Relative URL starting with single slash is safe
-      safeRedirect = trimmedRedirect
-    } else if (trimmedRedirect.startsWith('\\')) {
-      // Reject backslash-prefixed URLs (potential bypass attempt)
-      log.warn(
-        `[auth/login] Rejected redirect URL with backslash prefix: ${trimmedRedirect}`,
-        logContext,
-      )
-    } else if (trimmedRedirect.startsWith('//')) {
-      // Reject protocol-relative URLs
-      log.warn(
-        `[auth/login] Rejected protocol-relative redirect URL: ${trimmedRedirect}`,
-        logContext,
-      )
-    } else {
-      // Try to parse as URL and check if same-origin
-      try {
-        const redirectUrl = new URL(trimmedRedirect, url.origin)
-        if (redirectUrl.origin === url.origin) {
-          safeRedirect =
-            redirectUrl.pathname + redirectUrl.search + redirectUrl.hash
-        } else {
-          log.warn(
-            `[auth/login] Rejected external redirect URL: ${trimmedRedirect}`,
-            logContext,
-          )
-        }
-      } catch {
-        log.warn(
-          `[auth/login] Rejected invalid redirect URL: ${trimmedRedirect}`,
-          logContext,
-        )
+    const hasUnsafeCharacter = Array.from(redirect).some(
+      (character) =>
+        character === '\\' ||
+        character.charCodeAt(0) < 32 ||
+        character.charCodeAt(0) === 127,
+    )
+    try {
+      const destination = new URL(trimmedRedirect, url.origin)
+      if (
+        hasUnsafeCharacter ||
+        trimmedRedirect.startsWith('//') ||
+        destination.origin !== url.origin ||
+        destination.pathname.startsWith('//')
+      ) {
+        log.warn('[auth/login] Rejected unsafe redirect URL', logContext)
+      } else {
+        safeRedirect =
+          destination.pathname + destination.search + destination.hash
       }
+    } catch {
+      log.warn('[auth/login] Rejected invalid redirect URL', logContext)
     }
   }
 
@@ -152,28 +128,9 @@ export const POST: RequestHandler = async ({
     return json({ error: 'handle_resolution_failed' }, { status: 503 })
   }
 
-  // Generate CSRF state for OAuth flow (RFC 6749 section 10.12)
-  const state = generateOAuthState()
-
-  // Store pending auth state in cookie
-  const pendingAuth = {
-    redirect: safeRedirect,
-    state,
-  }
-
-  cookies.set(
-    'kelp_pending_auth',
-    JSON.stringify(pendingAuth),
-    PENDING_AUTH_COOKIE_OPTIONS,
-  )
-
-  // Build OAuth redirect URL
-  // Coves OAuth endpoint: {instance}/oauth/login?handle={handle}&redirect_uri={callback}&state={state}
-  const callbackUrl = `${url.origin}/api/auth/callback`
   const oauthUrl = new URL('/oauth/login', instanceUrl.origin)
   oauthUrl.searchParams.set('handle', normalizedHandle)
-  oauthUrl.searchParams.set('redirect_uri', callbackUrl)
-  oauthUrl.searchParams.set('state', state)
+  oauthUrl.searchParams.set('redirect', safeRedirect)
 
   return json({ redirectUrl: oauthUrl.toString() })
 }

@@ -1,13 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { POST as loginHandler } from './login/+server'
-import { GET as callbackHandler } from './callback/+server'
 import { POST as logoutHandler } from './logout/+server'
-import { generateOAuthState } from '$lib/server/csrf'
 import { DidNotFoundError } from '@atcute/identity-resolver'
 import {
   createMockCookies,
   createMockEvent,
-  isRedirect,
 } from '$lib/test-utils/request-event'
 
 const resolveLoginHandle = vi.hoisted(() =>
@@ -125,7 +122,11 @@ describe('POST /api/auth/login', () => {
     expect(response.status).toBe(200)
     expect(data.redirectUrl).toContain('https://coves.example.com/oauth/login')
     expect(data.redirectUrl).toContain('handle=user.example.com')
-    expect(data.redirectUrl).toContain('redirect_uri=')
+    const destination = new URL(data.redirectUrl)
+    expect(destination.searchParams.get('redirect')).toBe('/')
+    expect(destination.searchParams.has('redirect_uri')).toBe(false)
+    expect(destination.searchParams.has('state')).toBe(false)
+    expect(cookies.set).not.toHaveBeenCalled()
   })
 
   describe('handle resolution before OAuth', () => {
@@ -226,7 +227,7 @@ describe('POST /api/auth/login', () => {
       expect(cookies.set).not.toHaveBeenCalled()
     })
 
-    it('waits for resolution before creating pending authentication state', async () => {
+    it('waits for resolution before returning the Go login URL', async () => {
       let finishResolution = () => {}
       resolveLoginHandle.mockImplementationOnce(
         () =>
@@ -235,41 +236,20 @@ describe('POST /api/auth/login', () => {
           }),
       )
       const { cookies, response } = login('jerry.bsky.social')
+      const completed = vi.fn()
+      void Promise.resolve(response).then(completed)
 
       await vi.waitFor(() => expect(resolveLoginHandle).toHaveBeenCalledOnce())
       expect(cookies.set).not.toHaveBeenCalled()
+      expect(completed).not.toHaveBeenCalled()
       finishResolution()
-      expect((await response).status).toBe(200)
-      expect(cookies.set).toHaveBeenCalledOnce()
+      const result = await response
+      expect(result.status).toBe(200)
+      expect(new URL((await result.json()).redirectUrl).pathname).toBe(
+        '/oauth/login',
+      )
+      expect(cookies.set).not.toHaveBeenCalled()
     })
-  })
-
-  it('stores pending auth state in cookie', async () => {
-    const cookies = createMockCookies()
-    const event = createMockEvent({
-      method: 'POST',
-      body: {
-        handle: 'user.example.com',
-        instance: 'https://coves.example.com',
-        redirect: '/community/test',
-      },
-      cookies,
-      url: 'http://localhost:5173/api/auth/login',
-    })
-
-    await loginHandler(event)
-
-    expect(cookies.set).toHaveBeenCalledWith(
-      'kelp_pending_auth',
-      expect.any(String),
-      expect.objectContaining({
-        httpOnly: true,
-        // secure is false in test environment (import.meta.env.PROD is false)
-        secure: false,
-        sameSite: 'lax',
-        path: '/',
-      }),
-    )
   })
 
   it('returns 400 for missing handle', async () => {
@@ -302,529 +282,47 @@ describe('POST /api/auth/login', () => {
     expect(data.error).toContain('instance')
   })
 
-  describe('open redirect prevention', () => {
-    it('accepts valid relative URLs starting with single slash', async () => {
-      const cookies = createMockCookies()
+  describe('return destination passed to Go', () => {
+    it.each([
+      ['/community/test?foo=bar#section', '/community/test?foo=bar#section'],
+      [
+        'http://localhost:5173/community/safe?sort=new#replies',
+        '/community/safe?sort=new#replies',
+      ],
+      [
+        '  /community/test?foo=bar#section  ',
+        '/community/test?foo=bar#section',
+      ],
+      [undefined, '/'],
+      ['', '/'],
+      [42, '/'],
+      ['https://evil.example/steal', '/'],
+      ['//evil.example/steal', '/'],
+      [String.raw`\evil.example/steal`, '/'],
+      [String.raw`/\evil.example/steal`, '/'],
+      [String.raw`/community\unsafe`, '/'],
+      ['/\tevil.example/steal', '/'],
+      ['/\nevil.example/steal', '/'],
+      ['/community/\u0000unsafe', '/'],
+      ['/community/\u007funsafe', '/'],
+      ['http://[::1 broken', '/'],
+    ])('sanitizes %j to %j', async (redirect, expected) => {
       const event = createMockEvent({
-        method: 'POST',
+        url: 'http://localhost:5173/api/auth/login',
         body: {
           handle: 'user.example.com',
           instance: 'https://coves.example.com',
-          redirect: '/community/test?foo=bar#section',
+          redirect,
         },
-        cookies,
-        url: 'http://localhost:5173/api/auth/login',
-      })
-
-      await loginHandler(event)
-
-      const setCalls = (cookies.set as ReturnType<typeof vi.fn>).mock.calls
-      const pendingAuthCall = setCalls.find(
-        (call) => call[0] === 'kelp_pending_auth',
-      )
-      expect(pendingAuthCall).toBeDefined()
-      if (pendingAuthCall) {
-        const pendingAuth = JSON.parse(pendingAuthCall[1] as string)
-        expect(pendingAuth.redirect).toBe('/community/test?foo=bar#section')
-      }
-    })
-
-    it('rejects absolute URLs to external domains', async () => {
-      const cookies = createMockCookies()
-      const event = createMockEvent({
-        method: 'POST',
-        body: {
-          handle: 'user.example.com',
-          instance: 'https://coves.example.com',
-          redirect: 'https://evil.com/steal-tokens',
-        },
-        cookies,
-        url: 'http://localhost:5173/api/auth/login',
-      })
-
-      await loginHandler(event)
-
-      const setCalls = (cookies.set as ReturnType<typeof vi.fn>).mock.calls
-      const pendingAuthCall = setCalls.find(
-        (call) => call[0] === 'kelp_pending_auth',
-      )
-      expect(pendingAuthCall).toBeDefined()
-      if (pendingAuthCall) {
-        const pendingAuth = JSON.parse(pendingAuthCall[1] as string)
-        expect(pendingAuth.redirect).toBe('/')
-      }
-    })
-
-    it('rejects protocol-relative URLs with // prefix', async () => {
-      const cookies = createMockCookies()
-      const event = createMockEvent({
-        method: 'POST',
-        body: {
-          handle: 'user.example.com',
-          instance: 'https://coves.example.com',
-          redirect: '//evil.com/steal-tokens',
-        },
-        cookies,
-        url: 'http://localhost:5173/api/auth/login',
-      })
-
-      await loginHandler(event)
-
-      const setCalls = (cookies.set as ReturnType<typeof vi.fn>).mock.calls
-      const pendingAuthCall = setCalls.find(
-        (call) => call[0] === 'kelp_pending_auth',
-      )
-      expect(pendingAuthCall).toBeDefined()
-      if (pendingAuthCall) {
-        const pendingAuth = JSON.parse(pendingAuthCall[1] as string)
-        expect(pendingAuth.redirect).toBe('/')
-      }
-    })
-
-    it('rejects URLs with backslash prefix (bypass attempt)', async () => {
-      const cookies = createMockCookies()
-      const event = createMockEvent({
-        method: 'POST',
-        body: {
-          handle: 'user.example.com',
-          instance: 'https://coves.example.com',
-          redirect: '\\\\evil.com/steal-tokens',
-        },
-        cookies,
-        url: 'http://localhost:5173/api/auth/login',
-      })
-
-      await loginHandler(event)
-
-      const setCalls = (cookies.set as ReturnType<typeof vi.fn>).mock.calls
-      const pendingAuthCall = setCalls.find(
-        (call) => call[0] === 'kelp_pending_auth',
-      )
-      expect(pendingAuthCall).toBeDefined()
-      if (pendingAuthCall) {
-        const pendingAuth = JSON.parse(pendingAuthCall[1] as string)
-        expect(pendingAuth.redirect).toBe('/')
-      }
-    })
-
-    it('rejects URLs with /\\ prefix (backslash bypass variant)', async () => {
-      const cookies = createMockCookies()
-      const event = createMockEvent({
-        method: 'POST',
-        body: {
-          handle: 'user.example.com',
-          instance: 'https://coves.example.com',
-          redirect: '/\\evil.com',
-        },
-        cookies,
-        url: 'http://localhost:5173/api/auth/login',
-      })
-
-      await loginHandler(event)
-
-      const setCalls = (cookies.set as ReturnType<typeof vi.fn>).mock.calls
-      const pendingAuthCall = setCalls.find(
-        (call) => call[0] === 'kelp_pending_auth',
-      )
-      expect(pendingAuthCall).toBeDefined()
-      if (pendingAuthCall) {
-        const pendingAuth = JSON.parse(pendingAuthCall[1] as string)
-        expect(pendingAuth.redirect).toBe('/')
-      }
-    })
-
-    it('accepts same-origin absolute URLs and extracts path', async () => {
-      const cookies = createMockCookies()
-      const event = createMockEvent({
-        method: 'POST',
-        body: {
-          handle: 'user.example.com',
-          instance: 'https://coves.example.com',
-          redirect: 'http://localhost:5173/community/safe',
-        },
-        cookies,
-        url: 'http://localhost:5173/api/auth/login',
-      })
-
-      await loginHandler(event)
-
-      const setCalls = (cookies.set as ReturnType<typeof vi.fn>).mock.calls
-      const pendingAuthCall = setCalls.find(
-        (call) => call[0] === 'kelp_pending_auth',
-      )
-      expect(pendingAuthCall).toBeDefined()
-      if (pendingAuthCall) {
-        const pendingAuth = JSON.parse(pendingAuthCall[1] as string)
-        expect(pendingAuth.redirect).toBe('/community/safe')
-      }
-    })
-  })
-
-  describe('CSRF state parameter (RFC 6749)', () => {
-    it('generates and stores state in pending auth cookie', async () => {
-      const cookies = createMockCookies()
-      const event = createMockEvent({
-        method: 'POST',
-        body: {
-          handle: 'user.example.com',
-          instance: 'https://coves.example.com',
-        },
-        cookies,
-        url: 'http://localhost:5173/api/auth/login',
-      })
-
-      await loginHandler(event)
-
-      const setCalls = (cookies.set as ReturnType<typeof vi.fn>).mock.calls
-      const pendingAuthCall = setCalls.find(
-        (call) => call[0] === 'kelp_pending_auth',
-      )
-      expect(pendingAuthCall).toBeDefined()
-      if (pendingAuthCall) {
-        const pendingAuth = JSON.parse(pendingAuthCall[1] as string)
-        expect(pendingAuth.state).toBeDefined()
-        expect(typeof pendingAuth.state).toBe('string')
-        expect(pendingAuth.state).toMatch(/^[a-f0-9]{64}$/)
-      }
-    })
-
-    it('includes state parameter in OAuth redirect URL', async () => {
-      const cookies = createMockCookies()
-      const event = createMockEvent({
-        method: 'POST',
-        body: {
-          handle: 'user.example.com',
-          instance: 'https://coves.example.com',
-        },
-        cookies,
-        url: 'http://localhost:5173/api/auth/login',
       })
 
       const response = await loginHandler(event)
-      const data = await response.json()
-
-      expect(data.redirectUrl).toContain('state=')
-      const redirectUrl = new URL(data.redirectUrl)
-      const state = redirectUrl.searchParams.get('state')
-      expect(state).toBeDefined()
-      expect(state).toMatch(/^[a-f0-9]{64}$/)
-    })
-
-    it('state in cookie matches state in OAuth URL', async () => {
-      const cookies = createMockCookies()
-      const event = createMockEvent({
-        method: 'POST',
-        body: {
-          handle: 'user.example.com',
-          instance: 'https://coves.example.com',
-        },
-        cookies,
-        url: 'http://localhost:5173/api/auth/login',
-      })
-
-      const response = await loginHandler(event)
-      const data = await response.json()
-
-      const redirectUrl = new URL(data.redirectUrl)
-      const urlState = redirectUrl.searchParams.get('state')
-
-      const setCalls = (cookies.set as ReturnType<typeof vi.fn>).mock.calls
-      const pendingAuthCall = setCalls.find(
-        (call) => call[0] === 'kelp_pending_auth',
-      )
-      expect(pendingAuthCall).toBeDefined()
-      if (pendingAuthCall) {
-        const pendingAuth = JSON.parse(pendingAuthCall[1] as string)
-        expect(pendingAuth.state).toBe(urlState)
-      }
-    })
-
-    it('generates unique state for each login request', async () => {
-      const cookies1 = createMockCookies()
-      const cookies2 = createMockCookies()
-      const event1 = createMockEvent({
-        method: 'POST',
-        body: {
-          handle: 'user.example.com',
-          instance: 'https://coves.example.com',
-        },
-        cookies: cookies1,
-        url: 'http://localhost:5173/api/auth/login',
-      })
-      const event2 = createMockEvent({
-        method: 'POST',
-        body: {
-          handle: 'user.example.com',
-          instance: 'https://coves.example.com',
-        },
-        cookies: cookies2,
-        url: 'http://localhost:5173/api/auth/login',
-      })
-
-      await loginHandler(event1)
-      await loginHandler(event2)
-
-      const setCalls1 = (cookies1.set as ReturnType<typeof vi.fn>).mock.calls
-      const setCalls2 = (cookies2.set as ReturnType<typeof vi.fn>).mock.calls
-      const pendingAuth1 = JSON.parse(
-        setCalls1.find(
-          (call) => call[0] === 'kelp_pending_auth',
-        )?.[1] as string,
-      )
-      const pendingAuth2 = JSON.parse(
-        setCalls2.find(
-          (call) => call[0] === 'kelp_pending_auth',
-        )?.[1] as string,
-      )
-
-      expect(pendingAuth1.state).not.toBe(pendingAuth2.state)
-    })
-  })
-})
-
-describe('GET /api/auth/callback', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('redirects to stored redirect URL on valid state', async () => {
-    const testState = generateOAuthState()
-    const cookies = createMockCookies({
-      kelp_pending_auth: JSON.stringify({
-        redirect: '/community/test',
-        state: testState,
-      }),
-      coves_session: 'valid-session-cookie',
-    })
-
-    const event = createMockEvent({
-      method: 'GET',
-      cookies,
-      url: `http://localhost:5173/api/auth/callback?state=${testState}`,
-    })
-
-    try {
-      await callbackHandler(event)
-      expect.fail('Expected redirect to be thrown')
-    } catch (error) {
-      expect(isRedirect(error)).toBe(true)
-      if (isRedirect(error)) {
-        expect(error.status).toBe(302)
-        expect(error.location).toBe('/community/test')
-      }
-    }
-  })
-
-  it('redirects to / when no redirect URL stored', async () => {
-    const testState = generateOAuthState()
-    const cookies = createMockCookies({
-      kelp_pending_auth: JSON.stringify({
-        redirect: '',
-        state: testState,
-      }),
-      coves_session: 'valid-session-cookie',
-    })
-
-    const event = createMockEvent({
-      method: 'GET',
-      cookies,
-      url: `http://localhost:5173/api/auth/callback?state=${testState}`,
-    })
-
-    try {
-      await callbackHandler(event)
-      expect.fail('Expected redirect to be thrown')
-    } catch (error) {
-      expect(isRedirect(error)).toBe(true)
-      if (isRedirect(error)) {
-        expect(error.status).toBe(302)
-        expect(error.location).toBe('/')
-      }
-    }
-  })
-
-  it('redirects to /login on missing pending auth cookie', async () => {
-    const cookies = createMockCookies({})
-
-    const event = createMockEvent({
-      method: 'GET',
-      cookies,
-      url: 'http://localhost:5173/api/auth/callback?state=some-state',
-    })
-
-    try {
-      await callbackHandler(event)
-      expect.fail('Expected redirect to be thrown')
-    } catch (error) {
-      expect(isRedirect(error)).toBe(true)
-      if (isRedirect(error)) {
-        expect(error.status).toBe(302)
-        expect(error.location).toBe('/login?error=no_pending_auth')
-      }
-    }
-  })
-
-  it('cleans up pending auth cookie after use', async () => {
-    const testState = generateOAuthState()
-    const cookies = createMockCookies({
-      kelp_pending_auth: JSON.stringify({
-        redirect: '/',
-        state: testState,
-      }),
-      coves_session: 'valid-session-cookie',
-    })
-
-    const event = createMockEvent({
-      method: 'GET',
-      cookies,
-      url: `http://localhost:5173/api/auth/callback?state=${testState}`,
-    })
-
-    try {
-      await callbackHandler(event)
-    } catch {
-      // Expected redirect
-    }
-
-    expect(cookies.delete).toHaveBeenCalledWith('kelp_pending_auth', {
-      path: '/',
-    })
-  })
-
-  describe('CSRF state validation', () => {
-    it('rejects callback when state parameter is missing from URL', async () => {
-      const testState = generateOAuthState()
-      const cookies = createMockCookies({
-        kelp_pending_auth: JSON.stringify({
-          redirect: '/',
-          state: testState,
-        }),
-      })
-
-      const event = createMockEvent({
-        method: 'GET',
-        cookies,
-        url: 'http://localhost:5173/api/auth/callback',
-      })
-
-      try {
-        await callbackHandler(event)
-        expect.fail('Expected redirect to be thrown')
-      } catch (error) {
-        expect(isRedirect(error)).toBe(true)
-        if (isRedirect(error)) {
-          expect(error.status).toBe(302)
-          expect(error.location).toBe('/login?error=invalid_state')
-        }
-      }
-    })
-
-    it('rejects callback when state is missing from pending auth cookie', async () => {
-      const cookies = createMockCookies({
-        kelp_pending_auth: JSON.stringify({
-          redirect: '/',
-          // No state field - runtime validation rejects this shape
-        }),
-      })
-
-      const event = createMockEvent({
-        method: 'GET',
-        cookies,
-        url: 'http://localhost:5173/api/auth/callback?state=somestate123',
-      })
-
-      try {
-        await callbackHandler(event)
-        expect.fail('Expected redirect to be thrown')
-      } catch (error) {
-        expect(isRedirect(error)).toBe(true)
-        if (isRedirect(error)) {
-          expect(error.status).toBe(302)
-          expect(error.location).toBe('/login?error=invalid_pending_auth')
-        }
-      }
-    })
-
-    it('rejects callback when state values do not match', async () => {
-      const cookieState = generateOAuthState()
-      const differentState = generateOAuthState()
-      const cookies = createMockCookies({
-        kelp_pending_auth: JSON.stringify({
-          redirect: '/',
-          state: cookieState,
-        }),
-      })
-
-      const event = createMockEvent({
-        method: 'GET',
-        cookies,
-        url: `http://localhost:5173/api/auth/callback?state=${differentState}`,
-      })
-
-      try {
-        await callbackHandler(event)
-        expect.fail('Expected redirect to be thrown')
-      } catch (error) {
-        expect(isRedirect(error)).toBe(true)
-        if (isRedirect(error)) {
-          expect(error.status).toBe(302)
-          expect(error.location).toBe('/login?error=invalid_state')
-        }
-      }
-    })
-
-    it('rejects callback with empty state in URL', async () => {
-      const testState = generateOAuthState()
-      const cookies = createMockCookies({
-        kelp_pending_auth: JSON.stringify({
-          redirect: '/',
-          state: testState,
-        }),
-      })
-
-      const event = createMockEvent({
-        method: 'GET',
-        cookies,
-        url: 'http://localhost:5173/api/auth/callback?state=',
-      })
-
-      try {
-        await callbackHandler(event)
-        expect.fail('Expected redirect to be thrown')
-      } catch (error) {
-        expect(isRedirect(error)).toBe(true)
-        if (isRedirect(error)) {
-          expect(error.status).toBe(302)
-          expect(error.location).toBe('/login?error=invalid_state')
-        }
-      }
-    })
-
-    it('rejects callback with empty state in pending auth cookie', async () => {
-      const urlState = generateOAuthState()
-      const cookies = createMockCookies({
-        kelp_pending_auth: JSON.stringify({
-          redirect: '/',
-          state: '',
-        }),
-      })
-
-      const event = createMockEvent({
-        method: 'GET',
-        cookies,
-        url: `http://localhost:5173/api/auth/callback?state=${urlState}`,
-      })
-
-      try {
-        await callbackHandler(event)
-        expect.fail('Expected redirect to be thrown')
-      } catch (error) {
-        expect(isRedirect(error)).toBe(true)
-        if (isRedirect(error)) {
-          expect(error.status).toBe(302)
-          expect(error.location).toBe('/login?error=invalid_state')
-        }
-      }
+      expect(response.status).toBe(200)
+      const destination = new URL((await response.json()).redirectUrl)
+      expect(destination.searchParams.get('redirect')).toBe(expected)
+      expect(destination.searchParams.has('redirect_uri')).toBe(false)
+      expect(destination.searchParams.has('state')).toBe(false)
+      expect(event.cookies.set).not.toHaveBeenCalled()
     })
   })
 })

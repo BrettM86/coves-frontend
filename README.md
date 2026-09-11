@@ -15,6 +15,19 @@ pnpm test         # Vitest
 pnpm build        # production build (ADAPTER=node for the Docker image)
 ```
 
+## Testing
+
+`pnpm run ci` is the merge gate: lint, type check, unit tests, a Node build,
+and the SSR tier (`pnpm test:ssr`). It needs no backend or Docker.
+
+`pnpm test:oauth` is a manual pre-merge tier that is not part of `pnpm run ci`.
+It drives a real Firefox login against the local PDS/PLC stack, so start the
+backend's local infrastructure and `make run-web` first (see
+[docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)). Set `OAUTH_TEST_ACCOUNT_FILE` to a
+private JSON file, kept outside the repo, containing the `handle`, `password`,
+and `did` of a disposable account on that local PDS. `OAUTH_WEB_BASE_URL`
+overrides the default browser origin of `http://127.0.0.1:8080`.
+
 Built with [SvelteKit](https://svelte.dev/docs/kit), Svelte 5, and Tailwind CSS.
 
 Configuration (environment variables) is documented in

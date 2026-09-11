@@ -19,6 +19,26 @@ vi.mock('$lib/app/state/auth.svelte', () => ({
 }))
 
 import { load } from './+page'
+import type { PageLoadEvent } from './$types'
+
+// These loads only read URL and the separately controlled authentication state.
+const loadPage = load as (
+  event: Pick<PageLoadEvent, 'url'>,
+) => ReturnType<typeof load>
+
+/**
+ * SvelteKit's tracked URL throws on `url.hash` during load. Mirror that guard so
+ * any regression that reads the hash fails here instead of in the browser.
+ */
+function loadUrl(href: string): URL {
+  const url = new URL(href)
+  Object.defineProperty(url, 'hash', {
+    get() {
+      throw new Error('Cannot access url.hash during load')
+    },
+  })
+  return url
+}
 
 describe('/profile redirect', () => {
   beforeEach(() => {
@@ -33,7 +53,9 @@ describe('/profile redirect', () => {
     }
 
     try {
-      load()
+      loadPage({
+        url: loadUrl('https://web.example.invalid/profile?tab=comments#latest'),
+      })
       expect.fail('Expected redirect to be thrown')
     } catch (e: unknown) {
       const redirect = e as RedirectError
@@ -50,7 +72,9 @@ describe('/profile redirect', () => {
     }
 
     try {
-      load()
+      loadPage({
+        url: loadUrl('https://web.example.invalid/profile?tab=comments#latest'),
+      })
       expect.fail('Expected redirect to be thrown')
     } catch (e: unknown) {
       const redirect = e as RedirectError
@@ -63,12 +87,16 @@ describe('/profile redirect', () => {
     mockProfile.current = { type: 'guest', handle: undefined, did: undefined }
 
     try {
-      load()
+      loadPage({
+        url: loadUrl('https://web.example.invalid/profile?tab=comments#latest'),
+      })
       expect.fail('Expected redirect to be thrown')
     } catch (e: unknown) {
       const redirect = e as RedirectError
       expect(redirect.status).toBe(302)
-      expect(redirect.location).toBe('/login')
+      const target = new URL(redirect.location, 'https://web.example.invalid')
+      expect(target.pathname).toBe('/login')
+      expect(target.searchParams.get('redirect')).toBe('/profile?tab=comments')
     }
   })
 
@@ -80,7 +108,9 @@ describe('/profile redirect', () => {
     }
 
     try {
-      load()
+      loadPage({
+        url: loadUrl('https://web.example.invalid/profile?tab=comments#latest'),
+      })
       expect.fail('Expected redirect to be thrown')
     } catch (e: unknown) {
       const redirect = e as RedirectError
@@ -97,12 +127,16 @@ describe('/profile redirect', () => {
     }
 
     try {
-      load()
+      loadPage({
+        url: loadUrl('https://web.example.invalid/profile?tab=comments#latest'),
+      })
       expect.fail('Expected redirect to be thrown')
     } catch (e: unknown) {
       const redirect = e as RedirectError
       expect(redirect.status).toBe(302)
-      expect(redirect.location).toBe('/login')
+      const target = new URL(redirect.location, 'https://web.example.invalid')
+      expect(target.pathname).toBe('/login')
+      expect(target.searchParams.get('redirect')).toBe('/profile?tab=comments')
     }
   })
 })

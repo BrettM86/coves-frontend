@@ -12,7 +12,11 @@ vi.mock('$env/dynamic/public', () => ({ env: {} }))
 vi.mock('$app/state', () => ({
   page: { url: new URL('http://localhost/login'), route: { id: '/login' } },
 }))
-vi.mock('$app/navigation', () => ({ goto: vi.fn() }))
+vi.mock('$app/navigation', () => ({
+  goto: vi.fn(),
+  afterNavigate: vi.fn(),
+  replaceState: vi.fn(),
+}))
 const svelteClientEntry = async (subpath: string): Promise<unknown> => {
   const { createRequire } = await import('node:module')
   const require_ = createRequire(import.meta.url)

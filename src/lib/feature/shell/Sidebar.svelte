@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { page } from '$app/state'
+  import { loginUrl } from '$lib/app/util/login-url'
   import { profile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
   import { LINKED_INSTANCE_URL } from '$lib/app/state/instance.svelte'
@@ -39,7 +41,7 @@
   <Button
     href={profile.current.type === 'authenticated'
       ? `/profile/${encodeURIComponent(profile.current.handle)}`
-      : '/login'}
+      : loginUrl(page.url)}
     color="tertiary"
     alignment="left"
     size="md"
@@ -72,7 +74,11 @@
       label={$t('profile.profile')}
     />
   {:else}
-    <SidebarButton href="/login" label={$t('account.login')} icon={LogIn} />
+    <SidebarButton
+      href={loginUrl(page.url)}
+      label={$t('account.login')}
+      icon={LogIn}
+    />
   {/if}
   <EndPlaceholder margin="sm" size="xs">{$t('nav.menu.app')}</EndPlaceholder>
   <SidebarButton

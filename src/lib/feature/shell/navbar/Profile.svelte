@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { page } from '$app/state'
+  import { loginUrl } from '$lib/app/util/login-url'
   import { profile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
@@ -53,7 +55,7 @@
     {$t('account.logout')}
   </MenuButton>
 {:else}
-  <MenuButton href="/login" icon={LogIn}>
+  <MenuButton href={loginUrl(page.url)} icon={LogIn}>
     {$t('account.login')}
   </MenuButton>
 {/if}

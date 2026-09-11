@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Tokens } from 'marked'
-  import { untrack, type Component } from 'svelte'
+  import type { Component } from 'svelte'
   import type { Renderer } from './Markdown.svelte'
   import Self from './MdTree.svelte'
 
@@ -25,8 +25,13 @@
     renderers: RendererMap
     tokens?: Tokens.Generic[]
     text?: string
-    align?: string
-    header?: boolean
+    // A table token's `header` is an ARRAY of header cells, not a flag, and
+    // `align` and `rows` are arrays too. All three are destructured below
+    // purely as sinks so the {:else} branch's {...token} spread cannot leak
+    // them into a renderer's props; the table branch reads them off `token`.
+    header?: unknown
+    align?: unknown
+    rows?: unknown
   }
 
   let {
@@ -35,19 +40,11 @@
     renderers,
     raw,
     text,
-    header,
+    header: _header,
+    align: _align,
+    rows: _rows,
     ...rest
   }: Props = $props()
-
-  // A token's `header` flag is fixed at parse time — marked never re-labels
-  // an already-parsed cell — so the one-time read is deliberate (untrack()
-  // silences state_referenced_locally). The flag only coerces the node type
-  // here; the <th>/<td> choice lives in MdTableCell. No current call site
-  // passes `header` (the table branches below pass an explicit
-  // type="tablecell" instead), so this is support for direct callers only.
-  if (untrack(() => header)) {
-    type = 'tablecell'
-  }
 
   // Token types that are deliberately invisible, so falling back to their
   // source text would be a regression rather than a rescue. `def` is a
@@ -85,34 +82,26 @@
           {@const THead = renderers['tablehead']}
           {@const TBody = renderers['tablebody']}
           {@const TRow = renderers['tablerow']}
+          {@const TCell = renderers['tablecell']}
           {#if token.header}
             <THead>
               <TRow>
                 {#each token.header as heading, index}
-                  <Self
-                    {...rest}
-                    type="tablecell"
-                    {renderers}
-                    tokens={heading.tokens}
-                    align={token.align[index]}
-                  />
+                  <TCell header={true} align={token.align[index]}>
+                    <Self tokens={heading.tokens} {renderers} {...rest} />
+                  </TCell>
                 {/each}
               </TRow>
             </THead>
-            <!-- <Self {renderers} tokens={token.header} {...rest} /> -->
           {/if}
           {#if token.rows}
             <TBody>
               {#each token.rows as row}
                 <TRow>
                   {#each row as cell, index}
-                    <Self
-                      {...rest}
-                      type="tablecell"
-                      {renderers}
-                      tokens={cell.tokens}
-                      align={token.align[index]}
-                    />
+                    <TCell header={false} align={token.align[index]}>
+                      <Self tokens={cell.tokens} {renderers} {...rest} />
+                    </TCell>
                   {/each}
                 </TRow>
               {/each}

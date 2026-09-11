@@ -25,7 +25,7 @@
   .table-container table {
     table-layout: fixed !important;
 
-    :global(thead tr td) {
+    :global(thead tr th) {
       padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3);
       border-bottom: 1px solid var(--color-slate-200);
       font-weight: var(--font-weight-medium);
@@ -36,6 +36,14 @@
         background-color: var(--color-zinc-900);
         border-bottom: 1px solid var(--color-zinc-800);
       }
+    }
+
+    /* Browsers center <th> by default; GFM headers sit over left-aligned
+       body cells. Only unaligned columns, so a column's align attribute
+       (a presentational hint, which any stylesheet rule would beat) still
+       wins when the author asked for center or right. */
+    :global(thead tr th:not([align])) {
+      text-align: left;
     }
   }
 

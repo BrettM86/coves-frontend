@@ -153,6 +153,41 @@ const inlineCases: readonly HostileCase[] = SINK_REACHING_URLS.flatMap(
   ],
 )
 
+/**
+ * A table cell is an ordinary place for an author to put an image, so the
+ * corpus covers it — and it covers both kinds of cell, because MdTree renders
+ * header cells and body cells from separate branches: a guard that held on one
+ * would say nothing about the other.
+ *
+ * `cellTag` is where the benign twin's <img> must land. The shared scaffolding
+ * control below only asks for "some URL attribute", which an image that escaped
+ * the table entirely would still satisfy.
+ */
+interface TableCellCase extends HostileCase {
+  readonly cellTag: 'td' | 'th'
+}
+
+const TABLE_CELL_CASES: readonly TableCellCase[] = [
+  {
+    label: 'hostile target inside a table body cell',
+    hostile: `| h |\n| - |\n| ![t](${REACHES_IMG}) |\n`,
+    benign: `| h |\n| - |\n| ![t](${SAFE_IMAGE}) |\n`,
+    cellTag: 'td',
+  },
+  {
+    label: 'hostile target inside a table header cell',
+    hostile: `| ![t](${REACHES_IMG}) |\n| - |\n| x |\n`,
+    benign: `| ![t](${SAFE_IMAGE}) |\n| - |\n| x |\n`,
+    cellTag: 'th',
+  },
+]
+
+/** Inner HTML of every `<td>` or `<th>` in an emitted string; cells never nest. */
+const tableCellContents = (html: string, tag: 'td' | 'th'): string[] => {
+  const cell = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)</${tag}\\s*>`, 'gi')
+  return [...html.matchAll(cell)].map((match) => match[1] ?? '')
+}
+
 const structuralCases: readonly HostileCase[] = [
   // preprocess() only matches javascript: directly after "](", so the
   // angle-bracket forms are how javascript: gets real end-to-end coverage.
@@ -201,17 +236,7 @@ const structuralCases: readonly HostileCase[] = [
     hostile: `> ![t](${REACHES_IMG})\n`,
     benign: `> ![t](${SAFE_IMAGE})\n`,
   },
-  // KNOWN GAP — deliberately absent, not an oversight: there is no table-cell
-  // case here because GFM tables do not currently render at all. MdTree spreads
-  // {...token}, and a marked table token carries `header` as a truthy ARRAY, so
-  // `if (header) type = 'tablecell'` hijacks the whole table into MdTableCell
-  // and the `type == 'table'` branch is unreachable — a table collapses to one
-  // empty <td> and cell content never reaches a renderer. A hostile case here
-  // could therefore assert nothing, and its benign twin would fail the
-  // scaffolding control below. Tracked separately; RE-ADD this case (hostile
-  // plus benign twin, same shape as the list-item and blockquote entries above)
-  // once tables render, because a table cell is otherwise an ordinary place for
-  // an author to put an image.
+  ...TABLE_CELL_CASES,
   {
     label: 'hostile target inside a spoiler block',
     hostile: `::: spoiler s\n![t](${REACHES_IMG})\n:::\n`,
@@ -306,6 +331,17 @@ describe('Markdown - hostile corpus scaffolding', () => {
       expect(
         extractUrlAttributes(renderMarkdown(benign)).length,
       ).toBeGreaterThan(0)
+    },
+  )
+
+  it.each(TABLE_CELL_CASES)(
+    'the benign twin of "$label" puts its <img> inside a <$cellTag>',
+    ({ benign, cellTag }: TableCellCase) => {
+      const html = renderMarkdown(benign)
+      const withImage = tableCellContents(html, cellTag).filter((cell) =>
+        cell.includes('<img'),
+      )
+      expect(withImage.length, html).toBeGreaterThan(0)
     },
   )
 })

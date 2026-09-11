@@ -6,7 +6,9 @@ import type { AccountSession, SealedToken } from '$lib/server/session'
 // for information about these interfaces
 declare global {
   namespace App {
-    // interface Error {}
+    interface Error {
+      code?: 'BackendUnavailable'
+    }
 
     /**
      * Unauthenticated auth state - no valid session.

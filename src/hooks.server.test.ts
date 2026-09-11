@@ -1086,6 +1086,20 @@ describe('hooks.server handleError', () => {
     expect(result).toEqual({ message: 'Not found' })
   })
 
+  it('marks backend connection failures for the recoverable error page', async () => {
+    const result = await handleError({
+      error: new TypeError('fetch failed'),
+      event: createMockEvent({ cookies: createMockCookies() }),
+      status: 500,
+      message: 'Internal Server Error',
+    })
+
+    expect(result).toEqual({
+      message: 'The server is temporarily unreachable. Please try again.',
+      code: 'BackendUnavailable',
+    })
+  })
+
   it('returns generic error message for non-404 errors', async () => {
     const result = await handleError({
       error: new Error(

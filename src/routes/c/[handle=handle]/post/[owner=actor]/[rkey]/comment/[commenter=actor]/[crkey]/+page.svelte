@@ -105,7 +105,7 @@
       </div>
     {:then comments}
       <CommentProvider
-        {post}
+        bind:post={data.data.value.post}
         {comments}
         sort={data.data.value.params.comments.sort}
         onupdate={reloadComments}

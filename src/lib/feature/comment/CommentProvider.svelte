@@ -6,6 +6,7 @@
   import { errorMessage } from '$lib/app/util/error'
   import { log } from '$lib/app/util/log'
   import type {
+    AtUri,
     PostView,
     StrongRef,
     ThreadViewComment,
@@ -19,13 +20,17 @@
     buildCommentsTree,
     findTopLevelIndexByRkey,
     insertCommentIntoTree,
-    createOptimisticCommentView,
+    retainCreatedComments,
+    commentCreatedContext,
+    type CommentCreated,
   } from '$lib/feature/comment/comments.svelte'
   import CommentTree from '$lib/feature/comment/CommentTree.svelte'
   import { postLink } from '$lib/feature/post'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { Button, Option, Select, toast } from '$lib/ui/kit'
-  import { onMount, untrack } from 'svelte'
+  import { onMount, setContext, untrack } from 'svelte'
+  import { SvelteSet } from 'svelte/reactivity'
+  import { EMPTY_POST_STATS } from '$lib/feature/vote/subjects'
   import {
     Icon,
     CirclePlus,
@@ -47,7 +52,7 @@
   }
 
   let {
-    post,
+    post = $bindable(),
     comments,
     sort = $bindable(),
     onupdate,
@@ -90,8 +95,35 @@
   // The effect rebuilds it whenever the loaded comments change; the untracked
   // seed is what the server-rendered first paint shows, before effects run.
   let tree = $state(untrack(() => buildCommentsTree(comments)))
+  const createdComments = new SvelteSet<AtUri>()
+  let treePostUri = untrack(() => post.uri)
+  const commentCreated: CommentCreated = (comment, parent) => {
+    if (comment.post.uri !== post.uri || createdComments.has(comment.uri))
+      return
+    createdComments.add(comment.uri)
+    if (parent) tree = retainCreatedComments(tree, [parent], createdComments)
+    post.stats = {
+      ...(post.stats ?? EMPTY_POST_STATS),
+      commentCount: (post.stats?.commentCount ?? 0) + 1,
+    }
+  }
+  setContext(commentCreatedContext, commentCreated)
   $effect(() => {
-    tree = buildCommentsTree(comments)
+    const loaded = comments
+    const postUri = post.uri
+    untrack(() => {
+      if (treePostUri !== postUri) {
+        createdComments.clear()
+        treePostUri = postUri
+        tree = buildCommentsTree(loaded)
+      } else {
+        tree = retainCreatedComments(
+          buildCommentsTree(loaded),
+          tree,
+          createdComments,
+        )
+      }
+    })
   })
 
   let virtualizer = $state<CommentListVirtualizer>()
@@ -154,20 +186,10 @@
   {:else}
     <CommentForm
       {postRef}
-      oncomment={(output, content, facets) => {
-        const cv = createOptimisticCommentView(
-          output,
-          content,
-          postRef,
-          postRef,
-          {
-            did: profile.current?.did ?? '',
-            handle: profile.current?.handle ?? '',
-            avatar: undefined,
-          },
-          facets,
-        )
+      oncomment={(cv) => {
+        if (cv.post.uri !== post.uri) return
         insertCommentIntoTree(tree, cv, false)
+        commentCreated(cv)
       }}
       onfocus={() => (commenting = true)}
       tools={commenting}

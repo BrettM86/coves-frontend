@@ -1,3 +1,4 @@
+import { isBackendUnavailable } from '$lib/app/util/error'
 import type { HandleClientError } from '@sveltejs/kit'
 
 export const handleError: HandleClientError = ({ error, status, message }) => {
@@ -7,5 +8,11 @@ export const handleError: HandleClientError = ({ error, status, message }) => {
 
   // Return only SvelteKit's sanitized message (e.g. "Internal Error") so raw
   // stack traces / internal error objects are never rendered to users.
+  if (isBackendUnavailable(error)) {
+    return {
+      message: 'The server is temporarily unreachable. Please try again.',
+      code: 'BackendUnavailable',
+    }
+  }
   return { message }
 }

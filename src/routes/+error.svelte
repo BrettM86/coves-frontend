@@ -18,10 +18,14 @@
   class="flex flex-col gap-4 my-auto h-full justify-center max-w-xl w-full mx-auto"
 >
   <Material rounding="3xl" padding="xl" color="error" class="space-y-2">
-    <h1 class="text-4xl font-medium flex items-center flex-row gap-2 font-mono">
-      {page.status}
+    <h1 class="text-4xl font-medium flex items-center flex-row gap-2">
+      {page.error?.code === 'BackendUnavailable'
+        ? $t('error.backend_unreachable_title')
+        : page.status}
     </h1>
-    {#if page?.error?.message}
+    {#if page.error?.code === 'BackendUnavailable'}
+      <p class="text-lg">{$t('error.backend_unreachable')}</p>
+    {:else if page?.error?.message}
       {@const error = getError(page?.error?.message)}
       {#if error.code}
         <code class="rounded-md dark:bg-zinc-950! px-2 py-1 min-w-48">
@@ -34,7 +38,7 @@
       {/if}
     {/if}
   </Material>
-  <div class="flex items-center gap-2 px-4">
+  <div class="flex flex-wrap items-center gap-2 px-4">
     <Button size="lg" onclick={() => goto(page.url, { invalidateAll: true })}>
       {$t('message.retry')}
     </Button>

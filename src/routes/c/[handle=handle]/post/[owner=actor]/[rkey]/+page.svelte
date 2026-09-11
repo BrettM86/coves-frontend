@@ -193,7 +193,7 @@
         {@const comments = commentsPage.comments}
         <CommentProvider
           bind:this={commentProvider}
-          {post}
+          bind:post={data.data.value.post}
           {comments}
           sort={data.data.value.params.comments.sort}
           focus={data.data.value.params.thread.focus}
@@ -210,7 +210,7 @@
             back={false}
           />
         {/if}
-        {#if comments.length === 0}
+        {#if comments.length === 0 && !post.stats?.commentCount}
           <p class="text-sm text-slate-500 dark:text-zinc-400 py-4 text-center">
             No comments yet. Be the first to comment!
           </p>

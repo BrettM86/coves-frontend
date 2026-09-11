@@ -1,10 +1,14 @@
 import type { IconSource } from '$lib/ui/kit/icon'
 import type { Snippet } from 'svelte'
-import { writable } from 'svelte/store'
+import { get, writable } from 'svelte/store'
 
 export const shownModal = writable<Modal | undefined>()
+// Keep late failures visible after their dialog has closed or been replaced.
+export const dismissedActionErrors = writable<unknown[]>([])
 
 interface Modal {
+  pendingAction?: Action
+  error?: unknown
   actions: Action[]
   title: string
   body?: string
@@ -20,7 +24,7 @@ export interface Action {
   /**
    * What function to run when this action is clicked. If undefined, it'll close the window.
    */
-  action: () => void
+  action: () => Promise<void>
   type: 'danger' | 'secondary' | 'primary'
   /**
    * Button label. Undefined means "use the ModalContainer's `closeLabel`",
@@ -32,7 +36,7 @@ export interface Action {
 }
 
 interface ActionInput {
-  action?: () => void
+  action?: () => void | Promise<void>
   type?: 'danger' | 'secondary' | 'primary'
   content?: string
   icon?: IconSource
@@ -46,18 +50,30 @@ export function action(): Action
 export function action(input: ActionInput & { content: string }): Action
 export function action(input?: ActionInput): Action {
   const closeAfter = input?.close ?? true
-  return {
-    action: input?.action
-      ? () => {
-          input.action?.()
-          if (closeAfter) shownModal.set(undefined)
-        }
-      : () => shownModal.set(undefined),
+  const result: Action = {
+    action: async () => {
+      const current = get(shownModal)
+      if (!current || current.pendingAction) return
+      current.pendingAction = result
+      current.error = undefined
+      shownModal.set(current)
+      try {
+        await input?.action?.()
+        if (closeAfter && get(shownModal) === current) shownModal.set(undefined)
+      } catch (error) {
+        if (get(shownModal) === current) current.error = error
+        else dismissedActionErrors.update((errors) => [...errors, error])
+      } finally {
+        current.pendingAction = undefined
+        if (get(shownModal) === current) shownModal.set(current)
+      }
+    },
     type: input?.type ?? 'secondary',
     // Empty labels fall back to `closeLabel` too, never a blank button.
     content: input?.content || undefined,
     icon: input?.icon,
   }
+  return result
 }
 
 export function modal(inputModal: {

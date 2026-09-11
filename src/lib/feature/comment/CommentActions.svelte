@@ -2,7 +2,6 @@
   import type { CommentView } from '$lib/api/coves/types'
   import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/state/auth.svelte'
-  import { errorMessage } from '$lib/app/util/error'
   import { t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
   import { report } from '$lib/feature/moderation/moderation.svelte'
@@ -58,20 +57,14 @@
 
   async function deleteComment(): Promise<void> {
     if (!profile.current?.jwt) {
-      toast({ content: $t('toast.sessionExpired'), type: 'warning' })
-      return
+      throw new Error($t('toast.sessionExpired'))
     }
-    try {
-      await coves().deleteComment({ uri: comment.uri })
-      comment.isDeleted = true
-      if (comment.record) {
-        comment.record.content = deletedContentPlaceholder()
-      }
-    } catch (err) {
-      toast({
-        content: errorMessage(err),
-        type: 'error',
-      })
+    // Refresh can remove this bound tree slot while the request is pending.
+    const target = comment
+    await coves().deleteComment({ uri: target.uri })
+    target.isDeleted = true
+    if (target.record) {
+      target.record.content = deletedContentPlaceholder()
     }
   }
 

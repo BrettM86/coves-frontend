@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getContext } from 'svelte'
   import { page } from '$app/state'
   import { coves } from '$lib/api/client.svelte'
   import type { StrongRef } from '$lib/api/coves/types'
@@ -26,8 +27,27 @@
   import { buildCommentUpdate, editorSourceFor } from './comment-submit'
   import {
     type CommentNodeI,
-    createOptimisticCommentView,
+    type NormalizedCommentView,
+    type CommentCreated,
+    commentCreatedContext,
   } from './comments.svelte'
+
+  const commentCreated = getContext<CommentCreated | undefined>(
+    commentCreatedContext,
+  )
+
+  // Capture the parent while the form is mounted: a refresh can remove its
+  // bound tree slot before the successful request returns.
+  function replyCreated(parent: CommentNodeI) {
+    return (comment: NormalizedCommentView) => {
+      parent.children = [
+        { children: [], comment, depth: parent.depth + 1, expanded: true },
+        ...parent.children,
+      ]
+      commentCreated?.(comment, parent)
+      replying = false
+    }
+  }
 
   interface Props {
     node: CommentNodeI
@@ -282,35 +302,7 @@
             label={$t('comment.reply')}
             {postRef}
             parentRef={{ uri: node.comment.uri, cid: node.comment.cid }}
-            oncomment={(output, content, facets) => {
-              const currentProfile = profile.current
-              if (!currentProfile || currentProfile.type !== 'authenticated') {
-                replying = false
-                return
-              }
-              const comment = createOptimisticCommentView(
-                output,
-                content,
-                postRef,
-                { uri: node.comment.uri, cid: node.comment.cid },
-                {
-                  did: currentProfile.did,
-                  handle: currentProfile.handle,
-                  avatar: currentProfile.avatar,
-                },
-                facets,
-              )
-              node.children = [
-                {
-                  children: [],
-                  comment,
-                  depth: node.depth + 1,
-                  expanded: true,
-                },
-                ...node.children,
-              ]
-              replying = false
-            }}
+            oncomment={replyCreated(node)}
             oncancel={() => (replying = false)}
           />
         </div>

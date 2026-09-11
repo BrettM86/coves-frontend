@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation'
+  import { goto, invalidateAll } from '$app/navigation'
   import type { PostView } from '$lib/api/coves/types'
   import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
+  import { communityLink } from '$lib/app/util/links'
   import { errorMessage } from '$lib/app/util/error'
   import { log } from '$lib/app/util/log'
   import { settings } from '$lib/app/state/settings.svelte'
@@ -13,6 +14,7 @@
     setCommunityBlocked,
   } from '$lib/feature/community/blocking.svelte'
   import { report } from '$lib/feature/moderation/moderation.svelte'
+  import { feeds } from '$lib/feature/feeds/feed.svelte'
   import { encodeCrosspostDraft } from '$lib/feature/post/helpers'
   import {
     isUserBlocked,
@@ -48,18 +50,23 @@
   )
 
   let deleting = $state(false)
+  let deletedPostUri: string | undefined
 
   async function handleDelete(): Promise<void> {
     if (deleting) return
     deleting = true
     try {
-      await coves().deletePost({ uri: post.uri })
-      toast({ content: $t('post.actions.more.delete'), type: 'success' })
-      // Navigate away after deletion
-      window.history.back()
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err)
-      toast({ content: errorMsg, type: 'error' })
+      if (deletedPostUri !== post.uri) {
+        await coves().deletePost({ uri: post.uri })
+        deletedPostUri = post.uri
+        // Loader invalidation alone still reuses Feed's cached response.
+        feeds.clear()
+        toast({ content: $t('toast.deletedPost'), type: 'success' })
+      }
+      await goto(communityLink(post.community), {
+        replaceState: true,
+        invalidateAll: true,
+      })
     } finally {
       deleting = false
     }

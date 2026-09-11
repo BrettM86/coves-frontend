@@ -8,6 +8,7 @@ import {
 import { building, dev } from '$app/environment'
 import { getRequestEvent } from '$app/server'
 import { env as privateEnv } from '$env/dynamic/private'
+import { isBackendUnavailable } from '$lib/app/util/error'
 import { installRequestEventAccessor } from '$lib/app/util/request-event'
 import {
   addressHeaderConfigWarning,
@@ -423,5 +424,11 @@ export const handleError: HandleServerError = async ({
     error,
   )
 
+  if (isBackendUnavailable(error)) {
+    return {
+      message: 'The server is temporarily unreachable. Please try again.',
+      code: 'BackendUnavailable',
+    }
+  }
   return { message: 'An unexpected error occurred' }
 }

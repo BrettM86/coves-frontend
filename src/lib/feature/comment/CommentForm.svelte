@@ -1,6 +1,6 @@
 <script lang="ts">
   import { coves } from '$lib/api/client.svelte'
-  import type { CreateCommentOutput, StrongRef } from '$lib/api/coves/types'
+  import type { StrongRef } from '$lib/api/coves/types'
   import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
   import { log } from '$lib/app/util/log'
@@ -8,6 +8,10 @@
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { parseMarkup } from '$lib/feature/richtext/compose'
   import RichText from '$lib/feature/richtext/RichText.svelte'
+  import {
+    createOptimisticCommentView,
+    type NormalizedCommentView,
+  } from './comments.svelte'
   import { buildCommentCreate } from './comment-submit'
   import { placeholders } from '$lib/app/util/placeholders'
   import { Button, toast } from '$lib/ui/kit'
@@ -30,15 +34,8 @@
     id?: string
     label?: string
     editing?: boolean
-    /**
-     * The canonical content and facets that were sent, so a caller building an
-     * optimistic view annotates the same text the server stored.
-     */
-    oncomment?: (
-      output: CreateCommentOutput,
-      content: string,
-      facets?: unknown[],
-    ) => void
+    /** The confirmed write, including the author and refs captured at submit. */
+    oncomment?: (comment: NormalizedCommentView) => void
     onconfirm?: (value: string) => void
     oncancel?: (cancel: boolean) => void
   }
@@ -63,6 +60,7 @@
   let loading = $state(false)
 
   async function submit() {
+    if (loading) return
     // In editing mode, submission (e.g. Ctrl+Enter) is delegated to the
     // parent via onconfirm, which performs its own auth/content validation.
     if (editing) {
@@ -74,6 +72,13 @@
       return
     }
     if (value.trim() === '') return
+
+    const notifyCreated = oncomment
+    const author = {
+      did: profile.current.did,
+      handle: profile.current.handle,
+      avatar: profile.current.avatar,
+    }
 
     loading = true
 
@@ -87,7 +92,16 @@
         resolver: coves(),
       })
       const response = await coves().createComment(input)
-      oncomment?.(response, input.content, input.facets)
+      notifyCreated?.(
+        createOptimisticCommentView(
+          response,
+          input.content,
+          input.reply.root,
+          input.reply.parent,
+          author,
+          input.facets,
+        ),
+      )
 
       value = ''
     } catch (err) {

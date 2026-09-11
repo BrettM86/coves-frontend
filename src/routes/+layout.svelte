@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from '$lib/app/util/error'
   import { browser } from '$app/environment'
   import { navigating, page } from '$app/state'
   import { initializeSessionRecovery } from '$lib/app/state/session-recovery.svelte'
@@ -183,7 +184,7 @@
     {/snippet}
   </ToastContainer>
   <ExpandableImage />
-  <ModalContainer closeLabel={$t('common.back')} />
+  <ModalContainer closeLabel={$t('common.back')} formatError={errorMessage} />
   <ModerationModals />
 
   {#snippet sidebar({ style: s, class: c })}

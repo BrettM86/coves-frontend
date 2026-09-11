@@ -825,6 +825,7 @@
         "sortFailed": "Couldn't change the sort. Please try again.",
         "userLoading": "Still loading your user data...",
         "sessionExpired": "Your session has expired. Please log in again.",
+        "deletedPost": "Post deleted.",
         "sessionRateLimited": "Too many requests to check your session right now. You may appear logged out, but your session is preserved. Try again shortly.",
         "serverUnreachable": "Can't reach the server right now. You may appear logged out, but your session is preserved."
     },
@@ -997,13 +998,18 @@
         "couldnt_find_person": "That user doesn't exist.",
         "couldnt_find_community": "That community doesn't exist.",
         "not_an_admin": "You are not an admin of this server.",
-        "rate_limit_error": "You are performing that action too fast.",
+        "rate_limit_error": "Too many requests. Wait a moment, then try again.",
         "unimplemented": "That function of your account's server software is not yet supported by Kelp.",
         "unsupported": "That function is not supported by your account's server software.",
         "not_live_supported": "That server is not running supported software, or is offline.",
         "token_not_found": "That email verification link expired, or never existed.",
         "invalid_password": "Invalid password.",
         "accountSwitch": "Failed to switch account. Please try again.",
+        "backend_unreachable": "We can’t reach the server. Check your connection and try again.",
+        "backend_unreachable_title": "Server unavailable",
+        "server_error": "The server couldn’t complete your request. Please try again.",
+        "authentication_required": "Your session has expired. Please sign in again.",
+        "permission_denied": "You don’t have permission to do that.",
         "unknown": "An unexpected error occurred."
     },
     "aria": {

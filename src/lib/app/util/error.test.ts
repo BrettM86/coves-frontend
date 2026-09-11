@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { XrpcError } from '$lib/api/coves/xrpc'
 
 // SSR: the server bundle is where structured JSON logging must happen.
 vi.mock('$app/environment', () => ({
@@ -74,5 +75,63 @@ describe('errorMessage on the server', () => {
   it('returns the message and logs nothing for an ordinary Error', () => {
     expect(errorMessage(new Error('nope'))).toBe('nope')
     expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('uses a known XRPC error name before its generic transport message', () => {
+    expect(
+      errorMessage(
+        new XrpcError(
+          404,
+          'PostNotFound',
+          'XRPC request failed with status 404',
+        ),
+      ),
+    ).toBe('error.couldnt_find_post')
+  })
+
+  it('recognizes a rate limit by its XRPC error name', () => {
+    expect(
+      errorMessage(new XrpcError(400, 'RateLimitExceeded', 'Request rejected')),
+    ).toBe('error.rate_limit_error')
+  })
+
+  it('recognizes HTTP 429 even when the upstream omits its error name', () => {
+    expect(
+      errorMessage(new XrpcError(429, 'UnknownError', 'Too Many Requests')),
+    ).toBe('error.rate_limit_error')
+  })
+
+  it.each([500, 502, 503, 504])(
+    'gives readable feedback for HTTP %s',
+    (status) => {
+      expect(
+        errorMessage(
+          new XrpcError(
+            status,
+            'UnknownError',
+            `XRPC request failed with status ${status}`,
+          ),
+        ),
+      ).toBe('error.server_error')
+    },
+  )
+
+  it.each([
+    'Failed to fetch',
+    'fetch failed',
+    'NetworkError when attempting to fetch resource.',
+    'Load failed',
+  ])('explains an unreachable backend for %s', (message) => {
+    expect(errorMessage(new TypeError(message))).toBe(
+      'error.backend_unreachable',
+    )
+  })
+
+  it('preserves an actionable message for an unknown validation error', () => {
+    expect(
+      errorMessage(
+        new XrpcError(400, 'InvalidRequest', 'A post title is required.'),
+      ),
+    ).toBe('A post title is required.')
   })
 })

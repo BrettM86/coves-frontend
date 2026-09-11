@@ -3,7 +3,7 @@
   import { page } from '$app/state'
   import { Button } from '$lib/ui/kit'
   import Portal from '$lib/ui/kit/popover/Portal.svelte'
-  import type { Snippet } from 'svelte'
+  import { onDestroy, type Snippet } from 'svelte'
   import { X } from '$lib/ui/kit/icon'
   import { backOut } from 'svelte/easing'
   import type { ClassValue } from 'svelte/elements'
@@ -44,6 +44,7 @@
   $effect(() => {
     if (open && modalId && !hasHistoryEntry) {
       pushState('', {
+        ...page.state,
         openModals: [...(page.state.openModals ?? []), modalId],
       })
       hasHistoryEntry = true
@@ -51,18 +52,30 @@
   })
 
   $effect(() => {
+    const currentModals = page.state.openModals ?? []
+    const isOpen = open
     if (modalId && hasHistoryEntry) {
-      const currentModals = page.state.openModals ?? []
       const isInHistory = currentModals.includes(modalId)
 
-      if (!isInHistory && open) {
-        replaceState('', {
-          openModals: currentModals.filter((id) => id !== modalId),
-        })
+      if (!isInHistory && isOpen) {
         hasHistoryEntry = false
         open = false
+        ondismissed?.()
       }
     }
+  })
+
+  onDestroy(() => {
+    // Action completion and navigation can unmount a modal without onclose.
+    // Clear only this modal's marker on the current entry; going Back here
+    // could undo the action's navigation or dismiss a newer dialog.
+    if (!hasHistoryEntry) return
+    const currentModals = page.state.openModals ?? []
+    if (!currentModals.includes(modalId)) return
+    replaceState('', {
+      ...page.state,
+      openModals: currentModals.filter((id) => id !== modalId),
+    })
   })
 
   function onclose() {
@@ -88,8 +101,8 @@
       ]}
       transition:fade|global={{ duration: 100 }}
       onclick={(e) => {
-        // @ts-expect-error html node hell
-        if (!el.contains(e.target)) onclose()
+        if (dismissable && e.target instanceof Node && !el?.contains(e.target))
+          onclose()
       }}
     >
       <div

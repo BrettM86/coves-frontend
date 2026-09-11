@@ -36,6 +36,37 @@ export interface CommentNodeI {
   expanded?: boolean
 }
 
+/** Provider notification shared by root forms and nested reply forms. */
+export const commentCreatedContext = Symbol('commentCreated')
+export type CommentCreated = (
+  comment: NormalizedCommentView,
+  parent?: CommentNodeI,
+) => void
+
+/** Keep confirmed local writes until they appear in the loaded tree. */
+export function retainCreatedComments(
+  loaded: CommentNodeI[],
+  previous: CommentNodeI[],
+  created: ReadonlySet<AtUri>,
+): CommentNodeI[] {
+  const retained: CommentNodeI[] = []
+  for (const node of previous) {
+    const existing = searchCommentTree(loaded, node.comment.uri)
+    if (existing) {
+      retainCreatedComments(existing.children, node.children, created)
+      continue
+    }
+    const children = retainCreatedComments([], node.children, created)
+    if (created.has(node.comment.uri) || children.length > 0) {
+      // Retain the ancestor when a newly saved reply's parent is not in this
+      // response (indexing lag or a different slice of the sorted comments).
+      retained.push({ ...node, children })
+    }
+  }
+  loaded.unshift(...retained)
+  return loaded
+}
+
 /**
  * The placeholder content rendered for deleted comments. Centralized so
  * pre-reload (in-place mutation) and post-reload (tree normalization)

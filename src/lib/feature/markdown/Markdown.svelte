@@ -7,7 +7,7 @@
   import MdHeading from './renderers/MdHeading.svelte'
   import MdHr from './renderers/MdHr.svelte'
   import MdHtml from './renderers/MdHtml.svelte'
-  import MdImage from './renderers/MdImage.svelte'
+  import MdImageAltText from './renderers/MdImageAltText.svelte'
   import MdLink from './renderers/MdLink.svelte'
   import MdList from './renderers/MdList.svelte'
   import MdListItem from './renderers/MdListItem.svelte'
@@ -104,7 +104,7 @@
 
   export const renderers = {
     heading: MdHeading,
-    image: MdImage,
+    image: MdImageAltText,
     link: MdLink,
     blockquote: MdQuote,
     hr: MdHr,
@@ -133,6 +133,7 @@
 
   export const inlineRenderers = {
     paragraph: MdParagraph,
+    image: MdImageAltText,
     subscript: MdSubscript,
     superscript: MdSuperscript,
     text: MdText,
@@ -154,17 +155,13 @@
 </script>
 
 <script lang="ts">
-  interface RendererOptions {
-    autoloadImages: boolean
-  }
-
   /**
-   * The value published on the 'options' context, read by MdParagraph,
-   * MdHeading and MdImage. Declaring it explicitly means a field added to
-   * RendererOptions is a compile error here rather than a silently missing
-   * option downstream.
+   * The value published on the 'options' context: MdParagraph reads `noStyle`
+   * and MdHeading reads `inline`. Declaring it explicitly means a field added
+   * here is checked against the object below rather than going silently
+   * missing downstream.
    */
-  interface MarkdownContext extends RendererOptions {
+  interface MarkdownContext {
     inline: boolean
     noStyle: boolean
   }
@@ -176,7 +173,6 @@
     noStyle?: boolean
     style?: string
     class?: ClassValue
-    rendererOptions?: RendererOptions
   }
 
   let {
@@ -186,23 +182,14 @@
     noStyle = false,
     style = '',
     class: clazz = '',
-    rendererOptions = {
-      autoloadImages: true,
-    },
   }: Props = $props()
 
   // Context is set once at init, so spreading the prop values here would pin
   // them to whatever they were when this instance mounted — a `noStyle` or
   // `inline` toggle on a mounted Markdown would never reach the renderers.
   // Getters keep the consumers (all of which read plain properties, none of
-  // which spread or serialize the object) on the live values. Caveat: MdImage
-  // copies `autoloadImages` into local $state once at init, so already-mounted
-  // images still don't follow a toggle — the live context benefits MdParagraph
-  // and MdHeading today.
+  // which spread or serialize the object) on the live values.
   const options: MarkdownContext = {
-    get autoloadImages() {
-      return rendererOptions.autoloadImages
-    },
     get inline() {
       return inline
     },

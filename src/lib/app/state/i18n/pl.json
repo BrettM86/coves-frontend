@@ -633,8 +633,7 @@
         "add": "Dodaj",
         "cancel": "Anuluj",
         "send": "Wyślij",
-        "remove": "Usuń",
-        "download": "Pobierz"
+        "remove": "Usuń"
     },
     "message": {
         "success": "Sukces",

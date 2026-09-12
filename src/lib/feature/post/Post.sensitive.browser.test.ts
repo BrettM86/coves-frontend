@@ -164,7 +164,10 @@ it('does not restore an earlier reveal after switching away and back', async () 
   expect(toggle('Show sensitive content')).toBeDefined()
 })
 
-it('reveals and re-hides body text and inline images together with media', async () => {
+// A markdown image in the body degrades to its alt text, so the alt text is
+// what the reveal has to bring back. The URL stays out of the DOM in every
+// state, revealed included.
+it('reveals and re-hides body text and image alt text together with media', async () => {
   const props = mountPost('cozy')
   const post = fixture('body')
   if (!post.record) throw new Error('Missing post record')
@@ -173,15 +176,18 @@ it('reveals and re-hides body text and inline images together with media', async
   props.post = post
   client.flushSync()
   expect(target.textContent).not.toContain('Sensitive body details')
-  expect(target.querySelector('img[src*="body-image"]')).toBeNull()
+  expect(target.textContent).not.toContain('Body image')
+  expect(target.innerHTML).not.toContain('body-image.jpg')
   toggle('Show sensitive content').click()
   client.flushSync()
   expect(target.textContent).toContain('Sensitive body details')
-  expect(target.querySelector('img[src*="body-image"]')).not.toBeNull()
+  expect(target.textContent).toContain('Body image')
+  expect(target.innerHTML).not.toContain('body-image.jpg')
   toggle('Hide sensitive content').click()
   client.flushSync()
   expect(target.textContent).not.toContain('Sensitive body details')
-  expect(target.querySelector('img[src*="body-image"]')).toBeNull()
+  expect(target.textContent).not.toContain('Body image')
+  expect(target.innerHTML).not.toContain('body-image.jpg')
 })
 
 it.each(['compact', 'cozy'] as const)(

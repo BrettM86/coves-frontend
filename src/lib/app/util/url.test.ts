@@ -67,10 +67,10 @@ describe('isImage', () => {
 // ---------------------------------------------------------------------------
 // isImage()/isVideo() classify, they do not validate
 //
-// These are not decorative. markdown/security.test.ts and
-// markdown/renderers/MdImage.test.ts both build hostile corpora out of
-// data:/javascript:/blob: URLs that must reach the <img>/<video> branch in
-// order to prove isSafeHref is what stops them. If these predicates ever
+// These are not decorative. post/helpers.test.ts and post/media/*.test.ts
+// build hostile corpora out of data:/javascript:/blob: URLs carrying an image
+// or video extension, which have to keep classifying as media in order to
+// prove the scheme check is what stops them. If these predicates ever
 // started rejecting non-web schemes, those corpora would go vacuous — passing
 // while asserting nothing. Pin the property here, where it is a deliberate
 // contract rather than an incidental one.

@@ -9,9 +9,9 @@ import type { IframeType } from '../helpers'
 
 // ---------------------------------------------------------------------------
 // PostIframe is the app's only <iframe> sink, and its `url` prop is untrusted:
-// it arrives from a markdown href (MdImage) or from an embed URI written
-// straight to a PDS (PostMedia), neither of which the AppView is guaranteed to
-// have validated. Three properties are pinned here:
+// it arrives from an embed URI written straight to a PDS (PostMedia), which
+// the AppView is not guaranteed to have validated. Three properties are
+// pinned here:
 //
 //   1. The frame's origin is ours to choose, never the author's — it always
 //      comes from the fixed YOUTUBE_EMBED_HOSTS table, which is also what the

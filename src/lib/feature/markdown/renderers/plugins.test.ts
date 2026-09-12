@@ -152,7 +152,8 @@ describe('isSafeHref', () => {
 
   it('rejects a data: URL disguised with an image extension', () => {
     // The pathname genuinely ends in ".png", so isImage() classifies it as an
-    // image and routes it to <img src>; the scheme check here is what stops it.
+    // image wherever media is still rendered from a URL (post embeds); the
+    // scheme check here is what stops it.
     expect(isSafeHref('data:text/html;charset=utf-8,x.png')).toBe(false)
   })
 

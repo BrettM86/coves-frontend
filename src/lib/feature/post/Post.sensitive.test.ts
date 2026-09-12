@@ -175,15 +175,19 @@ describe('sensitive post server rendering', () => {
 })
 
 describe('sensitive post body concealment', () => {
+  // A markdown image in the body degrades to its alt text and nothing else, so
+  // the concealment signal to assert on is the alt text 'Body image'. The URL
+  // is absent whether or not the body is revealed; both halves pin that.
   const content =
     'Sensitive body details\n\n![Body image](https://media.example/body-image.jpg)'
 
-  it('withholds body text and inline image sources alongside embedded media', () => {
+  it('withholds body text and image alt text alongside embedded media', () => {
     const post = fixture({ values: [{ val: 'nsfw' }] })
     if (!post.record) throw new Error('Missing post record')
     post.record.content = content
     const html = markup(post)
     expect(html).not.toContain('Sensitive body details')
+    expect(html).not.toContain('Body image')
     expect(html).not.toContain('body-image.jpg')
     expect(html).toContain('Post title')
   })
@@ -197,7 +201,7 @@ describe('sensitive post body concealment', () => {
   })
 
   it.each([false, true])(
-    'shows body text and inline images when concealment is not requested (labeled=%s)',
+    'shows body text and image alt text when concealment is not requested (labeled=%s)',
     (labeled) => {
       settings.nsfwBlur = !labeled
       const post = fixture(labeled ? { values: [{ val: 'nsfw' }] } : undefined)
@@ -205,7 +209,8 @@ describe('sensitive post body concealment', () => {
       post.record.content = content
       const html = markup(post)
       expect(html).toContain('Sensitive body details')
-      expect(html).toContain('body-image.jpg')
+      expect(html).toContain('Body image')
+      expect(html).not.toContain('body-image.jpg')
     },
   )
 })

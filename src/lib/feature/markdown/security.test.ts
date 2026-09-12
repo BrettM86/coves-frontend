@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render } from 'svelte/server'
-import { isImage, isSafeHref, isVideo } from '$lib/app/util/url'
+import { isSafeHref } from '$lib/app/util/url'
 import Markdown from './Markdown.svelte'
 
 // ---------------------------------------------------------------------------
@@ -31,9 +31,14 @@ import Markdown from './Markdown.svelte'
 //        actually stops it rather than implying the guard did.
 //
 // Every hostile case also carries a BENIGN TWIN of the same markdown shape,
-// asserted to produce at least one URL attribute. Without that control a
+// with a control asserting the twin still renders. Without that control a
 // hostile case proves nothing: a shape that silently stopped rendering would
 // look identical to a shape whose payload was correctly refused.
+//
+// The control differs by token type, because the contracts differ. A link twin
+// must still emit its URL. An image twin must emit NO URL and no media element
+// at all: image syntax renders its alt text and nothing else, so there the
+// surviving alt text is what proves the shape still renders.
 // ---------------------------------------------------------------------------
 
 const SAFE_PROTOCOLS: ReadonlySet<string> = new Set([
@@ -76,6 +81,12 @@ const findSinkElements = (html: string): string[] => {
   return [...html.matchAll(sink)].map((match) => match[1]?.toLowerCase() ?? '')
 }
 
+/** Visible text of an HTML fragment: comments and tags out, entities resolved. */
+const visibleText = (html: string): string =>
+  decodeEntities(html.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim()
+
 /**
  * Whether a rendered attribute value would resolve to an allowlisted scheme.
  * Relative and empty values resolve against the base and come out https:.
@@ -96,158 +107,266 @@ const renderMarkdown = (source: string): string =>
 // ---------------------------------------------------------------------------
 
 /**
- * Reaches the <img src> path: a data: HTML document whose pathname genuinely
- * ends in ".png", so isImage() (which matches only the end of the pathname)
- * classifies it as an image. Only isSafeHref stands between it and <img src>.
+ * A data: HTML document whose pathname genuinely ends in ".png". The extension
+ * was chosen to defeat extension-based media classification, which is how this
+ * payload used to reach an <img src>. Image syntax no longer routes on its
+ * destination at all, so nothing classifies it now — it stays in the corpus
+ * because the link cases below still carry it to MdLink, where isSafeHref is
+ * the only thing refusing it, and because the image cases must keep proving it
+ * reaches no sink by any route.
  */
-const REACHES_IMG = 'data:text/html;charset=utf-8,x.png'
-/** Reaches the <video><source src> path the same way via isVideo(). */
-const REACHES_VIDEO = 'data:text/html;charset=utf-8,x.mp4'
+const DATA_URL_PNG_TAIL = 'data:text/html;charset=utf-8,x.png'
+/** The same shape wearing a video extension. */
+const DATA_URL_MP4_TAIL = 'data:text/html;charset=utf-8,x.mp4'
 
 const SAFE_PAGE = 'https://ok.test/p'
 const SAFE_IMAGE = 'https://ok.test/x.png'
 
 /**
- * Non-allowlisted schemes that markdown does tokenize, so they reach MdLink /
- * MdImage and are refused there. These are the payloads that make the
- * assertions below mean something.
+ * Non-allowlisted schemes that markdown does tokenize, so they reach a renderer
+ * and are refused there. These are the payloads that make the assertions below
+ * mean something.
  */
 const SINK_REACHING_URLS: readonly string[] = [
   'data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==',
   'vbscript:msgbox(1)',
   'file:///etc/passwd',
   'blob:https://x.test/abc',
-  REACHES_IMG,
-  REACHES_VIDEO,
+  DATA_URL_PNG_TAIL,
+  DATA_URL_MP4_TAIL,
   // The same schemes wearing an image extension. An opaque scheme puts its
-  // whole body in `pathname`, so isImage() says "image" and these take the
-  // <img src> branch instead of falling through to the harmless 'embed' one —
-  // a strictly stronger test of the same guard. (javascript: is not here: it is
-  // stripped upstream by preprocess() in this form and is covered in the
-  // angle-bracket structural case below, where it does reach a renderer.)
+  // whole body in `pathname`, so anything classifying a destination by its
+  // extension calls these images — which is what made them the strongest
+  // payloads for the old image sink, and why they stay. (javascript: is not
+  // here: it is stripped upstream by preprocess() in this form and is covered
+  // in the angle-bracket structural case below, where it does reach a
+  // renderer.)
   'vbscript:msgbox(1).png',
   'file:///etc/passwd.png',
   'blob:https://x.test/abc.png',
 ]
 
-interface HostileCase {
+interface CaseShape {
   readonly label: string
   /** Markdown carrying a non-allowlisted target. */
   readonly hostile: string
-  /** Same markdown shape with a safe target; must still emit a URL. */
+  /** The same markdown shape with a safe target. */
   readonly benign: string
 }
+
+/** A link twin must still emit its URL. */
+interface LinkCase extends CaseShape {
+  readonly kind: 'link'
+}
+
+/** An image twin must show its alt text and emit no URL and no media element. */
+interface ImageCase extends CaseShape {
+  readonly kind: 'image'
+  readonly benignAlt: string
+}
+
+type HostileCase = LinkCase | ImageCase
 
 const inlineCases: readonly HostileCase[] = SINK_REACHING_URLS.flatMap(
   (url) => [
     {
+      kind: 'link',
       label: `link ${JSON.stringify(url)}`,
       hostile: `[t](${url})`,
       benign: `[t](${SAFE_PAGE})`,
-    },
+    } satisfies LinkCase,
     {
+      kind: 'image',
       label: `image ${JSON.stringify(url)}`,
       hostile: `![t](${url})`,
       benign: `![t](${SAFE_IMAGE})`,
-    },
+      benignAlt: 't',
+    } satisfies ImageCase,
   ],
 )
 
 /**
- * A table cell is an ordinary place for an author to put an image, so the
- * corpus covers it — and it covers both kinds of cell, because MdTree renders
- * header cells and body cells from separate branches: a guard that held on one
- * would say nothing about the other.
+ * An image in a structural container. Every one of these is a place an author
+ * ordinarily puts an image, and each reaches the renderer down a different
+ * MdTree branch — table header cells and body cells, for one, are rendered by
+ * separate branches, so a guard that held on one would say nothing about the
+ * other.
  *
- * `cellTag` is where the benign twin's <img> must land. The shared scaffolding
- * control below only asks for "some URL attribute", which an image that escaped
- * the table entirely would still satisfy.
+ * `containerTag` is where the benign twin's alt text must land. The shared
+ * image control below only asks that the alt survives somewhere, which alt
+ * text that escaped its table or its spoiler would still satisfy.
  */
-interface TableCellCase extends HostileCase {
-  readonly cellTag: 'td' | 'th'
+interface ContainedImageCase extends ImageCase {
+  readonly containerTag: string
+  /** Set when the tag alone is ambiguous: the spoiler body is a nested <div>. */
+  readonly containerClass?: string
 }
 
-const TABLE_CELL_CASES: readonly TableCellCase[] = [
+const CONTAINED_IMAGE_CASES: readonly ContainedImageCase[] = [
   {
-    label: 'hostile target inside a table body cell',
-    hostile: `| h |\n| - |\n| ![t](${REACHES_IMG}) |\n`,
-    benign: `| h |\n| - |\n| ![t](${SAFE_IMAGE}) |\n`,
-    cellTag: 'td',
+    kind: 'image',
+    label: 'hostile target nested in a list item',
+    hostile: `- ![t](${DATA_URL_PNG_TAIL})\n`,
+    benign: `- ![t](${SAFE_IMAGE})\n`,
+    benignAlt: 't',
+    containerTag: 'li',
   },
   {
+    kind: 'image',
+    label: 'hostile target nested in a blockquote',
+    hostile: `> ![t](${DATA_URL_PNG_TAIL})\n`,
+    benign: `> ![t](${SAFE_IMAGE})\n`,
+    benignAlt: 't',
+    containerTag: 'blockquote',
+  },
+  {
+    kind: 'image',
+    label: 'hostile target inside a table body cell',
+    hostile: `| h |\n| - |\n| ![t](${DATA_URL_PNG_TAIL}) |\n`,
+    benign: `| h |\n| - |\n| ![t](${SAFE_IMAGE}) |\n`,
+    benignAlt: 't',
+    containerTag: 'td',
+  },
+  {
+    kind: 'image',
     label: 'hostile target inside a table header cell',
-    hostile: `| ![t](${REACHES_IMG}) |\n| - |\n| x |\n`,
+    hostile: `| ![t](${DATA_URL_PNG_TAIL}) |\n| - |\n| x |\n`,
     benign: `| ![t](${SAFE_IMAGE}) |\n| - |\n| x |\n`,
-    cellTag: 'th',
+    benignAlt: 't',
+    containerTag: 'th',
+  },
+  {
+    kind: 'image',
+    label: 'hostile target inside a heading',
+    hostile: `# ![t](${DATA_URL_PNG_TAIL})\n`,
+    benign: `# ![t](${SAFE_IMAGE})\n`,
+    benignAlt: 't',
+    containerTag: 'h1',
+  },
+  {
+    kind: 'image',
+    label: 'reference-style image definition',
+    hostile: `[a]: ${DATA_URL_PNG_TAIL}\n\n![a]\n`,
+    benign: `[a]: ${SAFE_IMAGE}\n\n![a]\n`,
+    benignAlt: 'a',
+    containerTag: 'p',
+  },
+  {
+    kind: 'image',
+    label: 'hostile target inside a spoiler block',
+    hostile: `::: spoiler s\n![t](${DATA_URL_PNG_TAIL})\n:::\n`,
+    benign: `::: spoiler s\n![t](${SAFE_IMAGE})\n:::\n`,
+    benignAlt: 't',
+    containerTag: 'div',
+    containerClass: 'expand',
   },
 ]
 
-/** Inner HTML of every `<td>` or `<th>` in an emitted string; cells never nest. */
-const tableCellContents = (html: string, tag: 'td' | 'th'): string[] => {
-  const cell = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)</${tag}\\s*>`, 'gi')
-  return [...html.matchAll(cell)].map((match) => match[1] ?? '')
+/** Inner HTML of every `<tag>`, for the containers here, which never nest. */
+const elementContents = (html: string, tag: string): string[] => {
+  const element = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)</${tag}\\s*>`, 'gi')
+  return [...html.matchAll(element)].map((match) => match[1] ?? '')
+}
+
+/**
+ * Inner HTML of the first `<tag>` whose class list contains `className`,
+ * counting nesting of that same tag so an inner element's end tag does not
+ * close it. The spoiler body is a <div> wrapped in, and wrapping, other
+ * <div>s, so the lazy match above cannot find it.
+ */
+const elementWithClass = (
+  html: string,
+  tag: string,
+  className: string,
+): string | null => {
+  const boundary = new RegExp(`<${tag}(?=[\\s/>])[^>]*>|</${tag}\\s*>`, 'gi')
+  const carriesClass = new RegExp(
+    `\\bclass\\s*=\\s*"[^"]*\\b${className}\\b[^"]*"`,
+    'i',
+  )
+  let depth = 0
+  let openDepth = -1
+  let contentStart = 0
+  for (const match of html.matchAll(boundary)) {
+    const token = match[0]
+    const at = match.index ?? 0
+    if (token.startsWith('</')) {
+      depth -= 1
+      if (depth === openDepth) return html.slice(contentStart, at)
+    } else if (!token.endsWith('/>')) {
+      if (openDepth === -1 && carriesClass.test(token)) {
+        openDepth = depth
+        contentStart = at + token.length
+      }
+      depth += 1
+    }
+  }
+  return null
+}
+
+/** Every candidate container of one case, in document order. */
+const containersOf = (html: string, one: ContainedImageCase): string[] => {
+  if (one.containerClass === undefined) {
+    return elementContents(html, one.containerTag)
+  }
+  const found = elementWithClass(html, one.containerTag, one.containerClass)
+  return found === null ? [] : [found]
 }
 
 const structuralCases: readonly HostileCase[] = [
   // preprocess() only matches javascript: directly after "](", so the
   // angle-bracket forms are how javascript: gets real end-to-end coverage.
   {
+    kind: 'link',
     label: 'angle-bracket autolink (javascript:)',
     hostile: '<javascript:alert(1)>',
     benign: `<${SAFE_PAGE}>`,
   },
   {
+    kind: 'link',
     label: 'angle-bracket link destination (javascript:)',
     hostile: '[t](<javascript:alert(1)>)',
     benign: `[t](<${SAFE_PAGE}>)`,
   },
   {
+    kind: 'link',
     label: 'angle-bracket autolink (vbscript:)',
     hostile: '<vbscript:msgbox(1)>',
     benign: `<${SAFE_PAGE}>`,
   },
   // preprocess() matches "](javascript:" literally, so "](<javascript:" slips
-  // past it and reaches MdImage — and the ".png" tail makes isImage() classify
-  // it, so it lands on the <img src> branch rather than the inert 'embed' one.
-  // This is the only javascript: payload in the corpus that genuinely exercises
-  // isSafeHref at an image sink.
+  // past it and reaches the image renderer with its destination intact. It is
+  // the only javascript: payload in the corpus that gets that far, which is
+  // what makes it worth keeping now that the destination is dropped rather
+  // than guarded.
   {
+    kind: 'image',
     label: 'angle-bracket image destination (javascript: disguised as .png)',
     hostile: '![t](<javascript:alert(1)//x.png>)',
     benign: `![t](<${SAFE_IMAGE}>)`,
+    benignAlt: 't',
   },
   {
-    label: 'reference-style image definition',
-    hostile: `[a]: ${REACHES_IMG}\n\n![a]\n`,
-    benign: `[a]: ${SAFE_IMAGE}\n\n![a]\n`,
-  },
-  {
+    kind: 'link',
     label: 'reference-style vbscript definition',
     hostile: '[a]: vbscript:msgbox(1)\n\n[a]\n',
     benign: `[a]: ${SAFE_PAGE}\n\n[a]\n`,
   },
-  {
-    label: 'hostile target nested in a list item',
-    hostile: `- ![t](${REACHES_IMG})\n`,
-    benign: `- ![t](${SAFE_IMAGE})\n`,
-  },
-  {
-    label: 'hostile target nested in a blockquote',
-    hostile: `> ![t](${REACHES_IMG})\n`,
-    benign: `> ![t](${SAFE_IMAGE})\n`,
-  },
-  ...TABLE_CELL_CASES,
-  {
-    label: 'hostile target inside a spoiler block',
-    hostile: `::: spoiler s\n![t](${REACHES_IMG})\n:::\n`,
-    benign: `::: spoiler s\n![t](${SAFE_IMAGE})\n:::\n`,
-  },
+  ...CONTAINED_IMAGE_CASES,
 ]
 
 const HOSTILE_CASES: readonly HostileCase[] = [
   ...inlineCases,
   ...structuralCases,
 ]
+
+const LINK_CASES: readonly LinkCase[] = HOSTILE_CASES.filter(
+  (one: HostileCase): one is LinkCase => one.kind === 'link',
+)
+
+const IMAGE_CASES: readonly ImageCase[] = HOSTILE_CASES.filter(
+  (one: HostileCase): one is ImageCase => one.kind === 'image',
+)
 
 // ---------------------------------------------------------------------------
 // The contract
@@ -294,54 +413,52 @@ describe('Markdown - untrusted URL schemes', () => {
 // Corpus preconditions
 //
 // The benign twins above prove each markdown SHAPE still renders. They cannot
-// prove each PAYLOAD still reaches the branch it was chosen for. REACHES_IMG
-// and REACHES_VIDEO only exercise isSafeHref because isImage()/isVideo()
-// classify them — those predicates look at the pathname alone, and an opaque
-// scheme puts its whole body there. If that ever changed, every hostile case
-// built on them would route to the inert 'embed' branch and keep passing while
-// asserting nothing.
+// prove each PAYLOAD is still one the app has to refuse: a destination that
+// isSafeHref quietly started accepting would leave its hostile link case
+// passing while asserting nothing.
+//
+// The media-classification preconditions that used to live here are gone with
+// the image renderer's media branches — image syntax no longer looks at its
+// destination, so there is no branch left for a payload to be steered into.
 // ---------------------------------------------------------------------------
 
 describe('Markdown - hostile corpus preconditions', () => {
-  it('REACHES_IMG reaches the <img> branch', () => {
-    expect(isImage(REACHES_IMG)).toBe(true)
-    expect(isSafeHref(REACHES_IMG)).toBe(false)
-  })
-
-  it('REACHES_VIDEO reaches the <video> branch', () => {
-    expect(isVideo(REACHES_VIDEO)).toBe(true)
-    expect(isSafeHref(REACHES_VIDEO)).toBe(false)
-  })
-
-  it.each([
-    'vbscript:msgbox(1).png',
-    'file:///etc/passwd.png',
-    'blob:https://x.test/abc.png',
-    'javascript:alert(1)//x.png',
-  ])('%j reaches the <img> branch', (url: string) => {
-    expect(isImage(url)).toBe(true)
-    expect(isSafeHref(url)).toBe(false)
-  })
+  it.each([...SINK_REACHING_URLS, 'javascript:alert(1)//x.png'])(
+    '%j is a scheme isSafeHref refuses',
+    (url: string) => {
+      expect(isSafeHref(url)).toBe(false)
+    },
+  )
 })
 
 describe('Markdown - hostile corpus scaffolding', () => {
-  it.each(HOSTILE_CASES)(
+  it.each(LINK_CASES)(
     'the benign twin of "$label" still emits a URL',
-    ({ benign }: HostileCase) => {
+    ({ benign }: LinkCase) => {
       expect(
         extractUrlAttributes(renderMarkdown(benign)).length,
       ).toBeGreaterThan(0)
     },
   )
 
-  it.each(TABLE_CELL_CASES)(
-    'the benign twin of "$label" puts its <img> inside a <$cellTag>',
-    ({ benign, cellTag }: TableCellCase) => {
+  it.each(IMAGE_CASES)(
+    'the benign twin of "$label" keeps its alt text and emits no media',
+    ({ benign, benignAlt }: ImageCase) => {
       const html = renderMarkdown(benign)
-      const withImage = tableCellContents(html, cellTag).filter((cell) =>
-        cell.includes('<img'),
+      expect(visibleText(html), html).toContain(benignAlt)
+      expect(extractUrlAttributes(html), html).toEqual([])
+      expect(findSinkElements(html), html).toEqual([])
+    },
+  )
+
+  it.each(CONTAINED_IMAGE_CASES)(
+    'the benign twin of "$label" puts its alt text inside a <$containerTag>',
+    (one: ContainedImageCase) => {
+      const html = renderMarkdown(one.benign)
+      const holding = containersOf(html, one).filter((content) =>
+        visibleText(content).includes(one.benignAlt),
       )
-      expect(withImage.length, html).toBeGreaterThan(0)
+      expect(holding.length, html).toBeGreaterThan(0)
     },
   )
 })
@@ -352,8 +469,8 @@ describe('Markdown - hostile corpus scaffolding', () => {
 // These payloads never reach a renderer, so they do NOT exercise isSafeHref.
 // Asserting "no unsafe URL" on them would be vacuous, so each one instead
 // asserts the layer that actually stops it. If one of these layers is ever
-// removed the payload starts reaching MdLink/MdImage, where the guard takes
-// over — but the change will not pass silently.
+// removed the payload starts reaching MdLink, where the guard takes over —
+// but the change will not pass silently.
 // ---------------------------------------------------------------------------
 
 interface UpstreamCase {
@@ -415,10 +532,18 @@ describe('Markdown - upstream defenses', () => {
 // ---------------------------------------------------------------------------
 
 describe('Markdown - legitimate targets', () => {
-  it('still renders legitimate targets', () => {
+  // A legitimate image is not a positive control for URL emission any more:
+  // the contract is that its destination goes nowhere, safe or not, and only
+  // the alt text remains.
+  it('renders a legitimate image as its alt text alone', () => {
     const image = renderMarkdown(`![alt](${SAFE_IMAGE})`)
-    expect(image).toContain(SAFE_IMAGE)
+    expect(visibleText(image)).toBe('alt')
+    expect(image, image).not.toContain('ok.test')
+    expect(findSinkElements(image), image).toEqual([])
+    expect(extractUrlAttributes(image), image).toEqual([])
+  })
 
+  it('still renders legitimate link targets', () => {
     const external = renderMarkdown('[t](https://ok.test/page)')
     expect(external).toContain('href="https://ok.test/page"')
 

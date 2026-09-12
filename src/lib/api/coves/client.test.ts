@@ -2,7 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CovesClient, NSID } from './client'
 import { XrpcClient } from './xrpc'
 import type { DID } from '$lib/types/atproto'
-import type { AtUri, CID, GetCommunityParams } from './types'
+import type {
+  AtUri,
+  CID,
+  GetCommunityParams,
+  UpdateProfileInput,
+} from './types'
 
 // ---------------------------------------------------------------------------
 // Setup: spy on XrpcClient prototype methods
@@ -194,6 +199,19 @@ describe('Actor methods', () => {
     expect(querySpy).toHaveBeenCalledWith(NSID.getProfile, {
       actor: 'did:plc:abc123',
     })
+  })
+
+  it('updateProfile() calls the authenticated profile procedure', async () => {
+    const input = {
+      displayName: 'Alice Example',
+      bio: 'Hello from Coves',
+      avatarBlob: 'YXZhdGFy',
+      avatarMimeType: 'image/png',
+    } satisfies UpdateProfileInput
+
+    await client.updateProfile(input)
+
+    expect(procedureSpy).toHaveBeenCalledWith(NSID.updateProfile, input)
   })
 
   it('getActorPosts() calls query with correct NSID', async () => {

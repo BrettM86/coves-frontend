@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state'
   import { locale, t } from '$lib/app/state/i18n'
+  import { profile as authProfile } from '$lib/app/state/auth.svelte'
   import { deletedContentPlaceholder } from '$lib/feature/comment/comments.svelte'
   import PostFeed from '$lib/feature/post/feed/PostFeed.svelte'
   import UserLink from '$lib/feature/user/UserLink.svelte'
@@ -80,8 +81,15 @@
               <UserLink user={profile} class="font-normal" />
             </span>
           {/snippet}
+          {#snippet bannerActions()}
+            {#if authProfile.current?.did === profile.did}
+              <UserActions {profile} />
+            {/if}
+          {/snippet}
           {#snippet actions()}
-            <UserActions {profile} />
+            {#if authProfile.current?.did !== profile.did}
+              <UserActions {profile} />
+            {/if}
           {/snippet}
         </EntityHeader>
       </div>

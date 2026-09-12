@@ -1,24 +1,7 @@
 <script lang="ts">
-  // @ts-nocheck TODO(coves-migration): Needs Coves user settings API
-  import { getClient, site } from '$lib/api/client.svelte'
-  import type { SaveUserSettings } from '$lib/api/types'
-  import { profile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
-  import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
-  import ImageInputUpload from '$lib/ui/form/ImageInputUpload.svelte'
   import { Header } from '$lib/ui/layout'
-  import {
-    Badge,
-    Button,
-    Label,
-    Material,
-    Menu,
-    MenuButton,
-    Switch,
-    TextInput,
-    toast,
-  } from '$lib/ui/kit'
-  import { Icon, Plus } from '$lib/ui/kit/icon'
+  import ProfileEditor from '../../ProfileEditor.svelte'
   import type { PageData } from './$types'
 
   interface Props {
@@ -29,147 +12,19 @@
 
   let { inline = false, data, children }: Props = $props()
 
-  // Intentional: the form is seeded from the loaded data once and then edited
-  // locally; it must not reset when `data` changes.
-  // svelte-ignore state_referenced_locally
-  let formData: Omit<SaveUserSettings, 'auth'> | undefined = $state({
-    ...data.my_user?.local_user_view?.local_user,
-    ...data.my_user?.local_user_view?.person,
-    discussion_languages: data.my_user?.discussion_languages,
-  })
-
-  async function save() {
-    if (!formData || !profile.current?.jwt) return
-
-    loading = true
-
-    try {
-      await getClient().saveUserSettings({
-        ...formData,
-      })
-
-      toast({
-        content: $t('toast.saveSettings'),
-        type: 'success',
-      })
-    } catch (err) {
-      toast({
-        content: err as string,
-        type: 'error',
-      })
-    }
-    loading = false
-  }
-
-  let loading = $state(false)
 </script>
 
-<form
-  class="flex flex-col gap-4 h-full"
-  onsubmit={(e) => {
-    e.preventDefault()
-    save()
-  }}
->
+<div class="flex h-full flex-col gap-4">
   {#if !inline}
     <Header pageHeader>{$t('routes.profile.edit')}</Header>
   {/if}
   {@render children?.()}
-  {#if data.my_user?.local_user_view?.local_user && formData}
-    <TextInput label={$t('form.profile.email')} bind:value={formData.email} />
-    <TextInput
-      label={$t('form.profile.displayName')}
-      bind:value={formData.display_name}
-      placeholder="Optional"
-    />
-    <MarkdownEditor
-      bind:value={() => formData.bio ?? '', (v) => (formData.bio = v)}
-      label={$t('form.profile.bio')}
-      previewButton
-    />
-    <div class="flex gap-2 items-center *:flex-1">
-      <ImageInputUpload
-        label={$t('form.profile.avatar')}
-        bind:imageUrl={formData.avatar}
-      />
-      <ImageInputUpload
-        label={$t('form.profile.banner')}
-        bind:imageUrl={formData.banner}
-      />
-    </div>
-    <TextInput
-      label={$t('form.profile.matrix')}
-      bind:value={formData.matrix_user_id}
-      placeholder="@user:example.com"
-    />
-    <Switch bind:checked={formData.show_nsfw}>
-      {$t('form.profile.showNSFW')}
-    </Switch>
-    <Switch bind:checked={formData.bot_account}>
-      {$t('form.profile.bot')}
-    </Switch>
-    <Switch bind:checked={formData.show_bot_accounts}>
-      {$t('form.profile.showBots')}
-    </Switch>
-    <Switch bind:checked={formData.show_read_posts}>
-      {$t('form.profile.showRead')}
-    </Switch>
-    <div class="space-y-1">
-      <Label id="languages">
-        {$t('form.profile.languages.title')}
-      </Label>
-      <p>{$t('form.profile.languages.description')}</p>
-      <Material rounding="xl" color="uniform" class="dark:bg-zinc-950">
-        {#if site.data && formData.discussion_languages}
-          <div class="flex gap-2 flex-wrap flex-row">
-            <Menu class="gap-px">
-              {#snippet target(attachment)}
-                <button {@attach attachment} type="button">
-                  <Badge color="blue-subtle">
-                    <Icon src={Plus} size="14" />
-                    {$t('common.add')}
-                  </Badge>
-                </button>
-              {/snippet}
-              {#each site.data.all_languages.filter((l) => !formData.discussion_languages?.includes(l.id)) as language (language.id)}
-                <MenuButton
-                  class="min-h-[16px] py-0"
-                  onclick={() => {
-                    formData.discussion_languages?.push(language.id)
-                  }}
-                >
-                  {language.name}
-                </MenuButton>
-              {/each}
-            </Menu>
-            {#each formData.discussion_languages as languageId, index (languageId)}
-              {@const language = site.data.all_languages.find(
-                (l) => l.id == languageId,
-              )}
-              <button
-                type="button"
-                class="hover:brightness-150 transition-all"
-                onclick={() => {
-                  formData.discussion_languages?.splice(index, 1)
-                }}
-              >
-                <Badge class="cursor-pointer">{language?.name}</Badge>
-              </button>
-            {/each}
-          </div>
-        {/if}
-      </Material>
-    </div>
 
-    <Button
-      submit
-      size="lg"
-      color="primary"
-      class="mt-auto"
-      {loading}
-      disabled={loading}
-    >
-      {$t('common.save')}
-    </Button>
+  {#if data.profile}
+    <ProfileEditor profile={data.profile} />
+  {:else}
+    <p class="text-sm text-slate-600 dark:text-zinc-400">
+      {$t('toast.sessionExpired')}
+    </p>
   {/if}
-</form>
+</div>

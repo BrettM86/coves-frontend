@@ -42,6 +42,8 @@
   }: Props = $props()
 
   let popoverEl = $state<HTMLElement>()
+  let triggerEl = $state<HTMLButtonElement>()
+  let restoringTriggerFocus = false
 
   let origins: Record<Placement, string> = {
     bottom: 'top',
@@ -74,6 +76,7 @@
 
   const menuAttach: Attachment = (element) => {
     const e = element as HTMLButtonElement
+    triggerEl = e
 
     function toggle(force?: boolean) {
       if (!open && force == false) return
@@ -89,7 +92,8 @@
 
     const mouseover = () => openOnHover && toggle(true)
     const mouseleave = () => openOnHover && toggle(false)
-    const focus = () => openOnHover && toggle(true)
+    const focus = () =>
+      openOnHover && !restoringTriggerFocus && toggle(true)
     const focusout = () => openOnHover && toggle(false)
     const click = () => {
       toggle()
@@ -110,29 +114,38 @@
         document.addEventListener('click', clickHandler)
       }
     }
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        toggle(false)
-      }
-    }
-
     e.addEventListener('mouseover', mouseover)
     e.addEventListener('mouseleave', mouseleave)
     e.addEventListener('focus', focus)
     e.addEventListener('focusout', focusout)
     e.addEventListener('click', click)
-    popoverEl?.addEventListener('keydown', keydown)
 
     floatingRef(e)
 
     return () => {
-      e.addEventListener('mouseover', mouseover)
+      e.removeEventListener('mouseover', mouseover)
       e.removeEventListener('mouseleave', mouseleave)
       e.removeEventListener('focus', focus)
       e.removeEventListener('focusout', focusout)
       e.removeEventListener('click', click)
-      popoverEl?.removeEventListener('keydown', keydown)
+      if (triggerEl === e) triggerEl = undefined
     }
+  }
+
+  function onkeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    event.stopPropagation()
+    open = false
+    restoringTriggerFocus = true
+    triggerEl?.focus()
+    restoringTriggerFocus = false
+  }
+
+  const keydownAttach: Attachment = (element) => {
+    const e = element as HTMLElement
+    e.addEventListener('keydown', onkeydown)
+    return () => e.removeEventListener('keydown', onkeydown)
   }
 </script>
 
@@ -151,6 +164,7 @@
       use:floatingContent={{ strategy, placement, middleware }}
       use:trapFocus
       bind:this={popoverEl}
+      {@attach keydownAttach}
     >
       {#if popover}
         {@render popover(open)}

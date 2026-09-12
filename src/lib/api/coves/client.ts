@@ -41,6 +41,8 @@ import type {
   SubmitReportInput,
   SubmitReportOutput,
   SubscribeCommunityInput,
+  UpdateProfileInput,
+  UpdateProfileOutput,
   UpdateCommentInput,
   UpdateCommentOutput,
 } from './types'
@@ -56,6 +58,7 @@ export const NSID = {
   createVote: 'social.coves.feed.vote.create',
   deleteVote: 'social.coves.feed.vote.delete',
   getProfile: 'social.coves.actor.getProfile',
+  updateProfile: 'social.coves.actor.updateProfile',
   getActorPosts: 'social.coves.actor.getPosts',
   getActorComments: 'social.coves.actor.getComments',
   blockUser: 'social.coves.actor.blockUser',
@@ -131,6 +134,10 @@ export class CovesClient {
   // Actor
   getProfile(params: GetProfileParams): Promise<ProfileViewDetailed> {
     return this.xrpc.query(NSID.getProfile, params)
+  }
+
+  updateProfile(input: UpdateProfileInput): Promise<UpdateProfileOutput> {
+    return this.xrpc.procedure(NSID.updateProfile, input)
   }
 
   getActorPosts(params: GetActorPostsParams): Promise<GetActorPostsResponse> {

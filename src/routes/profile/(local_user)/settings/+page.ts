@@ -1,11 +1,13 @@
-import { error } from '@sveltejs/kit'
+import { coves } from '$lib/api/client.svelte'
+import type { PageLoad } from './$types'
 
-// TODO(coves-migration): The profile settings page is unmigrated Lemmy code —
-// its entire form is gated on the legacy `my_user.local_user_view` shape
-// (always undefined now), so it rendered as a blank page, and saving still
-// called the legacy saveUserSettings endpoint. The Coves API does have
-// social.coves.actor.updateProfile; remove this gate once the page is
-// migrated to it.
-export function load(): never {
-  error(404, 'Profile settings are not available yet')
+export const load: PageLoad = async ({ parent, fetch }) => {
+  const { session } = await parent()
+  if (!session?.authenticated) return { profile: undefined }
+
+  return {
+    profile: await coves({ func: fetch }).getProfile({
+      actor: session.account.did,
+    }),
+  }
 }

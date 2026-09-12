@@ -10,7 +10,7 @@
   import { CommonList } from '$lib/ui/layout'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { TextInput } from '$lib/ui/kit'
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import { Icon, House } from '$lib/ui/kit/icon'
   import {
     type Action,
@@ -171,12 +171,10 @@
         handleSelect(flattenedActions[selectedIndex])
         break
       case 'Escape':
-        event.preventDefault()
         if (breadcrumbs.length > 0) {
+          event.preventDefault()
           breadcrumbs.pop()
           updateFilteredGroups()
-        } else {
-          togglePalette()
         }
         break
     }
@@ -201,6 +199,8 @@
     if (action.subActions && action.subActions.length > 0) {
       breadcrumbs = [...breadcrumbs, action]
       updateFilteredGroups()
+      await tick()
+      input?.focus()
     } else {
       if (action.href) goto(action.href)
       if (action.handle) action.handle()
@@ -225,63 +225,64 @@
   )
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-<TextInput
-  bind:value={search}
-  class="sticky rounded-none! border-t-0 border-x-0 focus-within:border-inherit! focus-within:ring-0!"
-  size="lg"
-  placeholder={$t('nav.commands.prompt')}
-  bind:element={input}
-/>
-<div class="h-128 overflow-auto border-slate-200 dark:border-zinc-800 p-5">
-  {#if breadcrumbs.length > 0}
-    <div class="flex items-center gap-2 my-1">
-      <button
-        class="text-[13px] font-medium text-slate-600 dark:text-zinc-400"
-        onclick={goBack}
-      >
-        <Icon src={House} size="16" />
-      </button>
-      {#each breadcrumbs as crumb}
-        <span class="text-base text-slate-400 dark:text-zinc-600">/</span>
-        <span class="text-[13px] font-medium">
-          {crumb.name}
-        </span>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div onkeydown={handleKeydown}>
+  <TextInput
+    bind:value={search}
+    class="sticky rounded-none! border-t-0 border-x-0 focus-within:border-inherit! focus-within:ring-0!"
+    size="lg"
+    placeholder={$t('nav.commands.prompt')}
+    bind:element={input}
+  />
+  <div class="h-128 overflow-auto border-slate-200 dark:border-zinc-800 p-5">
+    {#if breadcrumbs.length > 0}
+      <div class="flex items-center gap-2 my-1">
+        <button
+          class="text-[13px] font-medium text-slate-600 dark:text-zinc-400"
+          onclick={goBack}
+        >
+          <Icon src={House} size="16" />
+        </button>
+        {#each breadcrumbs as crumb}
+          <span class="text-base text-slate-400 dark:text-zinc-600">/</span>
+          <span class="text-[13px] font-medium">
+            {crumb.name}
+          </span>
+        {/each}
+      </div>
+    {/if}
+    <div class="space-y-1" bind:this={container}>
+      {#each filteredGroups as group, groupIndex}
+        <div class={['space-y-1', group.actions.length == 0 && 'hidden']}>
+          <EndPlaceholder margin="md" size="sm">{group.name}</EndPlaceholder>
+          <CommonList size="xs" class="p-0! sm:p-0! lg:p-0!">
+            {#each group.actions as action, actionIndex}
+              {@const globalIndex =
+                filteredGroups
+                  .slice(0, groupIndex)
+                  .reduce((sum, g) => sum + g.actions.length, 0) + actionIndex}
+              <li
+                class={[
+                  'custom-size',
+                  globalIndex == selectedIndex && 'selected',
+                ]}
+              >
+                <CommandItem
+                  {action}
+                  onclick={(e) => {
+                    if (action.href) {
+                      togglePalette()
+                      return
+                    }
+                    e.stopPropagation()
+                    handleSelect(action)
+                  }}
+                />
+              </li>
+            {/each}
+          </CommonList>
+        </div>
       {/each}
     </div>
-  {/if}
-  <div class="space-y-1" bind:this={container}>
-    {#each filteredGroups as group, groupIndex}
-      <div class={['space-y-1', group.actions.length == 0 && 'hidden']}>
-        <EndPlaceholder margin="md" size="sm">{group.name}</EndPlaceholder>
-        <CommonList size="xs" class="p-0! sm:p-0! lg:p-0!">
-          {#each group.actions as action, actionIndex}
-            {@const globalIndex =
-              filteredGroups
-                .slice(0, groupIndex)
-                .reduce((sum, g) => sum + g.actions.length, 0) + actionIndex}
-            <li
-              class={[
-                'custom-size',
-                globalIndex == selectedIndex && 'selected',
-              ]}
-            >
-              <CommandItem
-                {action}
-                onclick={(e) => {
-                  if (action.href) {
-                    togglePalette()
-                    return
-                  }
-                  e.stopPropagation()
-                  handleSelect(action)
-                }}
-              />
-            </li>
-          {/each}
-        </CommonList>
-      </div>
-    {/each}
   </div>
 </div>

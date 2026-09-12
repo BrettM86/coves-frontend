@@ -33,6 +33,11 @@ network-*.txt
 .claude/agent-memory/
 coverage/
 
+# Local OpenCode tooling and package cache
+/.opencode/
+/opencode.json
+/.pnpm-store/
+
 # Local-only Claude Code commands (contains prod host references) — same convention as the backend repo
 .claude/commands/deploy.md
 

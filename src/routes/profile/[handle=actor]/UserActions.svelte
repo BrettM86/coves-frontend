@@ -11,8 +11,9 @@
     reconcileUserBlockState,
     toggleUserBlock,
   } from '$lib/feature/user/blocking.svelte'
-  import { Button, Menu, MenuButton, toast } from '$lib/ui/kit'
-  import { Icon, Ban, Ellipsis, Mail } from '$lib/ui/kit/icon'
+  import { Button, Menu, MenuButton, Modal, toast } from '$lib/ui/kit'
+  import { Icon, Ban, Ellipsis, Mail, SquarePen } from '$lib/ui/kit/icon'
+  import ProfileEditor from '../ProfileEditor.svelte'
   interface Props {
     profile: ProfileViewDetailed
   }
@@ -21,6 +22,7 @@
 
   let isBlocked = $derived(isUserBlocked(userProfile))
   let toggling = $derived(isUserBlockPending(userProfile))
+  let editing = $state(false)
 
   $effect(() => {
     reconcileUserBlockState(userProfile)
@@ -47,7 +49,27 @@
   }
 </script>
 
-{#if authProfile.current?.jwt && authProfile.current?.did !== userProfile.did}
+{#if authProfile.current?.did === userProfile.did}
+  <div class="flex w-full justify-end">
+    <Button
+      size="lg"
+      rounding="2xl"
+      icon={SquarePen}
+      aria-haspopup="dialog"
+      aria-expanded={editing}
+      onclick={() => (editing = true)}
+    >
+      {$t('routes.profile.edit')}
+    </Button>
+  </div>
+  <Modal bind:open={editing} title={$t('routes.profile.edit')}>
+    <ProfileEditor
+      profile={userProfile}
+      oncancel={() => (editing = false)}
+      onsaved={() => (editing = false)}
+    />
+  </Modal>
+{:else if authProfile.current?.jwt}
   <div class="flex items-center gap-2 w-full flex-wrap">
     <!-- TODO: Implement Coves messaging when available -->
     <Button

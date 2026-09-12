@@ -20,6 +20,7 @@
     }[]
     class?: ClassValue
     nameDetail?: import('svelte').Snippet
+    bannerActions?: import('svelte').Snippet
     actions?: import('svelte').Snippet
     children?: import('svelte').Snippet
     compact?: 'always' | 'lg'
@@ -35,6 +36,7 @@
     stats = [],
     class: clazz = '',
     nameDetail,
+    bannerActions,
     actions,
     children,
     compact,
@@ -47,6 +49,7 @@
   <Material padding="xl" rounding="3xl" class="flex flex-col gap-2 @lg:gap-4">
     {#if banner !== null}
       <div
+        data-profile-banner
         class="relative overflow-hidden rounded-t-[inherit] -m-6 mask-b-from-0 h-32 @lg:h-48"
       >
         {#if banner}
@@ -59,6 +62,14 @@
         {:else}
           <div class="scale-150 h-full">
             <Blobs seed={name} />
+          </div>
+        {/if}
+        {#if bannerActions}
+          <div
+            data-profile-banner-actions
+            class="absolute right-4 top-4 z-10"
+          >
+            {@render bannerActions()}
           </div>
         {/if}
       </div>

@@ -393,6 +393,30 @@ export interface ProfileViewDetailed {
   viewer?: ProfileViewerState
 }
 
+export type ProfileImageMimeType = 'image/png' | 'image/jpeg' | 'image/webp'
+
+interface UpdateProfileTextFields {
+  displayName?: string
+  bio?: string
+}
+
+type AvatarUpdateFields =
+  | { avatarBlob: string; avatarMimeType: ProfileImageMimeType }
+  | { avatarBlob?: never; avatarMimeType?: never }
+
+type BannerUpdateFields =
+  | { bannerBlob: string; bannerMimeType: ProfileImageMimeType }
+  | { bannerBlob?: never; bannerMimeType?: never }
+
+export type UpdateProfileInput = UpdateProfileTextFields &
+  AvatarUpdateFields &
+  BannerUpdateFields
+
+export interface UpdateProfileOutput {
+  uri: AtUri
+  cid: CID
+}
+
 // ---------------------------------------------------------------------------
 // Core view types — votes
 // ---------------------------------------------------------------------------

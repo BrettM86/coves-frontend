@@ -50,9 +50,20 @@ vi.mock('svelte/transition', async (importOriginal) => ({
   fade: () => ({ duration: 0 }),
   scale: () => ({ duration: 0 }),
 }))
+vi.mock('svelte-floating-ui', () => ({
+  createFloatingActions: () => [
+    () => ({ destroy: () => {} }),
+    () => ({ update: () => {}, destroy: () => {} }),
+  ],
+}))
+vi.mock('trap-focus-svelte', () => ({
+  trapFocus: () => ({ destroy: () => {} }),
+}))
 
 let target: HTMLDivElement
 let mounted: ReturnType<(typeof import('svelte'))['mount']> | undefined
+let additionalMounted:
+  ReturnType<(typeof import('svelte'))['mount']> | undefined
 let client: typeof import('svelte')
 
 beforeEach(async () => {
@@ -86,7 +97,10 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  if (additionalMounted)
+    await client.unmount(additionalMounted, { outro: false })
   if (mounted) await client.unmount(mounted, { outro: false })
+  additionalMounted = undefined
   mounted = undefined
   shownModal.set(undefined)
   toasts.set([])
@@ -161,6 +175,180 @@ describe('modal browser history lifecycle', () => {
       expect(document.querySelector('[role="dialog"]')).toBeNull()
       expect(dismissed).toHaveBeenCalledTimes(opening)
     }
+  })
+
+  it('dismisses an open direct modal when Escape is pressed', async () => {
+    const Modal = (await import('./Modal.svelte')).default
+    const { SvelteMap } = await import('svelte/reactivity')
+    const state = new SvelteMap([['open', true]])
+    const dismissed = vi.fn(() => state.set('open', false))
+    mounted = client.mount(Modal, {
+      target,
+      intro: false,
+      props: {
+        get open() {
+          return state.get('open') ?? false
+        },
+        set open(value: boolean) {
+          state.set('open', value)
+        },
+        title: 'Keyboard dialog',
+        ondismissed: dismissed,
+      },
+    })
+    await settle()
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+
+    const escape = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    })
+    expect(window.dispatchEvent(escape)).toBe(false)
+    await settle()
+
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(dismissed).toHaveBeenCalledOnce()
+    expect(navigation.read()).toEqual({ marker: 'original-page' })
+  })
+
+  it('clears modal history after a parent closes it and remains reusable', async () => {
+    const Modal = (await import('./Modal.svelte')).default
+    const { SvelteMap } = await import('svelte/reactivity')
+    const state = new SvelteMap([['open', true]])
+    mounted = client.mount(Modal, {
+      target,
+      intro: false,
+      props: {
+        get open() {
+          return state.get('open') ?? false
+        },
+        set open(value: boolean) {
+          state.set('open', value)
+        },
+        title: 'Reusable dialog',
+      },
+    })
+    await settle()
+    expect(navigation.read().openModals).toHaveLength(1)
+
+    state.set('open', false)
+    await settle()
+    expect(window.history.back).toHaveBeenCalledOnce()
+    expect(navigation.read()).toEqual({ marker: 'original-page' })
+
+    state.set('open', true)
+    await settle()
+    expect(navigation.read().openModals).toHaveLength(1)
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }),
+    )
+    await settle()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(navigation.read()).toEqual({ marker: 'original-page' })
+  })
+
+  it('dismisses only the topmost modal on Escape', async () => {
+    const Modal = (await import('./Modal.svelte')).default
+    const { SvelteMap } = await import('svelte/reactivity')
+    const first = new SvelteMap([['open', true]])
+    const second = new SvelteMap([['open', true]])
+    const props = (state: {
+      get(key: string): boolean | undefined
+      set(key: string, value: boolean): unknown
+    }) => ({
+      get open() {
+        return state.get('open') ?? false
+      },
+      set open(value: boolean) {
+        state.set('open', value)
+      },
+    })
+    mounted = client.mount(Modal, {
+      target,
+      intro: false,
+      props: { ...props(first), title: 'First dialog' },
+    })
+    await settle()
+    additionalMounted = client.mount(Modal, {
+      target,
+      intro: false,
+      props: { ...props(second), title: 'Second dialog' },
+    })
+    await settle()
+    expect(navigation.read().openModals).toHaveLength(2)
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }),
+    )
+    await settle()
+
+    const titles = [...document.querySelectorAll('[role="dialog"] h1')].map(
+      (title) => title.textContent,
+    )
+    expect(titles).toEqual(['First dialog'])
+    expect(navigation.read().openModals).toHaveLength(1)
+  })
+
+  it('closes only a nested popover on Escape and returns focus to its trigger', async () => {
+    const Fixture = (await import('./ModalPopoverEscape.fixture.svelte'))
+      .default
+    mounted = client.mount(Fixture, { target, intro: false })
+    await settle()
+
+    const trigger = button('Open options')
+    trigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+    await settle()
+    const popoverAction = button('Popover action')
+    popoverAction.focus()
+    expect(document.activeElement).toBe(popoverAction)
+
+    const escape = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    })
+    expect.soft(popoverAction.dispatchEvent(escape)).toBe(false)
+    await settle()
+
+    expect
+      .soft(document.querySelector('[role="dialog"] h1')?.textContent)
+      .toBe('Profile dialog')
+    expect.soft(navigation.read().openModals ?? []).toHaveLength(1)
+    expect
+      .soft(
+        [...document.querySelectorAll('button')].some(
+          (candidate) => candidate.textContent?.trim() === 'Popover action',
+        ),
+      )
+      .toBe(false)
+    expect.soft(document.activeElement).toBe(trigger)
+  })
+
+  it('ignores Escape when the topmost modal is not dismissable', async () => {
+    const Modal = (await import('./Modal.svelte')).default
+    mounted = client.mount(Modal, {
+      target,
+      intro: false,
+      props: {
+        open: true,
+        dismissable: false,
+        title: 'Required dialog',
+      },
+    })
+    await settle()
+
+    const escape = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      cancelable: true,
+    })
+    expect(window.dispatchEvent(escape)).toBe(true)
+    await settle()
+
+    expect(document.querySelector('[role="dialog"] h1')?.textContent).toBe(
+      'Required dialog',
+    )
+    expect(navigation.read().openModals).toHaveLength(1)
   })
 
   it.each(['Back', 'replacement'] as const)(

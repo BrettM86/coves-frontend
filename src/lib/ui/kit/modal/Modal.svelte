@@ -57,10 +57,14 @@
     if (modalId && hasHistoryEntry) {
       const isInHistory = currentModals.includes(modalId)
 
-      if (!isInHistory && isOpen) {
+      if (!isInHistory) {
         hasHistoryEntry = false
-        open = false
-        ondismissed?.()
+        if (isOpen) {
+          open = false
+          ondismissed?.()
+        }
+      } else if (!isOpen) {
+        clearHistoryEntry()
       }
     }
   })
@@ -80,13 +84,46 @@
 
   function onclose() {
     open = false
-
-    if ((page.state.openModals ?? []).includes(modalId)) history.back()
-    hasHistoryEntry = false
-
+    clearHistoryEntry()
     ondismissed?.()
   }
+
+  function clearHistoryEntry() {
+    if (!hasHistoryEntry) return
+    const currentModals = page.state.openModals ?? []
+    if (!currentModals.includes(modalId)) {
+      hasHistoryEntry = false
+      return
+    }
+
+    if (currentModals.at(-1) === modalId) history.back()
+    else {
+      replaceState('', {
+        ...page.state,
+        openModals: currentModals.filter((id) => id !== modalId),
+      })
+    }
+    hasHistoryEntry = false
+  }
+
+  function onkeydown(event: KeyboardEvent) {
+    const topmostModal = (page.state.openModals ?? []).at(-1)
+    if (
+      event.key !== 'Escape' ||
+      event.defaultPrevented ||
+      !dismissable ||
+      !open ||
+      topmostModal !== modalId
+    )
+      return
+
+    event.preventDefault()
+    event.stopPropagation()
+    onclose()
+  }
 </script>
+
+<svelte:window onkeydown={onkeydown} />
 
 <Portal>
   {#if open}

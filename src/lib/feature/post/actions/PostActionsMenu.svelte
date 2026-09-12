@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation'
+  import { page } from '$app/state'
   import type { PostView } from '$lib/api/coves/types'
   import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/state/auth.svelte'
@@ -16,7 +17,10 @@
   } from '$lib/feature/community/blocking.svelte'
   import { report } from '$lib/feature/moderation/moderation.svelte'
   import { feeds } from '$lib/feature/feeds/feed.svelte'
-  import { encodeCrosspostDraft } from '$lib/feature/post/helpers'
+  import {
+    encodeCrosspostDraft,
+    postLink,
+  } from '$lib/feature/post/helpers'
   import {
     isUserBlocked,
     isUserBlockPending,
@@ -35,12 +39,18 @@
   let authorBlocked = $derived(isUserBlocked(post.author))
   let authorBlockPending = $derived(isUserBlockPending(post.author))
 
+  function crosspostSource(): string {
+    return new URL(postLink(post), page.url.origin).toString()
+  }
+
   // UTF-8-safe: plain btoa() throws on characters above U+00FF (curly
   // quotes, emoji, CJK, ...) which would crash the whole actions menu.
   const crosspostParam = $derived(
     encodeCrosspostDraft({
       body: `${
-        settings.crosspostOriginalLink ? `cross-posted from: ${post.uri}` : ``
+        settings.crosspostOriginalLink
+          ? `cross-posted from: ${crosspostSource()}`
+          : ``
       }\n${
         post.record?.content
           ? '>' + post.record.content.split('\n').join('\n> ')

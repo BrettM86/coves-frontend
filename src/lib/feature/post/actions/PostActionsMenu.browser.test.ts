@@ -91,6 +91,7 @@ const post: PostView = {
     author: 'did:plc:author' as DID,
     community: 'did:plc:community' as DID,
     title: 'A post',
+    content: 'First line\nSecond line',
     createdAt: '2026-09-01T00:00:00Z',
   },
 }
@@ -98,6 +99,8 @@ const post: PostView = {
 beforeEach(async () => {
   mounted = []
   deletePost.mockReset()
+  const { settings } = await import('$lib/app/state/settings.svelte')
+  settings.crosspostOriginalLink = true
   const { goto } = await import('$app/navigation')
   vi.mocked(goto).mockReset().mockResolvedValue(undefined)
   state.openModals = []
@@ -151,6 +154,26 @@ function confirmDelete() {
   confirm.click()
   return { dialog, confirm }
 }
+
+describe('crosspost draft', () => {
+  it('uses an absolute web permalink and preserves the quoted body', async () => {
+    const { decodeCrosspostDraft } = await import('$lib/feature/post/helpers')
+    const crosspost = [...target.querySelectorAll('a')].find(
+      (element) =>
+        element.textContent?.trim() === 'post.actions.more.crosspost',
+    )
+    if (!crosspost) throw new Error('Missing crosspost link')
+
+    const url = new URL(crosspost.href)
+    const draft = decodeCrosspostDraft(url.searchParams.get('crosspost') ?? '')
+
+    expect(draft?.body).toContain(
+      'cross-posted from: http://localhost/c/community.test/post/author.test/one',
+    )
+    expect(draft?.body).not.toContain('at://')
+    expect(draft?.body).toContain('>First line\n> Second line')
+  })
+})
 
 describe('post deletion feedback', () => {
   it('reloads the community feed before navigating away from a deleted post', async () => {

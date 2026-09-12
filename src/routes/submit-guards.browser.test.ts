@@ -9,8 +9,15 @@ vi.mock('$app/environment', () => ({
   version: 'test',
 }))
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
+const appState = vi.hoisted(() => ({
+  page: {
+    url: new URL('http://localhost/login'),
+    route: { id: '/login' },
+    state: {},
+  },
+}))
 vi.mock('$app/state', () => ({
-  page: { url: new URL('http://localhost/login'), route: { id: '/login' } },
+  page: appState.page,
 }))
 vi.mock('$app/navigation', () => ({
   goto: vi.fn(),
@@ -47,6 +54,11 @@ let client: typeof import('svelte')
 
 beforeEach(async () => {
   createPost.mockReset()
+  appState.page.url = new URL('http://localhost/login')
+  appState.page.state = {}
+  const { goto, replaceState } = await import('$app/navigation')
+  vi.mocked(goto).mockReset()
+  vi.mocked(replaceState).mockReset()
   client = await import('svelte')
   target = document.createElement('div')
   document.body.appendChild(target)
@@ -120,6 +132,26 @@ async function mountPost() {
   })
   client.flushSync()
   return onsubmit
+}
+
+async function mountCreatePost(title: string) {
+  sessionStorage.setItem(
+    'lastSeenCommunity',
+    JSON.stringify({
+      did: 'did:plc:community',
+      handle: 'community.test',
+      name: 'Community',
+    }),
+  )
+  const CreatePost = (await import('./create/post/+page.svelte')).default
+  mounted = client.mount(CreatePost, { target, intro: false })
+  client.flushSync()
+  const titleInput =
+    target.querySelector<HTMLTextAreaElement>('textarea[required]')
+  if (!titleInput) throw new Error('Missing post title')
+  titleInput.value = title
+  titleInput.dispatchEvent(new Event('input', { bubbles: true }))
+  client.flushSync()
 }
 
 describe('login submission', () => {
@@ -200,6 +232,51 @@ describe('post submission', () => {
 })
 
 describe('post creation completion', () => {
+  it('navigates with the transient uri and leaves cleanup to the post page', async () => {
+    const { goto, replaceState } = await import('$app/navigation')
+    vi.mocked(goto).mockImplementation(async (destination) => {
+      appState.page.url = new URL(String(destination), appState.page.url)
+    })
+    const uri = 'at://did:plc:author/social.coves.community.post/one'
+    createPost.mockResolvedValue({ uri, cid: 'bafytest' })
+    await mountCreatePost('Clean post URL')
+
+    submit()
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledTimes(1))
+    const initialHref = vi.mocked(goto).mock.calls[0]?.[0]
+    const initialUrl = new URL(String(initialHref), 'http://localhost')
+    expect(initialUrl.searchParams.get('uri')).toBe(uri)
+    await client.tick()
+
+    expect(replaceState).not.toHaveBeenCalled()
+  })
+
+  it('logs a failed post navigation without cleaning browser history', async () => {
+    const { goto, replaceState } = await import('$app/navigation')
+    const { log } = await import('$lib/app/util/log')
+    const warning = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    const navigation = deferred<void>()
+    vi.mocked(goto).mockReturnValue(navigation.promise)
+    createPost.mockResolvedValue({
+      uri: 'at://did:plc:author/social.coves.community.post/one',
+      cid: 'bafytest',
+    })
+    await mountCreatePost('Failed navigation')
+
+    submit()
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledTimes(1))
+    const failure = new Error('Navigation failed')
+    navigation.reject(failure)
+
+    await vi.waitFor(() =>
+      expect(warning).toHaveBeenCalledWith(
+        expect.stringMatching(/\[create\/post\].*navigat/i),
+        failure,
+      ),
+    )
+    expect(replaceState).not.toHaveBeenCalled()
+  })
+
   it('keeps the create page locked through navigation to the new post', async () => {
     const { goto } = await import('$app/navigation')
     const navigation = deferred<void>()

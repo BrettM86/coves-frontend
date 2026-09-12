@@ -55,7 +55,10 @@
       // The link carries the canonical AT-URI as ?uri= so the post page can
       // load immediately — the brand-new record is not yet in any feed cache,
       // and this avoids a backend handle→DID round-trip.
-      goto(createdPostLink(result))
+      const destination = createdPostLink(result)
+      void goto(destination).catch((err: unknown) => {
+        log.warn('[create/post] Post navigation did not finish', err)
+      })
     } catch (err) {
       log.warn(
         '[create/post] Failed to parse post URI, falling back to community page',

@@ -76,6 +76,10 @@
     const url = new URL(page.url)
     url.searchParams.set('sort', nextSort)
     url.searchParams.delete('cursor')
+    // SvelteKit's shallow replaceState keeps page.url at the loaded URL, so a
+    // consumed post-loading hint can still be present here after the address
+    // bar has been cleaned.
+    url.searchParams.delete('uri')
     try {
       // Cursors belong to a sort order. Navigation keeps the URL, loader cache,
       // and Back/Forward history on the same page as the displayed comments.

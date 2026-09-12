@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { replaceState } from '$app/navigation'
   import { page } from '$app/state'
   import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/state/auth.svelte'
@@ -8,12 +9,13 @@
   import { t } from '$lib/app/state/i18n'
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
   import { Post } from '$lib/feature/post'
-  import { postTextFallback } from '$lib/feature/post/helpers'
+  import { postLink, postTextFallback } from '$lib/feature/post/helpers'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import { Pageination } from '$lib/ui/layout'
   import { Button, Material, Spinner, toast } from '$lib/ui/kit'
   import { Icon, Ban, MessageSquare } from '$lib/ui/kit/icon'
   import { tick } from 'svelte'
+  import { SvelteURL } from 'svelte/reactivity'
   import type { PageData } from './$types'
 
   interface Props {
@@ -29,6 +31,47 @@
   const SCROLL_POLL_INTERVAL_MS = 50
 
   let commentProvider = $state<CommentProvider>()
+
+  // `?uri=` is a one-use hint that lets the loader fetch a newly-created
+  // record before the AppView has indexed it. Once that exact post renders on
+  // its canonical path, keep the useful query state and fragment but remove
+  // the transport detail from the shareable URL.
+  $effect(() => {
+    const post = data.data.value?.post
+    if (
+      !post ||
+      page.url.pathname !== postLink(post) ||
+      page.url.searchParams.get('uri') !== post.uri
+    ) {
+      return
+    }
+
+    const expectedPath = postLink(post)
+    const expectedUri = post.uri
+    // Initial component effects can flush before SvelteKit marks its router as
+    // started. A macrotask crosses that boundary; the second guard prevents an
+    // old page instance from rewriting a navigation that won the race.
+    const cleanupTimer = setTimeout(() => {
+      if (
+        page.url.pathname !== expectedPath ||
+        page.url.searchParams.get('uri') !== expectedUri
+      ) {
+        return
+      }
+
+      const currentUrl = new SvelteURL(page.url)
+      currentUrl.searchParams.delete('uri')
+      // Fragments do not reach the server, so SvelteKit's initial page URL can
+      // omit one that is present in the browser address bar.
+      if (window.location.hash) currentUrl.hash = window.location.hash
+      replaceState(
+        `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+        page.state,
+      )
+    }, 0)
+
+    return () => clearTimeout(cleanupTimer)
+  })
 
   // Deep links carry a `#comment-<rkey>` fragment (see `commentLink`). Once
   // the comment tree has rendered, mount the target's top-level row in the

@@ -238,7 +238,7 @@ export function dynamicActions(query: string): Group {
     {
       name: t.get('nav.commands.communities', { default: query.trim() }),
       icon: Newspaper,
-      href: `/explore/communities?q=${query}`,
+      href: `/explore/communities?q=${encodeURIComponent(query)}`,
     },
   ]
 

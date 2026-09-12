@@ -10,8 +10,17 @@ vi.mock('$app/environment', () => ({
   version: 'test',
 }))
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
-vi.mock('$app/state', () => ({ page: { url: new URL('https://coves.test/') } }))
-vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn() }))
+vi.mock('$app/state', () => ({
+  page: {
+    url: new URL('https://coves.test/'),
+    state: { marker: 'post-page' },
+  },
+}))
+vi.mock('$app/navigation', () => ({
+  goto: vi.fn(),
+  invalidate: vi.fn(),
+  replaceState: vi.fn(),
+}))
 vi.mock('$lib/app/state/auth.svelte', () => ({
   profile: { current: { jwt: undefined }, meta: {} },
 }))
@@ -39,7 +48,7 @@ vi.mock('svelte/transition', async (importOriginal) => ({
   fly: () => ({ duration: 0 }),
 }))
 
-import { goto } from '$app/navigation'
+import { goto, replaceState } from '$app/navigation'
 import { page } from '$app/state'
 import { settings } from '$lib/app/state/settings.svelte'
 import { ReactiveState } from '$lib/app/util/reactive.svelte'
@@ -68,7 +77,9 @@ let mounted: ReturnType<(typeof import('svelte'))['mount']> | undefined
 
 beforeEach(async () => {
   client = await import('svelte')
+  window.history.replaceState({}, '', '/')
   vi.mocked(goto).mockReset().mockResolvedValue()
+  vi.mocked(replaceState).mockReset()
   getComments
     .mockReset()
     .mockResolvedValue({ comments: [], cursor: 'refreshed+/=' })
@@ -93,7 +104,12 @@ afterEach(async () => {
   toasts.set([])
 })
 
-async function mountPage(query = '?cursor=old-hot', cursor?: string) {
+async function mountPage(
+  query = '?cursor=old-hot',
+  cursor?: string,
+  beforeFlush?: () => void,
+  afterFlush?: () => void,
+) {
   page.url = new URL(
     `${postPath}${query}`,
     'https://coves.test',
@@ -122,10 +138,72 @@ async function mountPage(query = '?cursor=old-hot', cursor?: string) {
       >['data'],
     },
   })
+  beforeFlush?.()
   client.flushSync()
+  afterFlush?.()
   await vi.waitFor(() => expect(target.querySelector('select')).not.toBeNull())
   return value
 }
+
+describe('transient post URI cleanup', () => {
+  it('defers removal of a consumed uri and preserves the other query and hash', async () => {
+    const query = new URLSearchParams({ uri: postUri, sort: 'top' })
+    let callsAfterSynchronousFlush = -1
+    await mountPage(`?${query}#comments`, undefined, undefined, () => {
+      callsAfterSynchronousFlush = vi.mocked(replaceState).mock.calls.length
+    })
+
+    expect(callsAfterSynchronousFlush).toBe(0)
+    await vi.waitFor(() => expect(replaceState).toHaveBeenCalledTimes(1))
+    expect(replaceState).toHaveBeenCalledWith(
+      `${postPath}?sort=top#comments`,
+      page.state,
+    )
+  })
+
+  it('preserves a fragment held only by the browser location', async () => {
+    window.history.replaceState({}, '', '#comments')
+    const query = new URLSearchParams({ uri: postUri, sort: 'top' })
+    await mountPage(`?${query}`)
+
+    await vi.waitFor(() => expect(replaceState).toHaveBeenCalledTimes(1))
+    expect(replaceState).toHaveBeenCalledWith(
+      `${postPath}?sort=top#comments`,
+      page.state,
+    )
+  })
+
+  it('cancels deferred cleanup when another navigation supersedes the post page', async () => {
+    const query = new URLSearchParams({ uri: postUri, sort: 'top' })
+    const unrelated = new URL(
+      `/explore/communities?uri=${encodeURIComponent(postUri)}#results`,
+      'https://coves.test',
+    )
+
+    await mountPage(`?${query}#comments`, undefined, undefined, () => {
+      page.url = unrelated as typeof page.url
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(replaceState).not.toHaveBeenCalled()
+    expect(page.url.href).toBe(unrelated.href)
+  })
+
+  it('does not carry the consumed uri into a later comment-sort navigation', async () => {
+    const query = new URLSearchParams({ uri: postUri, sort: 'hot' })
+    await mountPage(`?${query}`)
+    await vi.waitFor(() => expect(replaceState).toHaveBeenCalledTimes(1))
+
+    chooseSort('new')
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledTimes(1))
+    const destination = new URL(
+      String(vi.mocked(goto).mock.calls[0]?.[0]),
+      page.url,
+    )
+    expect(destination.searchParams.get('sort')).toBe('new')
+    expect(destination.searchParams.has('uri')).toBe(false)
+  })
+})
 
 function sortSelect(): HTMLSelectElement {
   const select = target.querySelector('select')

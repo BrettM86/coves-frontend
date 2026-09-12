@@ -35,6 +35,12 @@ vi.mock('$app/environment', () => ({
   building: false,
   version: 'test',
 }))
+vi.mock('$app/state', () => ({
+  page: {
+    url: new URL('http://localhost/c/community/post/author.test/1'),
+    state: {},
+  },
+}))
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
 vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn() }))
 vi.mock('$lib/app/state/auth.svelte', () => ({ profile: state.profile }))

@@ -33,6 +33,7 @@
     style?: string
     class?: ClassValue
     extraBadges?: import('svelte').Snippet
+    navigation?: import('svelte').Snippet
   }
 
   let {
@@ -45,6 +46,7 @@
     style = '',
     class: clazz = '',
     extraBadges: additionalBadges,
+    navigation,
   }: Props = $props()
 
   let tags = $derived(
@@ -116,6 +118,7 @@
   {style}
 >
   <PostMeta
+    {navigation}
     community={post.community}
     showCommunity={!hideCommunity}
     user={post.author}

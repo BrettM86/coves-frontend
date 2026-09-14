@@ -63,6 +63,7 @@ export async function load({ params, fetch, url, route }) {
         community: communityData,
         cursor: feedResponse.cursor,
         params: { ...p, cursor: feedResponse.cursor },
+        virtualList: { itemHeights: [] },
       }
     }).load({
       community: communityHandle,

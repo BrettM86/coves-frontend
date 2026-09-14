@@ -122,6 +122,15 @@ declare global {
     interface PageState {
       openImage?: string
       openModals?: string[]
+      postFeedOrigin?: {
+        url: string
+        scrollY: number
+        anchor?: {
+          postUri: string
+          href: string
+          viewportTop: number
+        }
+      }
     }
     // interface Platform {}
   }

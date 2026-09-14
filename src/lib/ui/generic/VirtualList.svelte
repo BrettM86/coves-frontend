@@ -6,15 +6,14 @@
   import type { HTMLAttributes } from 'svelte/elements'
   import { innerHeight } from 'svelte/reactivity/window'
   import { settings } from '$lib/app/state/settings.svelte'
+  import type { VirtualListRestoration } from '$lib/types/virtual-list'
 
   interface Props extends HTMLAttributes<HTMLDivElement> {
     items: T[]
     estimatedHeight?: number
     overscan?: number
     item: Snippet<[number]>
-    restore?: {
-      itemHeights: (number | null)[]
-    }
+    restore?: VirtualListRestoration
     initialOffset?: number
     debounceResize?: number
     useWindow?: boolean
@@ -27,7 +26,7 @@
     overscan = 6,
     item: itemSnippet,
     initialOffset = 0,
-    restore = $bindable(),
+    restore,
     debounceResize = 100,
     useWindow = true,
     height = 0,
@@ -38,7 +37,14 @@
 
   export function scrollToIndex(index: number, useWindow: boolean = false) {
     const targetPx = cumulativeItemHeights[index] - (initialOffset || 0)
-    if (targetPx < (innerHeight.current ?? 0)) return
+    const targetStart = index === 0 ? 0 : cumulativeItemHeights[index - 1]
+    const scrollTop = scrollY - (initialOffset || 0)
+    if (
+      targetStart >= scrollTop &&
+      cumulativeItemHeights[index] <= scrollTop + (innerHeight.current ?? 0)
+    ) {
+      return
+    }
     scrollY = targetPx
     if (useWindow && browser) {
       requestAnimationFrame(() => {
@@ -47,10 +53,10 @@
     }
   }
 
+  const restorationOwner = untrack(() => restore)
+
   onDestroy(() => {
-    restore = {
-      itemHeights: itemHeights,
-    }
+    if (restorationOwner) restorationOwner.itemHeights = [...itemHeights]
   })
 
   let virtualListEl = $state<HTMLElement>()
@@ -62,7 +68,7 @@
   // entries in as rows are measured.
   let itemHeights = $state<(number | null)[]>(
     untrack(() => [
-      ...(restore?.itemHeights ?? Array(items.length).fill(null)),
+      ...(restorationOwner?.itemHeights ?? Array(items.length).fill(null)),
     ]),
   )
 
@@ -169,16 +175,10 @@
   // to pick up a new `debounceResize` would drop any in-flight resize entries,
   // so the prop is read once here on purpose.
   const debouncedUpdate = debounce(
-    (entries: ResizeObserverEntry[]) => {
-      for (const entry of entries) {
-        const indexAttr = entry.target.getAttribute('data-index')
-        if (indexAttr === null) continue
-        const index = Number(indexAttr)
-        if (isNaN(index)) continue
-
-        const newHeight = entry.contentRect.height
-        if (itemHeights[index] !== newHeight) {
-          itemHeights[index] = newHeight
+    (measurements: { index: number; height: number }[]) => {
+      for (const measurement of measurements) {
+        if (itemHeights[measurement.index] !== measurement.height) {
+          itemHeights[measurement.index] = measurement.height
           if (!initialRender) visibleItems = updateVisibleItems()
         }
       }
@@ -187,7 +187,19 @@
   )
 
   const observer = new ResizeObserver((entries) => {
-    debouncedUpdate(entries)
+    const measurements: { index: number; height: number }[] = []
+    for (const entry of entries) {
+      const indexAttr = entry.target.getAttribute('data-index')
+      if (indexAttr === null) continue
+      const index = Number(indexAttr)
+      if (isNaN(index)) continue
+
+      const height =
+        entry.borderBoxSize?.[0]?.blockSize ??
+        entry.target.getBoundingClientRect().height
+      if (Number.isFinite(height)) measurements.push({ index, height })
+    }
+    debouncedUpdate(measurements)
   })
 
   onDestroy(() => {
@@ -240,7 +252,8 @@
 <div
   bind:this={virtualListEl}
   style="position: relative; height: {height ||
-    cumulativeItemHeights[visibleItems?.[visibleItems.length - 1]?.index]}px;"
+    cumulativeItemHeights[cumulativeItemHeights.length - 1] ||
+    0}px;"
   {...rest}
   id="feed"
   onscroll={() => {

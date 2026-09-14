@@ -55,6 +55,7 @@
       timeframe: data.params.timeframe,
     }}
     loadFeed={data.loadFeed}
+    virtualList={data.virtualList}
   >
     {#snippet extended()}
       {#if data.community}

@@ -33,6 +33,13 @@ vi.mock('$app/environment', () => ({
   version: 'test',
 }))
 
+vi.mock('$app/state', () => ({
+  page: {
+    url: new URL('https://coves.test/'),
+    state: {} satisfies App.PageState,
+  },
+}))
+
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
 
 // The Post subtree is irrelevant to pagination and would need a fully-formed

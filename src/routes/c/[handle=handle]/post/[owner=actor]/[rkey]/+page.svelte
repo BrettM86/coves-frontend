@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { replaceState } from '$app/navigation'
+  import { goto, replaceState } from '$app/navigation'
   import { page } from '$app/state'
   import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/state/auth.svelte'
@@ -11,9 +11,9 @@
   import { Post } from '$lib/feature/post'
   import { postLink, postTextFallback } from '$lib/feature/post/helpers'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
-  import { Pageination } from '$lib/ui/layout'
+  import { Header, Pageination } from '$lib/ui/layout'
   import { Button, Material, Spinner, toast } from '$lib/ui/kit'
-  import { Icon, Ban, MessageSquare } from '$lib/ui/kit/icon'
+  import { Icon, ArrowLeft, Ban, MessageSquare } from '$lib/ui/kit/icon'
   import { tick } from 'svelte'
   import { SvelteURL } from 'svelte/reactivity'
   import type { PageData } from './$types'
@@ -31,6 +31,27 @@
   const SCROLL_POLL_INTERVAL_MS = 50
 
   let commentProvider = $state<CommentProvider>()
+  const postFeedOrigin = page.state.postFeedOrigin
+
+  function handleBack(event: MouseEvent): void {
+    if (
+      !postFeedOrigin ||
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    // Skip intermediate post-page history while carrying feed restoration state.
+    void goto(postFeedOrigin.url, {
+      state: { postFeedOrigin },
+    })
+  }
 
   // `?uri=` is a one-use hint that lets the loader fetch a newly-created
   // record before the AppView has indexed it. Once that exact post renders on
@@ -205,12 +226,39 @@
   {/if}
 </svelte:head>
 
+{#snippet backNavigation()}
+  <Button
+    href={postFeedOrigin?.url ?? '/'}
+    size="custom"
+    color="none"
+    rounding="xl"
+    class="h-11 w-11 shrink-0 p-2 hover:bg-slate-100 focus-visible:bg-slate-100 dark:hover:bg-zinc-800 dark:focus-visible:bg-zinc-800"
+    title={$t('common.back')}
+    aria-label={$t('common.back')}
+    onclick={handleBack}
+  >
+    <Icon src={ArrowLeft} size="24" />
+  </Button>
+{/snippet}
+
+{#if !data.data.value?.post}
+  <Header pageHeader class="items-center">
+    {@render backNavigation()}
+  </Header>
+{/if}
+
 <div class="flex flex-col gap-4 w-full max-w-full">
   {#if data.data.value?.post}
     {@const post = data.data.value.post}
 
     <Material padding="none" rounding="2xl" class="overflow-hidden px-4">
-      <Post {post} actions={true} view="cozy" expandBody />
+      <Post
+        {post}
+        actions={true}
+        view="cozy"
+        expandBody
+        navigation={backNavigation}
+      />
     </Material>
 
     <!-- Comments Section -->
@@ -254,6 +302,7 @@
             href={(cursor) =>
               `?cursor=${encodeURIComponent(cursor)}&sort=${encodeURIComponent(data.data.value.params.comments.sort ?? 'hot')}`}
             back={false}
+            state={postFeedOrigin ? { postFeedOrigin } : undefined}
           />
         {/if}
         {#if comments.length === 0 && !post.stats?.commentCount}

@@ -44,6 +44,7 @@
     style?: string
     titleClass?: string
     extraBadges?: import('svelte').Snippet
+    navigation?: import('svelte').Snippet
     postUrl?: string
   }
 
@@ -65,6 +66,7 @@
     style = '',
     titleClass = '',
     extraBadges,
+    navigation,
   }: Props = $props()
 
   const badgeToData: Map<
@@ -105,8 +107,14 @@
     'text-xs min-w-0 max-w-full text-slate-600 dark:text-zinc-400',
   ]}
   class:compact={view == 'compact'}
+  class:has-navigation={!!navigation}
   {style}
 >
+  {#if navigation}
+    <div class="self-center mr-2" style="grid-area: navigation;">
+      {@render navigation()}
+    </div>
+  {/if}
   {#if showCommunity && community}
     <Popover>
       {#snippet target(attachment)}
@@ -321,6 +329,17 @@
     .meta.minimal {
       grid-template-columns: 0fr;
     }
+  }
+
+  .meta.has-navigation {
+    grid-template-areas:
+      'navigation avatar community badges'
+      'navigation avatar stats badges';
+    grid-template-columns: 52px 40px minmax(0, 1fr) auto;
+  }
+
+  .meta.has-navigation.minimal {
+    grid-template-columns: 52px 0 minmax(0, 1fr) auto;
   }
 
   :global(.badge-tag-color) {

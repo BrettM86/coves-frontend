@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invalidate } from '$app/navigation'
+  import { goto, invalidate } from '$app/navigation'
   import { page as pageData } from '$app/state'
   import { t } from '$lib/app/state/i18n'
   import { Button } from '$lib/ui/kit'
@@ -15,6 +15,7 @@
     children?: import('svelte').Snippet
     href?: (current: number | string) => string
     back?: boolean
+    state?: App.PageState
   }
 
   let {
@@ -24,6 +25,7 @@
     children,
     href,
     back = true,
+    state,
   }: Props = $props()
 
   let customHref = (href?: string) => {
@@ -37,6 +39,28 @@
 
       return `?${current.toString()}`
     } else return href
+  }
+
+  function handleClick(event: MouseEvent): void {
+    void invalidate(pageData.url)
+    if (
+      !state ||
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      !(event.currentTarget instanceof Element)
+    ) {
+      return
+    }
+
+    const destination = event.currentTarget.getAttribute('href')
+    if (!destination) return
+
+    event.preventDefault()
+    void goto(destination, { state })
   }
 </script>
 
@@ -59,7 +83,7 @@
       <Button
         href={customHref(href?.(cursor?.back ?? page - 1))}
         color="tertiary"
-        onclick={() => invalidate(pageData.url)}
+        onclick={handleClick}
         title={$t('common.back')}
         rounding="pill"
         size="custom"
@@ -91,7 +115,7 @@
     <Button
       href={customHref(href?.(cursor?.next ?? page + 1))}
       color="tertiary"
-      onclick={() => invalidate(pageData.url)}
+      onclick={handleClick}
       title={$t('common.next')}
       size="custom"
       rounding="pill"

@@ -13,7 +13,7 @@ vi.mock('$env/dynamic/public', () => ({ env: {} }))
 vi.mock('$app/state', () => ({
   page: {
     url: new URL('https://coves.test/'),
-    state: { marker: 'post-page' },
+    state: { marker: 'post-page' } as App.PageState & { marker?: string },
   },
 }))
 vi.mock('$app/navigation', () => ({
@@ -26,11 +26,11 @@ vi.mock('$lib/app/state/auth.svelte', () => ({
 }))
 const getComments = vi.hoisted(() => vi.fn())
 vi.mock('$lib/api/client.svelte', () => ({ coves: () => ({ getComments }) }))
-// The post body is unrelated; retain real comment controls and pagination.
 vi.mock('$lib/feature/post', async (importOriginal) => ({
   ...(await importOriginal<typeof import('$lib/feature/post')>()),
-  Post: () => {},
+  Post: (await import('$lib/feature/post/PostNavigation.test.svelte')).default,
 }))
+// The post body is unrelated; retain real comment controls and pagination.
 async function svelteClientEntry(subpath: string): Promise<unknown> {
   const { createRequire } = await import('node:module')
   const require_ = createRequire(import.meta.url)
@@ -59,6 +59,10 @@ import CommentPage from './comment/[commenter=actor]/[crkey]/+page.svelte'
 
 const postUri = 'at://did:plc:author/social.coves.community.postv2/one'
 const postPath = '/c/community.test/post/author.test/one'
+const feedOrigin: NonNullable<App.PageState['postFeedOrigin']> = {
+  url: '/?sort=top#focused',
+  scrollY: 481,
+}
 const post = {
   uri: postUri,
   cid: 'bafytest',
@@ -78,6 +82,7 @@ let mounted: ReturnType<(typeof import('svelte'))['mount']> | undefined
 beforeEach(async () => {
   client = await import('svelte')
   window.history.replaceState({}, '', '/')
+  page.state = {}
   vi.mocked(goto).mockReset().mockResolvedValue()
   vi.mocked(replaceState).mockReset()
   getComments
@@ -215,6 +220,42 @@ function chooseSort(sort: string) {
   sortSelect().dispatchEvent(new Event('change', { bubbles: true }))
   client.flushSync()
 }
+function backLink(): HTMLAnchorElement {
+  const link = [...target.querySelectorAll<HTMLAnchorElement>('a')].find(
+    (candidate) => {
+      const name =
+        candidate.getAttribute('aria-label') ??
+        candidate.textContent?.trim() ??
+        candidate.getAttribute('title') ??
+        ''
+      return /^back$/i.test(name)
+    },
+  )
+  if (!link) throw new Error('Missing Back link')
+  return link
+}
+function clickLink(
+  link: HTMLAnchorElement,
+  init: MouseEventInit = {},
+): boolean {
+  const event = new MouseEvent('click', {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+    ...init,
+  })
+  let preventedByComponent = false
+  window.addEventListener(
+    'click',
+    (arrivingEvent) => {
+      preventedByComponent = arrivingEvent.defaultPrevented
+      arrivingEvent.preventDefault()
+    },
+    { once: true },
+  )
+  link.dispatchEvent(event)
+  return preventedByComponent
+}
 function nextLink(): HTMLAnchorElement | null {
   return target.querySelector('a[title="Next"]')
 }
@@ -246,6 +287,31 @@ describe('post comment navigation', () => {
       await vi.waitFor(() => expect(settings.defaultSort.comments).toBe('new'))
     },
   )
+
+  it('carries the feed origin through sort navigation so Back survives a remount', async () => {
+    page.state = { postFeedOrigin: feedOrigin }
+    await mountPage('?sort=hot')
+    chooseSort('new')
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledTimes(1))
+
+    const [sortDestination, sortOptions] = vi.mocked(goto).mock.calls[0]
+    expect.soft(sortOptions?.state).toEqual({ postFeedOrigin: feedOrigin })
+
+    if (mounted) await client.unmount(mounted, { outro: false })
+    mounted = undefined
+    target.replaceChildren()
+    page.state = sortOptions?.state ?? {}
+    const sortedUrl = new URL(String(sortDestination), page.url)
+    await mountPage(`${sortedUrl.search}${sortedUrl.hash}`)
+
+    vi.mocked(goto).mockClear()
+    const back = backLink()
+    expect.soft(back.getAttribute('href')).toBe(feedOrigin.url)
+    clickLink(back)
+    expect(goto).toHaveBeenCalledWith(feedOrigin.url, {
+      state: { postFeedOrigin: feedOrigin },
+    })
+  })
 
   it('shows the loaded sort even when the saved default differs', async () => {
     settings.defaultSort.comments = 'top'
@@ -297,6 +363,39 @@ describe('post comment navigation', () => {
       expect(destination.searchParams.get('thread')).toBe('0.focus')
     },
   )
+
+  it('carries the feed origin through Next navigation so Back survives a remount', async () => {
+    page.state = { postFeedOrigin: feedOrigin }
+    await mountPage('?sort=hot&cursor=old-hot', 'opaque+/=2')
+    const next = nextLink()
+    if (!next) throw new Error('Missing Next link')
+    const expectedNextUrl = nextUrl()
+
+    expect(clickLink(next, { ctrlKey: true })).toBe(false)
+    expect(goto).not.toHaveBeenCalled()
+
+    expect.soft(clickLink(next)).toBe(true)
+    expect.soft(goto).toHaveBeenCalledTimes(1)
+    const nextCall = vi.mocked(goto).mock.calls[0]
+    const nextDestination = nextCall?.[0] ?? expectedNextUrl
+    const nextOptions = nextCall?.[1]
+    expect.soft(nextOptions?.state).toEqual({ postFeedOrigin: feedOrigin })
+
+    if (mounted) await client.unmount(mounted, { outro: false })
+    mounted = undefined
+    target.replaceChildren()
+    page.state = nextOptions?.state ?? {}
+    const paginatedUrl = new URL(String(nextDestination), page.url)
+    await mountPage(`${paginatedUrl.search}${paginatedUrl.hash}`)
+
+    vi.mocked(goto).mockClear()
+    const back = backLink()
+    expect.soft(back.getAttribute('href')).toBe(feedOrigin.url)
+    clickLink(back)
+    expect(goto).toHaveBeenCalledWith(feedOrigin.url, {
+      state: { postFeedOrigin: feedOrigin },
+    })
+  })
 
   it('offers retry when the streamed comments fail after navigation', async () => {
     const value = await mountPage('?sort=hot&cursor=old-hot')

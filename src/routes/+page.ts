@@ -27,6 +27,7 @@ export async function load({ url, fetch, route }) {
       feed: response.feed ?? [],
       cursor: response.cursor,
       params: { ...params, cursor: response.cursor },
+      virtualList: { itemHeights: [] },
     }
   }).load({
     cursor: cursor,

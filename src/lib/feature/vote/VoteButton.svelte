@@ -125,7 +125,7 @@
     class={[
       'flex items-center justify-center transition-colors cursor-pointer disabled:cursor-default',
       variant === 'post'
-        ? 'gap-1 rounded-xl px-2 py-1.5 shadow-xs'
+        ? 'gap-1 rounded-xl px-2 py-1.5'
         : 'gap-0.5 rounded-full px-1.5 py-1',
       upvoted ? 'text-[#FF0033]' : 'btn-tertiary',
     ]}

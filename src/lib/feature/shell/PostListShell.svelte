@@ -19,6 +19,7 @@
   import { untrack, type Snippet } from 'svelte'
   import { Icon, ArrowRight } from '$lib/ui/kit/icon'
   import { Header, Pageination } from '$lib/ui/layout'
+  import type { VirtualListRestoration } from '$lib/types/virtual-list'
 
   interface Props {
     posts: FeedViewPost[]
@@ -35,6 +36,7 @@
     loadFeed?: (
       params: FeedPaginationParams,
     ) => Promise<{ feed: FeedViewPost[]; cursor?: string }>
+    virtualList?: VirtualListRestoration
   }
 
   let {
@@ -46,6 +48,7 @@
     getParams,
     header = true,
     loadFeed,
+    virtualList,
   }: Props = $props()
 
   function resolveSort(sort?: string, timeframe?: string): CovesSortParams {
@@ -70,12 +73,6 @@
     filters.sort = routeSort.sort
     filters.timeframe = routeSort.timeframe
   })
-
-  const FeedComponent = $derived(
-    settings.infiniteScroll && browser && !settings.posts.noVirtualize
-      ? VirtualFeed
-      : PostFeed,
-  )
 </script>
 
 <div class="flex flex-col gap-2 max-w-full w-full min-w-0">
@@ -138,7 +135,11 @@
     </Header>
   {/if}
 
-  <FeedComponent bind:posts bind:params={getParams} {loadFeed} />
+  {#if settings.infiniteScroll && browser && !settings.posts.noVirtualize}
+    <VirtualFeed bind:posts bind:params={getParams} {loadFeed} {virtualList} />
+  {:else}
+    <PostFeed bind:posts />
+  {/if}
   <svelte:element
     this={settings.infiniteScroll && !settings.posts.noVirtualize
       ? 'noscript'

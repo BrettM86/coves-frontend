@@ -19,12 +19,6 @@
   // Defaults are saved by the controls themselves (SortMenu, FeedTabs) on a
   // real selection. Persisting from here instead would rewrite them for anyone
   // who merely *opened* a link that named a sort or feed.
-
-  const FeedComponent = $derived(
-    settings.infiniteScroll && browser && !settings.posts.noVirtualize
-      ? VirtualFeed
-      : PostFeed,
-  )
 </script>
 
 <svelte:head>
@@ -59,11 +53,16 @@
   </div>
 {:then feed}
   {#if feed}
-    <FeedComponent
-      bind:posts={feed.feed}
-      bind:params={feed.params}
-      loadFeed={data.loadFeed}
-    />
+    {#if settings.infiniteScroll && browser && !settings.posts.noVirtualize}
+      <VirtualFeed
+        bind:posts={feed.feed}
+        bind:params={feed.params}
+        virtualList={feed.virtualList}
+        loadFeed={data.loadFeed}
+      />
+    {:else}
+      <PostFeed bind:posts={feed.feed} />
+    {/if}
     <svelte:element
       this={settings.infiniteScroll && !settings.posts.noVirtualize
         ? 'noscript'

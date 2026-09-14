@@ -83,7 +83,11 @@
     try {
       // Cursors belong to a sort order. Navigation keeps the URL, loader cache,
       // and Back/Forward history on the same page as the displayed comments.
-      await goto(url, { noScroll: true, keepFocus: true })
+      await goto(url, {
+        noScroll: true,
+        keepFocus: true,
+        state: page.state,
+      })
       settings.defaultSort.comments = nextSort
     } catch (err) {
       selectedSort = activeSort

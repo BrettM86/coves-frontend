@@ -17,6 +17,7 @@ import type { CommunitySortType } from '$lib/api/coves/sort'
 import { profile } from '$lib/app/state/auth.svelte'
 import { recursiveEqual } from '$lib/app/util/array'
 import { log } from '$lib/app/util/log'
+import type { VirtualListRestoration } from '$lib/types/virtual-list'
 import { SvelteMap } from 'svelte/reactivity'
 
 type FetchFn<P, R> = (params: P) => R
@@ -99,6 +100,7 @@ export interface FeedTypes {
         listing?: 'discover' | 'timeline'
         cursor?: string
       }
+      virtualList?: VirtualListRestoration
     },
   ]
   '/c/[handle=handle]': [
@@ -108,6 +110,7 @@ export interface FeedTypes {
       community: CommunityViewDetailed
       cursor?: string
       params: FeedPaginationParams & { community: string; cursor?: string }
+      virtualList?: VirtualListRestoration
     },
   ]
   '/profile/[handle=actor]': [

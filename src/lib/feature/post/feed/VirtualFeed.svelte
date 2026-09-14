@@ -23,11 +23,14 @@
   import { expoOut } from 'svelte/easing'
   import { fly } from 'svelte/transition'
   import { Post } from '..'
+  import type { VirtualListRestoration } from '$lib/types/virtual-list'
+  import { handlePostFeedClick } from './navigation'
+  import { restorePostFeedScrollWhen } from './restoration.svelte'
 
   interface Props {
     posts: FeedViewPost[]
     params: FeedPaginationParams
-    virtualList?: { itemHeights: (number | null)[] }
+    virtualList?: VirtualListRestoration
     lastSeen?: number
     community?: boolean
     loadFeed?: (
@@ -39,7 +42,7 @@
   let {
     posts = $bindable(),
     params = $bindable(),
-    virtualList = $bindable(),
+    virtualList,
     lastSeen = $bindable(0),
     community = false,
     loadFeed,
@@ -50,6 +53,19 @@
   let listComp = $state<{
     scrollToIndex: (index: number, window?: boolean) => void
   }>()
+
+  restorePostFeedScrollWhen(
+    () =>
+      posts.length > 0 && listEl?.querySelector('#feed') ? listEl : undefined,
+    (postUri) => {
+      const index = posts.findIndex(({ post }) => post.uri === postUri)
+      if (index >= 0) listComp?.scrollToIndex(index)
+    },
+  )
+  let restoringFeed = $derived(
+    page.state?.postFeedOrigin?.url ===
+      `${page.url.pathname}${page.url.search}${page.url.hash}`,
+  )
 
   let error = $state<unknown>()
   let isAuthError = $derived(
@@ -314,7 +330,13 @@
   let initialOffset = $derived(listEl?.offsetTop)
 </script>
 
-<ul class="flex flex-col list-none" bind:this={listEl}>
+<!-- svelte-ignore a11y_click_events_have_key_events (delegates native anchor clicks) -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions (delegates native anchor clicks) -->
+<ul
+  class="flex flex-col list-none"
+  bind:this={listEl}
+  onclick={handlePostFeedClick}
+>
   {#key posts}
     {#if posts?.length == 0}
       <div class="h-full grid place-items-center my-8">
@@ -341,7 +363,7 @@
         {initialOffset}
         overscan={3}
         estimatedHeight={settings.view == 'cozy' ? 500 : 150}
-        bind:restore={virtualList}
+        restore={virtualList}
         bind:this={listComp}
       >
         {#snippet item(row)}
@@ -349,10 +371,11 @@
           {@const isPinned =
             feedPost?.reason?.$type === 'social.coves.feed.defs#reasonPin'}
           <li
-            in:fly={row < 7
+            in:fly={row < 7 && !restoringFeed
               ? { duration: 800, easing: expoOut, y: 24, delay: row * 50 }
               : { opacity: 1, duration: 0 }}
             data-index={row}
+            data-post-uri={feedPost.post.uri}
             class={['relative post-container', row < 7 && '']}
           >
             <Post

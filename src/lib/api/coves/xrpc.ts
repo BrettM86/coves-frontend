@@ -1,13 +1,19 @@
 // XRPC transport layer for ATProto lexicon calls.
 
 export class XrpcError extends Error {
+  declare readonly retryAfterSeconds?: number
+
   constructor(
     public status: number,
     public errorName: string,
     message: string,
+    retryAfterSeconds?: number,
   ) {
     super(message)
     this.name = 'XrpcError'
+    if (retryAfterSeconds !== undefined) {
+      this.retryAfterSeconds = retryAfterSeconds
+    }
   }
 }
 
@@ -117,7 +123,19 @@ export class XrpcClient {
         typeof body.message === 'string'
           ? body.message
           : `XRPC request failed with status ${res.status}`
-      return new XrpcError(res.status, errorName, message)
+      let retryAfterSeconds: number | undefined
+      if (res.status === 503 && errorName === 'DiscoverUnavailable') {
+        const retryAfter = res.headers.get('Retry-After')
+        if (retryAfter !== null && /^[0-9]+$/.test(retryAfter)) {
+          const significantDigits = retryAfter.replace(/^0+/, '') || '0'
+          retryAfterSeconds =
+            significantDigits.length > 3 ||
+            (significantDigits.length === 3 && significantDigits > '300')
+              ? 300
+              : Number(significantDigits)
+        }
+      }
+      return new XrpcError(res.status, errorName, message, retryAfterSeconds)
     } catch {
       return new XrpcError(
         res.status,

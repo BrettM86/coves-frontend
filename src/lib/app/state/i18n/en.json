@@ -767,7 +767,8 @@
     "message": {
         "success": "Success",
         "error": "Error",
-        "retry": "Retry"
+        "retry": "Retry",
+        "retryAfter": "Try again in {{seconds}} seconds"
     },
     "toast": {
         "noComments": "The API returned no comments.",

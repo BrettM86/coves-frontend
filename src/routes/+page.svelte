@@ -2,6 +2,7 @@
   import { browser } from '$app/environment'
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
+  import { profile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
   import FeedTabs from '$lib/feature/filter/FeedTabs.svelte'
@@ -14,11 +15,81 @@
   import { Header, Pageination } from '$lib/ui/layout'
   import { Button } from '$lib/ui/kit'
   import { Archive, ExternalLink } from '$lib/ui/kit/icon'
+  import { untrack } from 'svelte'
   let { data = $bindable() } = $props()
 
   // Defaults are saved by the controls themselves (SortMenu, FeedTabs) on a
   // real selection. Persisting from here instead would rewrite them for anyone
   // who merely *opened* a link that named a sort or feed.
+
+  let virtualFeed = $state<VirtualFeed>()
+
+  function viewerIdentity(): string | undefined {
+    const viewer = profile.current
+    return viewer.type === 'authenticated' ? viewer.did : undefined
+  }
+
+  let feedViewerIdentity = data.viewerIdentity
+  $effect.pre(() => {
+    const currentViewerIdentity = viewerIdentity()
+    const routeOwnsFeed =
+      !browser ||
+      !settings.infiniteScroll ||
+      settings.posts.noVirtualize ||
+      !virtualFeed
+
+    if (currentViewerIdentity === feedViewerIdentity) return
+
+    feedViewerIdentity = currentViewerIdentity
+    if (routeOwnsFeed) {
+      data.feed.value = untrack(() => data.loadPageOne(currentViewerIdentity))
+    }
+  })
+
+  let retryRemainingSeconds = $state(0)
+  let retryTimeout: number | undefined
+
+  function clearRetryTimeout(): void {
+    if (retryTimeout !== undefined) clearTimeout(retryTimeout)
+    retryTimeout = undefined
+  }
+
+  $effect(() => {
+    const retryDeadline = data.recovery.value.retryDeadline
+    clearRetryTimeout()
+    retryRemainingSeconds = 0
+    if (retryDeadline === undefined) return
+
+    const update = () => {
+      const remainingSeconds = Math.max(
+        0,
+        Math.ceil((retryDeadline - Date.now()) / 1000),
+      )
+      retryRemainingSeconds = remainingSeconds
+      if (remainingSeconds === 0) {
+        retryTimeout = undefined
+        return
+      }
+
+      const nextSecond = Math.max(
+        1,
+        retryDeadline - Date.now() - (remainingSeconds - 1) * 1000,
+      )
+      retryTimeout = Number(setTimeout(update, nextSecond))
+    }
+
+    update()
+    return clearRetryTimeout
+  })
+
+  function retryRoute(): void {
+    if (retryRemainingSeconds > 0) return
+    const target = new URL(page.url)
+    if (data.recovery.value.target === 'page-one') {
+      target.searchParams.delete('cursor')
+    }
+    void goto(target, { invalidateAll: true })
+  }
 </script>
 
 <svelte:head>
@@ -55,6 +126,7 @@
   {#if feed}
     {#if settings.infiniteScroll && browser && !settings.posts.noVirtualize}
       <VirtualFeed
+        bind:this={virtualFeed}
         bind:posts={feed.feed}
         bind:params={feed.params}
         virtualList={feed.virtualList}
@@ -69,8 +141,8 @@
         : 'div'}
     >
       <Pageination
-        cursor={{ next: feed.cursor }}
-        hasMore={!!feed.cursor}
+        cursor={{ next: feed.params.cursor }}
+        hasMore={!!feed.params.cursor}
         href={(page) =>
           typeof page == 'number'
             ? `?page=${page}`
@@ -104,7 +176,15 @@
     <p class="text-sm text-slate-500 dark:text-zinc-400">
       {error?.message ?? String(error)}
     </p>
-    <Button onclick={() => goto(page.url, { invalidateAll: true })}>
+    {#if retryRemainingSeconds > 0}
+      <p role="status" aria-live="off" aria-atomic="true">
+        {$t('message.retryAfter', { seconds: retryRemainingSeconds })}
+      </p>
+    {/if}
+    <Button
+      disabled={retryRemainingSeconds > 0}
+      onclick={retryRoute}
+    >
       {$t('message.retry')}
     </Button>
   </div>

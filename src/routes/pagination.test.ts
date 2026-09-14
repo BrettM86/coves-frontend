@@ -75,9 +75,27 @@ describe('cursor pagination rendered navigation', () => {
       expect(links[0].searchParams.get('type')).toBe('timeline')
     })
   }
+
+  it('uses the current home feed params cursor after recovery', () => {
+    const links = nextLinks(
+      feedMarkup('home', 'stale-cursor', { cursor: 'recovered-cursor' }),
+    )
+    expect(links).toHaveLength(1)
+    expect(links[0].searchParams.get('cursor')).toBe('recovered-cursor')
+  })
+
+  it('has no Next link when recovery exhausts the home feed cursor', () => {
+    expect(
+      nextLinks(feedMarkup('home', 'stale-cursor', { cursor: undefined })),
+    ).toEqual([])
+  })
 })
 
-function feedMarkup(kind: 'home' | 'community', cursor?: string): string {
+function feedMarkup(
+  kind: 'home' | 'community',
+  cursor?: string,
+  params = { cursor },
+): string {
   const renderContext = context('/?sort=top&timeframe=week&type=timeline')
   if (kind === 'community') {
     return render(PostListShell, {
@@ -88,7 +106,7 @@ function feedMarkup(kind: 'home' | 'community', cursor?: string): string {
   return render(HomePage, {
     props: {
       data: {
-        feed: { value: { feed: [], cursor, params: {} } },
+        feed: { value: { feed: [], cursor, params } },
         filters: {
           value: { type_: 'timeline', sort: 'top', timeframe: 'week' },
         },

@@ -9,10 +9,11 @@
   import { t } from '$lib/app/state/i18n'
   import VirtualList from '$lib/ui/generic/VirtualList.svelte'
   import { settings } from '$lib/app/state/settings.svelte'
+  import { profile } from '$lib/app/state/auth.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { Button, Material, Spinner } from '$lib/ui/kit'
-  import { onMount, tick, untrack } from 'svelte'
+  import { onDestroy, onMount, tick, untrack } from 'svelte'
   import {
     Icon,
     Archive,
@@ -27,14 +28,20 @@
   import { handlePostFeedClick } from './navigation'
   import { restorePostFeedScrollWhen } from './restoration.svelte'
 
+  type VirtualFeedParams = FeedPaginationParams & {
+    listing?: string
+  }
+
+  type RetryTarget = 'page-one' | 'current-cursor'
+
   interface Props {
     posts: FeedViewPost[]
-    params: FeedPaginationParams
+    params: VirtualFeedParams
     virtualList?: VirtualListRestoration
     lastSeen?: number
     community?: boolean
     loadFeed?: (
-      params: FeedPaginationParams,
+      params: VirtualFeedParams,
     ) => Promise<{ feed: FeedViewPost[]; cursor?: string }>
     children?: import('svelte').Snippet
   }
@@ -73,6 +80,80 @@
       (error.status === 401 || error.status === 403),
   )
   let loading = $state(false)
+  let retryDeadline = $state<number>()
+  let retryRemainingSeconds = $state(0)
+  let retryTarget: RetryTarget | undefined
+  let retryTimeout: number | undefined
+  let destroyed = false
+  let loadGeneration = 0
+
+  function viewerIdentity(): string | undefined {
+    const viewer = profile.current
+    return viewer.type === 'authenticated' ? viewer.did : undefined
+  }
+
+  function cancelRetryTimeout(): void {
+    if (retryTimeout !== undefined) clearTimeout(retryTimeout)
+    retryTimeout = undefined
+  }
+
+  function clearRetryCooldown(): void {
+    cancelRetryTimeout()
+    retryDeadline = undefined
+    retryRemainingSeconds = 0
+    retryTarget = undefined
+  }
+
+  onDestroy(() => {
+    destroyed = true
+    loadGeneration++
+    cancelRetryTimeout()
+  })
+
+  function updateRetryCooldown(): void {
+    if (destroyed || retryDeadline === undefined) return
+
+    retryRemainingSeconds = Math.max(
+      0,
+      Math.ceil((retryDeadline - Date.now()) / 1000),
+    )
+    if (retryRemainingSeconds === 0) {
+      retryTimeout = undefined
+      return
+    }
+
+    const nextSecond = Math.max(
+      1,
+      retryDeadline - Date.now() - (retryRemainingSeconds - 1) * 1000,
+    )
+    retryTimeout = Number(setTimeout(updateRetryCooldown, nextSecond))
+  }
+
+  function showLoadError(
+    loadError: unknown,
+    config: VirtualFeedParams,
+    target: RetryTarget,
+  ): void {
+    if (destroyed) return
+
+    clearRetryCooldown()
+    error = loadError
+    retryTarget = target
+
+    if (
+      loadError instanceof XrpcError &&
+      loadError.status === 503 &&
+      loadError.errorName === 'DiscoverUnavailable' &&
+      config.listing === 'discover' &&
+      config.sort === 'hot' &&
+      loadError.retryAfterSeconds !== undefined &&
+      Number.isFinite(loadError.retryAfterSeconds) &&
+      loadError.retryAfterSeconds > 0
+    ) {
+      retryDeadline = Date.now() + loadError.retryAfterSeconds * 1000
+      updateRetryCooldown()
+    }
+  }
 
   // A plain Set: `seenUris` is only ever read and written inside loadMore(),
   // never from the template, so it carries no reactivity.
@@ -109,12 +190,14 @@
   let hasMore = $state(untrack(() => !!loadFeed))
   let seenUris = untrack(() => seedSeenUris(posts))
   let lastPosts = untrack(() => posts)
+  let lastViewerIdentity = untrack(viewerIdentity)
 
   $effect(() => {
     const feed = posts
     untrack(() => {
       if (feed === lastPosts) return
       lastPosts = feed
+      clearRetryCooldown()
       seenUris = seedSeenUris(feed)
       hasMore = !!loadFeed
       // `error` is per-feed state too. The markup is an if/else chain —
@@ -123,6 +206,30 @@
       // a feed the user has left AND permanently stall the new one, because
       // the sentinel that triggers page 2 never gets mounted.
       error = undefined
+    })
+  })
+
+  $effect(() => {
+    const currentViewerIdentity = viewerIdentity()
+    untrack(() => {
+      if (currentViewerIdentity === lastViewerIdentity) return
+      lastViewerIdentity = currentViewerIdentity
+      loadGeneration++
+      loading = false
+      pendingTrigger = false
+      clearRetryCooldown()
+      error = undefined
+      hasMore = !!loadFeed
+      posts = []
+      lastPosts = posts
+      seenUris = seedSeenUris(posts)
+      params = { ...params, cursor: undefined }
+
+      if (loadFeed) {
+        queueMicrotask(() => {
+          if (!destroyed && viewerIdentity() === currentViewerIdentity) loadMore()
+        })
+      }
     })
   })
 
@@ -171,44 +278,83 @@
     return rect.top - SCROLL_THRESHOLD <= window.innerHeight && rect.bottom >= 0
   }
 
-  async function loadMore(): Promise<void> {
+  async function loadMore(manualRetry = false): Promise<void> {
+    if (destroyed) return
+    if (error && !manualRetry) return
+
+    const cooldownTarget = retryTarget
+    if (retryDeadline !== undefined) {
+      if (Date.now() < retryDeadline) return
+      clearRetryCooldown()
+    }
+    if (cooldownTarget === 'page-one' && params.cursor !== undefined) {
+      params = { ...params, cursor: undefined }
+    }
+
     if (loading) {
       pendingTrigger = true
       return
     }
     if (!hasMore || !loadFeed) return
 
-    // Captured before the await: a navigation can swap the feed while a page
-    // is in flight, and every write below targets live bindables. A settlement
-    // that arrives for a feed the user has left must be discarded wholesale —
-    // the reset $effect above has already re-seeded the per-feed state, and
-    // committing would splice the old feed's page into the new feed's array
-    // and overwrite its cursor with the old feed's continuation.
+    const generation = ++loadGeneration
+    // Captured before the await: a navigation can swap any of these while a
+    // page is in flight, and every write below targets live bindables.
     const feed = posts
+    const requestParams = params
+    const requestLoadFeed = loadFeed
+    const requestViewerIdentity = viewerIdentity()
+    const requestConfig = {
+      listing: requestParams.listing,
+      sort: requestParams.sort,
+      timeframe: requestParams.timeframe,
+      limit: requestParams.limit,
+      cursor: requestParams.cursor,
+    }
+    const ownsRequest = (
+      expectedParams: VirtualFeedParams,
+      expectedCursor: string | undefined,
+    ): boolean =>
+      !destroyed &&
+      generation === loadGeneration &&
+      viewerIdentity() === requestViewerIdentity &&
+      posts === feed &&
+      params === expectedParams &&
+      loadFeed === requestLoadFeed &&
+      params.listing === requestConfig.listing &&
+      params.sort === requestConfig.sort &&
+      params.timeframe === requestConfig.timeframe &&
+      params.limit === requestConfig.limit &&
+      params.cursor === expectedCursor
 
     try {
       loading = true
 
-      const response = await loadFeed(params)
+      const response = await requestLoadFeed(requestParams)
 
-      if (posts !== feed) return
+      if (!ownsRequest(requestParams, requestConfig.cursor)) return
 
+      clearRetryCooldown()
       error = undefined
 
-      const requestedCursor = params.cursor
-
-      if (response.cursor) {
-        params = { ...params, cursor: response.cursor }
-      }
-
+      const requestedCursor = requestConfig.cursor
+      const replacePosts = manualRetry && cooldownTarget === 'page-one'
+      const responseUris = replacePosts ? seedSeenUris(undefined) : seenUris
       const added = response.feed.filter((feedPost) => {
         const uri = feedPost.post.uri as string
-        if (seenUris.has(uri)) return false
-        seenUris.add(uri)
+        if (responseUris.has(uri)) return false
+        responseUris.add(uri)
         return true
       })
 
-      posts.push(...added)
+      params = { ...requestParams, cursor: response.cursor }
+      if (replacePosts) {
+        seenUris = responseUris
+        posts = added
+        lastPosts = posts
+      } else {
+        posts.push(...added)
+      }
 
       // `hasMore` is deliberately computed from the post-dedupe count, not
       // from response.feed.length. A backend whose cursor fails to advance
@@ -226,43 +372,106 @@
 
       hasMore = added.length !== 0 && !!response.cursor
     } catch (e) {
-      if (posts !== feed) {
+      if (!ownsRequest(requestParams, requestConfig.cursor)) {
         // Not `error = e`: that would raise an error banner on the new feed
         // about a request the old feed made.
         log.warn('Discarding failed page load for a feed no longer shown', e)
         return
       }
-      log.error('Failed to load more posts', e)
-      error = e
+
+      const shouldRecover =
+        e instanceof XrpcError &&
+        e.status === 400 &&
+        e.errorName === 'InvalidCursor' &&
+        requestConfig.listing === 'discover' &&
+        requestConfig.sort === 'hot' &&
+        !!requestConfig.cursor
+
+      if (!shouldRecover) {
+        log.error('Failed to load more posts', e)
+        showLoadError(
+          e,
+          requestConfig,
+          requestConfig.cursor ? 'current-cursor' : 'page-one',
+        )
+      } else {
+        params = { ...requestParams, cursor: undefined }
+        // A bindable $state value is proxied by its owner. Read it back after
+        // assignment so request ownership compares proxy identity to proxy
+        // identity rather than to the raw object assigned above.
+        const recoveryParams = params
+
+        try {
+          const response = await requestLoadFeed(recoveryParams)
+
+          if (!ownsRequest(recoveryParams, undefined)) return
+
+          const replacementUris = seedSeenUris(undefined)
+          const replacement = response.feed.filter((feedPost) => {
+            const uri = feedPost.post.uri as string
+            if (replacementUris.has(uri)) return false
+            replacementUris.add(uri)
+            return true
+          })
+
+          params = { ...recoveryParams, cursor: response.cursor }
+          hasMore = replacement.length !== 0 && !!response.cursor
+          seenUris = replacementUris
+          clearRetryCooldown()
+          error = undefined
+          posts = replacement
+          // Keep the feed-switch effect aligned with the owner's proxy too.
+          lastPosts = posts
+        } catch (recoveryError) {
+          if (!ownsRequest(recoveryParams, undefined)) {
+            log.warn(
+              'Discarding failed cursor recovery for a feed no longer shown',
+              recoveryError,
+            )
+            return
+          }
+          log.error('Failed to recover feed from invalid cursor', recoveryError)
+          showLoadError(recoveryError, requestConfig, 'page-one')
+        }
+      }
     } finally {
-      // Released unconditionally: `loading` belongs to the request, not the
-      // feed, and leaving it latched would block the new feed's first page.
-      loading = false
+      if (!destroyed && generation === loadGeneration) {
+        // `loading` belongs to the request, not the feed, and leaving it latched
+        // would block the new feed's first page.
+        loading = false
 
-      // Re-arm on EVERY settle, including the two discard paths above that
-      // return early for a feed the user has left, and the error path. Those
-      // are precisely the cases where a trigger went missing: nothing else
-      // will call loadMore() again, because the observer has already reported
-      // the only intersection change it is ever going to see.
-      //
-      // Two reasons to continue: a trigger arrived while this request held
-      // `loading` (pendingTrigger), or the sentinel is still in view now that
-      // this page has rendered — a short first page under a tall viewport
-      // never leaves the spinner, so it never re-intersects.
-      //
-      // Everything consulted after the await is CURRENT state, never the
-      // captured `feed`: on a discard path the reset $effect has already run
-      // (tick() flushes it) and `hasMore`/`error`/`sentinel` describe the feed
-      // now on screen, which is the feed that needs the next page.
-      const missedTrigger = pendingTrigger
-      pendingTrigger = false
+        // Re-arm on EVERY settle, including the two discard paths above that
+        // return early for a feed the user has left, and the error path. Those
+        // are precisely the cases where a trigger went missing: nothing else
+        // will call loadMore() again, because the observer has already reported
+        // the only intersection change it is ever going to see.
+        //
+        // Two reasons to continue: a trigger arrived while this request held
+        // `loading` (pendingTrigger), or the sentinel is still in view now that
+        // this page has rendered — a short first page under a tall viewport
+        // never leaves the spinner, so it never re-intersects.
+        //
+        // Everything consulted after the await is CURRENT state, never the
+        // captured `feed`: on a discard path the reset $effect has already run
+        // (tick() flushes it) and `hasMore`/`error`/`sentinel` describe the feed
+        // now on screen, which is the feed that needs the next page.
+        const missedTrigger = pendingTrigger
+        pendingTrigger = false
 
-      if (browser) {
-        await tick()
-        if (!error && hasMore && (missedTrigger || sentinelInView())) {
-          // Queued rather than awaited so a run of short pages unwinds this
-          // frame instead of nesting one loadMore() inside the last.
-          queueMicrotask(() => loadMore())
+        if (browser) {
+          await tick()
+          if (
+            !destroyed &&
+            !error &&
+            hasMore &&
+            (missedTrigger || sentinelInView())
+          ) {
+            // Queued rather than awaited so a run of short pages unwinds this
+            // frame instead of nesting one loadMore() inside the last.
+            queueMicrotask(() => {
+              if (!destroyed) loadMore()
+            })
+          }
         }
       }
     }
@@ -307,14 +516,20 @@
     document.querySelectorAll('.post-container').forEach(observePost)
 
     const feed = document.getElementById('feed')
-    if (!feed) return
+    if (!feed) return () => observer.disconnect()
 
-    new MutationObserver((mutations) => {
+    const mutationObserver = new MutationObserver((mutations) => {
       mutations.forEach(({ addedNodes, removedNodes }) => {
         addedNodes.forEach(observePost)
         removedNodes.forEach(unobservePost)
       })
-    }).observe(feed, { childList: true, subtree: false })
+    })
+    mutationObserver.observe(feed, { childList: true, subtree: false })
+
+    return () => {
+      observer.disconnect()
+      mutationObserver.disconnect()
+    }
   })
 
   $effect(() => {
@@ -393,7 +608,7 @@
     {/if}
   {/key}
 
-  {#if settings.infiniteScroll && browser && posts.length > 0}
+  {#if settings.infiniteScroll && browser && (posts.length > 0 || error)}
     {#if error}
       <Material color="error" class="flex flex-col gap-4">
         <div>
@@ -405,7 +620,24 @@
           {#if isAuthError}
             {$t('toast.sessionExpired')}
           {:else}
-            {errorMessage(error)}
+            {error instanceof XrpcError &&
+            error.errorName === 'DiscoverUnavailable'
+              ? error.message
+              : errorMessage(error)}
+            {#if retryDeadline !== undefined}
+              <div role="status" aria-live="off" aria-atomic="true">
+                {#if retryRemainingSeconds > 0}
+                  {@const retryAfter = $t('message.retryAfter', {
+                    seconds: retryRemainingSeconds,
+                  })}
+                  {retryRemainingSeconds === 1
+                    ? retryAfter.replace(/\bseconds\b/, 'second')
+                    : retryAfter}
+                {:else}
+                  <span class="sr-only">{$t('message.retry')}</span>
+                {/if}
+              </div>
+            {/if}
           {/if}
         </div>
         {#if isAuthError}
@@ -416,8 +648,8 @@
           <Button
             color="primary"
             {loading}
-            disabled={loading}
-            onclick={() => loadMore()}
+            disabled={loading || retryRemainingSeconds > 0}
+            onclick={() => loadMore(true)}
           >
             {$t('message.retry')}
           </Button>

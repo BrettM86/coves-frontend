@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { FeedViewPost, FeedPaginationParams } from '$lib/api/coves/types'
+import type { ServerSession } from '$lib/app/state/auth.svelte'
+import { XrpcError } from '$lib/api/coves/xrpc'
 
 // ---------------------------------------------------------------------------
 // VirtualFeed's load-more path is driven entirely by an IntersectionObserver on
@@ -42,9 +44,11 @@ vi.mock('$app/state', () => ({
 
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
 
-// The Post subtree is irrelevant to pagination and would need a fully-formed
-// record per fixture; a no-op component is a valid Svelte 5 component.
-vi.mock('..', () => ({ Post: () => {} }) as unknown as typeof import('..'))
+// The Post subtree is irrelevant to pagination; expose only each fixture URI so
+// replacement tests can distinguish bound state from content rendered onscreen.
+vi.mock('..', async () => ({
+  Post: (await import('./VirtualFeedPost.test.svelte')).default,
+}))
 
 const svelteClientEntry = async (subpath: string): Promise<unknown> => {
   const { createRequire } = await import('node:module')
@@ -74,9 +78,39 @@ interface FeedPage {
   cursor?: string
 }
 
+interface TestFeedPaginationParams extends FeedPaginationParams {
+  listing?: 'discover' | 'timeline'
+  community?: string
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
 /** Minimal FeedViewPost: only `post.uri` and `reason` are read by the feed. */
 const feedPost = (uri: string): FeedViewPost =>
   ({ post: { uri } }) as unknown as FeedViewPost
+
+let sessionGeneration = 0
+
+const viewerSession = (viewer: string): ServerSession =>
+  ({
+    authenticated: true,
+    activeAccountId: `did:plc:${viewer}`,
+    sessionGeneration: `${viewer}-generation-${++sessionGeneration}`,
+    account: {
+      id: `did:plc:${viewer}`,
+      did: `did:plc:${viewer}`,
+      handle: `${viewer}.test`,
+      instance: 'http://localhost:8081',
+    },
+  }) as ServerSession
 
 // --- IntersectionObserver double ------------------------------------------
 
@@ -225,6 +259,7 @@ afterEach(() => {
   mounted = undefined
   target?.remove()
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 /** More pages than any test legitimately loads. */
@@ -232,26 +267,67 @@ const RUNAWAY_PAGES = 12
 
 interface Harness {
   /** Live props object; assigning to `posts` is a feed switch. */
-  props: { posts: FeedViewPost[]; params: FeedPaginationParams }
+  props: { posts: FeedViewPost[]; params: TestFeedPaginationParams }
   loadFeed: ReturnType<typeof vi.fn>
+}
+
+interface StateHarnessComponent {
+  currentPosts: () => FeedViewPost[]
+  replacePosts: (posts: FeedViewPost[]) => void
+  currentParams: () => TestFeedPaginationParams
+  replaceParams: (params: TestFeedPaginationParams) => void
 }
 
 const mountFeed = async (
   posts: FeedViewPost[],
-  params: FeedPaginationParams,
-  loadFeed: (params: FeedPaginationParams) => Promise<FeedPage>,
+  params: TestFeedPaginationParams,
+  loadFeed: (params: TestFeedPaginationParams) => Promise<FeedPage>,
+  { stateProxy = false }: { stateProxy?: boolean } = {},
 ): Promise<Harness> => {
-  const { SvelteMap } = await import('svelte/reactivity')
-  const VirtualFeed = (await import('./VirtualFeed.svelte')).default
-
   // A runaway pagination loop is one of the bugs under test, and left
   // unbounded it hangs the worker instead of failing. Past the cap every page
   // is empty, which stops the component and leaves the call count — which
   // every test asserts — as the visible failure.
-  const spy = vi.fn(async (p: FeedPaginationParams): Promise<FeedPage> => {
+  const spy = vi.fn(async (p: TestFeedPaginationParams): Promise<FeedPage> => {
     if (spy.mock.calls.length > RUNAWAY_PAGES) return { feed: [] }
     return loadFeed(p)
   })
+
+  target = document.createElement('div')
+  document.body.appendChild(target)
+
+  if (stateProxy) {
+    const StateHarness = (await import('./VirtualFeed.test.svelte')).default
+    mounted = client.mount(StateHarness, {
+      target,
+      props: {
+        initialPosts: posts,
+        initialParams: params,
+        loadFeed: spy,
+      },
+      intro: false,
+    })
+    const state = mounted as StateHarnessComponent
+    const props = {
+      get posts(): FeedViewPost[] {
+        return state.currentPosts()
+      },
+      set posts(value: FeedViewPost[]) {
+        state.replacePosts(value)
+      },
+      get params(): TestFeedPaginationParams {
+        return state.currentParams()
+      },
+      set params(value: TestFeedPaginationParams) {
+        state.replaceParams(value)
+      },
+    }
+    client.flushSync()
+    return { props, loadFeed: spy }
+  }
+
+  const { SvelteMap } = await import('svelte/reactivity')
+  const VirtualFeed = (await import('./VirtualFeed.svelte')).default
   // Props must be reactive for a feed switch (`props.posts = […]`) to reach
   // the component, and runes are unavailable in a plain .ts file. Accessors
   // over a SvelteMap are the public-API equivalent: the component reads them
@@ -268,17 +344,15 @@ const mountFeed = async (
     set posts(value: FeedViewPost[]) {
       values.set('posts', value)
     },
-    get params(): FeedPaginationParams {
-      return values.get('params') as FeedPaginationParams
+    get params(): TestFeedPaginationParams {
+      return values.get('params') as TestFeedPaginationParams
     },
-    set params(value: FeedPaginationParams) {
+    set params(value: TestFeedPaginationParams) {
       values.set('params', value)
     },
     loadFeed: spy,
   }
 
-  target = document.createElement('div')
-  document.body.appendChild(target)
   mounted = client.mount(VirtualFeed, { target, props, intro: false })
   client.flushSync()
 
@@ -296,6 +370,38 @@ const settle = async (rounds = 6): Promise<void> => {
     client.flushSync()
   }
 }
+
+/** Drain promise, tick, and queued-microtask work without advancing a clock. */
+const flushEffects = async (rounds = 8): Promise<void> => {
+  for (let i = 0; i < rounds; i++) {
+    await Promise.resolve()
+    client.flushSync()
+  }
+}
+
+const retryButton = (): HTMLButtonElement | undefined =>
+  [...target.querySelectorAll<HTMLButtonElement>('button')].find(
+    (button) => button.textContent?.trim() === 'Retry',
+  )
+
+const retryStatus = (): HTMLElement | null =>
+  target.querySelector<HTMLElement>(
+    '[role="status"], [aria-live="polite"], [aria-live="assertive"]',
+  )
+
+const expectRetrySeconds = (seconds: number): void => {
+  expect(target.textContent).toMatch(
+    new RegExp(`\\b${seconds}\\s+seconds?\\b`, 'i'),
+  )
+}
+
+const discoverUnavailable = (retryAfterSeconds?: number): XrpcError =>
+  new XrpcError(
+    503,
+    'DiscoverUnavailable',
+    'Discover is recovering',
+    retryAfterSeconds,
+  )
 
 const NO_NEW_POSTS = '[feed] page returned no new posts; stopping pagination'
 
@@ -354,6 +460,25 @@ describe('VirtualFeed load-more', () => {
     expect(props.params.cursor).toBe('page-2')
     // Out of view and no missed trigger: the feed waits for the next scroll.
     expect(sentinelObserver()).toBeDefined()
+  })
+
+  it('clears a stale cursor when the successful page is final', async () => {
+    const { props, loadFeed } = await mountFeed(
+      [feedPost('at://post/1')],
+      { limit: 20, cursor: 'last-page' },
+      async () => ({ feed: [feedPost('at://post/2')] }),
+    )
+
+    fireSentinel()
+    await settle()
+
+    expect(loadFeed).toHaveBeenCalledTimes(1)
+    expect(props.posts.map((post) => post.post.uri)).toEqual([
+      'at://post/1',
+      'at://post/2',
+    ])
+    expect(props.params.cursor).toBeUndefined()
+    expect(sentinelObserver()).toBeUndefined()
   })
 
   it('loads the new feed after a feed switch during an in-flight request', async () => {
@@ -466,5 +591,1103 @@ describe('VirtualFeed load-more', () => {
     expect(loadFeed).toHaveBeenCalledTimes(1)
     expect(error).toHaveBeenCalled()
     expect(sentinelObserver()).toBeUndefined()
+  })
+
+  it('replaces stale Discover Hot posts once after an expired cursor', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const requestedCursors: Array<string | undefined> = []
+    const { props, loadFeed } = await mountFeed(
+      [feedPost('at://post/stale-only'), feedPost('at://post/overlap')],
+      { listing: 'discover', sort: 'hot', limit: 20, cursor: 'expired' },
+      async (params) => {
+        requestedCursors.push(params.cursor)
+        if (requestedCursors.length === 1) {
+          throw new XrpcError(400, 'InvalidCursor', 'cursor expired')
+        }
+        return {
+          feed: [
+            feedPost('at://post/overlap'),
+            feedPost('at://post/fresh'),
+            feedPost('at://post/overlap'),
+            feedPost('at://post/fresh'),
+          ],
+          cursor: 'fresh-page-2',
+        }
+      },
+    )
+
+    fireSentinel()
+    await flushEffects()
+
+    expect(loadFeed).toHaveBeenCalledTimes(2)
+    expect(requestedCursors).toEqual(['expired', undefined])
+    expect(props.posts.map((post) => post.post.uri)).toEqual([
+      'at://post/overlap',
+      'at://post/fresh',
+    ])
+    expect(props.params.cursor).toBe('fresh-page-2')
+    expect(retryButton()).toBeUndefined()
+    expect(sentinelObserver()).toBeDefined()
+  })
+
+  it('keeps a recovered first page without a cursor exhausted', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const requestedCursors: Array<string | undefined> = []
+    const { props, loadFeed } = await mountFeed(
+      [feedPost('at://post/stale')],
+      { listing: 'discover', sort: 'hot', limit: 20, cursor: 'expired' },
+      async (params) => {
+        requestedCursors.push(params.cursor)
+        if (requestedCursors.length === 1) {
+          throw new XrpcError(400, 'InvalidCursor', 'cursor expired')
+        }
+        return { feed: [feedPost('at://post/replacement')] }
+      },
+    )
+
+    rect = IN_VIEW
+    fireSentinel()
+    await flushEffects()
+
+    expect(loadFeed).toHaveBeenCalledTimes(2)
+    expect(requestedCursors).toEqual(['expired', undefined])
+    expect(props.posts.map((post) => post.post.uri)).toEqual([
+      'at://post/replacement',
+    ])
+    expect(props.params.cursor).toBeUndefined()
+    expect(retryButton()).toBeUndefined()
+    expect(sentinelObserver()).toBeUndefined()
+  })
+
+  it('keeps a recovered page-one result when bindable values are state proxies', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const stalePosts = [feedPost('at://post/stale')]
+    const initialParams = {
+      listing: 'discover' as const,
+      sort: 'hot',
+      limit: 20,
+      cursor: 'expired',
+    }
+    const replacement = [feedPost('at://post/replacement')]
+    const requestedCursors: Array<string | undefined> = []
+    const { props, loadFeed } = await mountFeed(
+      stalePosts,
+      initialParams,
+      async (requestParams) => {
+        requestedCursors.push(requestParams.cursor)
+        if (requestedCursors.length === 1) {
+          throw new XrpcError(400, 'InvalidCursor', 'cursor expired')
+        }
+        return { feed: replacement }
+      },
+      { stateProxy: true },
+    )
+
+    expect(props.posts).not.toBe(stalePosts)
+    expect(props.params).not.toBe(initialParams)
+
+    rect = IN_VIEW
+    fireSentinel()
+    await flushEffects()
+
+    const finalPosts = props.posts
+    const finalParams = props.params
+    expect(loadFeed).toHaveBeenCalledTimes(2)
+    expect(requestedCursors).toEqual(['expired', undefined])
+    expect(finalPosts.map((post) => post.post.uri)).toEqual([
+      'at://post/replacement',
+    ])
+    expect(finalParams.cursor).toBeUndefined()
+    expect(sentinelObserver()).toBeUndefined()
+
+    await flushEffects()
+    expect(props.posts).toBe(finalPosts)
+    expect(props.params).toBe(finalParams)
+    expect(loadFeed).toHaveBeenCalledTimes(2)
+    expect(sentinelObserver()).toBeUndefined()
+  })
+
+  it.each([
+    [
+      'another InvalidCursor',
+      () => new XrpcError(400, 'InvalidCursor', 'still expired'),
+    ],
+    ['an ordinary error', () => new Error('network down')],
+  ] satisfies Array<[string, () => Error]>)(
+    'keeps stale posts and retries page one manually after %s',
+    async (_case, recoveryError) => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const requestedCursors: Array<string | undefined> = []
+      const { props, loadFeed } = await mountFeed(
+        [feedPost('at://post/stale')],
+        { listing: 'discover', sort: 'hot', limit: 20, cursor: 'expired' },
+        async (params) => {
+          requestedCursors.push(params.cursor)
+          if (requestedCursors.length === 1) {
+            throw new XrpcError(400, 'InvalidCursor', 'cursor expired')
+          }
+          if (requestedCursors.length === 2) throw recoveryError()
+          return { feed: [feedPost('at://post/replacement')] }
+        },
+      )
+
+      fireSentinel()
+      await flushEffects()
+
+      expect(loadFeed).toHaveBeenCalledTimes(2)
+      expect(requestedCursors).toEqual(['expired', undefined])
+      expect(props.posts.map((post) => post.post.uri)).toEqual([
+        'at://post/stale',
+      ])
+      expect(props.params.cursor).toBeUndefined()
+
+      const retry = retryButton()
+      if (!retry) throw new Error('Missing retry button')
+      retry.click()
+      await flushEffects()
+
+      expect(loadFeed).toHaveBeenCalledTimes(3)
+      expect(requestedCursors).toEqual(['expired', undefined, undefined])
+    },
+  )
+
+  it.each([
+    {
+      case: 'Discover New',
+      params: { listing: 'discover', sort: 'new', cursor: 'expired' },
+      error: new XrpcError(400, 'InvalidCursor', 'cursor expired'),
+    },
+    {
+      case: 'the timeline',
+      params: { listing: 'timeline', sort: 'hot', cursor: 'expired' },
+      error: new XrpcError(400, 'InvalidCursor', 'cursor expired'),
+    },
+    {
+      case: 'a community feed',
+      params: {
+        community: 'news.coves.social',
+        sort: 'hot',
+        cursor: 'expired',
+      },
+      error: new XrpcError(400, 'InvalidCursor', 'cursor expired'),
+    },
+    {
+      case: 'a feed without a listing',
+      params: { sort: 'hot', cursor: 'expired' },
+      error: new XrpcError(400, 'InvalidCursor', 'cursor expired'),
+    },
+    {
+      case: 'Discover Hot without a cursor',
+      params: { listing: 'discover', sort: 'hot' },
+      error: new XrpcError(400, 'InvalidCursor', 'cursor expired'),
+    },
+    {
+      case: 'the wrong status',
+      params: { listing: 'discover', sort: 'hot', cursor: 'expired' },
+      error: new XrpcError(503, 'InvalidCursor', 'backend unavailable'),
+    },
+    {
+      case: 'the wrong error name',
+      params: { listing: 'discover', sort: 'hot', cursor: 'expired' },
+      error: new XrpcError(400, 'InvalidRequest', 'bad request'),
+    },
+  ] satisfies Array<{
+    case: string
+    params: TestFeedPaginationParams
+    error: XrpcError
+  }>)(
+    'does not automatically recover $case',
+    async ({ params, error: requestError }) => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const requestedCursors: Array<string | undefined> = []
+      const { props, loadFeed } = await mountFeed(
+        [feedPost('at://post/stale')],
+        params,
+        async (requestParams) => {
+          requestedCursors.push(requestParams.cursor)
+          throw requestError
+        },
+      )
+
+      fireSentinel()
+      await flushEffects()
+
+      expect(loadFeed).toHaveBeenCalledTimes(1)
+      expect(requestedCursors).toEqual([params.cursor])
+      expect(props.params.cursor).toBe(params.cursor)
+      expect(props.posts.map((post) => post.post.uri)).toEqual([
+        'at://post/stale',
+      ])
+    },
+  )
+
+  it('discards InvalidCursor from an original request after a feed switch', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const original = deferred<FeedPage>()
+    const { props, loadFeed } = await mountFeed(
+      [feedPost('at://a/1')],
+      { listing: 'discover', sort: 'hot', cursor: 'a-expired' },
+      async () => original.promise,
+    )
+
+    fireSentinel()
+    await flushEffects(2)
+    expect(loadFeed).toHaveBeenCalledTimes(1)
+
+    const feedB = [feedPost('at://b/1')]
+    props.posts = feedB
+    props.params = {
+      listing: 'discover',
+      sort: 'hot',
+      cursor: 'b-page-2',
+    }
+    client.flushSync()
+
+    original.reject(new XrpcError(400, 'InvalidCursor', 'cursor expired'))
+    await flushEffects()
+
+    expect(loadFeed).toHaveBeenCalledTimes(1)
+    expect(props.posts).toBe(feedB)
+    expect(props.params.cursor).toBe('b-page-2')
+    expect(retryButton()).toBeUndefined()
+    expect(sentinelObserver()).toBeDefined()
+  })
+
+  it('discards a recovered page that settles after a feed switch', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const recovery = deferred<FeedPage>()
+    const requestedCursors: Array<string | undefined> = []
+    const { props, loadFeed } = await mountFeed(
+      [feedPost('at://a/1')],
+      { listing: 'discover', sort: 'hot', cursor: 'a-expired' },
+      async (params) => {
+        requestedCursors.push(params.cursor)
+        if (requestedCursors.length === 1) {
+          throw new XrpcError(400, 'InvalidCursor', 'cursor expired')
+        }
+        return recovery.promise
+      },
+    )
+
+    fireSentinel()
+    await flushEffects()
+    expect(loadFeed).toHaveBeenCalledTimes(2)
+    expect(requestedCursors).toEqual(['a-expired', undefined])
+
+    const feedB = [feedPost('at://b/1')]
+    props.posts = feedB
+    props.params = {
+      listing: 'discover',
+      sort: 'hot',
+      cursor: 'b-page-2',
+    }
+    client.flushSync()
+
+    recovery.resolve({
+      feed: [feedPost('at://a/recovered')],
+      cursor: 'a-fresh-page-2',
+    })
+    await flushEffects()
+
+    expect(loadFeed).toHaveBeenCalledTimes(2)
+    expect(props.posts).toBe(feedB)
+    expect(props.posts.map((post) => post.post.uri)).toEqual(['at://b/1'])
+    expect(props.params.cursor).toBe('b-page-2')
+    expect(retryButton()).toBeUndefined()
+  })
+
+  it.each([
+    {
+      transition: 'viewer A changes to viewer B',
+      initialSession: viewerSession('viewer-a'),
+      nextSession: viewerSession('viewer-b'),
+      pendingStage: 'pagination' as const,
+    },
+    {
+      transition: 'viewer A signs out',
+      initialSession: viewerSession('viewer-a'),
+      nextSession: undefined,
+      pendingStage: 'InvalidCursor recovery' as const,
+    },
+  ])(
+    'immediately replaces page one and discards $pendingStage started before $transition',
+    async ({ initialSession, nextSession, pendingStage }) => {
+      const { profile } = await import('$lib/app/state/auth.svelte')
+      profile.syncFromServer(initialSession)
+      client.flushSync()
+
+      const staleResponse = deferred<FeedPage>()
+      const currentViewerResponse = deferred<FeedPage>()
+      const requestedCursors: Array<string | undefined> = []
+      const initialPosts = [feedPost('at://old-viewer/existing')]
+      const { props, loadFeed } = await mountFeed(
+        initialPosts,
+        {
+          listing: 'discover',
+          sort: 'hot',
+          cursor:
+            pendingStage === 'InvalidCursor recovery'
+              ? 'old-viewer-expired'
+              : 'old-viewer-page-2',
+        },
+        async (requestParams) => {
+          requestedCursors.push(requestParams.cursor)
+          if (
+            pendingStage === 'InvalidCursor recovery' &&
+            requestedCursors.length === 1
+          ) {
+            throw new XrpcError(400, 'InvalidCursor', 'cursor expired')
+          }
+          if (
+            requestedCursors.length ===
+            (pendingStage === 'InvalidCursor recovery' ? 2 : 1)
+          ) {
+            return staleResponse.promise
+          }
+          return currentViewerResponse.promise
+        },
+      )
+
+      fireSentinel()
+      await flushEffects()
+      expect(loadFeed).toHaveBeenCalledTimes(
+        pendingStage === 'InvalidCursor recovery' ? 2 : 1,
+      )
+
+      profile.syncFromServer(nextSession)
+      await flushEffects()
+
+      expect.soft(props.posts).not.toBe(initialPosts)
+      expect.soft(props.posts).toEqual([])
+      expect.soft(props.params.cursor).toBeUndefined()
+      expect
+        .soft(loadFeed)
+        .toHaveBeenCalledTimes(
+          pendingStage === 'InvalidCursor recovery' ? 3 : 2,
+        )
+      expect(requestedCursors.at(-1)).toBeUndefined()
+
+      staleResponse.resolve({
+        feed: [feedPost('at://old-viewer/late')],
+        cursor: 'old-viewer-late-cursor',
+      })
+      await flushEffects()
+
+      expect(props.posts).toEqual([])
+      expect(props.params.cursor).toBeUndefined()
+      expect(retryButton()).toBeUndefined()
+
+      currentViewerResponse.resolve({
+        feed: [feedPost('at://new-viewer/page-one')],
+        cursor: 'new-viewer-page-2',
+      })
+      await flushEffects()
+
+      expect(props.posts.map((post) => post.post.uri)).toEqual([
+        'at://new-viewer/page-one',
+      ])
+      expect(props.params.cursor).toBe('new-viewer-page-2')
+    },
+  )
+
+  it.each(['original pagination', 'InvalidCursor recovery'] as const)(
+    'does not commit a successful %s response after unmount',
+    async (pendingStage) => {
+      const pending = deferred<FeedPage>()
+      const requestedCursors: Array<string | undefined> = []
+      const initialPosts = [feedPost('at://post/existing')]
+      const { props, loadFeed } = await mountFeed(
+        initialPosts,
+        {
+          listing: 'discover',
+          sort: 'hot',
+          cursor:
+            pendingStage === 'InvalidCursor recovery'
+              ? 'expired-page-2'
+              : 'page-2',
+        },
+        async (requestParams) => {
+          requestedCursors.push(requestParams.cursor)
+          if (
+            pendingStage === 'InvalidCursor recovery' &&
+            requestedCursors.length === 1
+          ) {
+            throw new XrpcError(400, 'InvalidCursor', 'cursor expired')
+          }
+          return pending.promise
+        },
+      )
+
+      fireSentinel()
+      await flushEffects()
+      const expectedCalls = pendingStage === 'InvalidCursor recovery' ? 2 : 1
+      expect(loadFeed).toHaveBeenCalledTimes(expectedCalls)
+      const postsBeforeUnmount = props.posts
+      const paramsBeforeUnmount = props.params
+
+      client.unmount(mounted, { outro: false })
+      mounted = undefined
+      pending.resolve({
+        feed: [feedPost('at://post/late')],
+        cursor: 'late-page-2',
+      })
+      await flushEffects()
+
+      expect(props.posts).toBe(postsBeforeUnmount)
+      expect(props.posts.map((post) => post.post.uri)).toEqual([
+        'at://post/existing',
+      ])
+      expect(props.params).toBe(paramsBeforeUnmount)
+      expect(props.params.cursor).toBe(
+        pendingStage === 'InvalidCursor recovery' ? undefined : 'page-2',
+      )
+      expect(loadFeed).toHaveBeenCalledTimes(expectedCalls)
+    },
+  )
+
+  it('disconnects every IntersectionObserver on unmount', async () => {
+    await mountFeed(
+      [feedPost('at://post/1')],
+      { limit: 20, cursor: 'page-2' },
+      async () => ({ feed: [] }),
+    )
+    await flushEffects()
+
+    expect(observers.length).toBeGreaterThanOrEqual(2)
+    expect(observers.some((observer) => !observer.disconnected)).toBe(true)
+
+    client.unmount(mounted, { outro: false })
+    mounted = undefined
+
+    expect(observers.every((observer) => observer.disconnected)).toBe(true)
+  })
+
+  it('disconnects its MutationObserver on unmount', async () => {
+    const disconnect = vi.spyOn(MutationObserver.prototype, 'disconnect')
+    await mountFeed(
+      [feedPost('at://post/1')],
+      { limit: 20, cursor: 'page-2' },
+      async () => ({ feed: [] }),
+    )
+    await flushEffects()
+
+    expect(disconnect).not.toHaveBeenCalled()
+    client.unmount(mounted, { outro: false })
+    mounted = undefined
+
+    expect(disconnect).toHaveBeenCalledTimes(1)
+  })
+
+  describe('Discover Hot capacity cooldown', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-13T12:00:00.000Z'))
+    })
+
+    it('blocks retries and observer triggers until the absolute deadline', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const firstPage = deferred<FeedPage>()
+      const requestedCursors: Array<string | undefined> = []
+      const posts = [feedPost('at://post/existing')]
+      const { props, loadFeed } = await mountFeed(
+        posts,
+        {
+          listing: 'discover',
+          sort: 'hot',
+          limit: 20,
+          cursor: 'retained-page-2',
+        },
+        async (params) => {
+          requestedCursors.push(params.cursor)
+          if (requestedCursors.length === 1) return firstPage.promise
+          return { feed: [feedPost('at://post/new')] }
+        },
+      )
+
+      const observer = sentinelObserver()
+      const observedSentinel = observer?.targets[0]
+      if (!observer || !observedSentinel) {
+        throw new Error('Missing initial sentinel observer')
+      }
+
+      fireSentinel()
+      // This trigger is remembered while the first request is in flight.
+      fireSentinel()
+      firstPage.reject(discoverUnavailable(30))
+      await flushEffects()
+
+      expect(loadFeed).toHaveBeenCalledTimes(1)
+      expect(requestedCursors).toEqual(['retained-page-2'])
+      expect(props.posts).toBe(posts)
+      expect(props.posts.map((post) => post.post.uri)).toEqual([
+        'at://post/existing',
+      ])
+      expect(props.params.cursor).toBe('retained-page-2')
+      expectRetrySeconds(30)
+
+      let retry = retryButton()
+      if (!retry) throw new Error('Missing retry button')
+      expect(retry.disabled).toBe(true)
+
+      // A callback already delivered by the old observer cannot bypass the
+      // cooldown even though its sentinel has since been removed from the DOM.
+      observer.callback(
+        [
+          {
+            target: observedSentinel,
+            isIntersecting: true,
+          } as IntersectionObserverEntry,
+        ],
+        observer as unknown as IntersectionObserver,
+      )
+      retry.click()
+      await flushEffects()
+      expect(loadFeed).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(29_999)
+      await flushEffects()
+      expectRetrySeconds(1)
+      retry = retryButton()
+      if (!retry) throw new Error('Missing retry button before deadline')
+      expect(retry.disabled).toBe(true)
+      retry.click()
+      expect(loadFeed).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(1)
+      await flushEffects()
+      retry = retryButton()
+      if (!retry) throw new Error('Missing retry button at deadline')
+      expect(retry.disabled).toBe(false)
+      expect(loadFeed).toHaveBeenCalledTimes(1)
+
+      retry.click()
+      await flushEffects()
+      expect(loadFeed).toHaveBeenCalledTimes(2)
+      expect(requestedCursors).toEqual(['retained-page-2', 'retained-page-2'])
+    })
+
+    it('replaces a prior deadline with the delay advertised by a later response', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const secondResponse = deferred<FeedPage>()
+      const requestedCursors: Array<string | undefined> = []
+      const { loadFeed } = await mountFeed(
+        [feedPost('at://post/existing')],
+        { listing: 'discover', sort: 'hot', cursor: 'page-2' },
+        async (params) => {
+          requestedCursors.push(params.cursor)
+          if (requestedCursors.length === 1) throw discoverUnavailable(30)
+          if (requestedCursors.length === 2) return secondResponse.promise
+          return { feed: [feedPost('at://post/new')] }
+        },
+      )
+
+      fireSentinel()
+      await flushEffects()
+      expectRetrySeconds(30)
+
+      await vi.advanceTimersByTimeAsync(30_000)
+      await flushEffects()
+      const retry = retryButton()
+      if (!retry) throw new Error('Missing retry button at first deadline')
+      expect(retry.disabled).toBe(false)
+      retry.click()
+      await flushEffects(2)
+      expect(loadFeed).toHaveBeenCalledTimes(2)
+
+      // The second server response arrives after the old deadline and starts
+      // its own seven-second window at response time.
+      await vi.advanceTimersByTimeAsync(2_000)
+      secondResponse.reject(discoverUnavailable(7))
+      await flushEffects()
+      expectRetrySeconds(7)
+      expect(retryButton()?.disabled).toBe(true)
+
+      // This is old deadline + seven seconds, but only five seconds after the
+      // second response. Extending the old deadline would enable too early.
+      await vi.advanceTimersByTimeAsync(5_000)
+      await flushEffects()
+      expectRetrySeconds(2)
+      expect(retryButton()?.disabled).toBe(true)
+      expect(loadFeed).toHaveBeenCalledTimes(2)
+
+      await vi.advanceTimersByTimeAsync(1_999)
+      await flushEffects()
+      expectRetrySeconds(1)
+      expect(retryButton()?.disabled).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(1)
+      await flushEffects()
+      expect(retryButton()?.disabled).toBe(false)
+      expect(loadFeed).toHaveBeenCalledTimes(2)
+    })
+
+    it('announces cooldown updates until retry becomes available', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const { loadFeed } = await mountFeed(
+        [feedPost('at://post/existing')],
+        { listing: 'discover', sort: 'hot', cursor: 'page-2' },
+        async () => {
+          throw discoverUnavailable(2)
+        },
+      )
+
+      fireSentinel()
+      await flushEffects()
+
+      const status = retryStatus()
+      if (!status) throw new Error('Missing cooldown status/live region')
+      expect(status.textContent).toMatch(/\b2\s+seconds?\b/i)
+      expect(retryButton()?.disabled).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(1_000)
+      await flushEffects()
+      expect(retryStatus()).toBe(status)
+      expect(status.textContent).toMatch(/\b1\s+second\b/i)
+      expect(retryButton()?.disabled).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(1_000)
+      await flushEffects()
+      expect(retryStatus()).toBe(status)
+      expect(status.textContent).not.toMatch(/\b[1-9]\d*\s+seconds?\b/i)
+      expect(retryButton()?.disabled).toBe(false)
+      expect(loadFeed).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps page-one Retry visible while an identity replacement is empty and unavailable', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const { profile } = await import('$lib/app/state/auth.svelte')
+      profile.syncFromServer(viewerSession('viewer-a'))
+      client.flushSync()
+      const requestedCursors: Array<string | undefined> = []
+      const { props, loadFeed } = await mountFeed(
+        [feedPost('at://viewer-a/post/1')],
+        {
+          listing: 'discover',
+          sort: 'hot',
+          cursor: 'viewer-a-page-2',
+        },
+        async (requestParams) => {
+          requestedCursors.push(requestParams.cursor)
+          if (requestedCursors.length === 1) throw discoverUnavailable(2)
+          return { feed: [feedPost('at://viewer-b/post/1')] }
+        },
+      )
+
+      profile.syncFromServer(viewerSession('viewer-b'))
+      await flushEffects()
+
+      expect(loadFeed).toHaveBeenCalledTimes(1)
+      expect(requestedCursors).toEqual([undefined])
+      expect(props.posts).toEqual([])
+      expect(target.textContent).toContain('Discover is recovering')
+      let retry = retryButton()
+      if (!retry) throw new Error('Missing page-one replacement Retry button')
+      expect(retry.disabled).toBe(true)
+      expect(target.textContent).toMatch(/\b2\s+seconds?\b/i)
+
+      await vi.advanceTimersByTimeAsync(1_999)
+      await flushEffects()
+      expect(loadFeed).toHaveBeenCalledTimes(1)
+      retry = retryButton()
+      if (!retry) throw new Error('Missing Retry button before deadline')
+      expect(retry.disabled).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(1)
+      await flushEffects()
+      retry = retryButton()
+      if (!retry) throw new Error('Missing Retry button at deadline')
+      expect(retry.disabled).toBe(false)
+      retry.click()
+      await flushEffects()
+
+      expect(loadFeed).toHaveBeenCalledTimes(2)
+      expect(requestedCursors).toEqual([undefined, undefined])
+      expect(props.posts.map((post) => post.post.uri)).toEqual([
+        'at://viewer-b/post/1',
+      ])
+      expect(
+        target.querySelector('[data-post-uri="at://viewer-b/post/1"]'),
+      ).not.toBeNull()
+    })
+
+    it.each([
+      ['missing timing', undefined],
+      ['negative timing', -1],
+      ['non-finite timing', Number.NaN],
+      ['zero seconds', 0],
+    ] satisfies Array<[string, number | undefined]>)(
+      'keeps %s immediately manually retryable',
+      async (_case, retryAfterSeconds) => {
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+        const requestedCursors: Array<string | undefined> = []
+        const { loadFeed } = await mountFeed(
+          [feedPost('at://post/existing')],
+          { listing: 'discover', sort: 'hot', cursor: 'page-2' },
+          async (params) => {
+            requestedCursors.push(params.cursor)
+            if (requestedCursors.length === 1) {
+              throw discoverUnavailable(retryAfterSeconds)
+            }
+            return { feed: [feedPost('at://post/new')] }
+          },
+        )
+
+        fireSentinel()
+        await flushEffects()
+
+        const retry = retryButton()
+        if (!retry) throw new Error('Missing retry button')
+        expect(retry.disabled).toBe(false)
+        expect(loadFeed).toHaveBeenCalledTimes(1)
+
+        retry.click()
+        await flushEffects()
+        expect(loadFeed).toHaveBeenCalledTimes(2)
+        expect(requestedCursors).toEqual(['page-2', 'page-2'])
+      },
+    )
+
+    it('cools down page-one retry after InvalidCursor recovery reaches capacity', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const requestedCursors: Array<string | undefined> = []
+      const stalePosts = [feedPost('at://post/stale')]
+      const { props, loadFeed } = await mountFeed(
+        stalePosts,
+        {
+          listing: 'discover',
+          sort: 'hot',
+          cursor: 'expired-page-2',
+        },
+        async (params) => {
+          requestedCursors.push(params.cursor)
+          if (requestedCursors.length === 1) {
+            throw new XrpcError(400, 'InvalidCursor', 'cursor expired')
+          }
+          if (requestedCursors.length === 2) throw discoverUnavailable(30)
+          return { feed: [feedPost('at://post/recovered')] }
+        },
+      )
+
+      fireSentinel()
+      await flushEffects()
+
+      expect(loadFeed).toHaveBeenCalledTimes(2)
+      expect(requestedCursors).toEqual(['expired-page-2', undefined])
+      expect(props.posts).toBe(stalePosts)
+      expect(props.posts.map((post) => post.post.uri)).toEqual([
+        'at://post/stale',
+      ])
+      expect(props.params.cursor).toBeUndefined()
+      expectRetrySeconds(30)
+      expect(retryButton()?.disabled).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(30_000)
+      await flushEffects()
+      const retry = retryButton()
+      if (!retry) throw new Error('Missing recovery retry button')
+      expect(retry.disabled).toBe(false)
+      expect(loadFeed).toHaveBeenCalledTimes(2)
+
+      retry.click()
+      await flushEffects()
+      expect(loadFeed).toHaveBeenCalledTimes(3)
+      expect(requestedCursors).toEqual(['expired-page-2', undefined, undefined])
+    })
+
+    it.each([
+      ['without Retry-After', undefined, 0],
+      ['with Retry-After', 30, 30_000],
+    ] satisfies Array<[string, number | undefined, number]>)(
+      'manually replaces stale posts after page-one recovery fails %s, even when every result overlaps',
+      async (_case, retryAfterSeconds, cooldownMilliseconds) => {
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+        vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const requestedCursors: Array<string | undefined> = []
+        const { props, loadFeed } = await mountFeed(
+          [feedPost('at://post/stale-only'), feedPost('at://post/overlap')],
+          {
+            listing: 'discover',
+            sort: 'hot',
+            cursor: 'expired-page-2',
+          },
+          async (requestParams) => {
+            requestedCursors.push(requestParams.cursor)
+            if (requestedCursors.length === 1) {
+              throw new XrpcError(400, 'InvalidCursor', 'cursor expired')
+            }
+            if (requestedCursors.length === 2) {
+              throw discoverUnavailable(retryAfterSeconds)
+            }
+            return {
+              feed: [feedPost('at://post/overlap')],
+              cursor: 'fresh-page-2',
+            }
+          },
+        )
+
+        fireSentinel()
+        await flushEffects()
+        expect(loadFeed).toHaveBeenCalledTimes(2)
+        expect(requestedCursors).toEqual(['expired-page-2', undefined])
+
+        if (cooldownMilliseconds > 0) {
+          await vi.advanceTimersByTimeAsync(cooldownMilliseconds)
+          await flushEffects()
+        }
+        const retry = retryButton()
+        if (!retry) throw new Error('Missing page-one retry button')
+        expect(retry.disabled).toBe(false)
+        retry.click()
+        await flushEffects()
+
+        expect(loadFeed).toHaveBeenCalledTimes(3)
+        expect(requestedCursors).toEqual([
+          'expired-page-2',
+          undefined,
+          undefined,
+        ])
+        expect(props.posts.map((post) => post.post.uri)).toEqual([
+          'at://post/overlap',
+        ])
+        expect(props.params.cursor).toBe('fresh-page-2')
+        expect(sentinelObserver()).toBeDefined()
+      },
+    )
+
+    it.each([
+      ['without Retry-After', undefined, 0],
+      ['after Retry-After expires', 1, 1_000],
+    ] satisfies Array<[string, number | undefined, number]>)(
+      'allows only manual Retry to resume from an error %s',
+      async (_case, retryAfterSeconds, cooldownMilliseconds) => {
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+        const requestedCursors: Array<string | undefined> = []
+        const { loadFeed } = await mountFeed(
+          [feedPost('at://post/existing')],
+          { listing: 'discover', sort: 'hot', cursor: 'page-2' },
+          async (requestParams) => {
+            requestedCursors.push(requestParams.cursor)
+            if (requestedCursors.length === 1) {
+              throw discoverUnavailable(retryAfterSeconds)
+            }
+            return { feed: [feedPost('at://post/new')] }
+          },
+        )
+        const observer = sentinelObserver()
+        const observedSentinel = observer?.targets[0]
+        if (!observer || !observedSentinel) {
+          throw new Error('Missing initial sentinel observer')
+        }
+
+        fireSentinel()
+        await flushEffects()
+        expect(loadFeed).toHaveBeenCalledTimes(1)
+
+        if (cooldownMilliseconds > 0) {
+          await vi.advanceTimersByTimeAsync(cooldownMilliseconds)
+          await flushEffects()
+        }
+
+        observer.callback(
+          [
+            {
+              target: observedSentinel,
+              isIntersecting: true,
+            } as IntersectionObserverEntry,
+          ],
+          observer as unknown as IntersectionObserver,
+        )
+        await flushEffects()
+
+        expect(loadFeed).toHaveBeenCalledTimes(1)
+        expect(requestedCursors).toEqual(['page-2'])
+
+        const retry = retryButton()
+        if (!retry) throw new Error('Missing manual retry button')
+        expect(retry.disabled).toBe(false)
+        retry.click()
+        await flushEffects()
+
+        expect(loadFeed).toHaveBeenCalledTimes(2)
+        expect(requestedCursors).toEqual(['page-2', 'page-2'])
+      },
+    )
+
+    it('clears the old cooldown when the feed identity changes', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const requestedCursors: Array<string | undefined> = []
+      const { props, loadFeed } = await mountFeed(
+        [feedPost('at://a/1')],
+        { listing: 'discover', sort: 'hot', cursor: 'a-page-2' },
+        async (params) => {
+          requestedCursors.push(params.cursor)
+          if (requestedCursors.length === 1) throw discoverUnavailable(30)
+          return { feed: [feedPost('at://b/2')] }
+        },
+      )
+
+      fireSentinel()
+      await flushEffects()
+      expect(retryButton()?.disabled).toBe(true)
+
+      props.posts = [feedPost('at://b/1')]
+      props.params = {
+        listing: 'discover',
+        sort: 'hot',
+        cursor: 'b-page-2',
+      }
+      client.flushSync()
+      await flushEffects()
+
+      expect(retryButton()).toBeUndefined()
+      expect(sentinelObserver()).toBeDefined()
+      fireSentinel()
+      await flushEffects()
+
+      expect(loadFeed).toHaveBeenCalledTimes(2)
+      expect(requestedCursors).toEqual(['a-page-2', 'b-page-2'])
+      expect(props.posts.map((post) => post.post.uri)).toEqual([
+        'at://b/1',
+        'at://b/2',
+      ])
+    })
+
+    it('discards a recovery rejection after a feed switch without installing its cooldown', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const recovery = deferred<FeedPage>()
+      const requestedCursors: Array<string | undefined> = []
+      const { props, loadFeed } = await mountFeed(
+        [feedPost('at://a/1')],
+        { listing: 'discover', sort: 'hot', cursor: 'a-expired' },
+        async (requestParams) => {
+          requestedCursors.push(requestParams.cursor)
+          if (requestedCursors.length === 1) {
+            throw new XrpcError(400, 'InvalidCursor', 'cursor expired')
+          }
+          return recovery.promise
+        },
+      )
+
+      fireSentinel()
+      await flushEffects()
+      expect(loadFeed).toHaveBeenCalledTimes(2)
+
+      const feedB = [feedPost('at://b/1')]
+      props.posts = feedB
+      props.params = {
+        listing: 'discover',
+        sort: 'hot',
+        cursor: 'b-page-2',
+      }
+      client.flushSync()
+      const baselineTimerCount = vi.getTimerCount()
+
+      recovery.reject(discoverUnavailable(30))
+      await flushEffects()
+
+      expect(vi.getTimerCount()).toBe(baselineTimerCount)
+      expect(props.posts).toBe(feedB)
+      expect(props.params.cursor).toBe('b-page-2')
+      expect(retryButton()).toBeUndefined()
+      expect(sentinelObserver()).toBeDefined()
+    })
+
+    it('clears its cooldown timer when unmounted', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const posts = [feedPost('at://post/existing')]
+      const { props, loadFeed } = await mountFeed(
+        posts,
+        { listing: 'discover', sort: 'hot', cursor: 'page-2' },
+        async () => {
+          throw discoverUnavailable(30)
+        },
+      )
+      const baselineTimerCount = vi.getTimerCount()
+
+      fireSentinel()
+      await flushEffects()
+      expect(retryButton()?.disabled).toBe(true)
+      expect(vi.getTimerCount()).toBe(baselineTimerCount + 1)
+
+      client.unmount(mounted, { outro: false })
+      mounted = undefined
+      expect(vi.getTimerCount()).toBe(baselineTimerCount)
+
+      await vi.advanceTimersByTimeAsync(30_000)
+      await Promise.resolve()
+      expect(loadFeed).toHaveBeenCalledTimes(1)
+      expect(props.posts).toBe(posts)
+      expect(props.params.cursor).toBe('page-2')
+      expect(target.textContent).toBe('')
+    })
+
+    it.each(['original pagination', 'InvalidCursor recovery'] as const)(
+      'ignores DiscoverUnavailable when %s rejects after unmount',
+      async (pendingStage) => {
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+        const pending = deferred<FeedPage>()
+        const requestedCursors: Array<string | undefined> = []
+        const posts = [feedPost('at://post/existing')]
+        const { props, loadFeed } = await mountFeed(
+          posts,
+          {
+            listing: 'discover',
+            sort: 'hot',
+            cursor:
+              pendingStage === 'InvalidCursor recovery'
+                ? 'expired-page-2'
+                : 'page-2',
+          },
+          async (requestParams) => {
+            requestedCursors.push(requestParams.cursor)
+            if (
+              pendingStage === 'InvalidCursor recovery' &&
+              requestedCursors.length === 1
+            ) {
+              throw new XrpcError(400, 'InvalidCursor', 'cursor expired')
+            }
+            return pending.promise
+          },
+        )
+
+        fireSentinel()
+        await flushEffects()
+        const expectedCalls = pendingStage === 'InvalidCursor recovery' ? 2 : 1
+        expect(loadFeed).toHaveBeenCalledTimes(expectedCalls)
+
+        client.unmount(mounted, { outro: false })
+        mounted = undefined
+        const baselineTimerCount = vi.getTimerCount()
+        const mutations: MutationRecord[] = []
+        const mutationObserver = new MutationObserver((records) => {
+          mutations.push(...records)
+        })
+        mutationObserver.observe(target, {
+          attributes: true,
+          characterData: true,
+          childList: true,
+          subtree: true,
+        })
+
+        pending.reject(discoverUnavailable(30))
+        await flushEffects()
+
+        expect(vi.getTimerCount()).toBe(baselineTimerCount)
+        expect(target.textContent).toBe('')
+        expect(mutations).toEqual([])
+        expect(loadFeed).toHaveBeenCalledTimes(expectedCalls)
+
+        await vi.advanceTimersByTimeAsync(30_000)
+        await flushEffects()
+        expect(target.textContent).toBe('')
+        expect(mutations).toEqual([])
+        expect(loadFeed).toHaveBeenCalledTimes(expectedCalls)
+        expect(props.posts.map((post) => post.post.uri)).toEqual([
+          'at://post/existing',
+        ])
+        mutationObserver.disconnect()
+      },
+    )
   })
 })

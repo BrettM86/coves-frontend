@@ -55,11 +55,13 @@ installRequestEventAccessor(() => {
 
 /**
  * Allows universal server loads to read responses from the trusted internal
- * backend. SvelteKit applies browser CORS checks after this hook returns, even
- * though the request is a private server hop, so a successful CORS-free XRPC
- * response would otherwise become a 500. Scope the synthetic header to the
- * explicitly configured internal origin; arbitrary cross-origin fetches must
- * still satisfy the upstream server's real CORS policy.
+ * backend, forwarding the observed client address for per-caller rate limits
+ * after removing caller-supplied address claims. SvelteKit applies browser
+ * CORS checks after this hook returns, even though the request is a private
+ * server hop, so a successful CORS-free XRPC response would otherwise become
+ * a 500. Scope the synthetic header to the explicitly configured internal
+ * origin; arbitrary cross-origin fetches must still satisfy the upstream
+ * server's real CORS policy.
  */
 export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
   const internalOrigin = internalInstanceOrigin()
@@ -73,11 +75,18 @@ export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
     return fetch(request)
   }
 
-  const response = await fetch(request)
+  const upstreamHeaders = new Headers(request.headers)
+  upstreamHeaders.delete('x-real-ip')
+  upstreamHeaders.delete('x-forwarded-for')
+  upstreamHeaders.delete('forwarded')
+  stampClientAddress(upstreamHeaders, event.getClientAddress, 'ssr')
 
-  // Network fetches expose the final URL after redirects. Fail closed when a
-  // response escaped the configured internal origin (or a custom transport
-  // returned no parseable URL) rather than blessing the redirect target.
+  const response = await fetch(
+    new Request(request, { headers: upstreamHeaders, redirect: 'error' }),
+  )
+
+  // Network redirects are rejected above. Custom transports must still return
+  // a parseable internal-origin URL before we add the CORS header.
   let responseOrigin: string
   try {
     responseOrigin = new URL(response.url).origin

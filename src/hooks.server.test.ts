@@ -186,7 +186,16 @@ describe('hooks.server handleFetch', () => {
 
     const response = await handleFetch({ event, request, fetch: fetchFn })
 
-    expect(fetchFn).toHaveBeenCalledWith(request)
+    expect(fetchFn).toHaveBeenCalledOnce()
+    const forwardedRequest = fetchFn.mock.calls[0]?.[0]
+    if (!(forwardedRequest instanceof Request)) {
+      throw new Error('Expected a Request at the receiving transport')
+    }
+    expect.soft(forwardedRequest.url).toBe(request.url)
+    expect.soft(forwardedRequest.headers.get('x-real-ip')).toBe('127.0.0.1')
+    expect
+      .soft(forwardedRequest.headers.get('x-forwarded-for'))
+      .toBe('127.0.0.1')
     expect(response.status).toBe(206)
     expect(response.statusText).toBe('Partial Content')
     expect(response.headers.get('content-type')).toBe('application/json')

@@ -17,6 +17,13 @@
   --color-slate-25: rgb(252 253 254);
   --color-zinc-925: 28 28 32;
 
+  --color-bluesky-surface: #151d28;
+  --color-bluesky-surface-hover: #1c2939;
+  --color-bluesky-border: #2c3a4e;
+  --color-bluesky-muted: #abb8c9;
+  --color-bluesky-brand: #0a7aff;
+  --color-bluesky-link: #1185fe;
+
   /* dark theme */
   --color-primary-100: rgb(248 248 251);
   --color-primary-200: rgb(175 175 185);

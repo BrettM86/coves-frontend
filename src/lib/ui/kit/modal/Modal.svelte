@@ -14,6 +14,8 @@
     action?: string | undefined
     open?: boolean
     title?: string | undefined | null
+    label?: string
+    closeLabel?: string
     dismissable?: boolean
     class?: ClassValue
     customTitle?: Snippet
@@ -27,6 +29,8 @@
     action = undefined,
     open = $bindable(false),
     title = undefined,
+    label = undefined,
+    closeLabel = 'Close',
     dismissable = true,
     customTitle,
     children,
@@ -123,7 +127,7 @@
   }
 </script>
 
-<svelte:window onkeydown={onkeydown} />
+<svelte:window {onkeydown} />
 
 <Portal>
   {#if open}
@@ -131,6 +135,8 @@
     <!--svelte-ignore  a11y_click_events_have_key_events-->
     <div
       role="dialog"
+      aria-label={label ?? title ?? undefined}
+      aria-modal="true"
       class={[
         'overflow-hidden fixed top-0 left-0 w-screen h-screen z-100',
         'flex flex-col items-center justify-center backdrop-blur-xs',
@@ -163,6 +169,7 @@
             color="tertiary"
             size="square-sm"
             onclick={onclose}
+            aria-label={closeLabel}
             icon={X}
           ></Button>
         {/if}

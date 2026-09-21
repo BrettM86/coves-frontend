@@ -619,6 +619,22 @@
             "zoomIn": "Zoom in",
             "zoomOut": "Zoom out"
         },
+        "bluesky": {
+            "cardLabel": "Bluesky post",
+            "openPost": "Open Bluesky post",
+            "closePost": "Close Bluesky post",
+            "previewLabel": "Bluesky post preview",
+            "unavailable": "This Bluesky post is unavailable",
+            "viewProfile": "View {{name}} on Bluesky",
+            "viewOriginal": "View on Bluesky",
+            "avatar": "{{name}}'s avatar",
+            "viewImage": "View image on Bluesky",
+            "quotedPost": "Quoted Bluesky post",
+            "media": "Media: {{count}}",
+            "replies": "Replies: {{count}}",
+            "reposts": "Reposts: {{count}}",
+            "likes": "Likes: {{count}}"
+        },
         "meta": {
             "lastEdited": "Last edited {{default}}",
             "created": "Created {{default}}"

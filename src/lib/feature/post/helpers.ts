@@ -1,8 +1,8 @@
-import type { AtUri, PostEmbed } from '$lib/api/coves/types'
+import type { AtUri, PostEmbed, RecordEmbed } from '$lib/api/coves/types'
 import { parseAtUri } from '$lib/api/coves/types'
 import { isImage, isVideo, isWebUrl } from '$lib/app/util/url'
 import { communityLink, communityRouteParam } from '$lib/app/util/links'
-import { usableHandle } from '$lib/types/atproto'
+import { isValidDID, isValidHandle, usableHandle } from '$lib/types/atproto'
 import { STREAMABLE_EMBED_ORIGIN } from '$lib/app/util/embed-hosts'
 import {
   type ImagePreset,
@@ -297,6 +297,35 @@ export function canonicalCommentPath(
 
 export type MediaType = 'video' | 'image' | 'iframe' | 'embed' | 'none'
 export type IframeType = 'youtube' | 'streamable' | 'video' | 'none'
+
+export interface BlueskyPostRef {
+  actor: string
+  rkey: string
+}
+
+/** Parses only the Bluesky post AT-URI shape supported by converted embeds. */
+export function parseBlueskyPostRef(uri: unknown): BlueskyPostRef | undefined {
+  if (typeof uri !== 'string') return undefined
+  const match = /^at:\/\/([^/?#]+)\/app\.bsky\.feed\.post\/([^/?#]+)$/.exec(uri)
+  if (!match) return undefined
+  const [, actor, rkey] = match
+  const validActor =
+    !actor.includes('%') && (isValidDID(actor) || isValidHandle(actor))
+  const validRkey =
+    rkey !== '.' && rkey !== '..' && /^[A-Za-z0-9._~:-]{1,512}$/.test(rkey)
+  return validActor && validRkey ? { actor, rkey } : undefined
+}
+
+/** Selects converted Bluesky post embeds without excluding other record embeds. */
+export function getBlueskyPostEmbed(
+  embed: PostEmbed | undefined,
+): RecordEmbed | undefined {
+  return (embed?.$type === 'social.coves.embed.post' ||
+    embed?.$type === 'social.coves.embed.post#view') &&
+    parseBlueskyPostRef(embed.post.uri) !== undefined
+    ? embed
+    : undefined
+}
 
 /**
  * Determines the media type from a Coves PostEmbed discriminated union.

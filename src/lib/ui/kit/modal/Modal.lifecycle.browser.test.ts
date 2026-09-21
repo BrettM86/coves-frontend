@@ -141,6 +141,43 @@ function deferred() {
 }
 
 describe('modal browser history lifecycle', () => {
+  it.each([
+    {
+      label: undefined,
+      closeLabel: undefined,
+      expectedLabel: 'Visible title',
+      expectedClose: 'Close',
+    },
+    {
+      label: 'Explicit accessible name',
+      closeLabel: 'Close preview',
+      expectedLabel: 'Explicit accessible name',
+      expectedClose: 'Close preview',
+    },
+  ])(
+    'uses $expectedLabel as its accessible name and $expectedClose for dismissal',
+    async ({ label, closeLabel, expectedLabel, expectedClose }) => {
+      const Modal = (await import('./Modal.svelte')).default
+      mounted = client.mount(Modal, {
+        target,
+        intro: false,
+        props: { open: true, title: 'Visible title', label, closeLabel },
+      })
+      await settle()
+      const dialog = document.querySelector('[role="dialog"]')
+      expect(dialog?.getAttribute('aria-label')).toBe(expectedLabel)
+      expect(dialog?.getAttribute('aria-modal')).toBe('true')
+      expect(dialog?.querySelector('h1')?.textContent).toBe('Visible title')
+      const close = dialog?.querySelector<HTMLButtonElement>(
+        `button[aria-label="${expectedClose}"]`,
+      )
+      expect(close).not.toBeNull()
+      close?.click()
+      await settle()
+      expect(document.querySelector('[role="dialog"]')).toBeNull()
+    },
+  )
+
   it('handles Back each time an initially closed direct modal is opened', async () => {
     const Modal = (await import('./Modal.svelte')).default
     const { SvelteMap } = await import('svelte/reactivity')

@@ -2,11 +2,13 @@
   import type { PostEmbed } from '$lib/api/coves/types'
   import { type View } from '$lib/app/state/settings.svelte'
   import { PostIframe, PostImage, PostLink } from '..'
+  import BlueskyPostCard from './BlueskyPostCard.svelte'
   import {
     extractEmbedThumbnail,
     extractEmbedTitle,
     extractEmbedUrl,
     iframeType,
+    getBlueskyPostEmbed,
     type MediaType,
   } from '../helpers'
 
@@ -16,7 +18,6 @@
     type?: MediaType
     opened?: boolean | undefined
     blur?: boolean
-    [key: string]: unknown
   }
 
   let {
@@ -25,12 +26,12 @@
     type = 'none',
     opened = undefined,
     blur = false,
-    ...rest
   }: Props = $props()
 
   let embedUrl = $derived(extractEmbedUrl(embed))
   let thumbnailUrl = $derived(extractEmbedThumbnail(embed))
   let embedTitle = $derived(extractEmbedTitle(embed))
+  let blueskyEmbed = $derived(getBlueskyPostEmbed(embed))
 </script>
 
 <!--
@@ -40,7 +41,11 @@
   - Embed link/card.
 -->
 {#if type === 'image' && view === 'cozy' && embed}
-  <PostImage {embed} {blur} {...rest} />
+  <PostImage {embed} {blur} />
+{:else if type === 'embed' && blueskyEmbed}
+  {#if view !== 'compact'}
+    <BlueskyPostCard embed={blueskyEmbed} />
+  {/if}
 {:else if (type === 'iframe' || type === 'video') && view === 'cozy' && embedUrl}
   <PostIframe
     thumbnail={thumbnailUrl}
@@ -48,7 +53,6 @@
     url={embedUrl}
     {opened}
     title={embedTitle}
-    {...rest}
   />
 {:else if type === 'embed' && embedUrl}
   <PostLink
@@ -56,6 +60,5 @@
     thumbnail_url={thumbnailUrl}
     embed_title={embedTitle}
     {view}
-    {...rest}
   />
 {/if}

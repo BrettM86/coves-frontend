@@ -442,10 +442,25 @@ describe('VirtualFeed load-more', () => {
     expect(sentinelObserver()).toBeUndefined()
   })
 
+  it('treats a first page that came without a cursor as the whole feed', async () => {
+    // A short feed (a small community, a sparse timeline) arrives complete.
+    // Asking for "more" without a cursor would fetch page one again.
+    const { loadFeed } = await mountFeed(
+      [feedPost('at://post/1')],
+      { listing: 'discover', sort: 'hot', limit: 20 },
+      async () => ({ feed: [feedPost('at://post/1')] }),
+    )
+
+    await settle()
+
+    expect(sentinelObserver()).toBeUndefined()
+    expect(loadFeed).not.toHaveBeenCalled()
+  })
+
   it('appends a page of genuinely new posts and keeps paginating', async () => {
     const { props, loadFeed } = await mountFeed(
       [feedPost('at://post/1')],
-      { limit: 20 },
+      { limit: 20, cursor: 'page-1-next' },
       async () => ({ feed: [feedPost('at://post/2')], cursor: 'page-2' }),
     )
 
@@ -533,7 +548,7 @@ describe('VirtualFeed load-more', () => {
     // here is a concurrent one.
     const { loadFeed } = await mountFeed(
       [feedPost('at://post/1')],
-      { limit: 20 },
+      { limit: 20, cursor: 'page-1-next' },
       async () => ({ feed: [feedPost('at://post/2')] }),
     )
 
@@ -557,7 +572,7 @@ describe('VirtualFeed load-more', () => {
     rect = IN_VIEW
     const { props, loadFeed } = await mountFeed(
       [feedPost('at://post/1')],
-      { limit: 20 },
+      { limit: 20, cursor: 'page-1-next' },
       async () => pages.shift() ?? { feed: [] },
     )
 
@@ -578,7 +593,7 @@ describe('VirtualFeed load-more', () => {
     rect = IN_VIEW
     const { loadFeed } = await mountFeed(
       [feedPost('at://post/1')],
-      { limit: 20 },
+      { limit: 20, cursor: 'page-1-next' },
       async () => {
         throw new Error('network down')
       },
@@ -774,11 +789,6 @@ describe('VirtualFeed load-more', () => {
     {
       case: 'a feed without a listing',
       params: { sort: 'hot', cursor: 'expired' },
-      error: new XrpcError(400, 'InvalidCursor', 'cursor expired'),
-    },
-    {
-      case: 'Discover Hot without a cursor',
-      params: { listing: 'discover', sort: 'hot' },
       error: new XrpcError(400, 'InvalidCursor', 'cursor expired'),
     },
     {
@@ -1044,6 +1054,31 @@ describe('VirtualFeed load-more', () => {
       expect(loadFeed).toHaveBeenCalledTimes(expectedCalls)
     },
   )
+
+  it('adds its footer once mounted, so the first render matches the server', async () => {
+    const VirtualFeed = (await import('./VirtualFeed.svelte')).default
+    target = document.createElement('div')
+    document.body.appendChild(target)
+
+    mounted = client.mount(VirtualFeed, {
+      target,
+      props: {
+        posts: [feedPost('at://post/1')],
+        params: { limit: 20, cursor: 'page-2' },
+        loadFeed: async () => ({ feed: [] }),
+      },
+      intro: false,
+    })
+
+    // mount() renders but runs no effects: this is the render hydration
+    // compares with the server's markup, which has no footer. A footer here
+    // would be a hydration mismatch under every non-empty feed.
+    const loadingSentinel = () => target.querySelector('div.h-32')
+    expect(loadingSentinel()).toBeNull()
+
+    client.flushSync()
+    expect(loadingSentinel()).not.toBeNull()
+  })
 
   it('disconnects every IntersectionObserver on unmount', async () => {
     await mountFeed(

@@ -9,18 +9,39 @@
   interface Props {
     embed: PostEmbed
     blur?: boolean
+    /** The likely largest paint (first feed row, a post page): fetch now. */
+    priority?: boolean
   }
 
-  let { embed, blur = false }: Props = $props()
+  let { embed, blur = false, priority = false }: Props = $props()
 
+  let img = $state<HTMLImageElement>()
   let imageLoaded: boolean | null = $state(null)
   onMount(() => {
-    imageLoaded = false
+    // A server-rendered image can finish before hydration, and its load event
+    // is then already spent: hiding it until one arrives would hide it for
+    // good.
+    imageLoaded = img?.complete ?? false
   })
 
   let altText = $derived(extractEmbedAlt(embed))
+  let previewUrl = $derived(bestImageURL(embed, false, 'thumb'))
   let fullImageUrl = $derived(bestImageURL(embed, false, 'fullsize'))
 </script>
+
+<!--
+  The backdrop and the image offer the same candidates under the same
+  conditions, so the browser picks one file and uses it twice. The backdrop
+  used to always load the preview while wide screens loaded the full size:
+  two downloads per image. Above 800px the full size is only chosen when the
+  screen's density needs it. The wide source has no media query: the first
+  match wins, and `(min-width: 801px)` left a zoomed 800.5px viewport with no
+  source at all.
+-->
+{#snippet sources()}
+  <source srcset={previewUrl} media="(max-width: 800px)" />
+  <source srcset="{previewUrl} 800w, {fullImageUrl} 1600w" sizes="800px" />
+{/snippet}
 
 <!--disabled preloads here since most people will hover over every image while scrolling-->
 <svelte:element
@@ -36,27 +57,24 @@
   role="button"
   tabindex="0"
 >
-  <!-- svelte-ignore a11y_missing_attribute -->
-  <div class="inset-0 absolute -z-10 rounded-xl overflow-hidden">
+  <picture class="inset-0 absolute -z-10 rounded-xl overflow-hidden">
+    {@render sources()}
     <img
-      loading="lazy"
-      fetchpriority="auto"
-      src={bestImageURL(embed, false, 'thumb')}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
+      src={previewUrl}
+      alt=""
       class=" object-cover w-full h-full opacity-50 blur-lg"
     />
-  </div>
+  </picture>
   <picture class="max-h-[60vh]">
-    <source
-      srcset={bestImageURL(embed, false, 'thumb')}
-      media="(max-width: 800px)"
-    />
-    <source
-      srcset={bestImageURL(embed, false, 'fullsize')}
-      media="(min-width: 801px)"
-    />
+    {@render sources()}
     <img
+      bind:this={img}
       src={blur ? '' : fullImageUrl}
-      loading="lazy"
+      loading={priority ? 'eager' : 'lazy'}
+      fetchpriority={priority ? 'high' : 'auto'}
+      decoding="async"
       class={[
         'max-w-full rounded-xl z-30 transition-all max-h-[60vh] duration-500 object-contain mx-auto group-hover:scale-98 group-active:scale-95',
         'duration-200 ease-cubic',

@@ -68,9 +68,10 @@ beforeEach(() => {
 async function setup() {
   const { profile } = await import('$lib/app/state/auth.svelte')
   const transports = await import('./client.svelte')
+  const legacy = await import('./legacy-client')
   const { XrpcError } = await import('./coves/xrpc')
   profile.syncFromServer(session('first-session'))
-  return { profile, ...transports, XrpcError }
+  return { profile, ...transports, ...legacy, XrpcError }
 }
 
 // A write exercises the real procedure path, including parsing the original body.

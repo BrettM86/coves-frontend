@@ -94,6 +94,24 @@ describe('normalizeSettings', () => {
     })
   })
 
+  it('resets an unknown font back to the default', () => {
+    const target = structuredClone(defaultSettings)
+    loosen(target).font = 'comic-sans'
+
+    normalizeSettings(target)
+
+    expect(target.font).toBe(defaultSettings.font)
+  })
+
+  it('keeps a known font', () => {
+    const target = structuredClone(defaultSettings)
+    target.font = 'browser'
+
+    normalizeSettings(target)
+
+    expect(target.font).toBe('browser')
+  })
+
   it('leaves already-valid values alone', () => {
     const target = structuredClone(defaultSettings)
     Object.assign(target.defaultSort, {

@@ -46,7 +46,11 @@ const mockSettings = vi.hoisted(() => ({
   defaultSort: { sort: 'hot', timeframe: 'all' },
 }))
 
-vi.mock('$lib/app/state/settings.svelte', () => ({ settings: mockSettings }))
+vi.mock('$lib/app/state/settings.svelte', () => ({
+  settings: mockSettings,
+  // What the server builds its request from: it has no saved settings.
+  defaultSettings: { defaultSort: { sort: 'hot', timeframe: 'all' } },
+}))
 
 // Pins the local instance domain the canonical-URL redirect compares against.
 vi.mock('$env/dynamic/public', () => ({
@@ -210,6 +214,48 @@ describe('community loader', () => {
     })
 
     consoleError.mockRestore()
+  })
+
+  it("surfaces the community feed's CommunityNotFound as a routable 404", async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockCovesMethods.getCommunityFeed.mockRejectedValue(
+      new XrpcError(404, 'CommunityNotFound', 'Community not found'),
+    )
+
+    await expect(load(makeArgs('ghost.coves.social'))).rejects.toMatchObject({
+      status: 404,
+    })
+
+    consoleError.mockRestore()
+  })
+
+  it("does not report the proxy's own 400 as a missing community", async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // Server loads go through /api/proxy, which answers a request it refuses
+    // (bad path, bad session header) with a 400 of its own.
+    const proxyError = new XrpcError(400, 'Bad Request', 'Invalid path')
+    mockCovesMethods.getCommunityFeed.mockRejectedValue(proxyError)
+
+    await expect(load(makeArgs('news.coves.social'))).rejects.toBe(proxyError)
+
+    consoleError.mockRestore()
+  })
+
+  it('reports whether it built the request the server rendered', async () => {
+    expect(
+      (await load(makeArgs('news.coves.social'))).matchesServerRender,
+    ).toBe(true)
+
+    // The server never sees a saved sort: before hydration, its rows are
+    // another feed's.
+    mockSettings.defaultSort = { sort: 'new', timeframe: 'all' }
+    expect(
+      (await load(makeArgs('news.coves.social'))).matchesServerRender,
+    ).toBe(false)
+    expect(
+      (await load(makeArgs('news.coves.social', '?sort=hot')))
+        .matchesServerRender,
+    ).toBe(true)
   })
 
   describe('canonical URL redirect', () => {

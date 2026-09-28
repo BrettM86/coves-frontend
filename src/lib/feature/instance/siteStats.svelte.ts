@@ -1,23 +1,24 @@
 import { browser } from '$app/environment'
-import { coves } from '$lib/api/client.svelte'
 import { log } from '$lib/app/util/log'
-
-export interface AggregatedStats {
-  readonly communities: number
-  readonly subscribers: number
-  readonly members: number
-  readonly posts: number
-}
+import type { SiteStats } from '$lib/types/site-stats'
 
 const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes
 
-class SiteStats {
-  private _data: AggregatedStats | undefined = $state(undefined)
+function isSiteStats(value: unknown): value is SiteStats {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  return ['communities', 'subscribers', 'members', 'posts'].every(
+    (key) => typeof record[key] === 'number',
+  )
+}
+
+class SiteStatsState {
+  private _data: SiteStats | undefined = $state(undefined)
   private _loading = $state(false)
   private _error: string | undefined = $state(undefined)
   private lastFetchedAt = 0
 
-  get data(): AggregatedStats | undefined {
+  get data(): SiteStats | undefined {
     return this._data
   }
   get loading(): boolean {
@@ -37,17 +38,13 @@ class SiteStats {
     this._loading = true
     this._error = undefined
     try {
-      const client = coves()
-      // Fetch a large batch to get a reasonable aggregate
-      const res = await client.listCommunities({ limit: 500 })
-      const communities = res.communities
-
-      this._data = {
-        communities: communities.length,
-        subscribers: communities.reduce((sum, c) => sum + c.subscriberCount, 0),
-        members: communities.reduce((sum, c) => sum + c.memberCount, 0),
-        posts: communities.reduce((sum, c) => sum + c.postCount, 0),
-      }
+      // The server sums the community list once for every visitor (see
+      // $lib/server/site-stats) and the response is HTTP-cacheable.
+      const res = await fetch('/api/site-stats')
+      if (!res.ok) throw new Error(`site stats: HTTP ${res.status}`)
+      const body: unknown = await res.json()
+      if (!isSiteStats(body)) throw new Error('site stats: malformed response')
+      this._data = body
       this.lastFetchedAt = now
     } catch (e) {
       this._error =
@@ -59,4 +56,4 @@ class SiteStats {
   }
 }
 
-export const siteStats = new SiteStats()
+export const siteStats = new SiteStatsState()

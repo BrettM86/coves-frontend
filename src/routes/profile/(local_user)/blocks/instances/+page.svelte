@@ -2,7 +2,7 @@
   // @ts-nocheck TODO(coves-migration): unreachable behind the +page.ts 404
   // gate — unmigrated Lemmy code kept for reference until an instance-block
   // API exists (or the route is deleted).
-  import { client } from '$lib/api/client.svelte'
+  import { client } from '$lib/api/legacy-client'
   import { t } from '$lib/app/state/i18n'
   import ItemList from '$lib/ui/generic/ItemList.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'

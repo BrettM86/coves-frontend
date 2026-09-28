@@ -23,7 +23,12 @@ const state = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('$lib/app/state/settings.svelte', () => ({ settings: state.settings }))
+vi.mock('$lib/app/state/settings.svelte', () => ({
+  settings: state.settings,
+  defaultSettings: {
+    defaultSort: { feed: 'discover', sort: 'hot', timeframe: 'all' },
+  },
+}))
 vi.mock('$lib/app/state/auth.svelte', () => ({ profile: state.profile }))
 vi.mock('$lib/app/state/i18n', () => ({
   t: { get: (key: string) => key },
@@ -43,7 +48,8 @@ function homeArgs(query = ''): Parameters<typeof loadHome>[0] {
     url: new URL(`https://coves.test/${query}`),
     fetch: globalThis.fetch,
     route: { id: '/' },
-  } as Parameters<typeof loadHome>[0]
+    parent: async () => ({ session: null }),
+  } as unknown as Parameters<typeof loadHome>[0]
 }
 
 function communityArgs(query = ''): Parameters<typeof loadCommunity>[0] {

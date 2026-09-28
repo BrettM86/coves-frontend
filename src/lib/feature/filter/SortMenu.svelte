@@ -81,8 +81,12 @@
     timeframe = newSort === 'top' ? (newTimeframe ?? 'all') : undefined
     menuOpen = false
 
+    // No invalidateAll: the feed loads read `sort`/`timeframe` from the URL
+    // and re-run on their own. Forcing it also re-ran the root server load —
+    // a `__data.json` round trip and an upstream session check — which Kit
+    // awaits before it even starts the feed request.
     try {
-      await goto(url, { invalidateAll: true })
+      await goto(url)
     } catch (err) {
       log.error('[SortMenu] Navigation failed', err)
       toast({ content: t.get('toast.sortFailed'), type: 'error' })

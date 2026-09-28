@@ -1,7 +1,7 @@
 import type { FeedPaginationParams } from '$lib/api/coves/types'
 import { coves } from '$lib/api/client.svelte'
 import { XrpcError } from '$lib/api/coves/xrpc'
-import { settings } from '$lib/app/state/settings.svelte'
+import { defaultSettings, settings } from '$lib/app/state/settings.svelte'
 import { error, redirect } from '@sveltejs/kit'
 import { resolveFeedSort } from '$lib/api/coves/sort'
 import type { Handle } from '$lib/types/atproto'
@@ -34,6 +34,12 @@ export async function load({ params, fetch, url, route }) {
   // the last two with 400, which the catch below reports as "not found".
   const communityHandle = params.handle as Handle
   const mapped = resolveFeedSort(url, settings.defaultSort)
+  // The server has no saved settings, so it built its request from the
+  // defaults. The page renders fresh when this one differs (see +page.svelte).
+  const serverMapped = resolveFeedSort(url, defaultSettings.defaultSort)
+  const matchesServerRender =
+    mapped.sort === serverMapped.sort &&
+    mapped.timeframe === serverMapped.timeframe
 
   let feedData
   try {
@@ -76,7 +82,14 @@ export async function load({ params, fetch, url, route }) {
     // The matcher admits shapes the AppView may refuse to parse (400) as well
     // as ones it cannot find (404); to the visitor both are "no such
     // community", and the 500 page would be wrong for user-supplied input.
-    if (e instanceof XrpcError && (e.status === 404 || e.status === 400)) {
+    // Only the AppView's own names count: server loads go through
+    // /api/proxy, whose 400s ('Bad Request') mean something else entirely.
+    if (
+      e instanceof XrpcError &&
+      (e.status === 404
+        ? e.errorName === 'NotFound' || e.errorName === 'CommunityNotFound'
+        : e.status === 400 && e.errorName === 'InvalidRequest')
+    ) {
       error(404, 'Community not found')
     }
     throw e
@@ -102,6 +115,7 @@ export async function load({ params, fetch, url, route }) {
 
   return {
     ...feedData,
+    matchesServerRender,
     loadFeed: async (params: FeedPaginationParams) => {
       const response = await coves({ func: fetch }).getCommunityFeed({
         ...params,

@@ -18,6 +18,8 @@
     type?: MediaType
     opened?: boolean | undefined
     blur?: boolean
+    /** Passed to an image: see PostImage. */
+    priority?: boolean
   }
 
   let {
@@ -26,6 +28,7 @@
     type = 'none',
     opened = undefined,
     blur = false,
+    priority = false,
   }: Props = $props()
 
   let embedUrl = $derived(extractEmbedUrl(embed))
@@ -41,7 +44,7 @@
   - Embed link/card.
 -->
 {#if type === 'image' && view === 'cozy' && embed}
-  <PostImage {embed} {blur} />
+  <PostImage {embed} {blur} {priority} />
 {:else if type === 'embed' && blueskyEmbed}
   {#if view !== 'compact'}
     <BlueskyPostCard embed={blueskyEmbed} />

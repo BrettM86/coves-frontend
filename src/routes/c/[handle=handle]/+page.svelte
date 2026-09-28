@@ -6,9 +6,17 @@
   import CommunityHeader from '$lib/feature/community/CommunityHeader.svelte'
   import { resumables } from '$lib/feature/legacy/item.svelte'
   import PostListShell from '$lib/feature/shell/PostListShell.svelte'
-  import { onDestroy, onMount } from 'svelte'
+  import { onDestroy, onMount, untrack } from 'svelte'
 
   let { data } = $props()
+
+  // Read once: which branch of the {#if} below this page was created in. The
+  // server always takes the first. A load that read a saved sort the server
+  // never saw takes the second, and a branch the server did not render makes
+  // Svelte drop its markup and render these posts fresh, rather than hydrate
+  // the server's rows (images and all) with other posts' data. After
+  // hydration both branches render the same thing.
+  const hydratesServerMarkup = untrack(() => data.matchesServerRender)
 
   onMount(() => {
     if (browser && data.community) {
@@ -45,27 +53,35 @@
   {/if}
 </svelte:head>
 
-{#if data.feed && data.params}
-  <PostListShell
-    bind:posts={data.feed}
-    bind:cursor={data.cursor}
-    getParams={data.params}
-    params={{
-      sort: data.params.sort,
-      timeframe: data.params.timeframe,
-    }}
-    loadFeed={data.loadFeed}
-    virtualList={data.virtualList}
-  >
-    {#snippet extended()}
-      {#if data.community}
-        <CommunityHeader
-          community={data.community}
-          class="w-full relative"
-          compact="lg"
-          avatarCircle={false}
-        />
-      {/if}
-    {/snippet}
-  </PostListShell>
+{#snippet feed()}
+  {#if data.feed && data.params}
+    <PostListShell
+      bind:posts={data.feed}
+      bind:cursor={data.cursor}
+      getParams={data.params}
+      params={{
+        sort: data.params.sort,
+        timeframe: data.params.timeframe,
+      }}
+      loadFeed={data.loadFeed}
+      virtualList={data.virtualList}
+    >
+      {#snippet extended()}
+        {#if data.community}
+          <CommunityHeader
+            community={data.community}
+            class="w-full relative"
+            compact="lg"
+            avatarCircle={false}
+          />
+        {/if}
+      {/snippet}
+    </PostListShell>
+  {/if}
+{/snippet}
+
+{#if hydratesServerMarkup}
+  {@render feed()}
+{:else}
+  {@render feed()}
 {/if}

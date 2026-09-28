@@ -3,11 +3,13 @@
  * where it is allowed to go.
  *
  * On the client every request is routed through `/api/proxy`, which injects
- * auth from the session cookie. On the server there is no proxy — the render
- * calls the upstream directly — so the token has to come from the request that
- * is executing. Two properties matter and are pinned below: an authenticated
- * render's calls carry its token, and that token never leaves the upstream
- * origin.
+ * auth from the session cookie. A server load's requests (made with Kit's
+ * `fetch`) take the same route, in-process, so the response is serialized
+ * under the key the browser asks for while hydrating. Any other server-side
+ * call goes to the upstream directly, so the token has to come from the
+ * request that is executing. Two properties matter there and are pinned below:
+ * an authenticated render's calls carry its token, and that token never leaves
+ * the upstream origin.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AsyncLocalStorage } from 'node:async_hooks'
@@ -119,7 +121,8 @@ async function freshClient() {
   const { installRequestEventAccessor } =
     await import('$lib/app/util/request-event')
   const client = await import('./client.svelte')
-  return { ...client, installRequestEventAccessor }
+  const legacy = await import('./legacy-client')
+  return { ...client, ...legacy, installRequestEventAccessor }
 }
 
 /** The `fields` bag of a `log.*` call: the last argument, when it is an object. */
@@ -154,6 +157,50 @@ beforeEach(() => {
   // `__VERSION__` is a Vite `define` from vite.config.ts, which the vitest
   // config does not carry; `customFetch` reads it on every request.
   vi.stubGlobal('__VERSION__', 'test')
+  // Calls made without a load's `fetch` use the platform one.
+  vi.stubGlobal('fetch', fakeFetch)
+})
+
+describe('coves() in a server load — through the proxy', () => {
+  it('asks for the same-origin proxy path the browser hydrates from', async () => {
+    const { coves, installRequestEventAccessor } = await freshClient()
+    installRequestEventAccessor(() => eventFor(authedLocals()))
+
+    await coves({ func: fakeFetch }).getDiscover({ limit: 1 })
+
+    expect(recorded).toHaveLength(1)
+    expect(recorded[0].url).toBe(
+      '/api/proxy/xrpc/social.coves.feed.getDiscover?limit=1',
+    )
+  })
+
+  it('carries no credential of its own; the proxy injects it', async () => {
+    const { coves, installRequestEventAccessor } = await freshClient()
+    installRequestEventAccessor(() => eventFor(authedLocals()))
+
+    await coves({ func: fakeFetch, instanceURL: FOREIGN }).getDiscover({
+      limit: 1,
+    })
+
+    // The instance origin is dropped, exactly as in the browser, and nothing
+    // in the request itself carries the session.
+    expect(recorded[0].url).toBe(
+      '/api/proxy/xrpc/social.coves.feed.getDiscover?limit=1',
+    )
+    expect(authHeaderOf()).toBeNull()
+  })
+
+  it('still sends an explicitly passed token directly', async () => {
+    const { coves, installRequestEventAccessor } = await freshClient()
+    installRequestEventAccessor(() => eventFor(anonLocals()))
+
+    await coves({ func: fakeFetch, auth: EXPLICIT_TOKEN }).getDiscover({
+      limit: 1,
+    })
+
+    expect(new URL(recorded[0].url).origin).toBe(K.UPSTREAM)
+    expect(authHeaderOf()).toBe(`Bearer ${EXPLICIT_TOKEN}`)
+  })
 })
 
 describe('coves() on the server — auth header injection', () => {
@@ -161,7 +208,7 @@ describe('coves() on the server — auth header injection', () => {
     const { coves, installRequestEventAccessor } = await freshClient()
     installRequestEventAccessor(() => eventFor(authedLocals()))
 
-    await coves({ func: fakeFetch }).getDiscover({ limit: 1 })
+    await coves().getDiscover({ limit: 1 })
 
     expect(recorded).toHaveLength(1)
     expect(authHeaderOf()).toBe(`Bearer ${TOKEN}`)
@@ -173,7 +220,7 @@ describe('coves() on the server — auth header injection', () => {
     const { coves, installRequestEventAccessor } = await freshClient()
     installRequestEventAccessor(() => eventFor(anonLocals()))
 
-    await coves({ func: fakeFetch }).getDiscover({ limit: 1 })
+    await coves().getDiscover({ limit: 1 })
 
     expect(recorded).toHaveLength(1)
     expect(authHeaderOf()).toBeNull()
@@ -182,7 +229,7 @@ describe('coves() on the server — auth header injection', () => {
   it('sends no Authorization header when there is no request at all', async () => {
     const { coves } = await freshClient()
 
-    await coves({ func: fakeFetch }).getDiscover({ limit: 1 })
+    await coves().getDiscover({ limit: 1 })
 
     expect(authHeaderOf()).toBeNull()
   })
@@ -191,7 +238,7 @@ describe('coves() on the server — auth header injection', () => {
     const { coves, installRequestEventAccessor } = await freshClient()
     installRequestEventAccessor(() => eventFor(authedLocals()))
 
-    await coves({ func: fakeFetch, auth: EXPLICIT_TOKEN }).getDiscover({
+    await coves({ auth: EXPLICIT_TOKEN }).getDiscover({
       limit: 1,
     })
 
@@ -206,7 +253,7 @@ describe('coves() on the server — auth header injection', () => {
     const { coves, installRequestEventAccessor } = await freshClient()
     installRequestEventAccessor(() => eventFor(authedLocals()))
 
-    await coves({ func: fakeFetch, instanceURL: FOREIGN }).getDiscover({
+    await coves({ instanceURL: FOREIGN }).getDiscover({
       limit: 1,
     })
 
@@ -225,24 +272,28 @@ describe('coves() on the server — concurrent requests', () => {
     const als = new AsyncLocalStorage<RequestEvent>()
     installRequestEventAccessor(() => als.getStore())
 
+    // Each round records into its own list, even though the platform fetch is
+    // one shared global.
+    const sink = new AsyncLocalStorage<Recorded[]>()
+    vi.stubGlobal(
+      'fetch',
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        sink.getStore()?.push({ url: String(input), init })
+        return new Response('{"feed":[]}', {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      },
+    )
+
     const ROUNDS = 5
     const run = (auth: unknown, tag: string): Promise<string[]> =>
       als.run(eventFor(auth), async () => {
         const seen: string[] = []
         for (let round = 0; round < ROUNDS; round++) {
           const calls: Recorded[] = []
-          const capture = async (
-            input: RequestInfo | URL,
-            init?: RequestInit,
-          ): Promise<Response> => {
-            calls.push({ url: String(input), init })
-            return new Response('{"feed":[]}', {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
-            })
-          }
-          // Built inside the context, as a load function would.
-          await coves({ func: capture }).getDiscover({ limit: 1 })
+          // Built inside the context, as server code would.
+          await sink.run(calls, () => coves().getDiscover({ limit: 1 }))
           seen.push(
             `${tag}:${new Headers(calls[0].init?.headers).get('authorization') ?? 'none'}`,
           )
@@ -282,7 +333,7 @@ describe('coves() on the server — origin matching fails closed', () => {
     const { coves, installRequestEventAccessor } = await freshClient()
     installRequestEventAccessor(() => eventFor(authedLocalsOn(instance)))
 
-    await coves({ func: fakeFetch, instanceURL: target }).getDiscover({
+    await coves({ instanceURL: target }).getDiscover({
       limit: 1,
     })
 
@@ -297,7 +348,7 @@ describe('coves() on the server — origin matching fails closed', () => {
     const { coves, installRequestEventAccessor } = await freshClient()
     installRequestEventAccessor(() => eventFor(authedLocalsOn('not a url')))
 
-    await coves({ func: fakeFetch, instanceURL: K.UPSTREAM }).getDiscover({
+    await coves({ instanceURL: K.UPSTREAM }).getDiscover({
       limit: 1,
     })
 
@@ -316,7 +367,6 @@ describe('coves() on the server — explicitly passed tokens', () => {
     installRequestEventAccessor(() => eventFor(authedLocals()))
 
     await coves({
-      func: fakeFetch,
       auth: EXPLICIT_TOKEN,
       instanceURL: FOREIGN,
     }).getDiscover({ limit: 1 })
@@ -328,7 +378,7 @@ describe('coves() on the server — explicitly passed tokens', () => {
   it('disables caching for an explicit token too', async () => {
     const { coves } = await freshClient()
 
-    await coves({ func: fakeFetch, auth: EXPLICIT_TOKEN }).getDiscover({
+    await coves({ auth: EXPLICIT_TOKEN }).getDiscover({
       limit: 1,
     })
 
@@ -374,7 +424,7 @@ describe('coves() on the server — the reason a token was withheld is reported'
     const { coves, installRequestEventAccessor } = await freshClient()
     installRequestEventAccessor(() => eventFor(authedLocalsOn('not a url')))
 
-    await coves({ func: fakeFetch, instanceURL: K.UPSTREAM }).getDiscover({
+    await coves({ instanceURL: K.UPSTREAM }).getDiscover({
       limit: 1,
     })
 
@@ -393,7 +443,7 @@ describe('coves() on the server — the reason a token was withheld is reported'
     const { coves, installRequestEventAccessor } = await freshClient()
     installRequestEventAccessor(() => eventFor(authedLocals()))
 
-    await coves({ func: fakeFetch, instanceURL: FOREIGN }).getDiscover({
+    await coves({ instanceURL: FOREIGN }).getDiscover({
       limit: 1,
     })
 
@@ -413,12 +463,12 @@ describe('coves() on the server — the reason a token was withheld is reported'
     const { coves, installRequestEventAccessor } = await freshClient()
 
     installRequestEventAccessor(() => eventFor(authedLocalsOn('not a url')))
-    await coves({ func: fakeFetch, instanceURL: K.UPSTREAM }).getDiscover({
+    await coves({ instanceURL: K.UPSTREAM }).getDiscover({
       limit: 1,
     })
 
     installRequestEventAccessor(() => eventFor(authedLocals()))
-    await coves({ func: fakeFetch, instanceURL: FOREIGN }).getDiscover({
+    await coves({ instanceURL: FOREIGN }).getDiscover({
       limit: 1,
     })
 
@@ -433,7 +483,7 @@ describe('coves() on the server — the reason a token was withheld is reported'
     const { coves, installRequestEventAccessor } = await freshClient()
     installRequestEventAccessor(() => eventFor(anonLocals()))
 
-    await coves({ func: fakeFetch }).getDiscover({ limit: 1 })
+    await coves().getDiscover({ limit: 1 })
 
     // An anonymous render is the normal case, not a fault. Logging it would
     // bury the two lines above under one entry per page view.
@@ -444,7 +494,7 @@ describe('coves() on the server — the reason a token was withheld is reported'
   it('says nothing when there is no request at all', async () => {
     const { coves } = await freshClient()
 
-    await coves({ func: fakeFetch }).getDiscover({ limit: 1 })
+    await coves().getDiscover({ limit: 1 })
 
     expect(logged.error).toHaveLength(0)
     expect(logged.warn).toHaveLength(0)

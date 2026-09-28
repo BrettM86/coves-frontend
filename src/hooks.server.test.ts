@@ -279,6 +279,33 @@ describe('hooks.server handleFetch', () => {
     expect(response.headers.has('access-control-allow-origin')).toBe(false)
   })
 
+  it('stamps same-origin sub-requests with the page request id', async () => {
+    mockPublicInternalInstance = 'http://localhost:4000'
+    const event = createMockEvent({ url: 'https://frontend.example/feed' })
+    const request = new Request('https://frontend.example/api/proxy/xrpc/x')
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(new Response(''))
+
+    await handleFetch({ event, request, fetch: fetchFn })
+
+    const forwarded = fetchFn.mock.calls[0]?.[0]
+    if (!(forwarded instanceof Request)) {
+      throw new Error('Expected a Request at the receiving transport')
+    }
+    expect(forwarded.headers.get('x-request-id')).toBe(event.locals.requestId)
+  })
+
+  it('does not send the request id to another origin', async () => {
+    const event = createMockEvent({ url: 'https://frontend.example/feed' })
+    const request = new Request('https://untrusted.example/data')
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(new Response(''))
+
+    await handleFetch({ event, request, fetch: fetchFn })
+
+    const forwarded = fetchFn.mock.calls[0]?.[0]
+    expect(forwarded).toBe(request)
+    expect(request.headers.has('x-request-id')).toBe(false)
+  })
+
   it('does not infer a trusted origin when the internal instance is unset', async () => {
     mockPublicInternalInstance = undefined
     const event = createMockEvent({ url: 'https://frontend.example/feed' })
@@ -340,6 +367,21 @@ describe('hooks.server handle', () => {
     expect(event.locals.auth).toEqual({ authenticated: false })
     expect(event.locals.sessionExpired).toBeUndefined()
     expect(event.cookies.delete).not.toHaveBeenCalled()
+    expect(resolve).toHaveBeenCalledOnce()
+  })
+
+  it('skips /api/me for site stats, which read no session', async () => {
+    const event = createMockEvent({
+      url: 'http://localhost:5173/api/site-stats',
+      routeId: '/api/site-stats',
+      cookies: createMockCookies({ coves_session: 'sealed-token' }),
+    })
+    const resolve = createMockResolve()
+
+    await handle({ event, resolve })
+
+    expect(mockFetch).not.toHaveBeenCalled()
+    expect(event.locals.auth).toEqual({ authenticated: false })
     expect(resolve).toHaveBeenCalledOnce()
   })
 
@@ -1111,6 +1153,48 @@ describe('hooks.server request id', () => {
     expect(first.locals.requestId).not.toBe(second.locals.requestId)
   })
 
+  it("reuses the page's id on an in-process sub-request", async () => {
+    const parentId = '0b6e2c1a-5d3f-4a8e-9c7b-2f1e0d9c8b7a'
+    const event = Object.assign(
+      createMockEvent({
+        cookies: createMockCookies(),
+        headers: { 'x-request-id': parentId },
+      }),
+      { isSubRequest: true },
+    )
+
+    await handle({ event, resolve: createMockResolve() })
+
+    expect(event.locals.requestId).toBe(parentId)
+  })
+
+  it('never trusts an x-request-id sent by an external client', async () => {
+    const claimed = '0b6e2c1a-5d3f-4a8e-9c7b-2f1e0d9c8b7a'
+    const event = createMockEvent({
+      cookies: createMockCookies(),
+      headers: { 'x-request-id': claimed },
+    })
+
+    await handle({ event, resolve: createMockResolve() })
+
+    expect(event.locals.requestId).toMatch(UUID_V4)
+    expect(event.locals.requestId).not.toBe(claimed)
+  })
+
+  it('mints a fresh id for a sub-request whose header is not a uuid', async () => {
+    const event = Object.assign(
+      createMockEvent({
+        cookies: createMockCookies(),
+        headers: { 'x-request-id': 'not-a-uuid' },
+      }),
+      { isSubRequest: true },
+    )
+
+    await handle({ event, resolve: createMockResolve() })
+
+    expect(event.locals.requestId).toMatch(UUID_V4)
+  })
+
   it('carries the request id on the production /util 404 early return', async () => {
     const event = createMockEvent({
       cookies: createMockCookies(),
@@ -1647,6 +1731,16 @@ describe('hooks.server security headers', () => {
     expect(policy['frame-ancestors']).toBe("'none'")
     expect(policy['upgrade-insecure-requests']).toBe('')
     expect(await response.text()).toBe('<html></html>')
+  })
+
+  it("stamps the default font's class so the first paint is already in it", async () => {
+    const event = createMockEvent({ url: 'https://coves.social/' })
+    const resolve = kitPageResolve('<html class="dark %coves.font%"></html>')
+
+    const response = await handle({ event, resolve })
+
+    // PUBLIC_FONT is unset in this suite, so the default is Inter.
+    expect(await response.text()).toBe('<html class="dark font-inter"></html>')
   })
 
   it('preserves a transformPageChunk the inner handle asked for', async () => {

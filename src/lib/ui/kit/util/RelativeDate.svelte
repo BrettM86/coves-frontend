@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import { relativeTimeFormat } from './intl'
   const CLOCK_SKEW_TOLERANCE_MS = 60 * 1000
 
   export function formatRelativeDate(
@@ -40,15 +41,16 @@
           const language = locale ?? 'en'
 
           if (absolute) {
-            const rtf = new Intl.DateTimeFormat(language, {
+            return new Intl.DateTimeFormat(language, {
               ...options,
               timeStyle: 'short',
               dateStyle: 'short',
-            })
-            return rtf.format(date)
+            }).format(date)
           } else {
-            const rtf = new Intl.RelativeTimeFormat(language, options)
-            return rtf.format(-value, thresholds[i].unit as 'second')
+            return relativeTimeFormat(language, options).format(
+              -value,
+              thresholds[i].unit as 'second',
+            )
           }
         }
       }

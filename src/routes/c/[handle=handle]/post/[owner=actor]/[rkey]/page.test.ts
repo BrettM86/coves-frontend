@@ -15,6 +15,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockCovesMethods = vi.hoisted(() => ({
   getProfile: vi.fn(),
+  resolveHandle: vi.fn(),
   getPosts: vi.fn(),
   getComments: vi.fn(),
   getCommunity: vi.fn(),
@@ -216,6 +217,7 @@ function loadedValue(
 describe('post loader', () => {
   beforeEach(() => {
     mockCovesMethods.getProfile.mockReset()
+    mockCovesMethods.resolveHandle.mockReset()
     mockCovesMethods.getPosts.mockReset()
     mockCovesMethods.getComments.mockReset()
     mockCovesMethods.getCommunity.mockReset()
@@ -228,10 +230,7 @@ describe('post loader', () => {
         'getCommunity must not be called: the owner segment supplies the post repo',
       ),
     )
-    mockCovesMethods.getProfile.mockResolvedValue({
-      did: OWNER_DID,
-      handle: OWNER_HANDLE,
-    })
+    mockCovesMethods.resolveHandle.mockResolvedValue({ did: OWNER_DID })
     mockCovesMethods.getComments.mockResolvedValue({ comments: [] })
     serve({ [POSTV2_URI]: hydratedPost(POSTV2_URI) })
   })
@@ -262,7 +261,7 @@ describe('post loader', () => {
 
     const result = await load(makeArgs({ owner: OWNER_DID }))
 
-    expect(mockCovesMethods.getProfile).not.toHaveBeenCalled()
+    expect(mockCovesMethods.resolveHandle).not.toHaveBeenCalled()
     expect(mockCovesMethods.getCommunity).not.toHaveBeenCalled()
     expect(probes()).toEqual([[POSTV2_URI, LEGACY_URI]])
 
@@ -280,12 +279,12 @@ describe('post loader', () => {
     )
   })
 
-  it('resolves a handle owner through getProfile and probes with its DID', async () => {
+  it('resolves a handle owner through resolveHandle and probes with its DID', async () => {
     await load(makeArgs({ owner: OWNER_HANDLE }))
 
-    expect(mockCovesMethods.getProfile).toHaveBeenCalledTimes(1)
-    expect(mockCovesMethods.getProfile).toHaveBeenCalledWith({
-      actor: OWNER_HANDLE,
+    expect(mockCovesMethods.resolveHandle).toHaveBeenCalledTimes(1)
+    expect(mockCovesMethods.resolveHandle).toHaveBeenCalledWith({
+      handle: OWNER_HANDLE,
     })
     expect(probes()).toEqual([[POSTV2_URI, LEGACY_URI]])
   })
@@ -343,8 +342,8 @@ describe('post loader', () => {
   it('404s with couldnt_find_post when the owner handle does not resolve', async () => {
     // An owner that no longer exists is indistinguishable from a post that
     // never existed, and it is the post the visitor asked for.
-    mockCovesMethods.getProfile.mockRejectedValue(
-      new XrpcError(404, 'ActorNotFound', 'Actor not found'),
+    mockCovesMethods.resolveHandle.mockRejectedValue(
+      new XrpcError(400, 'InvalidRequest', 'Unable to resolve handle'),
     )
 
     await expect(
@@ -356,9 +355,9 @@ describe('post loader', () => {
     expect(mockCovesMethods.getPosts).not.toHaveBeenCalled()
   })
 
-  it('propagates a non-404 profile failure instead of masking it as a 404', async () => {
+  it('propagates a resolution outage instead of masking it as a 404', async () => {
     const outage = new XrpcError(500, 'InternalServerError', 'upstream down')
-    mockCovesMethods.getProfile.mockRejectedValue(outage)
+    mockCovesMethods.resolveHandle.mockRejectedValue(outage)
 
     await expect(load(makeArgs({ owner: OWNER_HANDLE }))).rejects.toBe(outage)
   })
@@ -653,7 +652,7 @@ describe('post loader', () => {
     const value = loadedValue(result)
     expect(value.post).toEqual(legacy)
     expect(value.unavailable).toBeUndefined()
-    expect(mockCovesMethods.getProfile).not.toHaveBeenCalled()
+    expect(mockCovesMethods.resolveHandle).not.toHaveBeenCalled()
   })
 
   it('does not redirect an unavailable post, whatever the slug', async () => {

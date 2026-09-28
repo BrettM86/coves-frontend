@@ -263,6 +263,39 @@ describe('i18n public module — overlapping loads', () => {
   })
 })
 
+describe('i18n public module — setting the language already showing', () => {
+  it('does not re-render every translated string', async () => {
+    const { t, locale, loadTranslations } = await freshI18n()
+    await loadTranslations('fr')
+
+    const seen: string[] = []
+    const unsubscribe = t.subscribe((translate) =>
+      seen.push(translate('account.login')),
+    )
+    locale.set('fr')
+
+    expect(seen).toEqual([LOGIN_FR])
+    unsubscribe()
+  })
+
+  it('still wins over an older load that lands later', async () => {
+    const { t, locale, loadTranslations } = await freshI18n()
+    await loadTranslations('fr')
+
+    // A switch to German is under way when the reader settles on French, the
+    // language already showing, after all.
+    const german = control.hold('de')
+    const germanLoad = loadTranslations('de')
+    locale.set('fr')
+
+    german.open()
+    await germanLoad
+
+    expect(get(locale)).toBe('fr')
+    expect(get(t)('account.login')).toBe(LOGIN_FR)
+  })
+})
+
 describe('i18n public module — a dictionary that cannot be fetched', () => {
   it('keeps the chosen language, falls back to en, and reports it once', async () => {
     const { t, locale } = await freshI18n()

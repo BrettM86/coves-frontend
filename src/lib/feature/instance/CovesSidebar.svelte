@@ -16,12 +16,25 @@
 
   let { class: clazz = '' }: Props = $props()
 
+  let aside = $state<HTMLElement>()
+
+  // Only once the sidebar is actually on screen: below the desktop breakpoint
+  // it is display:none, and the profile menu mounts a copy that stays closed
+  // until opened. A hidden element never intersects.
   onMount(() => {
-    siteStats.fetch().catch(() => {})
+    if (!aside) return
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return
+      observer.disconnect()
+      void siteStats.fetch()
+    })
+    observer.observe(aside)
+    return () => observer.disconnect()
   })
 </script>
 
 <aside
+  bind:this={aside}
   class={[
     'w-full text-slate-600 dark:text-zinc-400 flex flex-col gap-4 text-sm',
     clazz,

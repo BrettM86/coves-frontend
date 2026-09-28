@@ -45,9 +45,10 @@
       </Placeholder>
     </div>
   {:else}
-    {#each posts as feedPost (feedPost.post.uri)}
+    {#each posts as feedPost, index (feedPost.post.uri)}
       <li class="relative post-container" data-post-uri={feedPost.post.uri}>
         <Post
+          priority={index === 0}
           hideCommunity={community}
           pinned={feedPost.reason?.$type === 'social.coves.feed.defs#reasonPin'}
           view={feedPost.reason?.$type === 'social.coves.feed.defs#reasonPin' &&

@@ -1,5 +1,11 @@
 <script lang="ts" module>
-  import { marked, type TokenizerAndRendererExtension } from 'marked'
+  import { browser } from '$app/environment'
+  import { LruCache } from '$lib/app/util/lru'
+  import {
+    marked,
+    type TokenizerAndRendererExtension,
+    type TokensList,
+  } from 'marked'
   import { setContext } from 'svelte'
   import type { ClassValue } from 'svelte/elements'
   import MdTree from './MdTree.svelte'
@@ -152,6 +158,28 @@
   }
 
   export type Renderer = keyof typeof renderers
+
+  // Lexing is the costly half of rendering Markdown, and the same sources come
+  // round again and again: the virtual feed re-mounts rows as they scroll back
+  // into view, and every mount lexed its title and body from scratch. The
+  // renderers only read tokens, so one lexed copy serves every instance;
+  // lex-cache.test.ts fails if a renderer starts changing them.
+  // Browser only, bounded, least recently used out first; long sources are
+  // not kept.
+  const LEX_CACHE_MAX_SOURCE = 4000
+  const lexCache = new LruCache<string, TokensList>(500)
+
+  export function lex(source: string): TokensList {
+    if (!browser || source.length > LEX_CACHE_MAX_SOURCE) {
+      return marked.lexer(preprocess(source))
+    }
+    let tokens = lexCache.get(source)
+    if (!tokens) {
+      tokens = marked.lexer(preprocess(source))
+      lexCache.set(source, tokens)
+    }
+    return tokens
+  }
 </script>
 
 <script lang="ts">
@@ -200,7 +228,7 @@
 
   setContext('options', options)
 
-  let tokens = $derived(marked.lexer(preprocess(source)))
+  let tokens = $derived(lex(source))
 </script>
 
 <svelte:element

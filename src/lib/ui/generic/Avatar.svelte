@@ -25,10 +25,17 @@
     ...rest
   }: Props = $props()
 
-  let optimizedURLs = $derived([
-    withPreset(url ?? '', 'avatar_small'),
-    withPreset(url ?? '', 'avatar'),
-  ])
+  // `avatar_small` is 360px square: enough for a 120px avatar even on a 3x
+  // screen. Only bigger ones offer the 1000px `avatar` to dense screens; the
+  // 20–48px avatars in feeds and threads used to download it on every 2x
+  // display, roughly ten times the bytes for no visible difference.
+  const LARGE_AVATAR_MIN_WIDTH = 121
+  let smallURL = $derived(withPreset(url ?? '', 'avatar_small'))
+  let srcset = $derived(
+    width >= LARGE_AVATAR_MIN_WIDTH
+      ? `${smallURL} 1x, ${withPreset(url ?? '', 'avatar')} 2x`
+      : undefined,
+  )
 
   let imgError = $state(false)
 
@@ -43,8 +50,9 @@
   <img
     {...rest}
     loading="lazy"
-    srcset="{optimizedURLs[0]} 1x, {optimizedURLs[1]} 2x"
-    src={optimizedURLs[0]}
+    decoding="async"
+    {srcset}
+    src={smallURL}
     onerror={() => (imgError = true)}
     alt=""
     {width}

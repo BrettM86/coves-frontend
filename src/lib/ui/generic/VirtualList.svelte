@@ -6,6 +6,7 @@
   import type { HTMLAttributes } from 'svelte/elements'
   import { innerHeight } from 'svelte/reactivity/window'
   import { settings } from '$lib/app/state/settings.svelte'
+  import { renderingServerMarkup } from '$lib/app/util/ssr'
   import type { VirtualListRestoration } from '$lib/types/virtual-list'
 
   interface Props extends HTMLAttributes<HTMLDivElement> {
@@ -32,8 +33,6 @@
     height = 0,
     ...rest
   }: Props = $props()
-
-  let initialRender = false
 
   export function scrollToIndex(index: number, useWindow: boolean = false) {
     const targetPx = cumulativeItemHeights[index] - (initialOffset || 0)
@@ -87,7 +86,23 @@
 
   let scrollY = $state(0)
   let viewportHeight = $state(0)
-  let visibleItems = $state<{ index: number; offset: number }[]>([])
+
+  // On the server, and while hydrating what it sent, the list renders its
+  // first rows in normal flow with no fixed height. That is all the server can
+  // do without a viewport, and the hydrating render must produce the same
+  // markup or Svelte throws the server's rows away and rebuilds them. onMount
+  // then measures those real rows and switches to windowing. Lists created by
+  // client-side navigation start windowed, as they always have.
+  const STATIC_ROWS = 50
+  const serverShaped = renderingServerMarkup()
+  let mounted = $state(!serverShaped)
+  let visibleItems = $state<{ index: number; offset: number }[]>(
+    untrack(() =>
+      serverShaped
+        ? items.slice(0, STATIC_ROWS).map((_, index) => ({ index, offset: 0 }))
+        : [],
+    ),
+  )
 
   $effect.pre(() => {
     if (items.length > itemHeights.length) {
@@ -104,7 +119,7 @@
   $effect(() => {
     if (items.length) {
       untrack(() => {
-        visibleItems = updateVisibleItems()
+        if (mounted) visibleItems = updateVisibleItems()
       })
     } else {
       // An emptied list must also empty the viewport: keeping the previous
@@ -162,11 +177,11 @@
   }
 
   function resizeObserver(node: HTMLElement) {
-    observer.observe(node)
+    observer?.observe(node)
 
     return {
       destroy() {
-        observer.unobserve(node)
+        observer?.unobserve(node)
       },
     }
   }
@@ -176,41 +191,49 @@
   // so the prop is read once here on purpose.
   const debouncedUpdate = debounce(
     (measurements: { index: number; height: number }[]) => {
+      let changed = false
       for (const measurement of measurements) {
         if (itemHeights[measurement.index] !== measurement.height) {
           itemHeights[measurement.index] = measurement.height
-          if (!initialRender) visibleItems = updateVisibleItems()
+          changed = true
         }
       }
+      // Once per batch, not once per row: each pass walks the whole list.
+      if (changed && mounted) visibleItems = updateVisibleItems()
     },
     untrack(() => debounceResize),
   )
 
-  const observer = new ResizeObserver((entries) => {
-    const measurements: { index: number; height: number }[] = []
-    for (const entry of entries) {
-      const indexAttr = entry.target.getAttribute('data-index')
-      if (indexAttr === null) continue
-      const index = Number(indexAttr)
-      if (isNaN(index)) continue
+  // Browser only: the constructor does not exist on the server, which renders
+  // this list too.
+  const observer = browser
+    ? new ResizeObserver((entries) => {
+        const measurements: { index: number; height: number }[] = []
+        for (const entry of entries) {
+          const indexAttr = entry.target.getAttribute('data-index')
+          if (indexAttr === null) continue
+          const index = Number(indexAttr)
+          if (isNaN(index)) continue
 
-      const height =
-        entry.borderBoxSize?.[0]?.blockSize ??
-        entry.target.getBoundingClientRect().height
-      if (Number.isFinite(height)) measurements.push({ index, height })
-    }
-    debouncedUpdate(measurements)
-  })
+          const height =
+            entry.borderBoxSize?.[0]?.blockSize ??
+            entry.target.getBoundingClientRect().height
+          if (Number.isFinite(height)) measurements.push({ index, height })
+        }
+        debouncedUpdate(measurements)
+      })
+    : undefined
 
   onDestroy(() => {
-    observer.disconnect()
+    observer?.disconnect()
   })
 
   // Scroll position changes (only every few px)
-  let oldScroll = $state(0)
+  let oldScroll = 0
   $effect(() => {
     const currentScrollY = scrollY ?? 0
     untrack(() => {
+      if (!mounted) return
       if (Math.abs(currentScrollY - oldScroll) > estimatedHeight) {
         visibleItems = updateVisibleItems()
         oldScroll = currentScrollY
@@ -234,7 +257,7 @@
 
       untrack(() => {
         visibleItems = updateVisibleItems()
-        initialRender = false
+        mounted = true
       })
     }
   })
@@ -251,9 +274,11 @@
 
 <div
   bind:this={virtualListEl}
-  style="position: relative; height: {height ||
-    cumulativeItemHeights[cumulativeItemHeights.length - 1] ||
-    0}px;"
+  style="position: relative;{mounted
+    ? ` height: ${
+        height || cumulativeItemHeights[cumulativeItemHeights.length - 1] || 0
+      }px;`
+    : ''}"
   {...rest}
   id="feed"
   onscroll={() => {

@@ -195,8 +195,15 @@ describe('handleFetch client address', () => {
       await handleFetch({ event, request, fetch: transport })
 
       expect(transport).toHaveBeenCalledOnce()
-      expect(transport.mock.calls[0]?.[0]).toBe(request)
-      expect([...request.headers.entries()]).toEqual(originalHeaders)
+      const forwarded = transport.mock.calls[0]?.[0]
+      if (!(forwarded instanceof Request)) {
+        throw new Error('Expected a Request at the receiving transport')
+      }
+      expect(forwarded.url).toBe(target)
+      // A same-origin hop also carries the page's request id; nothing else.
+      const forwardedHeaders = new Headers(forwarded.headers)
+      forwardedHeaders.delete('x-request-id')
+      expect([...forwardedHeaders.entries()]).toEqual(originalHeaders)
       expect(event.getClientAddress).not.toHaveBeenCalled()
     },
   )

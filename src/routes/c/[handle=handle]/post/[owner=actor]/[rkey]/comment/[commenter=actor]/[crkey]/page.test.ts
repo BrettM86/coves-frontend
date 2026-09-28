@@ -14,6 +14,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockCovesMethods = vi.hoisted(() => ({
   getProfile: vi.fn(),
+  resolveHandle: vi.fn(),
   getPosts: vi.fn(),
   getComments: vi.fn(),
   getCommunity: vi.fn(),
@@ -308,6 +309,7 @@ function loadedValue(
 describe('comment permalink loader', () => {
   beforeEach(() => {
     mockCovesMethods.getProfile.mockReset()
+    mockCovesMethods.resolveHandle.mockReset()
     mockCovesMethods.getPosts.mockReset()
     mockCovesMethods.getComments.mockReset()
     mockCovesMethods.getCommunity.mockReset()
@@ -320,14 +322,14 @@ describe('comment permalink loader', () => {
       ),
     )
     // Both the owner and the commenter segments resolve through this one
-    // endpoint, so the fake has to answer per actor rather than per call.
-    mockCovesMethods.getProfile.mockImplementation(
-      async ({ actor }: { actor: string }) => {
-        const did = DIRECTORY[actor]
+    // endpoint, so the fake has to answer per handle rather than per call.
+    mockCovesMethods.resolveHandle.mockImplementation(
+      async ({ handle }: { handle: string }) => {
+        const did = DIRECTORY[handle]
         if (!did) {
-          throw new XrpcError(404, 'ActorNotFound', `no such actor: ${actor}`)
+          throw new XrpcError(400, 'InvalidRequest', 'Unable to resolve handle')
         }
-        return { did, handle: actor }
+        return { did }
       },
     )
     serve({ [POSTV2_URI]: hydratedPost(POSTV2_URI) })
@@ -370,7 +372,7 @@ describe('comment permalink loader', () => {
     const result = await pending
     const value = loadedValue(result)
 
-    expect(mockCovesMethods.getProfile).not.toHaveBeenCalled()
+    expect(mockCovesMethods.resolveHandle).not.toHaveBeenCalled()
     expect(mockCovesMethods.getCommunity).not.toHaveBeenCalled()
     expect(probes()).toEqual([[POSTV2_URI, LEGACY_URI]])
 
@@ -404,7 +406,7 @@ describe('comment permalink loader', () => {
     )
   })
 
-  it('resolves a handle owner through getProfile and probes with its DID', async () => {
+  it('resolves a handle owner through resolveHandle and probes with its DID', async () => {
     // A DID commenter over an unresolved comment author, so the one profile
     // lookup this asserts is unambiguously the owner's.
     mockCovesMethods.getComments.mockResolvedValue(
@@ -413,9 +415,9 @@ describe('comment permalink loader', () => {
 
     await load(makeArgs({ owner: OWNER_HANDLE, commenter: COMMENTER_DID }))
 
-    expect(mockCovesMethods.getProfile).toHaveBeenCalledTimes(1)
-    expect(mockCovesMethods.getProfile).toHaveBeenCalledWith({
-      actor: OWNER_HANDLE,
+    expect(mockCovesMethods.resolveHandle).toHaveBeenCalledTimes(1)
+    expect(mockCovesMethods.resolveHandle).toHaveBeenCalledWith({
+      handle: OWNER_HANDLE,
     })
     expect(probes()).toEqual([[POSTV2_URI, LEGACY_URI]])
   })
@@ -535,8 +537,8 @@ describe('comment permalink loader', () => {
   // -------------------------------------------------------------------------
 
   it('404s with couldnt_find_post when the owner handle does not resolve', async () => {
-    mockCovesMethods.getProfile.mockRejectedValue(
-      new XrpcError(404, 'ActorNotFound', 'Actor not found'),
+    mockCovesMethods.resolveHandle.mockRejectedValue(
+      new XrpcError(400, 'InvalidRequest', 'Unable to resolve handle'),
     )
 
     await expect(
@@ -548,9 +550,9 @@ describe('comment permalink loader', () => {
     expect(mockCovesMethods.getPosts).not.toHaveBeenCalled()
   })
 
-  it('propagates a non-404 profile failure instead of masking it as a 404', async () => {
+  it('propagates a resolution outage instead of masking it as a 404', async () => {
     const outage = new XrpcError(500, 'InternalServerError', 'upstream down')
-    mockCovesMethods.getProfile.mockRejectedValue(outage)
+    mockCovesMethods.resolveHandle.mockRejectedValue(outage)
 
     await expect(load(makeArgs({ owner: OWNER_HANDLE }))).rejects.toBe(outage)
   })
@@ -559,11 +561,11 @@ describe('comment permalink loader', () => {
   // Commenter segment
   // -------------------------------------------------------------------------
 
-  it('resolves a handle commenter through getProfile', async () => {
+  it('resolves a handle commenter through resolveHandle', async () => {
     await load(makeArgs({ commenter: COMMENTER_HANDLE }))
 
-    expect(mockCovesMethods.getProfile).toHaveBeenCalledWith({
-      actor: COMMENTER_HANDLE,
+    expect(mockCovesMethods.resolveHandle).toHaveBeenCalledWith({
+      handle: COMMENTER_HANDLE,
     })
   })
 

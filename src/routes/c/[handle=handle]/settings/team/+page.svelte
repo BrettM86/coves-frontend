@@ -1,6 +1,6 @@
 <script lang="ts">
   // @ts-nocheck TODO(coves-migration): Needs Coves community team management API
-  import { getClient } from '$lib/api/client.svelte'
+  import { getClient } from '$lib/api/legacy-client'
   import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
   import { t } from '$lib/app/state/i18n'

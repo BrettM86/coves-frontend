@@ -189,6 +189,12 @@ export const locale: LocaleStore = {
 
     const resolved = resolveLocale(value)
     const request = beginRequest()
+    const hadDictionary = getDictionary(resolved) !== undefined
+
+    // Already showing this language, words and all: re-announcing it would
+    // re-render every translated string in the app for no change. The request
+    // was still taken above, so an older load cannot land over this choice.
+    if (resolved === clientLocale && hadDictionary) return
 
     // Committed before the dictionary arrives: the chosen language is current
     // straight away, and its keys read as `en` until the load lands. Whoever
@@ -197,10 +203,9 @@ export const locale: LocaleStore = {
     commit(resolved)
 
     // Whether a load is needed at all is `ensureLoaded`'s decision, not one to
-    // second-guess here; this only records whether anything NEW can arrive, so
-    // an already-cached language does not push a redundant re-render.
-    const hadDictionary = getDictionary(resolved) !== undefined
-
+    // second-guess here; `hadDictionary` only records whether anything NEW can
+    // arrive, so an already-cached language does not push a redundant
+    // re-render.
     void ensureLoaded(resolved)
       .then(() => {
         // A newer request has won in the meantime; announcing now would render

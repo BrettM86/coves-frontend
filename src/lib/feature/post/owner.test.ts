@@ -10,10 +10,12 @@ import type { CovesClient } from '$lib/api/coves/client'
 import type { DID, Handle } from '$lib/types/atproto'
 import type { PostSubmitResult } from './form/post-form.svelte'
 import { buildLegacyPostAtUri, buildPostAtUri } from './helpers'
+import { XrpcError } from '$lib/api/coves/xrpc'
 import {
   addressesRecord,
   createdPostLink,
   fetchPostByOwner,
+  isNotFoundError,
   resolveOwnerDid,
 } from './owner'
 
@@ -115,40 +117,63 @@ describe('addressesRecord', () => {
 // resolveOwnerDid()
 // ---------------------------------------------------------------------------
 
-function profileClient(): {
-  client: Pick<CovesClient, 'getProfile'>
-  getProfile: ReturnType<typeof vi.fn>
+function resolverClient(): {
+  client: Pick<CovesClient, 'resolveHandle'>
+  resolveHandle: ReturnType<typeof vi.fn>
 } {
-  const getProfile = vi.fn()
+  const resolveHandle = vi.fn()
   return {
-    client: { getProfile } as unknown as Pick<CovesClient, 'getProfile'>,
-    getProfile,
+    client: { resolveHandle } as unknown as Pick<CovesClient, 'resolveHandle'>,
+    resolveHandle,
   }
 }
 
 describe('resolveOwnerDid', () => {
   it('returns a DID owner unchanged, without touching the network', async () => {
-    const { client, getProfile } = profileClient()
+    const { client, resolveHandle } = resolverClient()
 
     await expect(resolveOwnerDid(client, OWNER_DID)).resolves.toBe(OWNER_DID)
-    expect(getProfile).not.toHaveBeenCalled()
+    expect(resolveHandle).not.toHaveBeenCalled()
   })
 
-  it('resolves a handle owner through getProfile', async () => {
-    const { client, getProfile } = profileClient()
-    getProfile.mockResolvedValue({ did: OWNER_DID, handle: OWNER_HANDLE })
+  it('resolves a handle owner through resolveHandle, not a full profile', async () => {
+    const { client, resolveHandle } = resolverClient()
+    resolveHandle.mockResolvedValue({ did: OWNER_DID })
 
     await expect(resolveOwnerDid(client, OWNER_HANDLE)).resolves.toBe(OWNER_DID)
-    expect(getProfile).toHaveBeenCalledTimes(1)
-    expect(getProfile).toHaveBeenCalledWith({ actor: OWNER_HANDLE })
+    expect(resolveHandle).toHaveBeenCalledTimes(1)
+    expect(resolveHandle).toHaveBeenCalledWith({ handle: OWNER_HANDLE })
   })
 
-  it('propagates a getProfile rejection instead of swallowing it', async () => {
-    // An unknown handle must reach the loader, which turns it into a 404.
-    // Returning the raw handle here would build an unroutable AT-URI.
-    const { client, getProfile } = profileClient()
-    const failure = new Error('actor not found')
-    getProfile.mockRejectedValue(failure)
+  it('reports an unknown handle (400 from the AppView) as not found', async () => {
+    // An unknown handle must reach the loader as the 404 it turns into
+    // "couldn't find post". Returning the raw handle here would build an
+    // unroutable AT-URI.
+    const { client, resolveHandle } = resolverClient()
+    resolveHandle.mockRejectedValue(
+      new XrpcError(400, 'InvalidRequest', 'Unable to resolve handle'),
+    )
+
+    const failure = await resolveOwnerDid(client, OWNER_HANDLE).catch(
+      (err: unknown) => err,
+    )
+    expect(isNotFoundError(failure)).toBe(true)
+  })
+
+  it('propagates a 400 that is not the AppView rejecting the handle', async () => {
+    // Server loads go through /api/proxy, whose own 400s (bad path, invalid
+    // session header) say nothing about whether the post exists.
+    const { client, resolveHandle } = resolverClient()
+    const failure = new XrpcError(400, 'Bad Request', 'invalid proxy path')
+    resolveHandle.mockRejectedValue(failure)
+
+    await expect(resolveOwnerDid(client, OWNER_HANDLE)).rejects.toBe(failure)
+  })
+
+  it('propagates any other failure unchanged', async () => {
+    const { client, resolveHandle } = resolverClient()
+    const failure = new XrpcError(502, 'UpstreamFailure', 'resolver down')
+    resolveHandle.mockRejectedValue(failure)
 
     await expect(resolveOwnerDid(client, OWNER_HANDLE)).rejects.toBe(failure)
   })

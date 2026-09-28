@@ -34,6 +34,8 @@
     class?: ClassValue
     extraBadges?: import('svelte').Snippet
     navigation?: import('svelte').Snippet
+    /** Load this post's image first: it is likely the largest paint. */
+    priority?: boolean
   }
 
   let {
@@ -47,6 +49,7 @@
     class: clazz = '',
     extraBadges: additionalBadges,
     navigation,
+    priority = false,
   }: Props = $props()
 
   let tags = $derived(
@@ -235,7 +238,7 @@
             '[&>*]:block [&>*]:w-full': view === 'cozy' && nativeImage,
           }}
         >
-          <PostMedia embed={post.embed} {view} {type} />
+          <PostMedia embed={post.embed} {view} {type} {priority} />
         </div>
         {#if view == 'compact'}
           <PostMediaCompact

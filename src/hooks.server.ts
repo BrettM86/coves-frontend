@@ -9,7 +9,9 @@ import {
 import { building, dev } from '$app/environment'
 import { getRequestEvent } from '$app/server'
 import { env as privateEnv } from '$env/dynamic/private'
+import { env as publicEnv } from '$env/dynamic/public'
 import { isBackendUnavailable } from '$lib/app/util/error'
+import { defaultFont, fontClass } from '$lib/app/util/font'
 import { installRequestEventAccessor } from '$lib/app/util/request-event'
 import {
   addressHeaderConfigWarning,
@@ -67,11 +69,15 @@ export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
   const internalOrigin = internalInstanceOrigin()
   const requestOrigin = new URL(request.url).origin
 
-  if (
-    internalOrigin === null ||
-    requestOrigin !== internalOrigin ||
-    requestOrigin === event.url.origin
-  ) {
+  // A same-origin fetch (a load's /api/proxy call) runs `handle` again
+  // in-process; carrying the page's id lets its log lines join the page's.
+  if (requestOrigin === event.url.origin) {
+    const headers = new Headers(request.headers)
+    headers.set('x-request-id', event.locals.requestId)
+    return fetch(new Request(request, { headers }))
+  }
+
+  if (internalOrigin === null || requestOrigin !== internalOrigin) {
     return fetch(request)
   }
 
@@ -154,12 +160,21 @@ function isNetworkError(error: unknown): boolean {
   return false
 }
 
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const session: Handle = async ({ event, resolve }) => {
   // Minted before any branch below can return, so log lines from anywhere in
   // this request can be correlated. setHeaders only reaches the response
   // resolve() returns: the manual /util 404 below carries the header itself,
   // while the dev redirect and Kit's own fatal-error responses do not.
-  const requestId = crypto.randomUUID()
+  // A sub-request inherits the page's id (stamped by handleFetch); the header
+  // is never trusted from an external client.
+  const inheritedId = event.request.headers.get('x-request-id')
+  const requestId =
+    event.isSubRequest && inheritedId !== null && UUID.test(inheritedId)
+      ? inheritedId
+      : crypto.randomUUID()
   event.locals.requestId = requestId
   event.setHeaders({ 'x-request-id': requestId })
 
@@ -203,9 +218,11 @@ const session: Handle = async ({ event, resolve }) => {
   // The expire endpoint reads the cookie itself and needs no auth locals; a
   // /api/me round trip there would only hold the deletion open longer, widening
   // the window in which another tab's fresh login can be the cookie it removes.
+  // Site stats are the same for everyone and read no session at all.
   if (
     event.route.id === '/api/proxy/[...path]' ||
-    event.route.id === '/api/auth/expire'
+    event.route.id === '/api/auth/expire' ||
+    event.route.id === '/api/site-stats'
   ) {
     return resolve(event)
   }
@@ -370,6 +387,15 @@ function applyCachePolicy(
 }
 
 /**
+ * Kit's default (scripts and styles) plus fonts. Titles are set in Inter
+ * whatever the font setting, so the first paint needs it; preloading starts the
+ * download with the document instead of after the stylesheet is parsed.
+ */
+function preloadInHead({ type }: { type: string }): boolean {
+  return type === 'js' || type === 'css' || type === 'font'
+}
+
+/**
  * Every response that reaches `handle` — Kit pages, endpoints, and the manual
  * early returns in `session` above — leaves with the full security header
  * set. Not covered: static assets and prerendered pages (served by sirv / Vite
@@ -400,9 +426,14 @@ export const handle: Handle = async ({ event, resolve }) => {
     resolve: (ev, opts) =>
       resolve(ev, {
         ...opts,
-        transformPageChunk: (input) => {
+        preload: opts?.preload ?? preloadInHead,
+        transformPageChunk: async (input) => {
           kitPage = true
-          return opts?.transformPageChunk?.(input) ?? input.html
+          const html = (await opts?.transformPageChunk?.(input)) ?? input.html
+          return html.replace(
+            '%coves.font%',
+            fontClass(defaultFont(publicEnv.PUBLIC_FONT)),
+          )
         },
       }),
   })

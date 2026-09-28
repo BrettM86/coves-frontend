@@ -55,9 +55,11 @@
 
 @custom-variant hover (&:hover);
 
+/* Bundled by Vite so the file is content-hashed under /_app/immutable and
+   served with a year-long immutable cache; hooks.server.ts has Kit preload it. */
 @font-face {
   font-family: 'Inter';
-  src: url('/font/Inter.woff2') format('woff2');
+  src: url('./lib/assets/fonts/Inter.woff2') format('woff2');
   font-display: swap;
 }
 

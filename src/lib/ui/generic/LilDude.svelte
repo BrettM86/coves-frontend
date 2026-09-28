@@ -1,5 +1,8 @@
 <script lang="ts">
-  import svgContent from '$lib/assets/lil_dude.svg?raw'
+  // A URL, not `?raw`: inlining put 32 kB of SVG markup into the root layout's
+  // JS and into every server-rendered page. As a file it is content-hashed,
+  // cached for a year, and skipped entirely where the sidebar is hidden.
+  import mascotUrl from '$lib/assets/lil_dude.svg'
   import type { ClassValue } from 'svelte/elements'
 
   interface Props {
@@ -13,19 +16,12 @@
   const height = $derived(Math.round(width * (638 / 689)))
 </script>
 
-<div
+<img
+  src={mascotUrl}
   class={clazz}
-  style="width: {width}px; height: {height}px;"
-  role="img"
-  aria-label="Coves mascot"
->
-  <!-- eslint-disable-next-line svelte/no-at-html-tags -- static bundled SVG asset, no user input -->
-  {@html svgContent}
-</div>
-
-<style>
-  div :global(svg) {
-    width: 100%;
-    height: 100%;
-  }
-</style>
+  {width}
+  {height}
+  alt="Coves mascot"
+  loading="lazy"
+  decoding="async"
+/>

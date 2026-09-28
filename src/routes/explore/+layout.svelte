@@ -29,10 +29,10 @@
   // through a freshly built object each load — so these effects re-run on every
   // navigation regardless of whether the value changed. SearchBar binds
   // straight into `search`, so an unguarded re-sync would erase whatever the
-  // user had typed the moment the sort dropdown fired its `goto(...,
-  // { invalidateAll: true })`. Only a change in the URL-derived value may
-  // overwrite the local control. `lastQuery`/`lastSort` are plain `let`s, not
-  // $state, so updating them here cannot re-trigger the effect.
+  // user had typed the moment the sort dropdown fired its `goto(...)`. Only a
+  // change in the URL-derived value may overwrite the local control.
+  // `lastQuery`/`lastSort` are plain `let`s, not $state, so updating them here
+  // cannot re-trigger the effect.
   let search = $state(untrack(() => page.data.query || ''))
   let sort = $state(untrack(() => data.sort))
 

@@ -84,6 +84,30 @@ describe('syncFromServer', () => {
     expect(profile.meta.profiles).toEqual([profileFromSession(incoming)])
   })
 
+  it('leaves the profile untouched when the same session is re-delivered', async () => {
+    // Every navigation hands the layout the same session again; a fresh
+    // profile object would re-run every reader of `profile.current`.
+    const { profile } = await freshAuth()
+    profile.syncFromServer(session('https://cdn.example/avatar.png'))
+    const before = profile.meta.profiles
+    const stored = store.get('profileData')
+
+    profile.syncFromServer(session('https://cdn.example/avatar.png'))
+
+    expect(profile.meta.profiles).toBe(before)
+    expect(store.get('profileData')).toBe(stored)
+  })
+
+  it('still adopts a session whose profile changed', async () => {
+    const { profile, profileFromSession } = await freshAuth()
+    profile.syncFromServer(session('https://cdn.example/old.png'))
+
+    const changed = session('https://cdn.example/new.png')
+    profile.syncFromServer(changed)
+
+    expect(profile.meta.profiles).toEqual([profileFromSession(changed)])
+  })
+
   it('drops to the guest profileFromSession maps for no session', async () => {
     const { profile, profileFromSession } = await freshAuth()
     profile.syncFromServer(session())

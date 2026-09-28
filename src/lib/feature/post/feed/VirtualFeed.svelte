@@ -187,7 +187,15 @@
   // seeds: init reads are never reactive, so untrack() there documents the
   // intent and silences state_referenced_locally. `lastPosts` is a plain
   // `let`, not $state, so updating it here cannot re-trigger the effect.
-  let hasMore = $state(untrack(() => !!loadFeed))
+  //
+  // A feed that arrived with posts but no next cursor is already complete:
+  // seeding `hasMore` true there mounted the sentinel, which asked for page
+  // one again (no cursor) only to find nothing new — one wasted request on
+  // every short feed.
+  function feedHasMore(): boolean {
+    return !!loadFeed && (posts.length === 0 || params.cursor !== undefined)
+  }
+  let hasMore = $state(untrack(feedHasMore))
   let seenUris = untrack(() => seedSeenUris(posts))
   let lastPosts = untrack(() => posts)
   let lastViewerIdentity = untrack(viewerIdentity)
@@ -199,7 +207,7 @@
       lastPosts = feed
       clearRetryCooldown()
       seenUris = seedSeenUris(feed)
-      hasMore = !!loadFeed
+      hasMore = feedHasMore()
       // `error` is per-feed state too. The markup is an if/else chain —
       // {#if error} … {:else if hasMore} is what mounts the sentinel — so
       // carrying a failure from the previous feed would report an error about
@@ -227,7 +235,8 @@
 
       if (loadFeed) {
         queueMicrotask(() => {
-          if (!destroyed && viewerIdentity() === currentViewerIdentity) loadMore()
+          if (!destroyed && viewerIdentity() === currentViewerIdentity)
+            loadMore()
         })
       }
     })
@@ -249,6 +258,14 @@
     )
     io.observe(sentinel)
     return () => io.disconnect()
+  })
+
+  // The footer (spinner, error, end of feed) waits for mount. The server
+  // renders none, since without JS there is nothing to page with, and the
+  // first browser render has to match its markup.
+  let mounted = $state(false)
+  onMount(() => {
+    mounted = true
   })
 
   // A plain `let` for the same reason as `seenUris`: only loadMore() reads or
@@ -595,6 +612,7 @@
           >
             <Post
               bind:post={posts[row].post}
+              priority={row === 0}
               pinned={isPinned}
               hideCommunity={community}
               view={isPinned && settings.posts.compactFeatured
@@ -608,7 +626,7 @@
     {/if}
   {/key}
 
-  {#if settings.infiniteScroll && browser && (posts.length > 0 || error)}
+  {#if settings.infiniteScroll && mounted && (posts.length > 0 || error)}
     {#if error}
       <Material color="error" class="flex flex-col gap-4">
         <div>

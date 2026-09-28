@@ -1,6 +1,7 @@
 import { browser } from '$app/environment'
 import { DEFAULT_INSTANCE_URL } from './instance/env'
 import { log } from '$lib/app/util/log'
+import { recursiveEqual } from '$lib/app/util/array'
 import { currentRequestEvent } from '$lib/app/util/request-event'
 import type {
   ClientSession,
@@ -461,7 +462,18 @@ class Profile {
 
     // Through the shared mapper, so what the client adopts here and what the
     // server render produced cannot drift apart field by field.
-    this.meta.profiles = [profileFromSession(serverSession)]
+    const adopted = profileFromSession(serverSession)
+    // Every navigation re-delivers the same session. Re-assigning an equal
+    // profile still gives `profile.current` a new identity, which re-ran
+    // every reader of it (the actions on every feed row, the navbar) and
+    // rewrote localStorage, on each page change.
+    if (
+      this.meta.profile === serverSession.activeAccountId &&
+      this.meta.profiles.length === 1 &&
+      recursiveEqual<ProfileInfo>(this.meta.profiles[0], adopted)
+    )
+      return
+    this.meta.profiles = [adopted]
     this.meta.profile = serverSession.activeAccountId
   }
 

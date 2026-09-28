@@ -83,8 +83,10 @@
 
   let editing = $state(false)
   // The editor works in markup, so an existing comment is serialized back into
-  // it: what the author sees is what recompiles to the stored record.
-  let newComment = $state(editorSourceFor(node.comment.record))
+  // it when editing starts (see `onedit`): what the author sees is what
+  // recompiles to the stored record. Not at mount — that serialized and
+  // re-parsed every comment in the thread for an editor almost never opened.
+  let newComment = $state('')
   let editingLoad = $state(false)
 
   // Stable anchor id (`comment-<rkey>`) so permalinks can deep-link to this

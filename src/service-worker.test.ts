@@ -27,7 +27,7 @@ const SERVICE_WORKER = './service-worker'
 // Hoisted so the `$service-worker` factory (which vitest lifts above the
 // imports) can close over them, and the assertions can reuse the same lists.
 const { BUILD, FILES, VERSION } = vi.hoisted(() => ({
-  BUILD: ['/_app/immutable/app.js'],
+  BUILD: ['/_app/immutable/app.js', '/_app/immutable/chunk.js'],
   FILES: ['/favicon.png'],
   VERSION: 'test-version',
 }))
@@ -40,6 +40,24 @@ vi.mock('$service-worker', () => ({
   prerendered: [],
   base: '',
 }))
+
+/**
+ * The worker's cache names: the security epoch, then the deployment. `e1`
+ * mirrors `SECURITY_EPOCH` in the worker; bump the two together.
+ */
+const EPOCH_PREFIX = 'cache-e1-'
+const CURRENT_CACHE = `${EPOCH_PREFIX}${VERSION}`
+
+/**
+ * A response as the Cache returns one the worker fetched itself: same-origin,
+ * so `basic`. A constructed `new Response` is `default`, which is what a page
+ * script writing into the cache directly would leave behind.
+ */
+function fetchedResponse(body: string, init?: ResponseInit): Response {
+  return Object.defineProperty(new Response(body, init), 'type', {
+    value: 'basic',
+  })
+}
 
 const SESSION_HTML =
   '<!doctype html><html data-session="did:plc:mari"><body>mari</body></html>'
@@ -156,10 +174,12 @@ describe('service worker', () => {
   /** Dispatches a lifecycle event and awaits whatever it passed to waitUntil. */
   async function dispatchLifecycle(
     type: 'install' | 'activate',
+    extra: Record<string, unknown> = {},
   ): Promise<void> {
     const pending: Promise<unknown>[] = []
     listenerFor(type)({
       waitUntil: (promise: Promise<unknown>) => pending.push(promise),
+      ...extra,
     })
     await Promise.all(pending)
   }
@@ -284,8 +304,165 @@ describe('service worker', () => {
     await dispatchLifecycle('activate')
 
     expect(clientsClaim).toHaveBeenCalled()
-    expect(cachesWhenClaimed).toEqual([`cache-${VERSION}`])
+    expect(cachesWhenClaimed).toEqual([CURRENT_CACHE])
     expect(cacheStorage.storedPaths()).toEqual([...BUILD, ...FILES].sort())
+  })
+
+  it('reuses unchanged build files from the previous deployment', async () => {
+    // A returning visitor: the last deployment's worker already stored one of
+    // these content-hashed files, and the new deployment still ships it. The
+    // other is new in this deployment.
+    const old = await cacheStorage.open(`${EPOCH_PREFIX}old`)
+    await old.put(`${ORIGIN}${BUILD[0]}`, fetchedResponse('kept'))
+    const addAll = vi.spyOn(MockCache.prototype, 'addAll')
+
+    await dispatchLifecycle('install')
+    await dispatchLifecycle('activate')
+
+    // Only what the old cache could not supply goes to the network.
+    expect(addAll).toHaveBeenCalledWith([BUILD[1], ...FILES])
+    expect(await dispatchFetch(`${ORIGIN}${BUILD[0]}`)).toBe('served: kept')
+    expect(await dispatchFetch(`${ORIGIN}${BUILD[1]}`)).toBe(
+      `served: asset:${BUILD[1]}`,
+    )
+    expect(cacheStorage.storedPaths()).toEqual([...BUILD, ...FILES].sort())
+  })
+
+  it('reuses nothing cached under a different security epoch', async () => {
+    // Bumping the epoch is how a deploy that fixes an XSS evicts whatever the
+    // XSS may have written into the cache, so neither an older epoch's cache
+    // nor one named before epochs existed may supply anything.
+    const olderEpoch = await cacheStorage.open(`cache-e0-old`)
+    await olderEpoch.put(`${ORIGIN}${BUILD[0]}`, fetchedResponse('poisoned'))
+    const preEpoch = await cacheStorage.open('cache-old')
+    await preEpoch.put(`${ORIGIN}${BUILD[1]}`, fetchedResponse('poisoned'))
+    const addAll = vi.spyOn(MockCache.prototype, 'addAll')
+
+    await dispatchLifecycle('install')
+
+    expect(addAll).toHaveBeenCalledWith([...BUILD, ...FILES])
+  })
+
+  it('reuses only successful responses the worker fetched itself', async () => {
+    const old = await cacheStorage.open(`${EPOCH_PREFIX}old`)
+    await old.put(
+      `${ORIGIN}${BUILD[0]}`,
+      fetchedResponse('not found', { status: 404 }),
+    )
+    // Written by a page script, not fetched: `default`, not `basic`.
+    await old.put(`${ORIGIN}${BUILD[1]}`, new Response('constructed'))
+    const addAll = vi.spyOn(MockCache.prototype, 'addAll')
+
+    await dispatchLifecycle('install')
+
+    expect(addAll).toHaveBeenCalledWith([...BUILD, ...FILES])
+  })
+
+  it('downloads everything when the old caches cannot be listed', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const old = await cacheStorage.open(`${EPOCH_PREFIX}old`)
+    await old.put(`${ORIGIN}${BUILD[0]}`, fetchedResponse('kept'))
+    vi.spyOn(cacheStorage, 'keys').mockRejectedValueOnce(
+      new DOMException('blocked', 'SecurityError'),
+    )
+    const addAll = vi.spyOn(MockCache.prototype, 'addAll')
+
+    await dispatchLifecycle('install')
+
+    expect(addAll).toHaveBeenCalledWith([...BUILD, ...FILES])
+    expect(warn).toHaveBeenCalled()
+  })
+
+  it('downloads an asset whose old copy cannot be read', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const old = await cacheStorage.open(`${EPOCH_PREFIX}old`)
+    await old.put(`${ORIGIN}${BUILD[0]}`, fetchedResponse('kept'))
+    vi.spyOn(old, 'match').mockRejectedValue(new TypeError('read failed'))
+    const addAll = vi.spyOn(MockCache.prototype, 'addAll')
+
+    await dispatchLifecycle('install')
+
+    expect(addAll).toHaveBeenCalledWith([...BUILD, ...FILES])
+    expect(warn).toHaveBeenCalled()
+  })
+
+  it('reports an old copy it could not carry over', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const old = await cacheStorage.open(`${EPOCH_PREFIX}old`)
+    await old.put(`${ORIGIN}${BUILD[0]}`, fetchedResponse('kept'))
+    vi.spyOn(MockCache.prototype, 'put').mockRejectedValueOnce(
+      new DOMException('quota', 'QuotaExceededError'),
+    )
+    const addAll = vi.spyOn(MockCache.prototype, 'addAll')
+
+    await dispatchLifecycle('install')
+
+    expect(addAll).toHaveBeenCalledWith([...BUILD, ...FILES])
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('[sw]'),
+      BUILD[0],
+      expect.any(DOMException),
+    )
+  })
+
+  it('carries nothing but content-hashed build files across deployments', async () => {
+    // `static/` files keep their names when their bytes change, and the old
+    // runtime cache may still hold a session-bearing page.
+    const old = await cacheStorage.open('cache-old')
+    await old.put(`${ORIGIN}${FILES[0]}`, new Response('stale static'))
+    await old.put(`${ORIGIN}/`, new Response(SESSION_HTML))
+
+    await dispatchLifecycle('install')
+    await dispatchLifecycle('activate')
+
+    expect(await dispatchFetch(`${ORIGIN}${FILES[0]}`)).toBe(
+      `served: asset:${FILES[0]}`,
+    )
+    expect(cacheStorage.storedPaths()).toEqual([...BUILD, ...FILES].sort())
+  })
+
+  it('sends navigations straight to the network where static routing exists', async () => {
+    const addRoutes = vi.fn(async (_rules: readonly object[]) => {})
+
+    await dispatchLifecycle('install', { addRoutes })
+
+    expect(addRoutes).toHaveBeenCalledOnce()
+    expect(addRoutes.mock.calls[0][0]).toContainEqual({
+      condition: { requestMode: 'navigate' },
+      source: 'network',
+    })
+    // The precache is unaffected.
+    expect(cacheStorage.storedPaths()).toEqual([...BUILD, ...FILES].sort())
+  })
+
+  it('still installs when the browser rejects the routes', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const addRoutes = vi.fn(async () => {
+      throw new TypeError('unsupported condition')
+    })
+
+    await dispatchLifecycle('install', { addRoutes })
+
+    expect(cacheStorage.storedPaths()).toEqual([...BUILD, ...FILES].sort())
+    expect(warn).toHaveBeenCalled()
+  })
+
+  it('still precaches when building the static routes throws', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.stubGlobal(
+      'URLPattern',
+      class {
+        constructor() {
+          throw new TypeError('unsupported pattern')
+        }
+      },
+    )
+    const addRoutes = vi.fn(async (_rules: readonly object[]) => {})
+
+    await dispatchLifecycle('install', { addRoutes })
+
+    expect(cacheStorage.storedPaths()).toEqual([...BUILD, ...FILES].sort())
+    expect(warn).toHaveBeenCalled()
   })
 
   it('falls back to the network when the cache layer is unavailable', async () => {

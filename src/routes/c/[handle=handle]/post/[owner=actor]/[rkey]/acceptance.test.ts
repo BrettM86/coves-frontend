@@ -14,6 +14,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockCovesMethods = vi.hoisted(() => ({
   getProfile: vi.fn(),
+  resolveHandle: vi.fn(),
   getPosts: vi.fn(),
   getComments: vi.fn(),
   getCommunity: vi.fn(),
@@ -153,16 +154,14 @@ function loadedValue(
 describe('owner-carrying post permalink (acceptance)', () => {
   beforeEach(() => {
     mockCovesMethods.getProfile.mockReset()
+    mockCovesMethods.resolveHandle.mockReset()
     mockCovesMethods.getPosts.mockReset()
     mockCovesMethods.getComments.mockReset()
     mockCovesMethods.getCommunity.mockReset()
     mockFeeds.clear()
 
     // Handle → DID resolution for the owner segment.
-    mockCovesMethods.getProfile.mockResolvedValue({
-      did: AUTHOR_DID,
-      handle: AUTHOR_HANDLE,
-    })
+    mockCovesMethods.resolveHandle.mockResolvedValue({ did: AUTHOR_DID })
 
     // The batch endpoint hydrates only the postv2 URI; every other URI comes
     // back as the notFound sentinel, in the requested order.

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { browser } from '$app/environment'
   import { page } from '$app/state'
   import type { FeedPaginationParams, FeedViewPost } from '$lib/api/coves/types'
   import { t } from '$lib/app/state/i18n'
@@ -135,17 +134,7 @@
     </Header>
   {/if}
 
-  {#if settings.infiniteScroll && browser && !settings.posts.noVirtualize}
-    <VirtualFeed bind:posts bind:params={getParams} {loadFeed} {virtualList} />
-  {:else}
-    <PostFeed bind:posts />
-  {/if}
-  <svelte:element
-    this={settings.infiniteScroll && !settings.posts.noVirtualize
-      ? 'noscript'
-      : 'div'}
-    class="mt-auto flex flex-col"
-  >
+  {#snippet pagination()}
     <Pageination
       cursor={{ next: cursor }}
       hasMore={!!cursor}
@@ -155,5 +144,15 @@
           : `?cursor=${encodeURIComponent(page)}`}
       back={false}
     />
-  </svelte:element>
+  {/snippet}
+  {#if settings.infiniteScroll && !settings.posts.noVirtualize}
+    <VirtualFeed bind:posts bind:params={getParams} {loadFeed} {virtualList} />
+    <!-- A literal <noscript>, never <svelte:element>: Svelte skips a static
+         noscript's children in the browser, whose parser has turned them into
+         text. Hydrating into that text threw away the whole feed. -->
+    <noscript class="mt-auto flex flex-col">{@render pagination()}</noscript>
+  {:else}
+    <PostFeed bind:posts />
+    <div class="mt-auto flex flex-col">{@render pagination()}</div>
+  {/if}
 </div>

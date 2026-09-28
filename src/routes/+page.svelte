@@ -124,22 +124,7 @@
   </div>
 {:then feed}
   {#if feed}
-    {#if settings.infiniteScroll && browser && !settings.posts.noVirtualize}
-      <VirtualFeed
-        bind:this={virtualFeed}
-        bind:posts={feed.feed}
-        bind:params={feed.params}
-        virtualList={feed.virtualList}
-        loadFeed={data.loadFeed}
-      />
-    {:else}
-      <PostFeed bind:posts={feed.feed} />
-    {/if}
-    <svelte:element
-      this={settings.infiniteScroll && !settings.posts.noVirtualize
-        ? 'noscript'
-        : 'div'}
-    >
+    {#snippet pagination()}
       <Pageination
         cursor={{ next: feed.params.cursor }}
         hasMore={!!feed.params.cursor}
@@ -149,7 +134,23 @@
             : `?cursor=${encodeURIComponent(page)}`}
         back={false}
       />
-    </svelte:element>
+    {/snippet}
+    {#if settings.infiniteScroll && !settings.posts.noVirtualize}
+      <VirtualFeed
+        bind:this={virtualFeed}
+        bind:posts={feed.feed}
+        bind:params={feed.params}
+        virtualList={feed.virtualList}
+        loadFeed={data.loadFeed}
+      />
+      <!-- A literal <noscript>, never <svelte:element>: Svelte skips a static
+           noscript's children in the browser, whose parser has turned them
+           into text. Hydrating into that text threw away the whole feed. -->
+      <noscript>{@render pagination()}</noscript>
+    {:else}
+      <PostFeed bind:posts={feed.feed} />
+      <div>{@render pagination()}</div>
+    {/if}
   {:else}
     <div class="h-full grid place-items-center my-8">
       <Placeholder
@@ -181,10 +182,7 @@
         {$t('message.retryAfter', { seconds: retryRemainingSeconds })}
       </p>
     {/if}
-    <Button
-      disabled={retryRemainingSeconds > 0}
-      onclick={retryRoute}
-    >
+    <Button disabled={retryRemainingSeconds > 0} onclick={retryRoute}>
       {$t('message.retry')}
     </Button>
   </div>

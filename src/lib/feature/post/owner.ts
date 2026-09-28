@@ -85,16 +85,33 @@ export async function fetchExactPost(
  * so a DID is already the answer and costs no request; a handle needs the one
  * backend hop. Rejections propagate so the caller can turn an unknown handle
  * into a 404 rather than building an unroutable AT-URI from it.
+ *
+ * `resolveHandle`, not `getProfile`: only the DID is needed, and the AppView
+ * answers it from one indexed lookup where a profile also runs its counts.
+ * It reports an unknown handle as 400 `InvalidRequest` (the PDS convention);
+ * that is rethrown as the 404 callers read as "this record cannot exist". Any
+ * other 400 — the `/api/proxy` hop's own, say — propagates unchanged.
  */
 export async function resolveOwnerDid(
-  client: Pick<CovesClient, 'getProfile'>,
+  client: Pick<CovesClient, 'resolveHandle'>,
   owner: string,
 ): Promise<DID> {
   if (isValidDID(owner)) return owner
 
   // The matcher admits only DIDs and handles, so the non-DID case is a handle.
-  const profile = await client.getProfile({ actor: owner as Handle })
-  return profile.did
+  try {
+    const { did } = await client.resolveHandle({ handle: owner as Handle })
+    return did
+  } catch (err) {
+    if (
+      err instanceof XrpcError &&
+      err.status === 400 &&
+      err.errorName === 'InvalidRequest'
+    ) {
+      throw new XrpcError(404, 'NotFound', err.message)
+    }
+    throw err
+  }
 }
 
 /**

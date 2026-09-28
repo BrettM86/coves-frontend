@@ -83,9 +83,9 @@ export default ts.config(
   //
   // `$lib/types` is shared by every layer, and `$lib/server` is off-limits to
   // every client-shipped layer (type-only imports of it are allowed — they are
-  // erased). `api/client.svelte.ts` reaching into `app/state` for the active
-  // profile is a known, tolerated exception — it is why `api/` is not
-  // restricted from `app/` here.
+  // erased). `api/client.svelte.ts`, `api/legacy-client.ts` and `api/transport.ts` reaching into
+  // `app/state` for the active profile is a known, tolerated exception — it is
+  // why `api/` is not restricted from `app/` here.
   //
   // Known limits: the rule is lexical, so `./../x` or `$lib/../x` spellings
   // and dynamic `import()` expressions are not caught. Nothing in the tree

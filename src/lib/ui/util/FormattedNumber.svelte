@@ -1,5 +1,6 @@
 <script lang="ts">
   import { locale } from '$lib/app/state/i18n'
+  import { numberFormat } from '$lib/ui/kit/util/intl'
 
   interface Props {
     number: number
@@ -19,5 +20,5 @@
 </script>
 
 <span class={clazz ?? ''}>
-  {Intl.NumberFormat(localeToUse, options).format(number)}
+  {numberFormat(localeToUse, options).format(number)}
 </span>

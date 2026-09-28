@@ -3,6 +3,7 @@
   import { locale, t } from '$lib/app/state/i18n'
   import CommonItem from '$lib/ui/layout/CommonItem.svelte'
   import { Button, modal } from '$lib/ui/kit'
+  import { numberFormat } from '$lib/ui/kit/util/intl'
   import type { Snippet } from 'svelte'
   import { Icon, Info } from '$lib/ui/kit/icon'
   import CommunityCard from './CommunityCard.svelte'
@@ -37,7 +38,7 @@
   href="/c/{communityIdentifier(community)}"
   title={communityDisplayName(community)}
   detail="{communityAddress(community)}{!showCounts
-    ? ` • ${Intl.NumberFormat($locale, { notation: 'compact' }).format(community.subscriberCount)}`
+    ? ` • ${numberFormat($locale, { notation: 'compact' }).format(community.subscriberCount)}`
     : ''}"
   orientation={view == 'cozy' ? 'vertical' : 'horizontal'}
 >

@@ -1,5 +1,7 @@
 <script lang="ts">
   import { errorMessage } from '$lib/app/util/error'
+  import { FONT_CLASSES, fontClass } from '$lib/app/util/font'
+  import { markHydrated } from '$lib/app/util/ssr'
   import { browser } from '$app/environment'
   import { navigating, page } from '$app/state'
   import { profile } from '$lib/app/state/auth.svelte'
@@ -42,6 +44,7 @@
   })
 
   onMount(() => {
+    markHydrated()
     if (browser) {
       if (window.location.hash == 'main') {
         history.replaceState(
@@ -55,21 +58,13 @@
   })
 
   if (browser) {
+    // The server already stamped the default font's class (hooks.server.ts),
+    // so this only changes anything for a visitor who picked another font.
     $effect(() => {
-      if (settings) {
-        document.documentElement.classList.remove(
-          'font-inter',
-          'font-sans',
-          'font-system',
-        )
-        document.documentElement.classList.add(
-          settings.font == 'inter'
-            ? 'font-inter'
-            : settings.font == 'system'
-              ? 'font-system'
-              : 'font-sans',
-        )
-      }
+      const root = document.documentElement.classList
+      const wanted = fontClass(settings.font)
+      for (const c of FONT_CLASSES) if (c !== wanted) root.remove(c)
+      root.add(wanted)
     })
 
     $effect(() => {

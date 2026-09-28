@@ -1,11 +1,12 @@
+import { browser } from '$app/environment'
 import type { FeedPaginationParams } from '$lib/api/coves/types'
 import { coves } from '$lib/api/client.svelte'
 import { profile } from '$lib/app/state/auth.svelte'
 import { t } from '$lib/app/state/i18n'
-import { settings } from '$lib/app/state/settings.svelte'
+import { defaultSettings, settings } from '$lib/app/state/settings.svelte'
 import { mapListing, resolveFeedSort } from '$lib/api/coves/sort'
 import { ReactiveState } from '$lib/app/util/reactive.svelte'
-import { awaitIfServer } from '$lib/app/util/ssr'
+import { awaitIfServer, renderingServerMarkup } from '$lib/app/util/ssr'
 import { feed } from '$lib/feature/feeds/feed.svelte'
 import { ChevronsUp } from '$lib/ui/kit/icon'
 import { XrpcError } from '$lib/api/coves/xrpc'
@@ -30,7 +31,7 @@ function viewerIdentity(): string | undefined {
   return viewer?.type === 'authenticated' ? viewer.did : undefined
 }
 
-export async function load({ url, fetch, route }) {
+export async function load({ url, fetch, route, parent }) {
   const cursor = url.searchParams.get('cursor') as string | undefined
 
   const listingType = url.searchParams.get('type') ?? settings.defaultSort.feed
@@ -46,6 +47,31 @@ export async function load({ url, fetch, route }) {
     limit: 20,
   }
   const recovery = new ReactiveState<RouteRecoveryState>({})
+
+  // Only the hydrating load has server markup to match. The server has no
+  // saved settings, so it built its request from the defaults; a later hot
+  // Discover page also falls back to the saved timeframe (see the loader
+  // below). The server also took the reader from the session cookie, while
+  // `profile` holds localStorage's until the layout syncs it after this load.
+  // The layout's data is already in the page, so reading it costs no round
+  // trip, and it is read before the request starts.
+  let matchesServerRender = true
+  if (browser && renderingServerMarkup()) {
+    const { session } = await parent()
+    const serverViewerIdentity = session?.authenticated
+      ? session.account.did
+      : undefined
+    const serverSort = defaultSettings.defaultSort
+    const serverMapped = resolveFeedSort(url, serverSort)
+    const serverListingType = url.searchParams.get('type') ?? serverSort.feed
+    matchesServerRender =
+      routeViewerIdentity === serverViewerIdentity &&
+      mapped.sort === serverMapped.sort &&
+      mapped.timeframe === serverMapped.timeframe &&
+      listing === mapListing(serverListingType, !!serverViewerIdentity) &&
+      (settings.defaultSort.timeframe === serverSort.timeframe ||
+        !(listing === 'discover' && mapped.sort === 'hot' && cursor))
+  }
 
   const requestFeed = async (request: FeedRequestParams) => {
     const { listing, ...rest } = request
@@ -93,7 +119,10 @@ export async function load({ url, fetch, route }) {
     const { listing, ...rest } = request
     const requestParams =
       listing === 'discover' && request.sort === 'hot' && request.cursor
-        ? { ...rest, timeframe: rest.timeframe ?? settings.defaultSort.timeframe }
+        ? {
+            ...rest,
+            timeframe: rest.timeframe ?? settings.defaultSort.timeframe,
+          }
         : rest
     let response
     try {
@@ -160,7 +189,9 @@ export async function load({ url, fetch, route }) {
   })
 
   return {
-    feed: new ReactiveState((await awaitIfServer(feedData)).data),
+    feed: new ReactiveState(
+      (await awaitIfServer(feedData, matchesServerRender)).data,
+    ),
     filters,
     loadFeed: loadMore,
     loadPageOne,

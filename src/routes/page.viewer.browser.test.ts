@@ -31,7 +31,12 @@ const state = vi.hoisted(() => ({
 vi.mock('$app/navigation', () => ({ goto: state.goto }))
 vi.mock('$app/state', () => ({ page: state.page }))
 vi.mock('$lib/api/client.svelte', () => ({ coves: () => state.api }))
-vi.mock('$lib/app/state/settings.svelte', () => ({ settings: state.settings }))
+vi.mock('$lib/app/state/settings.svelte', () => ({
+  settings: state.settings,
+  defaultSettings: {
+    defaultSort: { feed: 'discover', sort: 'hot', timeframe: 'all' },
+  },
+}))
 vi.mock('$lib/app/state/i18n', () => {
   const translate = (key: string) => key
   return {
@@ -174,6 +179,10 @@ class FakeAnimation {
 beforeEach(async () => {
   const { feeds } = await import('$lib/feature/feeds/feed.svelte')
   const { profile } = await import('$lib/app/state/auth.svelte')
+  // Every load here is a client-side navigation in an app that has already
+  // hydrated, so the feed streams rather than being awaited.
+  const { markHydrated } = await import('$lib/app/util/ssr')
+  markHydrated()
   feeds.clear()
   profile.syncFromServer(undefined)
   state.api.getDiscover.mockReset()
@@ -239,9 +248,9 @@ async function flushEffects(rounds = 8): Promise<void> {
 }
 
 const renderedPostUris = (): string[] =>
-  [...target.querySelectorAll<HTMLElement>('[data-testid="home-page-post"]')].map(
-    (post) => post.dataset.postUri ?? '',
-  )
+  [
+    ...target.querySelectorAll<HTMLElement>('[data-testid="home-page-post"]'),
+  ].map((post) => post.dataset.postUri ?? '')
 
 const retryButton = (): HTMLButtonElement | undefined =>
   [...target.querySelectorAll<HTMLButtonElement>('button')].find(

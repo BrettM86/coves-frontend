@@ -181,6 +181,9 @@ beforeEach(async () => {
   navigation.goto.mockClear()
   navigation.replaceState.mockClear()
   transitions.fly.mockClear()
+  // Restoring a feed is a client-side navigation back to it, which only
+  // happens once the app has hydrated.
+  ;(await import('$lib/app/util/ssr')).markHydrated()
   actualScrollY = 0
   maximumScrollY = Number.POSITIVE_INFINITY
   dispatchScrollEvents = false

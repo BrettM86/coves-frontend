@@ -256,6 +256,7 @@
         {post}
         actions={true}
         view="cozy"
+        priority
         expandBody
         navigation={backNavigation}
       />

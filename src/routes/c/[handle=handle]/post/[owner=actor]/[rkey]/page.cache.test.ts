@@ -26,6 +26,7 @@ vi.mock('$lib/app/state/auth.svelte', () => ({
 
 const mockCovesMethods = vi.hoisted(() => ({
   getProfile: vi.fn(),
+  resolveHandle: vi.fn(),
   getPosts: vi.fn(),
   getComments: vi.fn(),
   getCommunity: vi.fn(),
@@ -110,6 +111,7 @@ function serve(available: Record<string, unknown>): void {
 describe('post loader feed cache', () => {
   beforeEach(() => {
     mockCovesMethods.getProfile.mockReset()
+    mockCovesMethods.resolveHandle.mockReset()
     mockCovesMethods.getPosts.mockReset()
     mockCovesMethods.getComments.mockReset()
     mockCovesMethods.getCommunity.mockReset()

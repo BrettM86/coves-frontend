@@ -116,13 +116,23 @@
     }
   }
   setContext(commentCreatedContext, commentCreated)
+  // The seed above already built the tree from these comments. Rebuilding it
+  // on the effect's first run gave every node a new identity, so the whole
+  // thread re-rendered straight after it had rendered.
+  let treeComments = untrack(() => comments)
   $effect(() => {
     const loaded = comments
     const postUri = post.uri
     untrack(() => {
+      if (loaded === treeComments && postUri === treePostUri) return
+      treeComments = loaded
       if (treePostUri !== postUri) {
         createdComments.clear()
         treePostUri = postUri
+        tree = buildCommentsTree(loaded)
+      } else if (createdComments.size === 0) {
+        // Nothing local to carry over: the retain pass would search the new
+        // tree for every old node and keep none of them.
         tree = buildCommentsTree(loaded)
       } else {
         tree = retainCreatedComments(

@@ -1,6 +1,6 @@
 <script lang="ts">
   // @ts-nocheck TODO(coves-migration): Needs Coves user search API
-  import { getClient } from '$lib/api/client.svelte'
+  import { getClient } from '$lib/api/legacy-client'
   import type { ListingType, Person } from '$lib/api/types'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { log } from '$lib/app/util/log'

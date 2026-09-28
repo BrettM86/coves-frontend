@@ -121,6 +121,9 @@ function parsePlaceholder(body: string): Placeholder {
   return { name, modifier, variants }
 }
 
+/** One per locale: constructing a formatter costs far more than using it. */
+const numberFormats = new Map<string, Intl.NumberFormat>()
+
 /**
  * Formats `value` the way the parser did: coerced to a number, unparseable
  * values falling back to zero, at most two fraction digits in `locale`.
@@ -133,9 +136,12 @@ function formatNumber(value: unknown, locale: string): string {
   if (locale === '') return ''
   const numeric = Number(value)
   try {
-    return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(
-      Number.isFinite(numeric) ? numeric : 0,
-    )
+    let format = numberFormats.get(locale)
+    if (!format) {
+      format = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 })
+      numberFormats.set(locale, format)
+    }
+    return format.format(Number.isFinite(numeric) ? numeric : 0)
   } catch {
     return ''
   }

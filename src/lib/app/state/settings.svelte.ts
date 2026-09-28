@@ -4,6 +4,7 @@ import { locale } from './i18n'
 import { mergeDeep } from '../util/merge'
 import { log } from '$lib/app/util/log'
 import { isYouTubeFrontend, type YouTubeFrontend } from '../util/embed-hosts'
+import { defaultFont, type FontSetting, isFontSetting } from '../util/font'
 import {
   normalizeCommentSort,
   normalizeListing,
@@ -62,7 +63,7 @@ interface Settings {
   debugInfo: boolean
   expandImages: boolean
 
-  font: 'inter' | 'system' | 'browser'
+  font: FontSetting
   leftAlign: boolean
 
   newWidth: boolean
@@ -129,7 +130,7 @@ export const defaultSettings: Settings = {
   debugInfo: toBool(env.PUBLIC_DEBUG_INFO) ?? false,
   expandImages: toBool(env.PUBLIC_EXPAND_IMAGES) ?? true,
   view: (env.PUBLIC_VIEW as View) ?? 'compact',
-  font: (env.PUBLIC_FONT as 'inter') ?? 'inter',
+  font: defaultFont(env.PUBLIC_FONT),
   leftAlign: toBool(env.PUBLIC_LEFT_ALIGN) ?? false,
   newWidth: toBool(env.PUBLIC_LIMIT_LAYOUT_WIDTH) ?? true,
   markPostsAsRead: toBool(env.PUBLIC_MARK_POSTS_AS_READ) ?? true,
@@ -219,6 +220,8 @@ export function normalizeSettings(target: Settings): void {
   if (!isYouTubeFrontend(target.embeds.youtube)) {
     target.embeds.youtube = defaultSettings.embeds.youtube
   }
+  // Same for the font, which fontClass would silently read as "browser".
+  if (!isFontSetting(target.font)) target.font = defaultSettings.font
 }
 
 /**
@@ -282,11 +285,22 @@ $effect.root(() => {
       // cookies). Losing persistence must not take the reactive graph with it.
       log.error('[settings] Failed to persist settings', err)
     }
+  })
 
-    if (settings.language) {
-      locale.set(settings.language)
-    } else {
-      if (browser) locale.set(navigator?.language)
-    }
+  // Its own effect, reading `language` alone. Inside the persist effect above
+  // it ran on every settings change (the stringify reads them all), and each
+  // run re-announced the locale and re-rendered every translated string.
+  //
+  // With no language chosen, the first run leaves the locale to the root
+  // layout, which prefers the language the server rendered in over
+  // `navigator.language`; forcing the latter here raced that load and could
+  // flip the page's language after hydration. Clearing a chosen language
+  // later still falls back to the browser's.
+  let firstRun = true
+  $effect(() => {
+    const language = settings.language
+    if (language) locale.set(language)
+    else if (browser && !firstRun) locale.set(navigator?.language)
+    firstRun = false
   })
 })

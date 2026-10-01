@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { Marked } from 'marked'
 import {
   localizeLink,
@@ -7,30 +7,59 @@ import {
   linkify,
   subSupscriptExtension,
 } from './plugins'
+import { match as matchCommunityParam } from '../../../../params/handle'
+import { match as matchActorParam } from '../../../../params/actor'
+
+// Pin public env: single-argument localizeLink calls default to the origin of
+// PUBLIC_INSTANCE_URL, so an ambient value would make these tests depend on it.
+vi.mock('$env/dynamic/public', () => ({ env: {} }))
 
 // ---------------------------------------------------------------------------
-// localizeLink() - user links
+// localizeLink() - user links are left unlocalized
+//
+// `/profile/[handle=actor]` accepts only a DID or a DNS handle
+// (src/params/actor.ts). A Lemmy user's `name@instance` is neither, so a
+// localized path would 404; the link keeps its external href instead. A dotted
+// name is not mapped either: a remote Lemmy user name must never open an
+// unrelated atproto account that happens to own that handle.
 // ---------------------------------------------------------------------------
 
 describe('localizeLink - user links', () => {
-  it('rewrites user link with @ to /profile/ path (no instance appended)', () => {
+  it('leaves a user link with @ unlocalized (name@instance is not a routable profile identifier)', () => {
     const result = localizeLink('https://lemmy.world/u/alice@instance.com')
-    expect(result).toBe('/profile/alice@instance.com')
+    expect(result).toBeUndefined()
   })
 
-  it('rewrites user link without @ to /profile/ path with instance appended', () => {
+  it('leaves a user link without @ unlocalized (name@instance is not a routable profile identifier)', () => {
     const result = localizeLink('https://lemmy.world/u/alice')
-    expect(result).toBe('/profile/alice@lemmy.world')
+    expect(result).toBeUndefined()
   })
 
-  it('handles user link with dots in username', () => {
+  it('leaves a user link with dots in the username unlocalized (not a routable profile identifier)', () => {
     const result = localizeLink('https://example.com/u/user.name')
-    expect(result).toBe('/profile/user.name@example.com')
+    expect(result).toBeUndefined()
   })
 
-  it('handles user link with underscores in username', () => {
+  it('leaves a user link with underscores in the username unlocalized (not a routable profile identifier)', () => {
     const result = localizeLink('https://example.com/u/my_user')
-    expect(result).toBe('/profile/my_user@example.com')
+    expect(result).toBeUndefined()
+  })
+
+  it('leaves a user link with hyphens in the username unlocalized (not a routable profile identifier)', () => {
+    const result = localizeLink('https://lemmy.world/u/my-user')
+    expect(result).toBeUndefined()
+  })
+
+  it('leaves a user link with @ and hyphens in username and instance unlocalized (not a routable profile identifier)', () => {
+    const result = localizeLink(
+      'https://lemmy.world/u/my-user@other-instance.org',
+    )
+    expect(result).toBeUndefined()
+  })
+
+  it('does not map a dotted Lemmy user name to an atproto profile of the same handle', () => {
+    const result = localizeLink('https://lemmy.world/u/alice.example.com')
+    expect(result).toBeUndefined()
   })
 })
 
@@ -61,6 +90,30 @@ describe('localizeLink - community links', () => {
   it('rewrites community link with @ to /c/ path (no instance appended)', () => {
     const result = localizeLink('https://lemmy.world/c/tech@other.instance')
     expect(result).toBe('/c/tech@other.instance')
+  })
+
+  it('handles community link with hyphens in name', () => {
+    const result = localizeLink('https://lemmy.world/c/my-community')
+    expect(result).toBe('/c/my-community@lemmy.world')
+  })
+
+  it('handles community link with @ and hyphens in name and instance', () => {
+    const result = localizeLink(
+      'https://lemmy.world/c/my-community@other-instance.org',
+    )
+    expect(result).toBe('/c/my-community@other-instance.org')
+  })
+
+  it('leaves a hyphenated legacy DNS-handle community link unlocalized (handle@instance does not route)', () => {
+    const result = localizeLink(
+      'https://coves.social/c/retro-gaming.coves.social',
+    )
+    expect(result).toBeUndefined()
+  })
+
+  it('leaves a community link with an underscore in its name unlocalized (not a valid community name)', () => {
+    const result = localizeLink('https://lemmy.world/c/my_community')
+    expect(result).toBeUndefined()
   })
 })
 
@@ -98,6 +151,251 @@ describe('localizeLink - non-matching links', () => {
     const result = localizeLink('https://lemmy.world/comment/6789')
     expect(result).toBeUndefined()
   })
+})
+
+// ---------------------------------------------------------------------------
+// localizeLink() - own-instance profile links
+//
+// The second argument is the configured instance origin (scheme://host[:port])
+// or null when none is configured. A `/profile/<id>` or `/u/<id>` link whose
+// origin is exactly that origin opens the in-app profile. Anything else — a
+// different or lookalike host, another scheme or port, or a path that is not
+// exactly one identifier segment — keeps its external href.
+// ---------------------------------------------------------------------------
+
+const OWN_ORIGIN = 'https://coves.example'
+
+/** Links that must stay external when the origin is OWN_ORIGIN. */
+const OWN_INSTANCE_EXTERNAL_LINKS = [
+  // another host
+  'https://lemmy.world/u/alice.bsky.social',
+  'https://lemmy.world/profile/alice.bsky.social',
+  // lookalike hosts
+  'https://coves.example.evil.com/profile/alice.bsky.social',
+  'https://evilcoves.example/profile/alice.bsky.social',
+  'https://www.coves.example/profile/alice.bsky.social',
+  'https://coves.example@evil.com/profile/alice.bsky.social',
+  // scheme and port mismatch
+  'http://coves.example/profile/alice.bsky.social',
+  'https://coves.example:8443/profile/alice.bsky.social',
+  // path prefix is case-sensitive
+  'https://coves.example/PROFILE/alice.bsky.social',
+  'https://coves.example/U/alice.bsky.social',
+  // path is not exactly one identifier segment
+  'https://coves.example/profile/alice.bsky.social/',
+  'https://coves.example/u/alice.bsky.social/',
+  'https://coves.example/profile/alice.bsky.social/posts',
+  'https://coves.example/profile/alice.bsky.social?tab=x',
+  'https://coves.example/profile/alice.bsky.social?',
+  'https://coves.example/profile/alice.bsky.social#frag',
+  'https://coves.example/profile/alice.bsky.social#',
+  'https://coves.example/u/../profile/alice.bsky.social',
+  'https://coves.example\\profile\\alice.bsky.social',
+  'https://coves.example/profile\\alice.bsky.social',
+  // other path prefixes
+  'https://coves.example/user/alice.bsky.social',
+  'https://coves.example/profiles/alice.bsky.social',
+  // own-instance URL embedded in another URL's path or query
+  'https://web.archive.org/web/2026/https://coves.example/profile/alice.bsky.social',
+  'https://evil.test/?next=https://coves.example/profile/alice.bsky.social',
+]
+
+/** DID profile links on OWN_ORIGIN and the in-app path each opens. */
+const OWN_INSTANCE_DID_LINKS = [
+  {
+    link: 'https://coves.example/profile/did:plc:abc123',
+    expected: '/profile/did:plc:abc123',
+  },
+  {
+    link: 'https://coves.example/u/did:web:example.com',
+    expected: '/profile/did:web:example.com',
+  },
+  {
+    link: 'https://coves.example/profile/did:plc:abc_123',
+    expected: '/profile/did:plc:abc_123',
+  },
+]
+
+/**
+ * Profile ids that stay external even on OWN_ORIGIN: neither a DID nor a DNS
+ * handle, or one the actor route would decode into something else.
+ */
+const UNROUTABLE_PROFILE_IDS = [
+  'DID:PLC:ABC',
+  'did:plc:',
+  'did::abc',
+  'did:plc:abc@lemmy.world',
+  'alice.bsky.social:8080',
+  'alice',
+  'alice@lemmy.world',
+  'alice_b.bsky.social',
+  '.alice.bsky.social',
+  'alice.bsky.social.',
+  '-alice.bsky.social',
+  // The actor route decodes %2F to '/', so this path would 404.
+  'did:web:foo%2Fbar',
+  // %2E decodes to '.', a routable handle, but the id class excludes '%'.
+  'alice%2Ebsky.social',
+]
+
+/** Every printable ASCII punctuation character, `!` through `~`. */
+const ASCII_PUNCTUATION = Array.from({ length: 0x7e - 0x21 + 1 }, (_, offset) =>
+  String.fromCharCode(0x21 + offset),
+).filter((char) => !/[a-zA-Z0-9]/.test(char))
+
+/**
+ * One raw (unencoded) punctuation character inside a handle's first label.
+ * Only '-' and '.' belong in a handle.
+ */
+const HANDLE_PUNCTUATION_SWEEP = ASCII_PUNCTUATION.map((char) => {
+  const id = 'ali' + char + 'ce.bsky.social'
+  return {
+    char,
+    link: 'https://coves.example/profile/' + id,
+    expected: char === '-' || char === '.' ? '/profile/' + id : undefined,
+  }
+})
+
+/**
+ * One raw (unencoded) punctuation character inside a DID's method-specific
+ * identifier. Only '.', '-', '_' and ':' localize.
+ */
+const DID_PUNCTUATION_SWEEP = ASCII_PUNCTUATION.map((char) => {
+  const id = 'did:plc:ab' + char + 'cd'
+  return {
+    char,
+    link: 'https://coves.example/profile/' + id,
+    expected: ['.', '-', '_', ':'].includes(char)
+      ? '/profile/' + id
+      : undefined,
+  }
+})
+
+describe('localizeLink - own-instance profile links', () => {
+  it.each([
+    {
+      name: 'a /profile/<handle> link',
+      link: 'https://coves.example/profile/alice.bsky.social',
+    },
+    {
+      name: 'a /u/<handle> link',
+      link: 'https://coves.example/u/alice.bsky.social',
+    },
+    {
+      name: 'a mixed-case host',
+      link: 'https://COVES.Example/profile/alice.bsky.social',
+    },
+    {
+      name: 'an explicit default https port',
+      link: 'https://coves.example:443/profile/alice.bsky.social',
+    },
+  ])('localizes $name on the configured origin', ({ link }) => {
+    expect(localizeLink(link, OWN_ORIGIN)).toBe('/profile/alice.bsky.social')
+  })
+
+  it('localizes a hyphenated handle on the configured origin', () => {
+    expect(
+      localizeLink(
+        'https://coves.example/profile/my-name.bsky.social',
+        OWN_ORIGIN,
+      ),
+    ).toBe('/profile/my-name.bsky.social')
+  })
+
+  it('localizes a link on a local-dev origin with a port', () => {
+    expect(
+      localizeLink(
+        'http://127.0.0.1:8080/profile/alice.bsky.social',
+        'http://127.0.0.1:8080',
+      ),
+    ).toBe('/profile/alice.bsky.social')
+  })
+
+  it('leaves a link on the local-dev host but another port external', () => {
+    expect(
+      localizeLink(
+        'http://127.0.0.1:9999/profile/alice.bsky.social',
+        'http://127.0.0.1:8080',
+      ),
+    ).toBeUndefined()
+  })
+
+  it('localizes a link with an explicit default http port on an origin without one', () => {
+    expect(
+      localizeLink(
+        'http://localhost:80/u/alice.bsky.social',
+        'http://localhost',
+      ),
+    ).toBe('/profile/alice.bsky.social')
+  })
+
+  it.each(OWN_INSTANCE_EXTERNAL_LINKS)('leaves %s external', (link) => {
+    expect(localizeLink(link, OWN_ORIGIN)).toBeUndefined()
+  })
+
+  it('leaves a link with an out-of-range port external without throwing', () => {
+    const link = 'https://coves.example:99999/profile/alice.bsky.social'
+    expect(() => localizeLink(link, OWN_ORIGIN)).not.toThrow()
+    expect(localizeLink(link, OWN_ORIGIN)).toBeUndefined()
+  })
+
+  it('leaves a profile link external when no instance origin is configured', () => {
+    expect(
+      localizeLink('https://coves.example/profile/alice.bsky.social', null),
+    ).toBeUndefined()
+  })
+
+  it.each([
+    {
+      link: 'https://coves.example/c/gaming',
+      expected: '/c/gaming@coves.example',
+    },
+    {
+      link: 'https://lemmy.world/c/my-community',
+      expected: '/c/my-community@lemmy.world',
+    },
+  ])(
+    'localizes community link $link the same as without an origin',
+    ({ link, expected }) => {
+      expect(localizeLink(link, OWN_ORIGIN)).toBe(expected)
+    },
+  )
+
+  it.each(OWN_INSTANCE_DID_LINKS)(
+    'localizes a DID link to $expected on the configured origin',
+    ({ link, expected }) => {
+      expect(localizeLink(link, OWN_ORIGIN)).toBe(expected)
+    },
+  )
+
+  it.each(UNROUTABLE_PROFILE_IDS)(
+    'leaves a profile link with id %s external',
+    (id) => {
+      expect(
+        localizeLink('https://coves.example/profile/' + id, OWN_ORIGIN),
+      ).toBeUndefined()
+    },
+  )
+
+  it('leaves a link with an out-of-range port external without throwing when no origin is configured', () => {
+    const link = 'https://coves.example:99999/profile/alice.bsky.social'
+    expect(() => localizeLink(link, null)).not.toThrow()
+    expect(localizeLink(link, null)).toBeUndefined()
+  })
+
+  it.each(HANDLE_PUNCTUATION_SWEEP)(
+    'handle with $char in its first label gives $expected',
+    ({ link, expected }) => {
+      expect(localizeLink(link, OWN_ORIGIN)).toBe(expected)
+    },
+  )
+
+  it.each(DID_PUNCTUATION_SWEEP)(
+    'DID with $char in its identifier gives $expected',
+    ({ link, expected }) => {
+      expect(localizeLink(link, OWN_ORIGIN)).toBe(expected)
+    },
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -219,6 +517,248 @@ describe('CONTENT_REGEXES', () => {
     expect(CONTENT_REGEXES.community.test('https://lemmy.world/c/tech')).toBe(
       true,
     )
+  })
+
+  it('user regex matches a hyphenated username', () => {
+    expect(CONTENT_REGEXES.user.test('https://lemmy.world/u/my-user')).toBe(
+      true,
+    )
+  })
+
+  it('community regex matches a hyphenated community name', () => {
+    expect(
+      CONTENT_REGEXES.community.test('https://lemmy.world/c/my-community'),
+    ).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// CONTENT_REGEXES / localizeLink() - the name segment rejects stray punctuation
+//
+// REGRESSION. The name segment was once written `[a-zA-Z0-9.-_]`, where `.-_`
+// is a character range (0x2E..0x5F), not three literals. Besides dropping the
+// hyphen, that range admitted `/ : ; < = > ? [ \ ] ^`, none of which belong in
+// a user or community name. A doubled slash let another host ride along in the
+// path: https://evil.test/c//attacker.example/pwn localized to the junk path
+// /c//attacker.example/pwn@evil.test. `@`, `.`, `_` and `-` are legitimate
+// name characters and are covered by the tests above.
+// ---------------------------------------------------------------------------
+
+type ContentKind = keyof typeof CONTENT_REGEXES
+
+const STRAY_PUNCTUATION = [
+  '/',
+  ':',
+  ';',
+  '<',
+  '=',
+  '>',
+  '?',
+  '[',
+  '\\',
+  ']',
+  '^',
+] as const
+
+const namesWithStrayPunctuation: {
+  kind: ContentKind
+  character: string
+  link: string
+}[] = STRAY_PUNCTUATION.flatMap((character) => [
+  {
+    kind: 'community' as const,
+    character,
+    link: `https://lemmy.world/c/tech${character}x`,
+  },
+  {
+    kind: 'user' as const,
+    character,
+    link: `https://lemmy.world/u/alice${character}x`,
+  },
+])
+
+describe('CONTENT_REGEXES - name segment rejects stray punctuation', () => {
+  it('does not localize a community link whose name smuggles another host', () => {
+    const link = 'https://evil.test/c//attacker.example/pwn'
+    expect(localizeLink(link)).toBeUndefined()
+    expect(CONTENT_REGEXES.community.test(link)).toBe(false)
+  })
+
+  it('does not localize a user link whose name smuggles another host', () => {
+    const link = 'https://evil.test/u//attacker.example/pwn'
+    expect(localizeLink(link)).toBeUndefined()
+    expect(CONTENT_REGEXES.user.test(link)).toBe(false)
+  })
+
+  it.each(namesWithStrayPunctuation)(
+    'rejects "$character" in a $kind name ($link)',
+    ({ kind, link }) => {
+      expect(localizeLink(link)).toBeUndefined()
+      expect(CONTENT_REGEXES[kind].test(link)).toBe(false)
+    },
+  )
+})
+
+// ---------------------------------------------------------------------------
+// localizeLink() - every localized path lands on a route that accepts it
+//
+// MdLink swaps the external href for whatever localizeLink returns, so a path
+// the route's param matcher rejects is a dead link that replaced a working
+// one. `/c/[handle]` uses src/params/handle.ts and `/profile/[handle=actor]`
+// uses src/params/actor.ts. The corpus is every link the localizeLink tests in
+// this file use, plus an unhyphenated legacy DNS-handle community link.
+// ---------------------------------------------------------------------------
+
+const LOCALIZE_LINK_CORPUS = [
+  // user links
+  'https://lemmy.world/u/alice@instance.com',
+  'https://lemmy.world/u/alice',
+  'https://example.com/u/user.name',
+  'https://example.com/u/my_user',
+  'https://lemmy.world/u/my-user',
+  'https://lemmy.world/u/my-user@other-instance.org',
+  'https://lemmy.world/u/alice.example.com',
+  // community links
+  'https://lemmy.world/c/technology',
+  'https://lemmy.world/c/tech@other.instance',
+  'https://lemmy.world/c/my-community',
+  'https://lemmy.world/c/my-community@other-instance.org',
+  'https://lemmy.world/c/my_community',
+  'https://coves.social/c/retro-gaming.coves.social',
+  'https://coves.social/c/gaming.coves.social',
+  // mailto and non-matching links
+  'mailto:alice@coves.social',
+  'mailto:first.last@example.org',
+  'https://example.com/some/page',
+  '',
+  'not a url',
+  'https://lemmy.world/settings',
+  'https://lemmy.world/post/12345',
+  'https://lemmy.world/comment/6789',
+  // names with stray punctuation
+  'https://evil.test/c//attacker.example/pwn',
+  'https://evil.test/u//attacker.example/pwn',
+  ...namesWithStrayPunctuation.map(({ link }) => link),
+]
+
+/** Whether the route a localized path lands on accepts its identifier segment. */
+const isRoutablePath = (path: string): boolean => {
+  if (path.startsWith('/c/')) {
+    return matchCommunityParam(path.slice('/c/'.length))
+  }
+  if (path.startsWith('/profile/')) {
+    return matchActorParam(path.slice('/profile/'.length))
+  }
+  return false
+}
+
+describe('localizeLink - every localized path is routable', () => {
+  it('never returns a path its route param matcher rejects', () => {
+    const unroutable = LOCALIZE_LINK_CORPUS.map((link) => ({
+      link,
+      path: localizeLink(link),
+    })).filter(({ path }) => path !== undefined && !isRoutablePath(path))
+    expect(unroutable).toEqual([])
+  })
+
+  it('localizes at least one community link, so the invariant is not vacuous', () => {
+    const paths = LOCALIZE_LINK_CORPUS.map((link) => localizeLink(link))
+    expect(paths.some((path) => path?.startsWith('/c/'))).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// localizeLink() - every localized own-instance path is routable
+//
+// The same invariant with the instance origin passed. The corpus is every
+// own-instance case above: handles, DIDs, both punctuation sweeps, and the
+// links and ids that stay external.
+// ---------------------------------------------------------------------------
+
+const OWN_INSTANCE_CORPUS: { link: string; origin: string | null }[] = [
+  {
+    link: 'https://coves.example/profile/alice.bsky.social',
+    origin: OWN_ORIGIN,
+  },
+  { link: 'https://coves.example/u/alice.bsky.social', origin: OWN_ORIGIN },
+  {
+    link: 'https://COVES.Example/profile/alice.bsky.social',
+    origin: OWN_ORIGIN,
+  },
+  {
+    link: 'https://coves.example:443/profile/alice.bsky.social',
+    origin: OWN_ORIGIN,
+  },
+  {
+    link: 'https://coves.example/profile/my-name.bsky.social',
+    origin: OWN_ORIGIN,
+  },
+  {
+    link: 'http://127.0.0.1:8080/profile/alice.bsky.social',
+    origin: 'http://127.0.0.1:8080',
+  },
+  {
+    link: 'http://127.0.0.1:9999/profile/alice.bsky.social',
+    origin: 'http://127.0.0.1:8080',
+  },
+  {
+    link: 'http://localhost:80/u/alice.bsky.social',
+    origin: 'http://localhost',
+  },
+  {
+    link: 'https://coves.example:99999/profile/alice.bsky.social',
+    origin: OWN_ORIGIN,
+  },
+  {
+    link: 'https://coves.example:99999/profile/alice.bsky.social',
+    origin: null,
+  },
+  { link: 'https://coves.example/profile/alice.bsky.social', origin: null },
+  ...OWN_INSTANCE_DID_LINKS.map(({ link }) => ({ link, origin: OWN_ORIGIN })),
+  ...OWN_INSTANCE_EXTERNAL_LINKS.map((link) => ({ link, origin: OWN_ORIGIN })),
+  ...UNROUTABLE_PROFILE_IDS.map((id) => ({
+    link: 'https://coves.example/profile/' + id,
+    origin: OWN_ORIGIN,
+  })),
+  ...HANDLE_PUNCTUATION_SWEEP.map(({ link }) => ({ link, origin: OWN_ORIGIN })),
+  ...DID_PUNCTUATION_SWEEP.map(({ link }) => ({ link, origin: OWN_ORIGIN })),
+]
+
+/** isRoutablePath, where a segment the matcher cannot decode does not route. */
+const routesWithoutThrowing = (path: string): boolean => {
+  try {
+    return isRoutablePath(path)
+  } catch {
+    return false
+  }
+}
+
+const ownInstancePaths = (): (string | undefined)[] =>
+  OWN_INSTANCE_CORPUS.map(({ link, origin }) => localizeLink(link, origin))
+
+describe('localizeLink - every localized own-instance path is routable', () => {
+  it('never returns a path its route param matcher rejects', () => {
+    const unroutable = OWN_INSTANCE_CORPUS.map(({ link, origin }) => ({
+      link,
+      origin,
+      path: localizeLink(link, origin),
+    })).filter(({ path }) => path !== undefined && !routesWithoutThrowing(path))
+    expect(unroutable).toEqual([])
+  })
+
+  it('localizes at least one handle link, so the invariant is not vacuous', () => {
+    const handlePaths = ownInstancePaths().filter(
+      (path) =>
+        path?.startsWith('/profile/') && !path.startsWith('/profile/did:'),
+    )
+    expect(handlePaths).not.toEqual([])
+  })
+
+  it('localizes at least one DID link, so the invariant is not vacuous', () => {
+    const didPaths = ownInstancePaths().filter((path) =>
+      path?.startsWith('/profile/did:'),
+    )
+    expect(didPaths).not.toEqual([])
   })
 })
 

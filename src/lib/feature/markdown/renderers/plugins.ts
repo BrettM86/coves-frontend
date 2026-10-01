@@ -1,5 +1,12 @@
 import type { Lexer, MarkedExtension } from 'marked'
 import markedLinkifyIt from 'marked-linkify-it'
+import { PUBLIC_INSTANCE_ORIGIN } from '$lib/app/state/instance/domain'
+import { instanceOrigin } from '$lib/app/state/instance/resolve'
+import {
+  isValidCommunityAddress,
+  isValidDID,
+  isValidHandle,
+} from '$lib/types/atproto'
 
 // linkify-it 5 ships no type declarations and there is no @types package for
 // it, so marked-linkify-it's `LinkifyIt.SchemaRules` parameter resolves to
@@ -93,31 +100,60 @@ export const linkify: MarkedExtension = markedLinkifyIt(
 )
 
 const regexes = {
-  user: /^https:\/\/([a-zA-Z0-9.-]+)(\/u\/)([a-zA-Z0-9.-_]+)$/i,
-  community: /^https:\/\/([a-zA-Z0-9.-]+)(\/c\/)([a-zA-Z0-9.-_]+)$/i,
+  user: /^https:\/\/([a-zA-Z0-9.-]+)(\/u\/)([a-zA-Z0-9._@-]+)$/i,
+  community: /^https:\/\/([a-zA-Z0-9.-]+)(\/c\/)([a-zA-Z0-9._@-]+)$/i,
 }
 
 export { regexes as CONTENT_REGEXES }
 
 /**
- * Convert links to local app links
+ * A profile link on some origin: `scheme://host[:port]/(u|profile)/<id>` with
+ * nothing after the id. The host class excludes `@`, so userinfo never
+ * matches. The id class omits `%`: the actor route decodes `%2F` to `/` and
+ * would 404.
  */
-export const localizeLink = (link: string): string | undefined => {
-  if (regexes.community.test(link)) {
-    const match = link.match(regexes.community)
-    if (!match) return
+const profileLinkPattern =
+  /^(https?:\/\/[a-zA-Z0-9.-]+(?::\d+)?)\/(?:u|profile)\/([a-zA-Z0-9._:-]+)$/
 
-    // If the match[3] includes @, the URL included an instance already, so don't add one.
-    if (match[3].includes('@')) return `/c/${match[3]}`
-    else return `/c/${match[3]}@${match[1]}`
+/**
+ * Convert links to local app links. `ownInstanceOrigin` is the origin this
+ * app is served at; a profile link on exactly that origin opens in-app.
+ */
+export const localizeLink = (
+  link: string,
+  ownInstanceOrigin: string | null = PUBLIC_INSTANCE_ORIGIN,
+): string | undefined => {
+  const profileMatch = link.match(profileLinkPattern)
+  if (
+    profileMatch &&
+    ownInstanceOrigin !== null &&
+    instanceOrigin(profileMatch[1]) === ownInstanceOrigin &&
+    (isValidHandle(profileMatch[2]) || isValidDID(profileMatch[2]))
+  ) {
+    return `/profile/${profileMatch[2]}`
   }
-  if (regexes.user.test(link)) {
-    const match = link.match(regexes.user)
-    if (!match) return
-
-    // Same as above for the community.
-    if (match[3].includes('@')) return `/profile/${match[3]}`
-    else return `/profile/${match[3]}@${match[1]}`
+  const communityMatch = link.match(regexes.community)
+  if (communityMatch) {
+    // A name without @ belongs to the linked host, so append that host.
+    const address = communityMatch[3].includes('@')
+      ? communityMatch[3]
+      : `${communityMatch[3]}@${communityMatch[1]}`
+    // Of the forms `/c/[handle]` (src/params/handle.ts) routes, only a valid
+    // community address can contain @; an unroutable path would replace a
+    // working external link with a 404, so anything else keeps its href.
+    return isValidCommunityAddress(address) ? `/c/${address}` : undefined
+  }
+  const userMatch = link.match(regexes.user)
+  if (userMatch) {
+    const identifier = userMatch[3].includes('@')
+      ? userMatch[3]
+      : `${userMatch[3]}@${userMatch[1]}`
+    // `/profile/[handle=actor]` (src/params/actor.ts) only routes a DID or a DNS
+    // handle, which `name@instance` never is; an unroutable path would replace
+    // a working external link with a 404, so the original href is kept.
+    return isValidHandle(identifier) || isValidDID(identifier)
+      ? `/profile/${identifier}`
+      : undefined
   }
   // NOTE: mailto: links are deliberately left untouched. The old Lemmy-era
   // "implicit user mention" rewrite turned every real email link (e.g.

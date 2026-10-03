@@ -36,3 +36,23 @@ describe('legal information is discoverable without signing in', () => {
     )
   })
 })
+
+describe('instance sidebar links to the mobile apps', () => {
+  it.each([
+    ['App Store', 'https://apps.apple.com/app/coves-social/id6758530907'],
+    [
+      'Google Play',
+      'https://play.google.com/store/apps/details?id=social.coves',
+    ],
+  ])('links to %s in a new tab', (label, url) => {
+    const anchors =
+      render(CovesSidebar, renderOptions()).body.match(
+        /<a\b[^>]*>[\s\S]*?<\/a>/g,
+      ) ?? []
+    const anchor = anchors.find((tag) => tag.includes(`href="${url}"`))
+    expect(anchor).toBeDefined()
+    expect(anchor).toContain('target="_blank"')
+    expect(anchor).toContain('rel="noopener noreferrer"')
+    expect(anchor).toContain(`aria-label="Get Coves on ${label}"`)
+  })
+})

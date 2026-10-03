@@ -37,11 +37,15 @@ describe('legal information is discoverable without signing in', () => {
   })
 })
 
-describe('instance sidebar links to the mobile apps', () => {
+describe('instance sidebar external icon links', () => {
   it.each([
-    ['App Store', 'https://apps.apple.com/app/coves-social/id6758530907'],
+    ['Coves source code on Tangled', 'https://tangled.org/bretton.dev/coves'],
     [
-      'Google Play',
+      'Get Coves on App Store',
+      'https://apps.apple.com/app/coves-social/id6758530907',
+    ],
+    [
+      'Get Coves on Google Play',
       'https://play.google.com/store/apps/details?id=social.coves',
     ],
   ])('links to %s in a new tab', (label, url) => {
@@ -53,6 +57,6 @@ describe('instance sidebar links to the mobile apps', () => {
     expect(anchor).toBeDefined()
     expect(anchor).toContain('target="_blank"')
     expect(anchor).toContain('rel="noopener noreferrer"')
-    expect(anchor).toContain(`aria-label="Get Coves on ${label}"`)
+    expect(anchor).toContain(`aria-label="${label}"`)
   })
 })

@@ -134,6 +134,8 @@
     <span class="flex items-center -mx-1">
       <a
         href="https://tangled.org/bretton.dev/coves"
+        target="_blank"
+        rel="noopener noreferrer"
         aria-label="Coves source code on Tangled"
         title="Coves source code on Tangled"
         class="inline-flex items-center justify-center p-1 rounded-sm hover:text-slate-900 dark:hover:text-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-4"

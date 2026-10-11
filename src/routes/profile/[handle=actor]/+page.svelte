@@ -2,6 +2,7 @@
   import { page } from '$app/state'
   import { locale, t } from '$lib/app/state/i18n'
   import { profile as authProfile } from '$lib/app/state/auth.svelte'
+  import { userLink } from '$lib/app/util/links'
   import { deletedContentPlaceholder } from '$lib/feature/comment/comments.svelte'
   import PostFeed from '$lib/feature/post/feed/PostFeed.svelte'
   import UserLink from '$lib/feature/user/UserLink.svelte'
@@ -41,6 +42,22 @@
       data.data.value?.profile.handle ??
       'User'}
   </title>
+  {#if data.data.value}
+    {@const profile = data.data.value.profile}
+    {@const name = profile.displayName || profile.handle || profile.did}
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="{name} · {$t('content.posts')}"
+      href="{userLink(profile)}/rss"
+    />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="{name} · {$t('content.comments')}"
+      href="{userLink(profile)}/rss?type=comments"
+    />
+  {/if}
 </svelte:head>
 
 <div class="flex flex-col gap-4 max-w-full w-full">

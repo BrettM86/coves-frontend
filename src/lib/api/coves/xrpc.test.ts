@@ -206,25 +206,28 @@ describe('XrpcClient.query()', () => {
     ['trailing junk', '10 seconds'],
     ['HTTP date', 'Wed, 21 Oct 2015 07:28:00 GMT'],
     ['multiple values', '10, 20'],
-  ])('ignores an invalid Retry-After header (%s)', async (_case, retryAfter) => {
-    const headers: Record<string, string> =
-      retryAfter === undefined ? {} : { 'Retry-After': retryAfter }
-    const mockFetch = createMockFetch(
-      { error: 'DiscoverUnavailable', message: 'Discover is recovering' },
-      { status: 503, headers },
-    )
-    client = new XrpcClient({ fetchFn: mockFetch, baseUrl: BASE_URL })
+  ])(
+    'ignores an invalid Retry-After header (%s)',
+    async (_case, retryAfter) => {
+      const headers: Record<string, string> =
+        retryAfter === undefined ? {} : { 'Retry-After': retryAfter }
+      const mockFetch = createMockFetch(
+        { error: 'DiscoverUnavailable', message: 'Discover is recovering' },
+        { status: 503, headers },
+      )
+      client = new XrpcClient({ fetchFn: mockFetch, baseUrl: BASE_URL })
 
-    let thrown: unknown
-    try {
-      await client.query('social.coves.feed.getDiscover')
-    } catch (error) {
-      thrown = error
-    }
+      let thrown: unknown
+      try {
+        await client.query('social.coves.feed.getDiscover')
+      } catch (error) {
+        thrown = error
+      }
 
-    expect(thrown).toBeInstanceOf(XrpcError)
-    expect(thrown).not.toHaveProperty('retryAfterSeconds')
-  })
+      expect(thrown).toBeInstanceOf(XrpcError)
+      expect(thrown).not.toHaveProperty('retryAfterSeconds')
+    },
+  )
 
   it.each([
     [502, 'DiscoverUnavailable'],
@@ -272,6 +275,31 @@ describe('XrpcClient.query()', () => {
       expect(err.errorName).toBe('UnknownError')
       expect(err.message).toBe('XRPC request failed with status 502')
     }
+  })
+
+  it.each([
+    ['a plain-text', 'Too Many Requests'],
+    ['an empty', ''],
+  ])('attaches Retry-After to a 429 with %s body', async (_case, body) => {
+    const mockFetch = vi.fn<typeof fetch>().mockImplementation(() =>
+      Promise.resolve(
+        new Response(body, {
+          status: 429,
+          headers: { 'Content-Type': 'text/plain', 'Retry-After': '30' },
+        }),
+      ),
+    ) as unknown as typeof fetch
+    client = new XrpcClient({ fetchFn: mockFetch, baseUrl: BASE_URL })
+
+    let thrown: unknown
+    try {
+      await client.query('social.coves.feed.getDiscover')
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toBeInstanceOf(XrpcError)
+    expect(thrown).toMatchObject({ status: 429, retryAfterSeconds: 30 })
   })
 
   it('throws XrpcError with ParseError when success response is not valid JSON', async () => {

@@ -115,33 +115,32 @@ export class XrpcClient {
   }
 
   async #parseError(res: Response): Promise<XrpcError> {
+    let errorName = 'UnknownError'
+    let message = `XRPC request failed with status ${res.status}`
     try {
       const body = (await res.json()) as Record<string, unknown>
-      const errorName =
-        typeof body.error === 'string' ? body.error : 'UnknownError'
-      const message =
-        typeof body.message === 'string'
-          ? body.message
-          : `XRPC request failed with status ${res.status}`
-      let retryAfterSeconds: number | undefined
-      if (res.status === 503 && errorName === 'DiscoverUnavailable') {
-        const retryAfter = res.headers.get('Retry-After')
-        if (retryAfter !== null && /^[0-9]+$/.test(retryAfter)) {
-          const significantDigits = retryAfter.replace(/^0+/, '') || '0'
-          retryAfterSeconds =
-            significantDigits.length > 3 ||
-            (significantDigits.length === 3 && significantDigits > '300')
-              ? 300
-              : Number(significantDigits)
-        }
-      }
-      return new XrpcError(res.status, errorName, message, retryAfterSeconds)
+      if (typeof body.error === 'string') errorName = body.error
+      if (typeof body.message === 'string') message = body.message
     } catch {
-      return new XrpcError(
-        res.status,
-        'UnknownError',
-        `XRPC request failed with status ${res.status}`,
-      )
+      // A non-JSON body keeps the generic name and message.
     }
+    // A 429 carries Retry-After whatever its body, so read the header apart
+    // from the JSON parse.
+    const retryAfterSeconds =
+      res.status === 429 ||
+      (res.status === 503 && errorName === 'DiscoverUnavailable')
+        ? parseRetryAfter(res.headers.get('Retry-After'))
+        : undefined
+    return new XrpcError(res.status, errorName, message, retryAfterSeconds)
   }
+}
+
+/** Delay-seconds form of Retry-After, capped at 300; anything else is ignored. */
+function parseRetryAfter(retryAfter: string | null): number | undefined {
+  if (retryAfter === null || !/^[0-9]+$/.test(retryAfter)) return undefined
+  const significantDigits = retryAfter.replace(/^0+/, '') || '0'
+  return significantDigits.length > 3 ||
+    (significantDigits.length === 3 && significantDigits > '300')
+    ? 300
+    : Number(significantDigits)
 }

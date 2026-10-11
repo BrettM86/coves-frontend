@@ -6,11 +6,14 @@
  *   - `GET /api/me`            (hooks.server.ts, only when a session cookie is present)
  *   - `GET /xrpc/social.coves.feed.getDiscover` (the `/` page load)
  *   - `GET /xrpc/social.coves.community.list` (`/explore/communities`)
+ *   - the RSS feeds' calls (`/c/<community>/rss`, `/profile/<handle>/rss`):
+ *     `communityFeed.getCommunity`, `community.get`, `actor.getProfile`,
+ *     `actor.getPosts`, `actor.getComments` and `community.post.get`
  * Anything else is a 404 and is recorded so a future page change surfaces as a
  * named gap rather than an opaque 500.
  *
  * Beyond answering, it RECORDS: every `/xrpc/*` call with the `Authorization`
- * header it arrived with, so a test can check what credentials a render
+ * and `Cookie` headers it arrived with, so a test can check what credentials a render
  * actually put on the wire rather than only what it rendered. Both records are
  * readable over the control plane, since the tests run in a different process.
  */
@@ -40,11 +43,104 @@ export const UNKNOWN_PATHS_PATH = '/__test/unknown-paths'
 export const SSR_POST_MARKER = 'SSR feed post from CORS-free upstream'
 export const SSR_COMMUNITY_MARKER = 'SSR community from CORS-free upstream'
 
+/** The community and user the RSS fixtures serve. */
+export const RSS_COMMUNITY = 'gaming'
+export const RSS_AUTHOR_HANDLE = 'rss-author.test'
+
+const RSS_AUTHOR = {
+  did: 'did:plc:rssauthorabcdefghijklm',
+  handle: RSS_AUTHOR_HANDLE,
+  displayName: 'RSS Author',
+}
+
+const RSS_POST = {
+  uri: 'at://did:plc:rssauthorabcdefghijklm/social.coves.community.post/rsspost',
+  cid: 'bafyreirsspostaaaaaaaa',
+  rkey: 'rsspost',
+  indexedAt: '2026-08-31T00:00:00.000Z',
+  createdAt: '2026-08-31T00:00:00.000Z',
+  author: RSS_AUTHOR,
+  community: {
+    did: 'did:plc:gamingcommunityabcdefgh',
+    handle: 'c-gaming.coves.social',
+    name: RSS_COMMUNITY,
+    origin: 'coves.social',
+  },
+  record: {
+    $type: 'social.coves.community.post',
+    community: 'did:plc:gamingcommunityabcdefgh',
+    author: RSS_AUTHOR.did,
+    createdAt: '2026-08-31T00:00:00.000Z',
+    title: 'RSS fixture post',
+    content: 'Served to the **RSS** feeds.',
+  },
+  stats: { upvotes: 1, downvotes: 0, score: 1, commentCount: 1 },
+  viewer: { saved: false },
+}
+
+const RSS_COMMENT = {
+  uri: 'at://did:plc:rssauthorabcdefghijklm/social.coves.community.comment/rsscomment',
+  cid: 'bafyreirsscommentaaaaa',
+  createdAt: '2026-09-01T00:00:00.000Z',
+  indexedAt: '2026-09-01T00:00:00.000Z',
+  record: {
+    $type: 'social.coves.community.comment',
+    content: 'An RSS fixture comment.',
+    reply: {
+      root: { uri: RSS_POST.uri, cid: RSS_POST.cid },
+      parent: { uri: RSS_POST.uri, cid: RSS_POST.cid },
+    },
+    createdAt: '2026-09-01T00:00:00.000Z',
+  },
+  author: RSS_AUTHOR,
+  post: { uri: RSS_POST.uri, cid: RSS_POST.cid },
+  stats: { upvotes: 0, downvotes: 0, score: 0, replyCount: 0 },
+}
+
+/** JSON bodies for the RSS feeds' XRPC calls, keyed by path. */
+const RSS_FIXTURES: Record<string, (query: URLSearchParams) => unknown> = {
+  '/xrpc/social.coves.communityFeed.getCommunity': () => ({
+    feed: [{ post: RSS_POST }],
+  }),
+  '/xrpc/social.coves.community.get': () => ({
+    did: RSS_POST.community.did,
+    handle: RSS_POST.community.handle,
+    name: RSS_COMMUNITY,
+    origin: RSS_POST.community.origin,
+    displayName: 'Gaming',
+    description: 'RSS fixture community',
+    subscriberCount: 1,
+    memberCount: 1,
+    postCount: 1,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    allowExternalDiscovery: true,
+    visibility: 'public',
+  }),
+  '/xrpc/social.coves.actor.getProfile': () => ({
+    did: RSS_AUTHOR.did,
+    handle: RSS_AUTHOR.handle,
+    displayName: RSS_AUTHOR.displayName,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  }),
+  '/xrpc/social.coves.actor.getPosts': () => ({ feed: [{ post: RSS_POST }] }),
+  '/xrpc/social.coves.actor.getComments': () => ({ comments: [RSS_COMMENT] }),
+  // Mirrors the requested `uris` 1:1, as the real batch endpoint does.
+  '/xrpc/social.coves.community.post.get': (query) => ({
+    posts: query
+      .getAll('uris')
+      .map((uri) =>
+        uri === RSS_POST.uri ? RSS_POST : { uri, notFound: true },
+      ),
+  }),
+}
+
 /** One inbound XRPC call, as the upstream saw it. */
 export interface XrpcRequest {
   readonly path: string
   /** The inbound `Authorization` header verbatim, or null if there was none. */
   readonly authorization: string | null
+  /** The inbound `Cookie` header verbatim, or null if there was none. */
+  readonly cookie: string | null
 }
 
 export interface MockUpstream {
@@ -67,7 +163,8 @@ export async function startMockUpstream(): Promise<MockUpstream> {
   const xrpcRequests: XrpcRequest[] = []
 
   const server = http.createServer((req, res) => {
-    const path = new URL(req.url ?? '/', 'http://upstream.invalid').pathname
+    const url = new URL(req.url ?? '/', 'http://upstream.invalid')
+    const path = url.pathname
 
     // Control plane. Not part of the backend's surface, so it is checked
     // before anything else and never counts as an unknown path.
@@ -101,6 +198,7 @@ export async function startMockUpstream(): Promise<MockUpstream> {
       xrpcRequests.push({
         path,
         authorization: req.headers.authorization ?? null,
+        cookie: req.headers.cookie ?? null,
       })
     }
 
@@ -193,6 +291,13 @@ export async function startMockUpstream(): Promise<MockUpstream> {
           ],
         }),
       )
+      return
+    }
+
+    const rssFixture = RSS_FIXTURES[path]
+    if (rssFixture !== undefined) {
+      res.writeHead(200, BASE_HEADERS)
+      res.end(JSON.stringify(rssFixture(url.searchParams)))
       return
     }
 

@@ -2,6 +2,7 @@
   import { browser } from '$app/environment'
   import { navigating, page } from '$app/state'
   import { setSessionStorage } from '$lib/app/state/session'
+  import { communityLink } from '$lib/app/util/links'
   import { communityDisplayName } from '$lib/feature/community/helpers'
   import CommunityHeader from '$lib/feature/community/CommunityHeader.svelte'
   import { resumables } from '$lib/feature/legacy/item.svelte'
@@ -17,6 +18,20 @@
   // the server's rows (images and all) with other posts' data. After
   // hydration both branches render the same thing.
   const hydratesServerMarkup = untrack(() => data.matchesServerRender)
+
+  // The feed's own default sort is `new`, so only a sort the visitor chose in
+  // the URL is carried into the advertised feed.
+  const rssHref = $derived.by(() => {
+    if (!data.community) return undefined
+    const query = new URLSearchParams(
+      ['sort', 'timeframe'].flatMap((key) => {
+        const value = page.url.searchParams.get(key)
+        return value === null ? [] : [[key, value]]
+      }),
+    ).toString()
+    const search = query ? `?${query}` : ''
+    return `${communityLink(data.community)}/rss${search}`
+  })
 
   onMount(() => {
     if (browser && data.community) {
@@ -50,6 +65,12 @@
     {#if data.community.description}
       <meta name="og:description" content={data.community.description} />
     {/if}
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={communityDisplayName(data.community)}
+      href={rssHref}
+    />
   {/if}
 </svelte:head>
 

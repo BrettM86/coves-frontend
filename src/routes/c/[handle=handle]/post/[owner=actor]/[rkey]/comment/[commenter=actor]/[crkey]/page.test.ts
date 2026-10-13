@@ -517,6 +517,19 @@ describe('comment permalink loader', () => {
     })
   })
 
+  it('404s with couldnt_find_post when the post is removed between the probe and the subtree request', async () => {
+    // The post hydrated, but by the time the subtree request landed the
+    // backend no longer had a thread root for it.
+    mockCovesMethods.getComments.mockRejectedValue(
+      new XrpcError(404, 'RootNotFound', 'post not found'),
+    )
+
+    await expect(load(makeArgs())).rejects.toMatchObject({
+      status: 404,
+      body: { message: 'couldnt_find_post' },
+    })
+  })
+
   it('reports the missing post even when the parallel subtree request fails', async () => {
     // The speculative comments call is fired before the post's fate is known,
     // so its failure is expected noise here. It must neither win the race nor

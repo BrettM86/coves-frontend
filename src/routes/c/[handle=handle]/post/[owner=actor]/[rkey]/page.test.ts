@@ -85,6 +85,7 @@ vi.mock('$lib/app/state/auth.svelte', () => ({
 import type { AtUri, CID, CreatePostOutput } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import { XrpcError } from '$lib/api/coves/xrpc'
+import { log } from '$lib/app/util/log'
 import CommunityCard from '$lib/feature/community/CommunityCard.svelte'
 import {
   buildFreshPostView,
@@ -148,12 +149,12 @@ function hydratedPost(uri: string) {
 }
 
 /**
- * The same fixture with no author ref — nothing proves a handle for the repo
- * the record lives in, so the URI authority DID is its canonical owner segment.
+ * The same fixture with a DID-only author ref (a hydrated post always carries
+ * an author) — nothing proves a handle for the repo the record lives in, so
+ * the URI authority DID is its canonical owner segment.
  */
-function authorlessPost(uri: string): Record<string, unknown> {
-  const { author: _author, ...rest } = hydratedPost(uri)
-  return rest
+function handlelessPost(uri: string): Record<string, unknown> {
+  return { ...hydratedPost(uri), author: { did: OWNER_DID } }
 }
 
 /** The one URL this fixture's post is canonically addressed by. */
@@ -254,9 +255,9 @@ describe('post loader', () => {
   })
 
   it('probes both collections for a DID owner, with no profile lookup', async () => {
-    // The post carries no author ref, so the DID owner segment is canonical
-    // here and the load runs to completion instead of redirecting.
-    const post = authorlessPost(POSTV2_URI)
+    // The post's author ref carries no handle, so the DID owner segment is
+    // canonical here and the load runs to completion instead of redirecting.
+    const post = handlelessPost(POSTV2_URI)
     serve({ [POSTV2_URI]: post })
 
     const result = await load(makeArgs({ owner: OWNER_DID }))
@@ -333,6 +334,249 @@ describe('post loader', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('blocked'))
 
     warn.mockRestore()
+  })
+
+  // -------------------------------------------------------------------------
+  // Moderation outcomes
+  // -------------------------------------------------------------------------
+
+  it('returns unavailable=moderated with the community ref and no comments for a moderatedPost', async () => {
+    // ACCEPTANCE: an instance-removed post renders a tombstone on the page,
+    // named for its community when the backend says which one, instead of
+    // being treated as a post (or throwing into the error page).
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    serve({
+      [POSTV2_URI]: {
+        $type: 'social.coves.community.post.defs#moderatedPost',
+        uri: POSTV2_URI,
+        moderation: {
+          state: 'removed',
+          sources: [
+            { authorityDid: 'did:plc:instance', scope: { kind: 'instance' } },
+          ],
+        },
+        authorDid: OWNER_DID,
+        community: { did: COMMUNITY_DID, name: 'gardening' },
+      },
+    })
+
+    const result = await load(makeArgs())
+    const value = loadedValue(result)
+
+    expect(value.unavailable).toBe('moderated')
+    expect(value.community).toEqual({ did: COMMUNITY_DID, name: 'gardening' })
+    expect(value.post).toBeUndefined()
+    await expect(value.comments).resolves.toEqual({ comments: [] })
+
+    warn.mockRestore()
+  })
+
+  it('returns unavailable=removed for a community-removed post', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    serve({
+      [POSTV2_URI]: {
+        uri: POSTV2_URI,
+        removed: true,
+        code: 'RemovedByCommunity',
+      },
+    })
+
+    const result = await load(makeArgs())
+    const value = loadedValue(result)
+
+    expect(value.unavailable).toBe('removed')
+    expect(value.post).toBeUndefined()
+    await expect(value.comments).resolves.toEqual({ comments: [] })
+
+    warn.mockRestore()
+  })
+
+  it('returns unavailable=notFound for an item of an unknown $type', async () => {
+    // A union member this client does not know must not render as a post.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    serve({
+      [POSTV2_URI]: {
+        ...hydratedPost(POSTV2_URI),
+        $type: 'social.coves.community.post.defs#futurePost',
+      },
+    })
+
+    const result = await load(makeArgs())
+    const value = loadedValue(result)
+
+    expect(value.unavailable).toBe('notFound')
+    expect(value.post).toBeUndefined()
+
+    warn.mockRestore()
+  })
+
+  // -------------------------------------------------------------------------
+  // Comments for a post removed between requests
+  // -------------------------------------------------------------------------
+
+  it.each(['RootNotFound', 'NotFound'])(
+    'resolves comments to the unavailable marker when getComments 404s with %s',
+    async (errorName) => {
+      // The post hydrated, then its thread came back 404: the post was
+      // removed between the two requests. That is a page state, not a failure
+      // to retry.
+      mockCovesMethods.getComments.mockRejectedValue(
+        new XrpcError(404, errorName, 'post not found'),
+      )
+
+      const result = await load(makeArgs())
+      const value = loadedValue(result)
+
+      expect(value.post).toEqual(hydratedPost(POSTV2_URI))
+      await expect(value.comments).resolves.toEqual({ unavailable: true })
+    },
+  )
+
+  it('re-probes a preloaded post whose thread 404s and names the moderation outcome', async () => {
+    // The feed cache answered the post, so nothing has asked the backend
+    // about it this load. When its thread is gone, the cached view is stale:
+    // ask again and report what actually happened to the post.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockFeeds.set('/', {
+      peek: () => ({ feed: [{ post: hydratedPost(POSTV2_URI) }] }),
+    })
+    mockCovesMethods.getComments.mockRejectedValue(
+      new XrpcError(404, 'RootNotFound', 'post not found'),
+    )
+    serve({
+      [POSTV2_URI]: {
+        $type: 'social.coves.community.post.defs#moderatedPost',
+        uri: POSTV2_URI,
+        moderation: {
+          state: 'removed',
+          sources: [
+            { authorityDid: 'did:plc:instance', scope: { kind: 'instance' } },
+          ],
+        },
+        authorDid: OWNER_DID,
+        community: { did: COMMUNITY_DID, name: 'gardening' },
+      },
+    })
+
+    const result = await load(makeArgs())
+
+    await expect(loadedValue(result).comments).resolves.toEqual({
+      unavailable: true,
+      postUnavailable: 'moderated',
+      community: { did: COMMUNITY_DID, name: 'gardening' },
+    })
+
+    warn.mockRestore()
+  })
+
+  it('re-probes a preloaded post whose thread 404s and names a community removal', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockFeeds.set('/', {
+      peek: () => ({ feed: [{ post: hydratedPost(POSTV2_URI) }] }),
+    })
+    mockCovesMethods.getComments.mockRejectedValue(
+      new XrpcError(404, 'NotFound', 'post not found'),
+    )
+    serve({
+      [POSTV2_URI]: {
+        uri: POSTV2_URI,
+        removed: true,
+        code: 'RemovedByCommunity',
+      },
+    })
+
+    const result = await load(makeArgs())
+
+    await expect(loadedValue(result).comments).resolves.toEqual({
+      unavailable: true,
+      postUnavailable: 'removed',
+    })
+
+    warn.mockRestore()
+  })
+
+  it('tombstones a preloaded post as notFound when the re-probe fails', async () => {
+    // RootNotFound already proved the backend withholds the post, so a failed
+    // re-probe must not leave the stale cached body standing.
+    const warn = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    mockFeeds.set('/', {
+      peek: () => ({ feed: [{ post: hydratedPost(POSTV2_URI) }] }),
+    })
+    mockCovesMethods.getComments.mockRejectedValue(
+      new XrpcError(404, 'RootNotFound', 'post not found'),
+    )
+    mockCovesMethods.getPosts.mockRejectedValue(
+      new XrpcError(503, 'ServiceUnavailable', 'try later'),
+    )
+
+    const result = await load(makeArgs())
+
+    await expect(loadedValue(result).comments).resolves.toEqual({
+      unavailable: true,
+      postUnavailable: 'notFound',
+    })
+
+    warn.mockRestore()
+  })
+
+  it('leaves only the thread unavailable when a preloaded post still hydrates on re-probe', async () => {
+    const warn = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    mockFeeds.set('/', {
+      peek: () => ({ feed: [{ post: hydratedPost(POSTV2_URI) }] }),
+    })
+    mockCovesMethods.getComments.mockRejectedValue(
+      new XrpcError(404, 'RootNotFound', 'post not found'),
+    )
+
+    const result = await load(makeArgs())
+
+    await expect(loadedValue(result).comments).resolves.toStrictEqual({
+      unavailable: true,
+    })
+    // The backend contradicted itself: the thread root is gone but the post
+    // hydrates. That is worth a line in the logs.
+    expect(
+      warn.mock.calls.some(
+        ([message]) =>
+          message.includes('still hydrates') && message.includes(POSTV2_URI),
+      ),
+    ).toBe(true)
+
+    warn.mockRestore()
+  })
+
+  it('logs a gone thread root, telling RootNotFound from a generic NotFound', async () => {
+    const warn = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    const messages: string[] = []
+    for (const errorName of ['RootNotFound', 'NotFound']) {
+      warn.mockClear()
+      mockCovesMethods.getComments.mockRejectedValue(
+        new XrpcError(404, errorName, 'post not found'),
+      )
+
+      const result = await load(makeArgs())
+      await loadedValue(result).comments
+
+      expect(warn).toHaveBeenCalledTimes(1)
+      const [message] = warn.mock.calls[0]
+      expect(message).toContain(POSTV2_URI)
+      expect(message).toContain(errorName)
+      messages.push(message)
+    }
+    // The generic catch-all reads differently, so a backend that stops naming
+    // RootNotFound shows up in the logs.
+    expect(messages[1]).not.toContain('RootNotFound')
+
+    warn.mockRestore()
+  })
+
+  it('still rejects the comments promise on a 503 from getComments', async () => {
+    const outage = new XrpcError(503, 'ServiceUnavailable', 'try later')
+    mockCovesMethods.getComments.mockRejectedValue(outage)
+
+    const result = await load(makeArgs())
+
+    await expect(loadedValue(result).comments).rejects.toBe(outage)
   })
 
   // -------------------------------------------------------------------------
@@ -466,6 +710,95 @@ describe('post loader', () => {
       expect(probes().at(-1)).toEqual([POSTV2_URI, LEGACY_URI])
     } finally {
       vi.useRealTimers()
+    }
+  })
+
+  it.each([
+    [
+      'moderatedPost',
+      {
+        $type: 'social.coves.community.post.defs#moderatedPost',
+        uri: POSTV2_URI,
+        moderation: {
+          state: 'removed',
+          sources: [
+            { authorityDid: 'did:plc:instance', scope: { kind: 'instance' } },
+          ],
+        },
+        authorDid: OWNER_DID,
+      },
+      'moderated',
+    ],
+    [
+      'removedPost',
+      { uri: POSTV2_URI, removed: true, code: 'RemovedByCommunity' },
+      'removed',
+    ],
+  ])(
+    'stops the fresh-post retry on a %s: a removal is a final answer, not indexing lag',
+    async (_name, sentinel, expectedKind) => {
+      vi.useFakeTimers()
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      try {
+        serve({ [POSTV2_URI]: sentinel })
+
+        const pending = load(
+          makeArgs({ query: `?uri=${encodeURIComponent(POSTV2_URI)}` }),
+        )
+        // The retry waits 500ms before its first re-probe. A final answer
+        // must settle the load before that wait ever elapses.
+        const outcome = Promise.race([
+          pending.then((result) => loadedValue(result).unavailable),
+          new Promise((resolve) =>
+            setTimeout(() => resolve('still retrying'), 499),
+          ),
+        ])
+        await vi.advanceTimersByTimeAsync(499)
+
+        await expect(outcome).resolves.toBe(expectedKind)
+      } finally {
+        // Let an abandoned retry loop run out so it cannot leak into the
+        // next test.
+        await vi.runAllTimersAsync()
+        vi.useRealTimers()
+        warn.mockRestore()
+      }
+    },
+  )
+
+  it('does not poll a fresh post answered by an item of an unknown $type', async () => {
+    // Only a real notFound can be indexing lag. A union member this client
+    // does not know is still an answer about the record, not a missing one.
+    vi.useFakeTimers()
+    const warn = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    try {
+      serve({
+        [POSTV2_URI]: {
+          uri: POSTV2_URI,
+          $type: 'social.coves.community.post.defs#futurePost',
+        },
+      })
+
+      const pending = load(
+        makeArgs({ query: `?uri=${encodeURIComponent(POSTV2_URI)}` }),
+      )
+      await vi.advanceTimersByTimeAsync(3000)
+      const result = await pending
+
+      expect(loadedValue(result).unavailable).toBe('notFound')
+      expect(probes()).toEqual([[POSTV2_URI]])
+      // One line names both the unknown $type and the record it came for.
+      expect(
+        warn.mock.calls.some(
+          ([message]) =>
+            message.includes('social.coves.community.post.defs#futurePost') &&
+            message.includes(POSTV2_URI),
+        ),
+      ).toBe(true)
+    } finally {
+      await vi.runAllTimersAsync()
+      vi.useRealTimers()
+      warn.mockRestore()
     }
   })
 

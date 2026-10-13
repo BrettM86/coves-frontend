@@ -236,20 +236,20 @@
         date={publishedToDate(node.comment.createdAt)}
       />
       <span class="text-slate-600 dark:text-zinc-400 flex flex-row gap-2 ml-1">
-        {#if node.comment.isDeleted}
-          <Icon
-            src={Trash2}
-            size="12"
-            aria-label={$t('post.badges.deleted')}
-            class="text-red-600 dark:text-red-500"
-          />
-        {/if}
-        {#if node.comment.deletionReason}
+        <!-- One badge: a moderator removal, or any other deletion. -->
+        {#if node.comment.deletionReason === 'moderator'}
           <Icon
             src={Trash2}
             size="12"
             aria-label={$t('post.badges.removed')}
             class="text-green-600 dark:text-green-500"
+          />
+        {:else if node.comment.isDeleted}
+          <Icon
+            src={Trash2}
+            size="12"
+            aria-label={$t('post.badges.deleted')}
+            class="text-red-600 dark:text-red-500"
           />
         {/if}
       </span>
@@ -302,7 +302,8 @@
         {/if}
       </div>
 
-      {#if replying}
+      <!-- A comment that became a placeholder can no longer be replied to. -->
+      {#if replying && !node.comment.isDeleted}
         <div transition:slide={{ duration: 600, easing: expoOut }}>
           <CommentForm
             label={$t('comment.reply')}

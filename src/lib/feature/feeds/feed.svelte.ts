@@ -1,6 +1,7 @@
 import { browser } from '$app/environment'
 import type {
   AtUri,
+  CommunityRef,
   CommunityView as CovesCommunityView,
   CommunityViewDetailed,
   FeedPaginationParams,
@@ -14,6 +15,10 @@ import type {
   ThreadViewComment,
 } from '$lib/api/coves/types'
 import type { CommunitySortType } from '$lib/api/coves/sort'
+import type {
+  PostUnavailableKind,
+  UnavailableThread,
+} from '$lib/feature/post/owner'
 import { profile } from '$lib/app/state/auth.svelte'
 import { recursiveEqual } from '$lib/app/util/array'
 import { log } from '$lib/app/util/log'
@@ -141,15 +146,26 @@ export interface FeedTypes {
         focus?: string
       }
     },
-    // Discriminated on `unavailable`: present ('notFound' | 'blocked') ⇒ the post
-    // could not be hydrated and there is no `post`; absent ⇒ `post` is present.
-    // This makes the illegal { post, unavailable } state unrepresentable and lets
-    // consumers read `value.post` for free in the happy branch.
+    // Discriminated on `unavailable`: present ⇒ the post could not be hydrated
+    // and there is no `post` (only a moderated post may name its `community`);
+    // absent ⇒ `post` is present. This makes the illegal { post, unavailable }
+    // state unrepresentable and lets consumers read `value.post` for free in
+    // the happy branch.
     (
-      | { post: CovesPostView; unavailable?: never }
-      | { post?: never; unavailable: 'notFound' | 'blocked' }
+      | { post: CovesPostView; unavailable?: never; community?: never }
+      | {
+          post?: never
+          unavailable: PostUnavailableKind
+          community?: CommunityRef
+        }
     ) & {
-      comments: Promise<Pick<GetCommentsResponse, 'comments' | 'cursor'>>
+      // `{ unavailable: true }` when the post was removed between the post
+      // request and the comments request (getComments 404s on its root). A
+      // re-probe of a preloaded post adds what happened to it, so the page
+      // can replace the stale post with its tombstone.
+      comments: Promise<
+        Pick<GetCommentsResponse, 'comments' | 'cursor'> | UnavailableThread
+      >
       params: {
         postUri: string
         comments: GetCommentsParams

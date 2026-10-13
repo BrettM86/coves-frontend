@@ -221,6 +221,49 @@ describe('postToRssItem', () => {
     },
   )
 
+  it('withholds the body and media of a post an admin labelled nsfw, without a self-label', () => {
+    const item = postToRssItem(
+      fixtures.post(
+        { title: undefined, content: 'Secret *spicy* body' },
+        {
+          moderation: {
+            state: 'clear',
+            contentLabels: [
+              {
+                value: 'nsfw',
+                sources: [
+                  {
+                    authorityDid: 'did:plc:instance' as DID,
+                    scope: { kind: 'instance' },
+                  },
+                ],
+              },
+            ],
+          },
+          embed: {
+            $type: 'social.coves.embed.images#view',
+            images: [
+              {
+                image:
+                  'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgone',
+                alt: 'A cat',
+              },
+            ],
+          },
+        },
+      ),
+      ORIGIN,
+    )
+    const fragment = parse(item.html)
+
+    expect(fragment.querySelectorAll('img')).toHaveLength(0)
+    expect(fragment.textContent).not.toContain('Secret')
+    expect(fragment.textContent).not.toContain('spicy')
+    expect(hrefs(item.html)).toContain(POST_LINK)
+    expect(item.title).toBe('Post by @alice.coves.test')
+    expect(item.sensitive).toBe(true)
+  })
+
   it('does not mark an unlabelled post sensitive', () => {
     const item = postToRssItem(fixtures.post(), ORIGIN)
 

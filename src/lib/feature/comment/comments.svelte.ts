@@ -3,6 +3,7 @@ import type {
   CID,
   CommentRecord,
   CommentView,
+  ModerationSourceView,
   StrongRef,
   ThreadViewComment,
 } from '$lib/api/coves/types'
@@ -71,9 +72,30 @@ export function retainCreatedComments(
  * The placeholder content rendered for deleted comments. Centralized so
  * pre-reload (in-place mutation) and post-reload (tree normalization)
  * rendering cannot drift.
+ *
+ * A moderator removal names the highest authority among its sources (the
+ * instance over a community); anything else, including an author deletion
+ * that also carries a removal, reads as deleted by its user.
  */
-export function deletedContentPlaceholder(): string {
-  return `*${t.get('post.badges.deleted')}*`
+export function deletedContentPlaceholder(
+  comment: Pick<CommentView, 'deletionReason' | 'moderation'>,
+): string {
+  return `*${t.get(`comment.placeholder.${placeholderKey(comment)}`)}*`
+}
+
+function placeholderKey(
+  comment: Pick<CommentView, 'deletionReason' | 'moderation'>,
+): 'removedByAdmin' | 'removedByModerator' | 'removed' | 'deletedByUser' {
+  if (comment.deletionReason !== 'moderator') return 'deletedByUser'
+  // Moderation data arrives unchecked, so tolerate malformed sources.
+  const sources: unknown = comment.moderation?.sources
+  const scopes = (Array.isArray(sources) ? sources : []).map(
+    (source: Partial<ModerationSourceView> | null | undefined) =>
+      source?.scope?.kind,
+  )
+  if (scopes.includes('instance')) return 'removedByAdmin'
+  if (scopes.includes('community')) return 'removedByModerator'
+  return 'removed'
 }
 
 /**
@@ -110,7 +132,7 @@ export function buildCommentsTree(
           // non-null deleted records, then override the required fields.
           ...record,
           $type: 'social.coves.community.comment',
-          content: deletedContentPlaceholder(),
+          content: deletedContentPlaceholder(cv),
           reply: record?.reply ?? {
             root: cv.post,
             parent: cv.parent ?? cv.post,

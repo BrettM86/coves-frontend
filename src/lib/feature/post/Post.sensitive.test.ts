@@ -125,6 +125,26 @@ describe('sensitive post server rendering', () => {
     expect(html).not.toContain('sensitive-image.jpg')
   })
 
+  it.each(['cozy', 'compact'] as const)(
+    'conceals a post labelled NSFW only by a moderator like a self-labelled one in %s view',
+    (view) => {
+      const moderatorLabelled = fixture(undefined)
+      moderatorLabelled.moderation = {
+        state: 'clear',
+        contentLabels: [{ value: 'nsfw' }],
+      }
+      if (!moderatorLabelled.record) throw new Error('Missing post record')
+      moderatorLabelled.record.content = 'Sensitive body details'
+      const html = markup(moderatorLabelled, view)
+      expect(html).toMatch(/>\s*NSFW\s*</)
+      expect(html).toMatch(
+        /<button\b[^>]*aria-label="Show sensitive content"[^>]*>/,
+      )
+      expect(html).not.toContain('sensitive-image.jpg')
+      expect(html).not.toContain('Sensitive body details')
+    },
+  )
+
   it('renders the NSFW Content row and Show action on the server', () => {
     const html = markup(fixture({ values: [{ val: 'nsfw' }] }, embeds.link))
     expect(html).toContain('NSFW Content')

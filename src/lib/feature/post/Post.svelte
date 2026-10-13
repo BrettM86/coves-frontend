@@ -18,7 +18,7 @@
     postTextFallback,
   } from './helpers'
   import { type MetaTag, parseTags } from './tags'
-  import { hasNSFWLabel } from './content-labels'
+  import { isSensitivePost } from './content-labels'
   import { Badge, Button } from '$lib/ui/kit'
   import { Icon, Info } from '$lib/ui/kit/icon'
   import { t } from '$lib/app/state/i18n'
@@ -58,7 +58,7 @@
       : { tags: [] as readonly MetaTag[], title: post.record?.title },
   )
   let type = $derived(mediaType(post.embed))
-  let sensitive = $derived(hasNSFWLabel(post.record?.labels))
+  let sensitive = $derived(isSensitivePost(post))
   let nativeImage = $derived(
     post.embed?.$type === 'social.coves.embed.images#view',
   )

@@ -6,7 +6,7 @@ import type {
   PostView,
 } from '$lib/api/coves/types'
 import { parseWebUrl } from '$lib/app/util/url'
-import { hasNSFWLabel } from '$lib/feature/post/content-labels'
+import { isSensitivePost } from '$lib/feature/post/content-labels'
 import {
   commentLink,
   postLink,
@@ -88,10 +88,10 @@ function embedHtml(
 }
 
 /** The title the post page shows: its own, its first line, or its author. */
-// An NSFW-labelled post's body is withheld from the feed, so its excerpt
+// A sensitive post's body is withheld from the feed, so its excerpt
 // cannot stand in for a missing title either.
 function postTitle(post: PostView): string {
-  const excerpt = hasNSFWLabel(post.record?.labels)
+  const excerpt = isSensitivePost(post)
     ? ''
     : postTextFallback(post.record?.content, 80)
   return post.record?.title || excerpt || `Post by @${post.author.handle}`
@@ -106,9 +106,9 @@ export function postToRssItem(post: PostView, origin: string): RssItem {
     publishedAt: post.createdAt,
     author: `@${post.author.handle}`,
   }
-  // Same rule as the post page: an NSFW-labelled post's body and media stay
+  // Same rule as the post page: a sensitive post's body and media stay
   // behind a link, since a feed reader shows no content warning.
-  if (hasNSFWLabel(post.record?.labels)) {
+  if (isSensitivePost(post)) {
     return {
       ...item,
       html: `<p><a href="${escapeHtml(link)}">This post is marked NSFW. View it on the site.</a></p>`,

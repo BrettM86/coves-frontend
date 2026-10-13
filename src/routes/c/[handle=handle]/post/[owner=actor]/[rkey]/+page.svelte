@@ -10,10 +10,18 @@
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
   import { Post } from '$lib/feature/post'
   import { postLink, postTextFallback } from '$lib/feature/post/helpers'
-  import Placeholder from '$lib/ui/info/Placeholder.svelte'
+  import {
+    isThreadRootGoneError,
+    logThreadRootGone,
+    reprobeGoneThread,
+    type UnavailableThread,
+  } from '$lib/feature/post/owner'
+  import PostUnavailable, {
+    unavailableTitleKey,
+  } from '$lib/feature/post/PostUnavailable.svelte'
   import { Header, Pageination } from '$lib/ui/layout'
   import { Button, Material, Spinner, toast } from '$lib/ui/kit'
-  import { Icon, ArrowLeft, Ban, MessageSquare } from '$lib/ui/kit/icon'
+  import { Icon, ArrowLeft, MessageSquare } from '$lib/ui/kit/icon'
   import { tick } from 'svelte'
   import { SvelteURL } from 'svelte/reactivity'
   import type { PageData } from './$types'
@@ -32,6 +40,29 @@
 
   let commentProvider = $state<CommentProvider>()
   const postFeedOrigin = page.state.postFeedOrigin
+
+  // A loaded post can turn out removed once its thread 404s: the loader (for
+  // a preloaded post) or a comments retry re-probes it and the comments result
+  // names what happened, so the stale post gives way to its tombstone.
+  let lateUnavailable = $state<UnavailableThread>()
+  $effect(() => {
+    const commentsPromise = data.data.value?.comments
+    lateUnavailable = undefined
+    if (!commentsPromise) return
+    let current = true
+    commentsPromise.then(
+      (result) => {
+        if (current && 'postUnavailable' in result && result.postUnavailable) {
+          lateUnavailable = result
+        }
+      },
+      // Comment loading failures are surfaced by the await block.
+      () => undefined,
+    )
+    return () => {
+      current = false
+    }
+  })
 
   function handleBack(event: MouseEvent): void {
     if (
@@ -141,9 +172,14 @@
     }
 
     void commentsPromise
-      .then(() => tick())
-      .then(() => {
-        if (cancelled) return
+      // A gone thread has no comment to scroll to; the page already says so.
+      .then(async (result) => {
+        if ('unavailable' in result) return false
+        await tick()
+        return true
+      })
+      .then((threadLoaded) => {
+        if (cancelled || !threadLoaded) return
         const deadline = Date.now() + SCROLL_DEADLINE_MS
         let rowScrolled = false
 
@@ -185,17 +221,36 @@
     }
   })
 
+  // Latest reload wins: an older request that settles after a newer one, or
+  // after navigation to another post, must not overwrite what is on screen.
+  let reloadGeneration = 0
+
   async function reloadComments(): Promise<void> {
     const value = data.data.value
     if (!value?.post) return
+    const generation = ++reloadGeneration
+    const superseded = () =>
+      generation !== reloadGeneration || data.data.value !== value
     try {
       const comments = await coves().getComments(value.params.comments)
+      if (superseded()) return
       // Only swap in the (already-resolved) result on success so a transient
       // failure keeps the previously loaded comment tree on screen.
       value.comments = Promise.resolve(comments)
       value.params.thread.singleThread = false
     } catch (err) {
+      // The post was removed since it loaded: show that, not a failure. Ask
+      // what happened to it, since the page may have loaded long ago.
+      if (isThreadRootGoneError(err)) {
+        const uri = value.params.comments.post
+        logThreadRootGone(err, uri)
+        const gone = await reprobeGoneThread(coves(), uri)
+        if (superseded()) return
+        value.comments = Promise.resolve(gone)
+        return
+      }
       log.error('[post] Failed to reload comments', err)
+      if (superseded()) return
       if (isExpiredSessionError(err) && profile.sessionExpired) return
       toast({ content: errorMessage(err), type: 'error' })
     }
@@ -203,7 +258,9 @@
 </script>
 
 <svelte:head>
-  {#if data.data.value?.post}
+  {#if lateUnavailable?.postUnavailable}
+    <title>{$t(unavailableTitleKey(lateUnavailable.postUnavailable))}</title>
+  {:else if data.data.value?.post}
     {@const headPost = data.data.value.post}
     {@const headTitle =
       headPost.record?.title ??
@@ -222,7 +279,7 @@
       content={headPost.record?.content?.slice(0, 200) ?? ''}
     />
   {:else if data.data.value?.unavailable}
-    <title>Post unavailable</title>
+    <title>{$t(unavailableTitleKey(data.data.value.unavailable))}</title>
   {/if}
 </svelte:head>
 
@@ -241,14 +298,19 @@
   </Button>
 {/snippet}
 
-{#if !data.data.value?.post}
+{#if lateUnavailable?.postUnavailable || !data.data.value?.post}
   <Header pageHeader class="items-center">
     {@render backNavigation()}
   </Header>
 {/if}
 
 <div class="flex flex-col gap-4 w-full max-w-full">
-  {#if data.data.value?.post}
+  {#if lateUnavailable?.postUnavailable}
+    <PostUnavailable
+      kind={lateUnavailable.postUnavailable}
+      community={lateUnavailable.community}
+    />
+  {:else if data.data.value?.post}
     {@const post = data.data.value.post}
 
     <Material padding="none" rounding="2xl" class="overflow-hidden px-4">
@@ -285,31 +347,40 @@
           <Spinner width={24} />
         </div>
       {:then commentsPage}
-        {@const comments = commentsPage.comments}
-        <CommentProvider
-          bind:this={commentProvider}
-          bind:post={data.data.value.post}
-          {comments}
-          sort={data.data.value.params.comments.sort}
-          focus={data.data.value.params.thread.focus}
-          onupdate={reloadComments}
-          showContext={data.data.value.params.thread.showContext}
-          singleThread={data.data.value.params.thread.singleThread}
-        />
-        {#if commentsPage.cursor}
-          <Pageination
-            cursor={{ next: commentsPage.cursor }}
-            hasMore={!!commentsPage.cursor}
-            href={(cursor) =>
-              `?cursor=${encodeURIComponent(cursor)}&sort=${encodeURIComponent(data.data.value.params.comments.sort ?? 'hot')}`}
-            back={false}
-            state={postFeedOrigin ? { postFeedOrigin } : undefined}
-          />
-        {/if}
-        {#if comments.length === 0 && !post.stats?.commentCount}
+        <!-- The post was removed after it loaded; its thread is gone. -->
+        {#if 'unavailable' in commentsPage}
           <p class="text-sm text-slate-500 dark:text-zinc-400 py-4 text-center">
-            No comments yet. Be the first to comment!
+            {$t('post.unavailable.comments')}
           </p>
+        {:else}
+          {@const comments = commentsPage.comments}
+          <CommentProvider
+            bind:this={commentProvider}
+            bind:post={data.data.value.post}
+            {comments}
+            sort={data.data.value.params.comments.sort}
+            focus={data.data.value.params.thread.focus}
+            onupdate={reloadComments}
+            showContext={data.data.value.params.thread.showContext}
+            singleThread={data.data.value.params.thread.singleThread}
+          />
+          {#if commentsPage.cursor}
+            <Pageination
+              cursor={{ next: commentsPage.cursor }}
+              hasMore={!!commentsPage.cursor}
+              href={(cursor) =>
+                `?cursor=${encodeURIComponent(cursor)}&sort=${encodeURIComponent(data.data.value.params.comments.sort ?? 'hot')}`}
+              back={false}
+              state={postFeedOrigin ? { postFeedOrigin } : undefined}
+            />
+          {/if}
+          {#if comments.length === 0 && !post.stats?.commentCount}
+            <p
+              class="text-sm text-slate-500 dark:text-zinc-400 py-4 text-center"
+            >
+              No comments yet. Be the first to comment!
+            </p>
+          {/if}
         {/if}
       {:catch}
         <div class="flex flex-col items-center gap-2 py-4">
@@ -321,15 +392,10 @@
       {/await}
     </section>
   {:else if data.data.value?.unavailable}
-    <Material padding="lg" rounding="2xl" class="py-12">
-      <Placeholder
-        icon={Ban}
-        title="Post unavailable"
-        description={data.data.value.unavailable === 'blocked'
-          ? "You've blocked this post's author."
-          : "This post may have been removed, or it isn't available yet."}
-      />
-    </Material>
+    <PostUnavailable
+      kind={data.data.value.unavailable}
+      community={data.data.value.community}
+    />
   {:else}
     <div
       class="flex justify-center py-8"

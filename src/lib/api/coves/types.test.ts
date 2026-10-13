@@ -11,6 +11,7 @@ import {
   isCommentView,
 } from './types'
 import type { AtUri, CID, CommentView, PostView, PostViewUnion } from './types'
+import type { DID } from '$lib/types/atproto'
 
 // ---------------------------------------------------------------------------
 // isValidAtUri
@@ -197,6 +198,7 @@ describe('isHydratedPost', () => {
   const postView = {
     uri: 'at://did:plc:abc/social.coves.community.post/1' as AtUri,
     cid: 'bafyreib2rxk3rybsftg4qpz' as CID,
+    author: { did: 'did:plc:abc' as DID, handle: 'abc.test' },
   } as PostView
 
   it('accepts a hydrated post view', () => {
@@ -226,13 +228,81 @@ describe('isHydratedPost', () => {
     // removed (the failure mode of probing for a positive `cid` shape).
     const el = {
       uri: 'at://did:plc:abc/social.coves.community.post/4' as AtUri,
+      author: { did: 'did:plc:abc', handle: 'abc.test' },
     } as unknown as PostViewUnion
     expect(isHydratedPost(el)).toBe(true)
   })
 
+  it.each([
+    ['no author', {}],
+    ['a null author', { author: null }],
+  ])(
+    'rejects an unknown flag-only sentinel without a $type and with %s',
+    (_case, fields) => {
+      // A sentinel this client does not know yet, flagged like the others but
+      // without a $type, must not render as a post.
+      const el = {
+        uri: 'at://did:plc:abc/social.coves.community.post/8' as AtUri,
+        tombstoned: true,
+        ...fields,
+      } as unknown as PostViewUnion
+      expect(isHydratedPost(el)).toBe(false)
+    },
+  )
+
   it('rejects null and undefined', () => {
     expect(isHydratedPost(null)).toBe(false)
     expect(isHydratedPost(undefined)).toBe(false)
+  })
+
+  it('rejects a moderatedPost, which carries a $type and no unavailable flag', () => {
+    // Shape of the backend fixture moderation/moderated-post-valid.json.
+    const el: PostViewUnion = {
+      $type: 'social.coves.community.post.defs#moderatedPost',
+      uri: 'at://did:plc:abc/social.coves.community.postv2/5' as AtUri,
+      moderation: {
+        state: 'removed',
+        sources: [
+          {
+            authorityDid: 'did:plc:instance' as DID,
+            scope: { kind: 'instance' },
+          },
+        ],
+      },
+      authorDid: 'did:plc:abc' as DID,
+      community: { did: 'did:plc:comm' as DID, name: 'Example Community' },
+    }
+    expect(isHydratedPost(el)).toBe(false)
+  })
+
+  it('rejects a removedPost (community removal) sentinel', () => {
+    const el: PostViewUnion = {
+      uri: 'at://did:plc:abc/social.coves.community.postv2/6' as AtUri,
+      removed: true,
+      code: 'RemovedByCommunity',
+    }
+    expect(isHydratedPost(el)).toBe(false)
+  })
+
+  it('rejects an item of an unknown $type even when it looks like a post', () => {
+    // A future union member must not render as a post just because it
+    // happens to carry post-like fields.
+    const el = {
+      $type: 'social.coves.community.post.defs#futurePost',
+      uri: 'at://did:plc:abc/social.coves.community.postv2/7' as AtUri,
+      cid: 'bafyreib2rxk3rybsftg4qpz' as CID,
+      author: { did: 'did:plc:abc', handle: 'abc.test' },
+      record: { $type: 'social.coves.community.post', title: 'Hidden' },
+    } as unknown as PostViewUnion
+    expect(isHydratedPost(el)).toBe(false)
+  })
+
+  it('accepts a post view that names its own $type', () => {
+    const el = {
+      ...postView,
+      $type: 'social.coves.community.post.defs#postView',
+    } as PostViewUnion
+    expect(isHydratedPost(el)).toBe(true)
   })
 })
 

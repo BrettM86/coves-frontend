@@ -1,7 +1,13 @@
-import type { AtUri, PostViewUnion } from '$lib/api/coves/types'
-import { isHydratedPost, isValidAtUri, parseAtUri } from '$lib/api/coves/types'
+import type { AtUri, CommunityRef, PostViewUnion } from '$lib/api/coves/types'
+import {
+  isHydratedPost,
+  isModeratedPost,
+  isValidAtUri,
+  parseAtUri,
+} from '$lib/api/coves/types'
 import { XrpcError } from '$lib/api/coves/xrpc'
 import type { CovesClient } from '$lib/api/coves/client'
+import { log } from '$lib/app/util/log'
 import { type DID, type Handle, isValidDID } from '$lib/types/atproto'
 import {
   buildLegacyPostAtUri,
@@ -22,6 +28,87 @@ import type { PostSubmitResult } from './form/post-form.svelte'
  */
 export function isNotFoundError(err: unknown): boolean {
   return err instanceof XrpcError && err.status === 404
+}
+
+/**
+ * Whether a getComments failure means the post the thread hangs off is gone,
+ * typically removed between the post request and the comments request. The
+ * backend reports it as 404 `RootNotFound`. `NotFound` is the backend's
+ * generic not-found catch-all, accepted because the getComments lexicon
+ * declares it. A 404 `ParentNotFound` names a missing comment instead.
+ */
+export function isThreadRootGoneError(err: unknown): err is XrpcError {
+  return (
+    err instanceof XrpcError &&
+    err.status === 404 &&
+    (err.errorName === 'RootNotFound' || err.errorName === 'NotFound')
+  )
+}
+
+/**
+ * Logs a getComments failure that `isThreadRootGoneError` accepted. The
+ * generic `NotFound` gets its own wording: the backend is expected to name
+ * `RootNotFound`, so a run of the catch-all is worth noticing.
+ */
+export function logThreadRootGone(err: XrpcError, uri: AtUri): void {
+  if (err.errorName === 'RootNotFound') {
+    log.warn(`[post] Thread root gone (RootNotFound) for ${uri}`)
+  } else {
+    log.warn(
+      `[post] getComments answered a generic ${err.errorName} for ${uri}; reading it as a gone thread root`,
+    )
+  }
+}
+
+/** Why a post that did not hydrate cannot be shown. */
+export type PostUnavailableKind =
+  'moderated' | 'removed' | 'blocked' | 'notFound'
+
+/**
+ * A comments result whose thread is gone: the post was removed after it was
+ * fetched. A re-probe of the post adds what happened to it (and, for a
+ * moderated post, its community), so the page can show its tombstone.
+ */
+export type UnavailableThread = {
+  unavailable: true
+  postUnavailable?: PostUnavailableKind
+  community?: CommunityRef
+}
+
+/**
+ * Classifies a `getPosts` element that is not a hydrated post. A sentinel this
+ * client does not recognise (an unknown `$type`, say) reads as `notFound`.
+ */
+export function unavailablePostKind(
+  result: PostViewUnion | null | undefined,
+): PostUnavailableKind {
+  if (result == null) return 'notFound'
+  if (isModeratedPost(result)) return 'moderated'
+  if ('removed' in result) return 'removed'
+  if ('blocked' in result) return 'blocked'
+  if ('$type' in result && !('notFound' in result)) {
+    log.warn(
+      `[post] Unknown post.get variant ${String(result.$type)} for ${result.uri}; treating it as notFound`,
+    )
+  }
+  return 'notFound'
+}
+
+/**
+ * Which of two answers for the same record to report, best first: a hydrated
+ * post, then the moderation outcomes (a real answer about a real record), then
+ * a block, then "not found".
+ */
+const AVAILABILITY_PRECEDENCE: readonly PostUnavailableKind[] = [
+  'moderated',
+  'removed',
+  'blocked',
+  'notFound',
+]
+
+function availabilityRank(result: PostViewUnion): number {
+  if (isHydratedPost(result)) return -1
+  return AVAILABILITY_PRECEDENCE.indexOf(unavailablePostKind(result))
 }
 
 /**
@@ -80,6 +167,35 @@ export async function fetchExactPost(
 }
 
 /**
+ * Asks again what happened to a post whose thread just came back gone. A post
+ * that still hydrates leaves the bare "thread unavailable" answer: the
+ * comments are gone either way. A re-probe that fails reads as `notFound`,
+ * since the gone thread already showed the backend withholds the post.
+ */
+export async function reprobeGoneThread(
+  client: Pick<CovesClient, 'getPosts'>,
+  uri: AtUri,
+): Promise<UnavailableThread> {
+  let fresh: PostViewUnion
+  try {
+    fresh = await fetchExactPost(client, uri)
+  } catch (err) {
+    log.warn(`[post] Re-probe of ${uri} failed`, err)
+    return { unavailable: true, postUnavailable: 'notFound' }
+  }
+  if (isHydratedPost(fresh)) {
+    // The backend contradicts itself: the thread root is gone, the post not.
+    log.warn(`[post] ${uri} still hydrates although its thread root is gone`)
+    return { unavailable: true }
+  }
+  return {
+    unavailable: true,
+    postUnavailable: unavailablePostKind(fresh),
+    community: isModeratedPost(fresh) ? fresh.community : undefined,
+  }
+}
+
+/**
  * Resolves the `<owner>` permalink segment to the DID of the repo the post
  * record lives in. The segment is whatever the `actor` route matcher accepts,
  * so a DID is already the answer and costs no request; a handle needs the one
@@ -122,10 +238,10 @@ export async function resolveOwnerDid(
  *
  * Returns the AT-URI that answered alongside its view, so the caller can go on
  * using the exact URI the backend hydrated (comments are keyed by it). When
- * neither collection holds the record, the sentinel reported is the blocked
- * one if either probe was blocked — a withheld record is a real answer, while
- * "not found" would misreport it as deleted — and otherwise the `postv2`
- * notFound sentinel.
+ * the two probes disagree, the better answer wins whichever collection gave it
+ * (see `AVAILABILITY_PRECEDENCE`): a withheld or removed record is a real
+ * answer, while "not found" would misreport it as deleted. A tie goes to
+ * `postv2`.
  */
 export async function fetchPostByOwner(
   client: Pick<CovesClient, 'getPosts'>,
@@ -150,11 +266,9 @@ export async function fetchPostByOwner(
   }
 
   const [postV2, legacy] = posts
-  if (isHydratedPost(postV2)) return { uri: postV2Uri, result: postV2 }
-  if (isHydratedPost(legacy)) return { uri: legacyUri, result: legacy }
-  if ('blocked' in postV2) return { uri: postV2Uri, result: postV2 }
-  if ('blocked' in legacy) return { uri: legacyUri, result: legacy }
-  return { uri: postV2Uri, result: postV2 }
+  return availabilityRank(legacy) < availabilityRank(postV2)
+    ? { uri: legacyUri, result: legacy }
+    : { uri: postV2Uri, result: postV2 }
 }
 
 /**

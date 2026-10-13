@@ -80,8 +80,8 @@ function makeArgs(): Parameters<typeof load>[0] {
   } as unknown as Parameters<typeof load>[0]
 }
 
-// Deliberately author-less: nothing proves a handle for the repo the record
-// lives in, so the DID owner segment is this post's canonical one. That keeps
+// The author has no usable handle: nothing proves a handle for the repo the
+// record lives in, so the DID owner segment is this post's canonical one. That keeps
 // the URL free of a redirect and the file free of any identity resolution —
 // the cache is what these tests are about.
 function hydratedPost(uri: string) {
@@ -91,6 +91,7 @@ function hydratedPost(uri: string) {
     rkey: RKEY,
     indexedAt: '2026-01-01T00:00:00.000Z',
     createdAt: '2026-01-01T00:00:00.000Z',
+    author: { did: OWNER_DID, handle: 'handle.invalid' },
     community: {
       did: COMMUNITY_DID,
       handle: COMMUNITY_HANDLE,

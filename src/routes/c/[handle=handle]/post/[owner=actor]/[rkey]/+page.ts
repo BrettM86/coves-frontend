@@ -6,6 +6,7 @@ import {
   type GetCommentsParams,
   type PostViewUnion,
   isHydratedPost,
+  isModeratedPost,
 } from '$lib/api/coves/types'
 import type { DID } from '$lib/types/atproto'
 import { settings } from '$lib/app/state/settings.svelte'
@@ -26,7 +27,12 @@ import {
   fetchExactPost,
   fetchPostByOwner,
   isNotFoundError,
+  isThreadRootGoneError,
+  logThreadRootGone,
+  reprobeGoneThread,
   resolveOwnerDid,
+  type UnavailableThread,
+  unavailablePostKind,
 } from '$lib/feature/post/owner'
 
 /**
@@ -129,6 +135,8 @@ export async function load({ params, url, fetch, route }) {
     // collection instead, and `postUri` then tracks whichever URI hydrated.
     let postUri = p.postUri as AtUri
     let result: PostViewUnion | undefined = p.preload
+    // A preloaded post comes from a cache, not from the backend this load.
+    const preloaded = result !== undefined
 
     if (!result) {
       if (uriParam) {
@@ -144,9 +152,13 @@ export async function load({ params, url, fetch, route }) {
     // redirects immediately after the record is written. When the navigation
     // carries the fresh-post signal (`?uri=`), poll briefly instead of
     // declaring the post unavailable. The retry re-probes both collections
-    // rather than only the URI the create flow guessed.
-    if (!isHydratedPost(result) && p.retryUnavailable) {
-      for (let attempt = 0; attempt < 6 && !isHydratedPost(result); attempt++) {
+    // rather than only the URI the create flow guessed. Only "not found" can
+    // be indexing lag: a block, a removal or an unknown variant is a final
+    // answer.
+    const awaitingIndexer = (candidate: PostViewUnion | undefined) =>
+      candidate == null || ('notFound' in candidate && candidate.notFound)
+    if (awaitingIndexer(result) && p.retryUnavailable) {
+      for (let attempt = 0; attempt < 6 && awaitingIndexer(result); attempt++) {
         await new Promise((resolve) => setTimeout(resolve, 500))
         const probe = await fetchPostByOwner(client, ownerDid, params.rkey)
         postUri = probe.uri
@@ -155,17 +167,17 @@ export async function load({ params, url, fetch, route }) {
     }
 
     // The batch endpoint returns a union: a hydrated post, or an unavailable
-    // sentinel (deleted/unindexed/unresolvable/blocked). Surface the latter as
-    // an "unavailable" state instead of throwing into the error page. We log
-    // which discriminator fired so that a wrongly resolved owner or rkey, or
-    // indexing lag, is discoverable rather than silently rendering as "this
-    // post was removed".
+    // sentinel (deleted/unindexed/unresolvable/blocked/removed/moderated).
+    // Surface the latter as an "unavailable" state instead of throwing into
+    // the error page. We log which kind fired so that a wrongly resolved owner
+    // or rkey, or indexing lag, is discoverable rather than silently rendering
+    // as "this post was removed".
     if (!isHydratedPost(result)) {
-      const reason: 'notFound' | 'blocked' =
-        result != null && 'blocked' in result ? 'blocked' : 'notFound'
+      const reason = unavailablePostKind(result)
       log.warn(`[post-loader] Post unavailable (${reason}) for ${postUri}`)
       return {
         unavailable: reason,
+        community: isModeratedPost(result) ? result.community : undefined,
         comments: Promise.resolve({ comments: [] }),
         params: p,
       }
@@ -178,9 +190,23 @@ export async function load({ params, url, fetch, route }) {
     // Comments are keyed by the URI that actually hydrated, which the legacy
     // fallback and the retry above can both change.
     const comments = commentParams(postUri)
+    // A thread whose root is gone means the post was removed between the two
+    // requests: a page state, not a failure to retry. A preloaded post was
+    // never checked this load, so ask again what happened to it; the page
+    // swaps the stale post for its tombstone.
+    const threadGone = (): Promise<UnavailableThread> =>
+      preloaded
+        ? reprobeGoneThread(client, postUri)
+        : Promise.resolve({ unavailable: true })
     const commentsPromise = p.freshPost
       ? Promise.resolve({ comments: [] })
-      : client.getComments(comments)
+      : client.getComments(comments).catch((err: unknown) => {
+          if (isThreadRootGoneError(err)) {
+            logThreadRootGone(err, postUri)
+            return threadGone()
+          }
+          throw err
+        })
 
     // The canonical redirect below may abandon this promise; claim its
     // rejection now so it cannot escape as an unhandled one. The page still
@@ -227,10 +253,10 @@ export async function load({ params, url, fetch, route }) {
     if (canonical) redirect(302, `${canonical}${url.search}`)
   }
 
-  // The community ref rides along on the post. When the post is unavailable
-  // there's nothing to populate the card with, so fall back to the default
-  // sidebar (omitting the slot) rather than rendering a broken CommunityCard.
-  const community = hydrated?.community
+  // The community ref rides along on the post, or on a moderated post's
+  // tombstone. Without one, fall back to the default sidebar (omitting the
+  // slot) rather than rendering a broken CommunityCard.
+  const community = hydrated?.community ?? loaded.value?.community
 
   return {
     data: loaded,

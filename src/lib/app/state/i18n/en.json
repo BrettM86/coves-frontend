@@ -567,6 +567,16 @@
         "url": "URL"
     },
     "post": {
+        "unavailable": {
+            "removedTitle": "Post removed",
+            "unavailableTitle": "Post unavailable",
+            "moderated": "Removed by server admin.",
+            "removed": "Removed by the community's moderators.",
+            "blocked": "You've blocked this post's author.",
+            "notFound": "This post may have been removed, or it isn't available yet.",
+            "community": "Posted in {{default}}",
+            "comments": "Comments are unavailable for this post."
+        },
         "actions": {
             "comments": "Comments",
             "save": "Save",
@@ -656,6 +666,12 @@
     "comment": {
         "reply": "Reply",
         "deletedAuthor": "[deleted]",
+        "placeholder": {
+            "removedByAdmin": "[Removed by server admin]",
+            "removedByModerator": "[Removed by community moderator]",
+            "removed": "[Removed]",
+            "deletedByUser": "[Deleted by user]"
+        },
         "actions": {
             "label": "Actions",
             "link": "Copy Link"

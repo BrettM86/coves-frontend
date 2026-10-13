@@ -19,6 +19,7 @@ import {
   fetchExactPost,
   fetchPostByOwner,
   isNotFoundError,
+  isThreadRootGoneError,
   resolveOwnerDid,
 } from '$lib/feature/post/owner'
 
@@ -98,7 +99,7 @@ export async function load({ params, url, fetch, route }) {
 
     const { uri: postUri, result: postResult } = await postPromise
 
-    // Both unavailable sentinels (deleted/unindexed and blocked-author) 404
+    // Every unavailable kind (notFound, blocked, removed, moderated) 404s
     // here: unlike the post page there is no partial page worth rendering
     // when the post itself cannot be shown on a single comment's thread.
     if (!isHydratedPost(postResult)) {
@@ -120,6 +121,10 @@ export async function load({ params, url, fetch, route }) {
     const subtree = await subtreePromise.catch((err: unknown) => {
       if (err instanceof XrpcError && err.errorName === 'ParentNotFound') {
         error(404, 'couldnt_find_comment')
+      }
+      // The post hydrated but was removed before the subtree request landed.
+      if (isThreadRootGoneError(err)) {
+        error(404, 'couldnt_find_post')
       }
       throw err
     })

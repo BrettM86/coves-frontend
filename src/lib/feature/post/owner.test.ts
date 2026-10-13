@@ -203,6 +203,28 @@ function blocked(uri: AtUri): PostViewUnion {
   return { uri, blocked: true } as PostViewUnion
 }
 
+function moderated(uri: AtUri): PostViewUnion {
+  return {
+    $type: 'social.coves.community.post.defs#moderatedPost',
+    uri,
+    moderation: {
+      state: 'removed',
+      sources: [
+        {
+          authorityDid: 'did:plc:instance' as DID,
+          scope: { kind: 'instance' },
+        },
+      ],
+    },
+    authorDid: OWNER_DID,
+    community: { did: 'did:plc:comm' as DID, name: 'gardening' },
+  }
+}
+
+function removed(uri: AtUri): PostViewUnion {
+  return { uri, removed: true, code: 'RemovedByCommunity' }
+}
+
 /** A client whose single batch call answers with `posts`, in request order. */
 function postsClient(posts: PostViewUnion[]): {
   client: Pick<CovesClient, 'getPosts'>
@@ -267,6 +289,44 @@ describe('fetchPostByOwner', () => {
     await expect(fetchPostByOwner(client, OWNER_DID, RKEY)).resolves.toEqual({
       uri: legacyUri,
       result: legacyBlocked,
+    })
+  })
+
+  // Precedence when the two probes disagree: hydrated > moderated > removed >
+  // blocked > notFound, whichever collection holds the winner. A moderation
+  // outcome is a real answer about a real record and must not be reported as
+  // missing, but it never outranks a post that actually hydrates.
+  it.each([
+    {
+      name: 'a legacy moderatedPost over a postv2 notFound',
+      posts: () => [notFound(postV2Uri), moderated(legacyUri)],
+      uri: legacyUri,
+      result: () => moderated(legacyUri),
+    },
+    {
+      name: 'a legacy removedPost over a postv2 notFound',
+      posts: () => [notFound(postV2Uri), removed(legacyUri)],
+      uri: legacyUri,
+      result: () => removed(legacyUri),
+    },
+    {
+      name: 'a legacy moderatedPost over a postv2 blocked',
+      posts: () => [blocked(postV2Uri), moderated(legacyUri)],
+      uri: legacyUri,
+      result: () => moderated(legacyUri),
+    },
+    {
+      name: 'a hydrated legacy post over a postv2 moderatedPost',
+      posts: () => [moderated(postV2Uri), hydrated(legacyUri)],
+      uri: legacyUri,
+      result: () => hydrated(legacyUri),
+    },
+  ])('reports $name', async ({ posts, uri, result }) => {
+    const { client } = postsClient(posts())
+
+    await expect(fetchPostByOwner(client, OWNER_DID, RKEY)).resolves.toEqual({
+      uri,
+      result: result(),
     })
   })
 

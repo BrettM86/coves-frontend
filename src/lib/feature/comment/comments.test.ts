@@ -7,6 +7,8 @@ import type {
   CommentStats,
   CommentView,
   AuthorView,
+  ModerationSourceView,
+  ModerationView,
   ThreadViewComment,
 } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
@@ -14,6 +16,7 @@ import {
   MAX_INLINE_DEPTH,
   buildCommentsTree,
   createOptimisticCommentView,
+  deletedContentPlaceholder,
   buildSubtreeChildren,
   findTopLevelIndexByRkey,
   insertCommentIntoTree,
@@ -27,11 +30,28 @@ import {
 // Mock i18n
 // ---------------------------------------------------------------------------
 
-vi.mock('$lib/app/state/i18n', () => ({
-  t: {
-    get: (key: string) => key,
-  },
-}))
+// Resolves a dotted key against the real en.json, so the placeholder
+// assertions pin the English copy. A key missing from the catalog comes back
+// as itself, which no literal expectation below will match.
+vi.mock('$lib/app/state/i18n', async () => {
+  const en = (await import('$lib/app/state/i18n/en.json')).default
+  return {
+    t: {
+      get: (key: string): string => {
+        const value = key
+          .split('.')
+          .reduce<unknown>(
+            (node, part) =>
+              node !== null && typeof node === 'object'
+                ? (node as Record<string, unknown>)[part]
+                : undefined,
+            en,
+          )
+        return typeof value === 'string' ? value : key
+      },
+    },
+  }
+})
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -109,6 +129,133 @@ function makeThreadComment(
     hasMore,
   }
 }
+
+/**
+ * A wire tombstone as getComments serves it: record null, the author reduced
+ * to its DID with an unresolvable handle, and the deletion metadata set by
+ * `overrides`. Typed as the wire `CommentView`, not the normalized view, since
+ * its record is null until `buildCommentsTree` synthesizes one.
+ */
+function makeTombstone(overrides?: Partial<CommentView>): CommentView {
+  return {
+    ...makeCommentView(),
+    author: { did: testDid, handle: 'handle.invalid' as Handle },
+    record: null,
+    isDeleted: true,
+    deletedAt: '2024-06-02T12:00:00Z',
+    ...overrides,
+  }
+}
+
+const instanceSource: ModerationSourceView = {
+  authorityDid: 'did:plc:instance' as DID,
+  scope: { kind: 'instance' },
+}
+
+const communitySource: ModerationSourceView = {
+  authorityDid: 'did:plc:community' as DID,
+  scope: { kind: 'community', communityDid: 'did:plc:community' as DID },
+}
+
+// ---------------------------------------------------------------------------
+// deletedContentPlaceholder()
+// ---------------------------------------------------------------------------
+
+describe('deletedContentPlaceholder', () => {
+  it.each([
+    {
+      name: 'an instance-scoped moderator removal',
+      sources: [instanceSource],
+      expected: '*[Removed by server admin]*',
+    },
+    {
+      name: 'a removal with an instance source listed after a community one',
+      sources: [communitySource, instanceSource],
+      expected: '*[Removed by server admin]*',
+    },
+    {
+      name: 'a removal with only community sources',
+      sources: [communitySource],
+      expected: '*[Removed by community moderator]*',
+    },
+    {
+      name: 'a moderator removal with no sources',
+      sources: undefined,
+      expected: '*[Removed]*',
+    },
+    {
+      name: 'a moderator removal whose only source has an unknown scope kind',
+      sources: [
+        {
+          authorityDid: 'did:plc:tribunal' as DID,
+          scope: { kind: 'tribunal' },
+        },
+      ],
+      expected: '*[Removed]*',
+    },
+  ])('labels $name', ({ sources, expected }) => {
+    const comment = makeTombstone({
+      deletionReason: 'moderator',
+      moderation: { state: 'removed', sources },
+    })
+
+    expect(deletedContentPlaceholder(comment)).toBe(expected)
+  })
+
+  it.each([
+    ['a source without a scope', [{ authorityDid: 'did:plc:instance' }]],
+    ['a null source', [null]],
+    ['sources that are not an array', { authorityDid: 'did:plc:instance' }],
+  ])(
+    'labels a moderator removal with %s as removed, without throwing',
+    (_case, sources) => {
+      // Moderation data arrives from the backend unchecked.
+      const comment = makeTombstone({
+        deletionReason: 'moderator',
+        moderation: { state: 'removed', sources } as unknown as ModerationView,
+      })
+
+      expect(deletedContentPlaceholder(comment)).toBe('*[Removed]*')
+    },
+  )
+
+  it('labels a moderator removal with no moderation view at all as removed', () => {
+    const comment = makeTombstone({ deletionReason: 'moderator' })
+
+    expect(deletedContentPlaceholder(comment)).toBe('*[Removed]*')
+  })
+
+  it('takes the removal scope from the sources, never the content labels', () => {
+    // An instance-applied nsfw label says nothing about who removed it.
+    const comment = makeTombstone({
+      deletionReason: 'moderator',
+      moderation: {
+        state: 'removed',
+        sources: [communitySource],
+        contentLabels: [{ value: 'nsfw', sources: [instanceSource] }],
+      },
+    })
+
+    expect(deletedContentPlaceholder(comment)).toBe(
+      '*[Removed by community moderator]*',
+    )
+  })
+
+  it('labels an author deletion as deleted even when a removal is attached', () => {
+    const comment = makeTombstone({
+      deletionReason: 'author',
+      moderation: { state: 'removed', sources: [instanceSource] },
+    })
+
+    expect(deletedContentPlaceholder(comment)).toBe('*[Deleted by user]*')
+  })
+
+  it('labels a deletion with no reason as deleted by the user', () => {
+    const comment = makeTombstone()
+
+    expect(deletedContentPlaceholder(comment)).toBe('*[Deleted by user]*')
+  })
+})
 
 // ---------------------------------------------------------------------------
 // buildCommentsTree()
@@ -204,7 +351,7 @@ describe('buildCommentsTree', () => {
 
     const result = buildCommentsTree([thread])
 
-    expect(result[0].comment.record.content).toBe('*post.badges.deleted*')
+    expect(result[0].comment.record.content).toBe(deletedContentPlaceholder(cv))
   })
 
   it('synthesizes a record for tombstones with null records', () => {
@@ -223,13 +370,31 @@ describe('buildCommentsTree', () => {
 
     expect(result[0].comment.record).toEqual({
       $type: 'social.coves.community.comment',
-      content: '*post.badges.deleted*',
+      content: deletedContentPlaceholder(cv),
       reply: {
         root: cv.post,
         parent: cv.post,
       },
       createdAt: cv.createdAt,
     })
+    expect(result[0].children).toHaveLength(1)
+    expect(result[0].children[0].comment.uri).toBe(reply.uri)
+  })
+
+  it('renders a server-admin removal as its placeholder and keeps its replies', () => {
+    const removed = makeTombstone({
+      deletionReason: 'moderator',
+      moderation: { state: 'removed', sources: [instanceSource] },
+    })
+    const reply = makeCommentView({
+      uri: 'at://did:plc:testauthor1/social.coves.community.comment/c2' as AtUri,
+    })
+
+    const result = buildCommentsTree([
+      makeThreadComment(removed, [makeThreadComment(reply)]),
+    ])
+
+    expect(result[0].comment.record.content).toBe('*[Removed by server admin]*')
     expect(result[0].children).toHaveLength(1)
     expect(result[0].children[0].comment.uri).toBe(reply.uri)
   })
@@ -246,7 +411,7 @@ describe('buildCommentsTree', () => {
 
     const result = buildCommentsTree([thread])
 
-    expect(result[0].comment.record.content).toBe('*post.badges.deleted*')
+    expect(result[0].comment.record.content).toBe(deletedContentPlaceholder(cv))
     expect(result[0].comment.record.reply).toEqual({
       root: cv.post,
       parent: cv.post,
@@ -277,7 +442,7 @@ describe('buildCommentsTree', () => {
     expect(result[0].comment.isDeleted).toBe(true)
     expect(result[0].comment.record).toEqual({
       $type: 'social.coves.community.comment',
-      content: '*post.badges.deleted*',
+      content: deletedContentPlaceholder(cv),
       reply: {
         root: cv.post,
         parent: cv.post,
@@ -300,7 +465,7 @@ describe('buildCommentsTree', () => {
 
     const result = buildCommentsTree([thread])
 
-    expect(result[0].comment.record.content).toBe('*post.badges.deleted*')
+    expect(result[0].comment.record.content).toBe(deletedContentPlaceholder(cv))
     expect(warnSpy).toHaveBeenCalledOnce()
     expect(warnSpy.mock.calls[0][0]).toContain(cv.uri as string)
     warnSpy.mockRestore()
@@ -338,7 +503,7 @@ describe('buildCommentsTree', () => {
 
     expect(result[0].comment.record).toEqual({
       ...record,
-      content: '*post.badges.deleted*',
+      content: deletedContentPlaceholder(cv),
     })
     expect(result[0].comment.record.reply).toEqual(record.reply)
     expect(result[0].comment.record.createdAt).toBe(record.createdAt)

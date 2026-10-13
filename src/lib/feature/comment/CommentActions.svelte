@@ -73,8 +73,9 @@
       throw err
     }
     target.isDeleted = true
+    target.deletionReason = 'author'
     if (target.record) {
-      target.record.content = deletedContentPlaceholder()
+      target.record.content = deletedContentPlaceholder(target)
     }
   }
 
@@ -104,27 +105,30 @@
     settings.posts.reverseActions && 'flex-row-reverse',
   ]}
 >
-  <VoteButton
-    uri={comment.uri}
-    cid={comment.cid}
-    bind:stats={comment.stats}
-    bind:viewer={comment.viewer}
-    emptyStats={EMPTY_COMMENT_STATS}
-    emptyViewer={EMPTY_COMMENT_VIEWER}
-    variant="comment"
-  >
-    <Button
-      color="tertiary"
-      rounding="pill"
-      size="sm"
-      class="text-slate-500 dark:text-zinc-400 gap-1!"
-      onclick={() => (replying = !replying)}
-      disabled={disabled || !profile.current?.jwt}
-      icon={MessageSquare}
+  <!-- A deleted or removed comment takes no votes and no replies. -->
+  {#if !comment.isDeleted}
+    <VoteButton
+      uri={comment.uri}
+      cid={comment.cid}
+      bind:stats={comment.stats}
+      bind:viewer={comment.viewer}
+      emptyStats={EMPTY_COMMENT_STATS}
+      emptyViewer={EMPTY_COMMENT_VIEWER}
+      variant="comment"
     >
-      {$t('comment.reply')}
-    </Button>
-  </VoteButton>
+      <Button
+        color="tertiary"
+        rounding="pill"
+        size="sm"
+        class="text-slate-500 dark:text-zinc-400 gap-1!"
+        onclick={() => (replying = !replying)}
+        disabled={disabled || !profile.current?.jwt}
+        icon={MessageSquare}
+      >
+        {$t('comment.reply')}
+      </Button>
+    </VoteButton>
+  {/if}
   <Menu placement="bottom">
     {#snippet target(attachment)}
       <Button

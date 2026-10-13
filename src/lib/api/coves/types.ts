@@ -160,6 +160,7 @@ export interface PostViewerState {
 }
 
 export interface PostView {
+  $type?: 'social.coves.community.post.defs#postView'
   uri: AtUri
   cid: CID
   rkey: string
@@ -173,6 +174,54 @@ export interface PostView {
   embed?: PostEmbed
   viewer?: PostViewerState
   stats?: PostStats
+  moderation?: ModerationView
+}
+
+// ---------------------------------------------------------------------------
+// Moderation read-side views (social.coves.moderation.defs)
+// ---------------------------------------------------------------------------
+
+export interface ModerationScope {
+  kind: 'instance' | 'community' | (string & {})
+  communityDid?: DID
+}
+
+export interface ModerationSourceView {
+  authorityDid: DID
+  scope: ModerationScope
+  action?: { serviceDid: DID; actionId: string }
+  reason?: string
+  /** A `com.atproto.label.defs#label` object. */
+  label?: unknown
+}
+
+export interface ModerationContentLabel {
+  value: 'nsfw' | (string & {})
+  sources?: ModerationSourceView[]
+  sourcesTruncated?: boolean
+}
+
+export interface ModerationView {
+  state: 'clear' | 'removed' | (string & {})
+  sources?: ModerationSourceView[]
+  sourcesTruncated?: boolean
+  contentLabels?: ModerationContentLabel[]
+}
+
+/** A requested post withheld by an instance moderation action. */
+export interface ModeratedPost {
+  $type: 'social.coves.community.post.defs#moderatedPost'
+  uri: AtUri
+  moderation: ModerationView
+  authorDid?: DID
+  community?: CommunityRef
+}
+
+/** A requested post removed by its community's moderators. */
+export interface RemovedPost {
+  uri: AtUri
+  removed: true
+  code?: string
 }
 
 /** A requested post that could not be hydrated (deleted/unindexed/unresolvable). */
@@ -197,22 +246,40 @@ export interface BlockedPost {
  * One element of `getPosts` — either a hydrated post or an unavailable sentinel.
  * The response preserves the order of the requested URIs.
  */
-export type PostViewUnion = PostView | NotFoundPost | BlockedPost
+export type PostViewUnion =
+  PostView | NotFoundPost | BlockedPost | ModeratedPost | RemovedPost
+
+const POST_VIEW_TYPE = 'social.coves.community.post.defs#postView'
 
 /**
- * Discriminates a hydrated post from the unavailable sentinels. Mirrors the
- * backend's flag-based contract: each sentinel carries a documented const
- * discriminator (`notFound` / `blocked`) and a hydrated `PostView` carries
- * neither. We therefore treat the *absence* of every known unavailable flag as
- * "this is a post", which (a) narrows correctly via TS control flow and (b)
- * keeps a real-but-malformed post (e.g. one momentarily missing `cid`) from
- * being silently misclassified as removed. A future sentinel must register its
- * flag here, matching how the backend would emit it.
+ * Discriminates a hydrated post from the unavailable sentinels. The flagged
+ * sentinels (`notFound` / `blocked` / `removed`) carry a const discriminator;
+ * `moderatedPost` carries a `$type` instead. A hydrated `PostView` has no flag
+ * and either no `$type` or the `postView` one, so an item of any other `$type`
+ * (a union member this client does not know yet) is never rendered as a post.
+ * It must also carry an author, so an unknown flagged sentinel without a
+ * `$type` is not rendered as a post either. Beyond that, checking for absent
+ * flags rather than present fields keeps a real-but-malformed post (e.g. one
+ * momentarily missing `cid`) classified as a post.
  */
 export function isHydratedPost(
   el: PostViewUnion | null | undefined,
 ): el is PostView {
-  return el != null && !('notFound' in el) && !('blocked' in el)
+  if (el == null) return false
+  if ('notFound' in el || 'blocked' in el || 'removed' in el) return false
+  if (!('author' in el) || el.author == null) return false
+  return !('$type' in el) || el.$type === POST_VIEW_TYPE
+}
+
+/** Whether a `getPosts` element is a post withheld by an instance moderation action. */
+export function isModeratedPost(
+  el: PostViewUnion | null | undefined,
+): el is ModeratedPost {
+  return (
+    el != null &&
+    '$type' in el &&
+    el.$type === 'social.coves.community.post.defs#moderatedPost'
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -345,6 +412,7 @@ export interface CommentView {
   isDeleted?: boolean
   deletionReason?: string
   deletedAt?: string
+  moderation?: ModerationView
 }
 
 /**

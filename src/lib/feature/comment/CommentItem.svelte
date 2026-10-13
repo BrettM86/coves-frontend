@@ -31,7 +31,7 @@
     ...comment,
     record: comment.record ?? {
       $type: 'social.coves.community.comment',
-      content: deletedContentPlaceholder(),
+      content: deletedContentPlaceholder(comment),
       reply: { root: comment.post, parent: comment.parent ?? comment.post },
       createdAt: comment.createdAt,
     },

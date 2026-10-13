@@ -193,7 +193,7 @@
                 </span>
               </div>
               <p class="text-sm text-slate-700 dark:text-zinc-300">
-                {comment.record?.content ?? deletedContentPlaceholder()}
+                {comment.record?.content ?? deletedContentPlaceholder(comment)}
               </p>
             </li>
           {/each}

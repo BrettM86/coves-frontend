@@ -178,6 +178,44 @@ describe('GET /profile/[handle]/rss', () => {
     ])
   })
 
+  it('with ?type=comments, drops only the comment whose parent post an admin removed', async () => {
+    const moderatedUri = testPost('3kp9').uri
+    const moderatedParent = {
+      $type: 'social.coves.community.post.defs#moderatedPost',
+      uri: moderatedUri,
+      moderation: {
+        state: 'removed',
+        sources: [
+          { authorityDid: 'did:plc:instance', scope: { kind: 'instance' } },
+        ],
+      },
+      authorDid: 'did:plc:alice',
+    }
+    const comments = [
+      comment('3kc1', HYDRATED_PARENT),
+      comment('3kc9', testPost('3kp9')),
+      comment('3kc3', HYDRATED_PARENT),
+    ]
+    const answer: ProxyAnswer = (nsid, params) =>
+      nsid === GET_POSTS_NSID
+        ? json({
+            posts: params
+              .getAll('uris')
+              .map((uri) =>
+                uri === moderatedUri ? moderatedParent : HYDRATED_PARENT,
+              ),
+          })
+        : upstreamWith(comments)(nsid, params)
+
+    const { response } = await get('?type=comments', answer)
+
+    expect(response.status).toBe(200)
+    expect(parseRssChannel(await response.text()).guids).toEqual([
+      'at://did:plc:alice/social.coves.community.comment/3kc1',
+      'at://did:plc:alice/social.coves.community.comment/3kc3',
+    ])
+  })
+
   it('with ?type=comments and no comments, serves an empty channel without hydrating posts', async () => {
     const { response, calls } = await get('?type=comments', upstreamWith([]))
 

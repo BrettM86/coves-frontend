@@ -260,7 +260,7 @@ describe('profile settings acceptance', () => {
     await vi.waitFor(() =>
       expect(api.updateProfile).toHaveBeenCalledWith({
         displayName: 'Alice Updated',
-        bio: 'Updated bio',
+        description: 'Updated bio',
         avatarBlob: 'YXZhdGFy',
         avatarMimeType: 'image/png',
       }),
@@ -276,7 +276,7 @@ describe('profile settings acceptance', () => {
     await vi.waitFor(() =>
       expect(api.updateProfile).toHaveBeenCalledWith({
         displayName: 'Alice Updated',
-        bio: 'Updated bio',
+        description: 'Updated bio',
       }),
     )
   })

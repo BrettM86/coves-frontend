@@ -204,7 +204,7 @@ describe('Actor methods', () => {
   it('updateProfile() calls the authenticated profile procedure', async () => {
     const input = {
       displayName: 'Alice Example',
-      bio: 'Hello from Coves',
+      description: 'Hello from Coves',
       avatarBlob: 'YXZhdGFy',
       avatarMimeType: 'image/png',
     } satisfies UpdateProfileInput

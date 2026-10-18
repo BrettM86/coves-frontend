@@ -22,10 +22,12 @@ describe('profile settings form values', () => {
     values.displayName = 'Alice Updated'
     values.bio = 'Updated bio'
 
-    await expect(profileUpdateInput(values)).resolves.toEqual({
+    const input = await profileUpdateInput(values)
+    expect(input).toEqual({
       displayName: 'Alice Updated',
-      bio: 'Updated bio',
+      description: 'Updated bio',
     })
+    expect(input).not.toHaveProperty('bio')
   })
 
   it('encodes a selected avatar for the updateProfile wire format', async () => {
@@ -43,7 +45,7 @@ describe('profile settings form values', () => {
       }),
     ).resolves.toEqual({
       displayName: 'Alice',
-      bio: 'Hello',
+      description: 'Hello',
       avatarBlob: 'YXZhdGFy',
       avatarMimeType: 'image/png',
     })

@@ -56,7 +56,7 @@ export async function profileUpdateInput(
 ): Promise<UpdateProfileInput> {
   const textFields = {
     displayName: values.displayName,
-    bio: values.bio,
+    description: values.bio,
   }
 
   if (values.avatarFile) {

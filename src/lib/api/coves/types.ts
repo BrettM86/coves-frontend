@@ -465,7 +465,7 @@ export type ProfileImageMimeType = 'image/png' | 'image/jpeg' | 'image/webp'
 
 interface UpdateProfileTextFields {
   displayName?: string
-  bio?: string
+  description?: string
 }
 
 type AvatarUpdateFields =

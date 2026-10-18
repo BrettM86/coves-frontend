@@ -351,7 +351,7 @@ describe('edit profile from the profile header', () => {
     await vi.waitFor(() =>
       expect(state.updateProfile).toHaveBeenCalledWith({
         displayName: 'Alice Updated',
-        bio: 'Existing bio',
+        description: 'Existing bio',
       }),
     )
     await vi.waitFor(() => expect(state.invalidateAll).toHaveBeenCalledOnce())

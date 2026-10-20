@@ -3,7 +3,9 @@
   import { profile, type ServerSession } from '$lib/app/state/auth.svelte'
   import SessionRecovery from '$lib/feature/shell/SessionRecovery.svelte'
 
-  let { page } = $props<{
+  let {
+    page,
+  }: {
     page: {
       data: {
         session?: ServerSession | null
@@ -13,7 +15,7 @@
       route: { id: string | null }
       status: number
     }
-  }>()
+  } = $props()
 
   // Mirrors the root layout: the single syncFromServer call site.
   $effect(() => {

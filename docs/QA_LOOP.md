@@ -1,51 +1,69 @@
 # Coves Frontend QA Loop
 
-A recurring, self-pacing QA loop that walks the frontend section-by-section,
-using Playwright-driven sub-agents to verify each area works end-to-end, fixing
-any bugs found, and committing the fixes.
+Run the real Firefox OAuth tier and all eight sections against the designated
+remote DEVELOPMENT stack using the reviewed QA frontend/backend checkouts.
+Host unit tests and `pnpm run ci` do not replace these real scenarios.
 
-## Environment
+## Environment and suite entry
 
-| Thing        | Value                                                                              |
-| ------------ | ---------------------------------------------------------------------------------- |
-| App URL      | `http://localhost:8080` (Caddy proxy → Go backend :8081 + Vite :5173)              |
-| Start stack  | `make dev-up` in your Coves backend checkout (run in background if not already up) |
-| Health check | `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080` → expect `200`      |
-| Test account | any seeded local dev account on your `*.local.coves.dev` PDS                       |
-| Browser      | whichever browser your Playwright MCP is configured for                            |
+Complete the verified local setup in [ENVIRONMENT.md](ENVIRONMENT.md): actual
+host/project/volumes and backend source, local PDS registration PLC, managed
+AppView saved WEB mode, and Caddy/Vite/Go checkout alignment. Use Firefox.
+The normal browser origin is `http://127.0.0.1:8080` (Caddy → Go :8081 + Vite
+:5173). Do not resurrect an unmanaged server or a different source checkout.
 
-Machine-specific values (backend checkout path, test-account credentials, and
-the dated status log) live in `docs/QA_LOOP.local.md`, which is gitignored —
-create it locally from the tables above.
+```sh
+QA_BACKEND_HOST=<dev-host-ssh-alias> \
+QA_BACKEND_CHECKOUT='<absolute backend checkout>' \
+PDS_URL=http://localhost:3001 \
+node scripts/qa-run.mjs
+```
 
-## Loop Protocol (every iteration)
+Fill in the SSH alias and absolute checkout of the dev backend host. `QA_BACKEND_HOST`, absolute
+`QA_BACKEND_CHECKOUT` and explicit verified local `PDS_URL` are required.
+`OAUTH_WEB_BASE_URL` optionally overrides `http://127.0.0.1:8080`. Origins must
+be local HTTP origins (`localhost`, `127.0.0.1`, `[::1]`), without userinfo,
+non-root paths, queries or fragments. The script derives its frontend checkout
+from its own location and calls the unchanged `pnpm test:oauth` there.
 
-1. **Bootstrap**: verify `http://localhost:8080` responds; if not, start the stack
-   with `make dev-up` from the Coves backend checkout and wait for it to come up.
-2. **Pick a section**: take the first section in the Status table below whose
-   status is `pending`, or if all are `pass`/`fixed`, the one with the oldest
-   `Last run` (continuous re-verification).
-3. **Test via sub-agent**: spawn a foreground sub-agent whose job is to execute
-   that section's test scenarios with the Playwright MCP tools (Firefox), logged
-   in as the test account where required. The agent must:
-   - Take a `browser_snapshot` after each navigation and check for error UI,
-     blank screens, or missing content.
-   - Check `browser_console_messages` for errors on every page it visits.
-   - Report each bug as: scenario, expected, actual, console errors, suspected file(s).
-4. **Fix**: for each confirmed bug, fix it in the frontend following Svelte 5
-   runes patterns and TypeScript strict mode. Run `pnpm check` and `pnpm lint`
-   before committing. Re-verify the fix in the browser.
-5. **Commit**: one commit per logical fix, conventional-commit style matching
-   repo history, e.g. `fix(comments): handle tombstones that omit author`.
-   Do **not** commit if nothing was fixed.
-6. **Record**: update the section's row in the Status table in
-   `docs/QA_LOOP.local.md` (status, date, notes). The status log is local-only
-   and never committed.
-7. **Schedule**: continue the loop (self-paced; ~20–30 min between iterations,
-   sooner if the previous iteration found bugs in an adjacent area).
+At suite start it restores exactly once through `make dev-seed-restore` in the
+configured remote checkout, then fetches and validates the matching current
+manifest and Mari account. Restore may fall back to reseed; record which actually
+happened. Local ignored `.dev-seed/manifest.json` and
+`.dev-seed/oauth-test-account.json` are regular 0600 files in a 0700 directory,
+atomically replaced before OAuth. The account has `{handle,password,did}` matching
+`manifest.accounts.mari`; PDS must match the configured local provider. The runner
+sets absolute `OAUTH_TEST_ACCOUNT_FILE` and `PLAYWRIGHT_NO_COPY_PROMPT=1`.
+Restore/fetch/validation failure stops before OAuth; child failures keep their
+actual status and private output is withheld. Old files after failure are not
+refreshed success. Never print/source JSON or put credentials in local history.
 
-**Statuses**: `pending` (never tested) · `pass` (clean on last run) ·
-`fixed` (bugs found and fixed — worth re-running soon) · `blocked` (needs user input; note why).
+The direct `pnpm test:oauth` remains available with the freshly fetched private
+account; it does not restore. Do not restore between sections: keep the current
+suite's new records and state. Each later suite invocation restores baseline.
+Read-only targets come from manifest identities; baseline posts have no `title`
+field. Known baseline display titles such as “NASA delays”, “Mod seed A/B/C” and
+“deep chain fixture” can aid navigation; verify against the manifest URI/CID.
+
+## Loop protocol
+
+1. Run the suite entry and record the actual exit/status privately. Infrastructure
+   or required scenario skips are failures, not passes.
+2. Walk sections 1–8, logged out/in as each requires. Create section 4 and 6
+   fixtures immediately before those sections, using their distinct fresh tokens.
+3. Record safe content-only observations after login; check for blank screens,
+   error UI and console errors. Never snapshot provider password/consent/callback
+   pages or archive their URLs, form values, cookies or raw errors. Keep Firefox
+   workers 1, retries 0 and trace/screenshot/video off.
+4. Report defects with scenario, expected/actual result and safe error categories.
+   Fixes follow separate test-first work and `pnpm check`/`pnpm lint` before commit;
+   re-verify actual browser behavior. Do not silently change requirements.
+5. Preserve the dated section status in ignored `docs/QA_LOOP.local.md` or private
+   external evidence. Store status/date/safe notes only, never account credentials
+   or private fixture payloads. Original checkout histories remain untouched.
+
+**Statuses**: `pending` (not tested), `pass` (all required scenarios passed),
+`fixed` (fixed and re-verified), `blocked` (record concrete missing prerequisite).
 
 ## Status
 
@@ -72,11 +90,11 @@ The per-section status log (status, last-run date, session notes) is kept in
 
 **Scenarios**:
 
-- Load `/login`; form renders with handle + password fields, no console errors.
+- Load `/login`; the handle form and “Continue to log in” action render without console errors. Handle preflight resolves through the configured local AppView.
 - Log in as the local test account; lands back in the app with the
   account visible in the nav/profile menu.
-- Bad password shows a user-visible error (not a silent failure or blank page).
-- Guest login flow at `/login/guest` loads and functions.
+- Provider password failure is user-visible; successful provider consent returns to the saved app path/query/fragment. Denied consent shows one cancellation message, and retry succeeds. Keep provider/callback details private.
+- Browse as a guest and follow sidebar, nav/profile and command-palette login links; each preserves the destination. There is no separate guest-login page.
 - Log out from the top-right avatar menu (and from the command palette);
   the app returns to a logged-out state without stale user data in the UI.
 - `/accounts` and `/accounts/login` redirect to `/login` (legacy links).
@@ -97,8 +115,9 @@ zero console errors.
   timestamps and counts are sane (no `NaN`, `undefined`, `Invalid Date`).
 - Sort/listing-type controls change the feed content and survive reload.
 - Scroll pagination loads more posts without duplicates or jumps.
-- Upvote/downvote as logged-in user: count updates optimistically and persists
-  after reload. Voting logged out prompts login rather than failing silently.
+- Create a fresh own post through `/create/post` now for voting (section 5 separately
+  covers the complete creation flow). Upvote/downvote it: the count updates
+  optimistically and persists after reload. Voting logged out prompts login rather than failing silently.
 - Image/link/embed posts render their media variants without layout breakage.
 
 **Pass when**: feed loads, paginates, sorts, and votes correctly in both auth states.
@@ -112,7 +131,7 @@ zero console errors.
 
 - Navigate to a community from the feed; `/c/<handle>` shows header (name,
   avatar/banner, description, member count) and its post list.
-- Join/leave toggles state, updates membership count, persists on reload.
+- Record the initial subscription state, normalize the join/leave precondition, then verify both changes and member counts across reload. Restore that section’s chosen final subscription state; do not rely on baseline membership after prior sections.
 - Community settings pages load for a community the account moderates
   (or correctly deny access otherwise — no crash).
 - Nonexistent community handle shows a graceful not-found, not a crash.
@@ -122,21 +141,75 @@ zero console errors.
 
 ## Section 4 — Post Detail & Comments
 
-**Scope**: `src/routes/c/[handle=handle]/post/[rkey]/` (incl. `comment/[crkey]/`),
+Immediately before this section, create a fresh `postWithComments` in the verified
+backend checkout. Pick a unique lowercase base36 token, beginning with a letter,
+1–10 characters and not beginning with a baseline account/community key. Replace
+each `<fresh-token>` and `<verified-...>` below before use. Run these commands on
+the backend host, in the same absolute checkout configured for the suite:
+
+```sh
+(
+set -e
+cd -- '<absolute backend checkout>'
+umask 077
+mkdir -m 700 -- '.dev-seed/qa-<fresh-token>'
+go run ./cmd/dev-seed fixture postWithComments \
+  --run '<fresh-token>' --manifest .dev-seed/manifest.json \
+  --pds-handle-domain .local.coves.dev \
+  --plc-url '<verified-local-PLC>' --pds-container '<verified-dev-PDS>' \
+  > '.dev-seed/qa-<fresh-token>/section4.next' \
+  2> '.dev-seed/qa-<fresh-token>/section4.log' &&
+  mv -- '.dev-seed/qa-<fresh-token>/section4.next' '.dev-seed/qa-<fresh-token>/section4.json'
+)
+```
+
+Stop on any failed command. The directory must be new (do not reuse a failed run
+or continue if `mkdir` fails); umask makes the files 0600. Only a successful exit
+publishes the complete JSON by rename. Keep output/log private; do not print or
+use command substitution to read fixture JSON. If transporting commands over
+SSH, pass the host as a positional argument and one fixed remote command string;
+single-quote literal absolute paths, escaping an embedded single quote as
+`'\''`. Do not interpolate unquoted configured paths or use `eval`.
+
+Use the returned `post.uri/cid/title/body/authorDid` and `community.did/handle`
+to identify this exact post. `comments.firstLive`, `newestLive` and `deleted`
+contain only `uri/cid/text/state`; they have no author/root/parent fields. The
+backend owns root/parent associations. Match the returned newestLive URI/text
+under sort=new and the deleted placeholder's state. Vote a live fixture comment;
+create/edit/delete only Mari's own new comment/reply records on this fresh post.
+
+Canonical post routes are `/c/<community>/post/<owner>/<rkey>`; comment routes
+append `/comment/<commenter>/<crkey>`. Use UI Share/permalink actions (the existing
+`postLink`/`commentLink` helpers): owner/commenter and both RKeys come from the
+actual AT-URI authorities/record keys, every segment encoded. A readable handle
+is valid only when bound to that same authority; DID fallback works. Never derive
+keys from title/run or insert a full AT-URI into a route.
+
+**Scope**: `src/routes/c/[handle=handle]/post/[owner=actor]/[rkey]/`
+(incl. `comment/[commenter=actor]/[crkey]/`),
 `src/lib/feature/comment/`, `src/lib/feature/post/Post.svelte`, `PostBody.svelte`
 
 **Scenarios**:
 
-- Open a post from the feed; body, meta, and comment tree render.
+- Open the fresh fixture post; exact returned body/meta and comment identities render.
 - Post a top-level comment and a nested reply as the test account; both appear
   in the tree immediately and persist after reload.
 - Vote on a comment; count updates and persists.
-- Deep threads: "continue thread" navigation works and the comment permalink
-  route `/c/<handle>/post/<rkey>/comment/<crkey>` loads standalone.
+- Read-only deep threads: use `manifest.posts.deepChain` and
+  `manifest.comments.deepChainDepth11`/`manifest.comments.deepChainLeaf`; “continue thread” and
+  `/c/<community>/post/<owner>/<rkey>/comment/<commenter>/<crkey>` work.
+  Baseline titles are constants, not fields in manifest posts.
 - Deleted/tombstoned comments render placeholders — no author profile link,
   no crash when author or record is missing (regression: `c66f6dd9`, `e94a51dd`).
 - Share action produces a canonical web route, not a raw AT-URI (regression: `c33a28fe`).
 - Edit and delete own comment; tree updates correctly.
+- Read baseline News moderation fixtures without modifying them: removed post
+  tombstone (“Mod seed A”), removed comment and live reply (“Mod seed B”), NSFW
+  label/blur (“Mod seed C”). Check safe unavailable/removed states, no stale body
+  or unauthorized actions. As the authorized admin, remove/restore the suite’s
+  own newly created post/comment and label/retract NSFW on its new post; confirm
+  persistence, reason validation, and corresponding public `/modlog` and community
+  modlog entries. Logged-out/unauthorized controls remain absent or safely denied.
 
 **Pass when**: full comment lifecycle (create, reply, vote, edit, delete,
 permalink, tombstone rendering) works with no console errors.
@@ -160,6 +233,32 @@ permalink, tombstone rendering) works with no console errors.
 
 ## Section 6 — Profiles & Blocks
 
+At this section's start create `blockTarget` with a DISTINCT fresh run token,
+using the same verified backend checkout/local PLC/PDS flags and new private
+0700 directory/0600 output policy as section 4:
+
+```sh
+(
+set -e
+cd -- '<absolute backend checkout>'
+umask 077
+mkdir -m 700 -- '.dev-seed/qa-<distinct-fresh-token>'
+go run ./cmd/dev-seed fixture blockTarget \
+  --run '<distinct-fresh-token>' --manifest .dev-seed/manifest.json \
+  --pds-handle-domain .local.coves.dev \
+  --plc-url '<verified-local-PLC>' --pds-container '<verified-dev-PDS>' \
+  > '.dev-seed/qa-<distinct-fresh-token>/section6.next' \
+  2> '.dev-seed/qa-<distinct-fresh-token>/section6.log' &&
+  mv -- '.dev-seed/qa-<distinct-fresh-token>/section6.next' '.dev-seed/qa-<distinct-fresh-token>/section6.json'
+)
+```
+
+Stop on failure, including a pre-existing directory, and consume only the current
+successful JSON. Use returned `actor.did/handle` and
+`post.uri/cid/title/authorDid` for the foreign profile and block/filter/unblock
+round-trip. The generator creates the actor/post; it does not block. Never use the
+permanent baseline `blocked` actor as the mutable target. Keep credentials private.
+
 **Scope**: `src/routes/profile/`, `src/routes/u/[handle=handle]/`,
 `src/lib/feature/user/`
 
@@ -170,7 +269,8 @@ permalink, tombstone rendering) works with no console errors.
   fit a foreign profile (no self-only actions).
 - `/profile/voted/<type>` lists voted content matching votes cast in earlier sections.
 - Blocks pages (`/profile/blocks/users|communities|instances`) load; block/unblock
-  a user and verify their content is filtered from feeds.
+  the fresh blockTarget actor; verify its exact returned post is filtered, then
+  unblock and verify the same URI/CID is visible again.
 - Nonexistent user handle shows graceful not-found.
 
 **Pass when**: both self and foreign profile views, votes listing, and block
@@ -186,7 +286,9 @@ round-trip behave.
 - `/explore/communities` lists communities with names, avatars, member counts.
 - Search/filter narrows the list; empty query restores it; no-results state is
   a designed empty state, not a blank page.
-- Join from the explore list works and reflects on the community page.
+- Normalize the chosen community’s initial subscription state; join from the
+  explore list and verify the community page, then leave/restore the intended
+  final state. Do not depend on section 3’s membership state.
 - Pagination/infinite scroll of the community list works without duplicates.
 - Each listed community links to a working `/c/<handle>` page.
 

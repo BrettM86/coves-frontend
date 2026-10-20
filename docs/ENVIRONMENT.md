@@ -180,32 +180,78 @@ The frontend no longer has a callback route; Go's `/oauth/callback` completes
 login. Deploy this frontend with the matching backend and its migration
 `047_web_oauth_binding.sql`; keep the provider callback at `/oauth/callback`.
 
-`pnpm test:oauth` is a separate Firefox tier against real local services. Start
-the backend's local PDS/PLC/database infrastructure, then run `make run-web` and
-use the configured Caddy proxy. The normal browser origin is
-`http://127.0.0.1:8080`. Use a disposable account registered on that local PDS,
-with its `handle`, `password`, and `did` in a private JSON file outside the repo.
-Restrict the file to its owner (`chmod 600`). The tests do not create or delete
-the account and never use a public Bluesky resolver.
+### Seeded QA entry
+
+`node scripts/qa-run.mjs` is the seeded QA entry. In the designated development
+stack, first verify the host, backend source checkout, Compose project/volumes,
+local PDS registration PLC and local account resolution. Set up the managed
+AppView with saved WEB mode (`go run ./cmd/dev-seed appview start --mode web` in
+the verified backend checkout); stop/preserve any unmanaged process before that
+setup. Restore preserves saved mode. Align Caddy, Vite and Go with the reviewed
+frontend/backend checkouts; do not start an old checkout through `make run-web`.
+The browser normally reaches Caddy at `http://127.0.0.1:8080`, Go at `:8081` and
+Vite at `:5173`. Manifest `appview` is the backend endpoint, not the browser origin.
+Required environment setup and real snapshot-versus-reseed verification belong
+to the real QA run; the wrapper's URL validation alone cannot prove them.
+
+| Variable                    | Runner contract                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------- |
+| `QA_BACKEND_HOST`           | Required SSH alias, letters/digits/dot/underscore/hyphen, beginning with a letter or digit.         |
+| `QA_BACKEND_CHECKOUT`       | Required absolute path on that host. Passed literally with POSIX shell quoting; no NUL.             |
+| `PDS_URL`                   | Required verified local HTTP provider origin; no public fallback.                                   |
+| `OAUTH_WEB_BASE_URL`        | Local HTTP browser origin; defaults to `http://127.0.0.1:8080`.                                     |
+| `OAUTH_TEST_ACCOUNT_FILE`   | Runner overrides it with the absolute `.dev-seed/oauth-test-account.json` in its frontend checkout. |
+| `PLAYWRIGHT_NO_COPY_PROMPT` | Runner sets `1`; retained Playwright config also suppresses failure page snapshots.                 |
+
+Origins allow `localhost`, `127.0.0.1` or `[::1]`, with an optional port and root
+path only; credentials, queries and fragments are refused. Fetched manifest PDS
+must match the configured scheme/port and host (`localhost`/`127.0.0.1` aliases
+are accepted). Keep the configured spelling consistent with the provider.
 
 ```sh
-pnpm exec playwright install firefox
-OAUTH_WEB_BASE_URL=http://127.0.0.1:8080 \
+QA_BACKEND_HOST=<dev-host-ssh-alias> \
+QA_BACKEND_CHECKOUT='<absolute backend checkout>' \
 PDS_URL=http://localhost:3001 \
-OAUTH_TEST_ACCOUNT_FILE="$HOME/.config/coves/oauth-test-account.json" \
-pnpm test:oauth
+node scripts/qa-run.mjs
 ```
 
-For isolated worktrees, give the proxy a unique port and set both
-`PUBLIC_INSTANCE_URL` and `APPVIEW_PUBLIC_URL` to that browser origin; set
-`OAUTH_WEB_BASE_URL` to match. Point the proxy at the worktrees' own Vite and Go
-ports. Reuse the configured local PDS and PLC. Avoid running multiple proxies on
-the same port: Caddy can share the listener, sending requests to different
-checkouts.
+Fill in the SSH alias and absolute checkout of the dev backend host. For a distinct proxy port,
+set `OAUTH_WEB_BASE_URL`, `PUBLIC_INSTANCE_URL` and backend
+`APPVIEW_PUBLIC_URL` to that same browser origin and point that proxy only at the
+reviewed Vite/Go ports. Avoid concurrent proxies sharing a listener. The
+frontend's configured AppView continues to resolve local handles through the
+local PLC/PDS; no public resolver is introduced.
 
-This tier covers return links, successful authorization, denied consent, stable
-error rendering, and retry. Missing infrastructure or account configuration
-fails the run. It is separate from the backend-free `pnpm run ci` gate.
-Credential-bearing traces, screenshots, videos, and page snapshots are disabled.
-The pinned Playwright 1.63 harness uses its internal `PLAYWRIGHT_NO_COPY_PROMPT`
-switch to suppress failure page snapshots; verify that behavior when upgrading.
+The runner uses SSH argument arrays and a safely quoted remote checkout to call
+`make dev-seed-restore` exactly once, then fetches the current
+`.dev-seed/manifest.json` and `.dev-seed/oauth-test-account.json`. Restore may
+fall back to reseeding; a successful invocation does not prove snapshot restore.
+Manifest version must be 1, with `accounts.mari`; the fetched account's nonempty
+`{handle,password,did}` strings must match it exactly. Extra account keys are
+ignored. Both JSON payloads are validated before either final file is published.
+Local `.dev-seed/` is ignored and mode 0700; files are regular 0600 files written
+through private staging and atomic rename. Symlinks are refused. Never source,
+print, commit or copy these credential-bearing JSON payloads into a status log.
+Failure never launches OAuth using stale files; earlier finals may remain after
+a failed attempt and are not a freshness signal. Restore/fetch/OAuth failures
+preserve the actual child status; configuration, validation, filesystem or
+spawn/signal errors fail safely. Diagnostics omit private child streams.
+
+The existing `pnpm test:oauth` remains available for a direct real Firefox run
+with `OAUTH_TEST_ACCOUNT_FILE` pointing to the freshly fetched private account;
+it does not restore. Install the pinned Firefox with
+`pnpm exec playwright install firefox` during real QA setup if necessary.
+Firefox, workers 1, retries 0, trace/screenshot/video off and
+`PLAYWRIGHT_NO_COPY_PROMPT=1` remain required. Do not capture password/consent or
+callback pages, form values, authenticated cookies or provider URLs. Safe
+post-login content observations may be recorded without private identity data.
+The tier covers real local authorization/return/session, denied consent, stable
+error rendering and retry. Missing infrastructure/account configuration is a
+failure. It is separate from backend-free `pnpm run ci`.
+
+Continue with all eight sections in [QA_LOOP.md](QA_LOOP.md). Section 4 creates
+its own `postWithComments` at section time; section 6 creates a distinct fresh
+`blockTarget`. Credential-bearing fixture outputs use private files, not logs.
+Other creation flows own their new writes and subscription checks normalize
+their own state. The next suite entry restores baseline. No standalone snapshot
+subcommand, exhaustive inventory or baseline comparison is required.

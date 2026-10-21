@@ -1,7 +1,7 @@
 # Base image pinned by digest (multi-arch index — covers linux/amd64 + linux/arm64).
 # Dependabot (.github/dependabot.yml) bumps it; to bump manually:
 #   docker buildx imagetools inspect node:22-alpine   # copy the top-level Digest
-ARG NODE_IMAGE=node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
+ARG NODE_IMAGE=node:22-alpine@sha256:ce8d97f7cfc7c5386421eb932df20a29df99b1a7f469f6157d5c9956702ffadc
 
 # Build stage — installs with the committed pnpm lockfile for reproducible builds
 FROM ${NODE_IMAGE} AS builder

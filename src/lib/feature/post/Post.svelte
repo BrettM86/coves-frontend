@@ -17,6 +17,7 @@
     mediaType,
     postTextFallback,
   } from './helpers'
+  import { titleDuplicatesBlueskyEmbed } from './media/bluesky-card'
   import { type MetaTag, parseTags } from './tags'
   import { isSensitivePost } from './content-labels'
   import { Badge, Button } from '$lib/ui/kit'
@@ -83,7 +84,10 @@
     !concealed &&
       settings.posts.deduplicateEmbed &&
       !!post.record?.title &&
-      embedTitle === post.record.title &&
+      // Link titles are single-line strings and match exactly; Bluesky text
+      // is free-form, so its match ignores whitespace differences.
+      (embedTitle === post.record.title ||
+        titleDuplicatesBlueskyEmbed(post.record.title, post.embed)) &&
       view !== 'compact' &&
       type !== 'iframe',
   )

@@ -1,7 +1,11 @@
-import type { RecordEmbed } from '$lib/api/coves/types'
+import type { PostEmbed, RecordEmbed } from '$lib/api/coves/types'
 import { parseWebUrl } from '$lib/app/util/url'
 import { isValidDID, isValidHandle } from '$lib/types/atproto'
-import { parseBlueskyPostRef, type BlueskyPostRef } from '../helpers'
+import {
+  getBlueskyPostEmbed,
+  parseBlueskyPostRef,
+  type BlueskyPostRef,
+} from '../helpers'
 
 export interface BlueskyAuthorView {
   did: string
@@ -278,5 +282,26 @@ export function normalizeBlueskyPost(
     defaultMessage,
     embed.post.uri,
     true,
+  )
+}
+
+const collapseWhitespace = (value: string): string =>
+  value.trim().replace(/\s+/g, ' ')
+
+/** Whether a post title repeats the text of its converted Bluesky post embed. */
+export function titleDuplicatesBlueskyEmbed(
+  title: string | undefined,
+  embed: PostEmbed | undefined,
+): boolean {
+  const blueskyEmbed = getBlueskyPostEmbed(embed)
+  if (!title || !blueskyEmbed) return false
+
+  // Only a post the card renders successfully can duplicate the title.
+  const view = normalizeBlueskyPost(blueskyEmbed, '')
+  if (view.kind !== 'success') return false
+
+  const normalizedTitle = collapseWhitespace(title)
+  return (
+    normalizedTitle !== '' && normalizedTitle === collapseWhitespace(view.text)
   )
 }

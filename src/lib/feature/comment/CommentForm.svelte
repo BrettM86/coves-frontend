@@ -35,6 +35,8 @@
     id?: string
     label?: string
     editing?: boolean
+    /** Called when a submit starts (true) and when it settles (false). */
+    onloadingchange?: (loading: boolean) => void
     /** The confirmed write, including the author and refs captured at submit. */
     oncomment?: (comment: NormalizedCommentView) => void
     onconfirm?: (value: string) => void
@@ -55,6 +57,7 @@
     oncancel,
     oncomment,
     onconfirm,
+    onloadingchange,
     ...rest
   }: Props = $props()
 
@@ -75,6 +78,7 @@
     if (value.trim() === '') return
 
     const notifyCreated = oncomment
+    const notifyLoading = onloadingchange
     const author = {
       did: profile.current.did,
       handle: profile.current.handle,
@@ -82,6 +86,7 @@
     }
 
     loading = true
+    notifyLoading?.(true)
 
     try {
       // The textarea holds markup; the record carries canonical plaintext plus
@@ -116,6 +121,7 @@
     }
 
     loading = false
+    notifyLoading?.(false)
   }
 </script>
 
@@ -148,6 +154,7 @@
         size="custom"
         title={$t('common.cancel')}
         onclick={() => oncancel?.(true)}
+        disabled={loading}
         color="tertiary"
         class="w-8 h-8"
         rounding="xl"

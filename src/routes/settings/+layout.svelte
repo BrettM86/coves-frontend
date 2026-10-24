@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { profile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
   import { log } from '$lib/app/util/log'
   import {
@@ -12,6 +13,21 @@
   let { children } = $props()
   let importing = $state(false)
   let importText = $state('')
+
+  const routes = $derived([
+    { href: '/settings/app', name: $t('settings.app.title') },
+    { href: '/settings/embeds', name: $t('settings.embeds.title') },
+    ...(profile.isAuthenticated
+      ? [
+          {
+            href: '/settings/notifications',
+            name: $t('settings.notifications.title'),
+          },
+        ]
+      : []),
+    { href: '/profile/blocks', name: $t('routes.profile.blocks.title') },
+    { href: '/settings/other', name: $t('settings.other.title') },
+  ])
 </script>
 
 {#if importing}
@@ -39,26 +55,7 @@
   <title>{$t('settings.title')}</title>
 </svelte:head>
 
-<Tabs
-  routes={[
-    {
-      href: '/settings/app',
-      name: $t('settings.app.title'),
-    },
-    {
-      href: '/settings/embeds',
-      name: $t('settings.embeds.title'),
-    },
-    {
-      href: '/profile/blocks',
-      name: $t('routes.profile.blocks.title'),
-    },
-    {
-      href: '/settings/other',
-      name: $t('settings.other.title'),
-    },
-  ]}
-/>
+<Tabs {routes} />
 
 <Header pageHeader class="text-3xl font-bold flex justify-between">
   {$t('settings.title')}
@@ -113,3 +110,59 @@
 </Header>
 
 {@render children?.()}
+
+<style>
+  /* Shifts the hue of each setting's icon tile down the list. Kept here,
+     not in Setting.svelte, so a page using only ToggleSetting gets it too. */
+  :global(.setting:nth-child(17n + 1) .color) {
+    filter: hue-rotate(10deg);
+  }
+  :global(.setting:nth-child(17n + 2) .color) {
+    filter: hue-rotate(30deg);
+  }
+  :global(.setting:nth-child(17n + 3) .color) {
+    filter: hue-rotate(50deg);
+  }
+  :global(.setting:nth-child(17n + 4) .color) {
+    filter: hue-rotate(70deg);
+  }
+  :global(.setting:nth-child(17n + 5) .color) {
+    filter: hue-rotate(90deg);
+  }
+  :global(.setting:nth-child(17n + 6) .color) {
+    filter: hue-rotate(110deg);
+  }
+  :global(.setting:nth-child(17n + 7) .color) {
+    filter: hue-rotate(130deg);
+  }
+  :global(.setting:nth-child(17n + 8) .color) {
+    filter: hue-rotate(150deg);
+  }
+  :global(.setting:nth-child(17n + 9) .color) {
+    filter: hue-rotate(170deg);
+  }
+  :global(.setting:nth-child(17n + 10) .color) {
+    filter: hue-rotate(190deg);
+  }
+  :global(.setting:nth-child(17n + 11) .color) {
+    filter: hue-rotate(210deg);
+  }
+  :global(.setting:nth-child(17n + 12) .color) {
+    filter: hue-rotate(230deg);
+  }
+  :global(.setting:nth-child(17n + 13) .color) {
+    filter: hue-rotate(250deg);
+  }
+  :global(.setting:nth-child(17n + 14) .color) {
+    filter: hue-rotate(270deg);
+  }
+  :global(.setting:nth-child(17n + 15) .color) {
+    filter: hue-rotate(290deg);
+  }
+  :global(.setting:nth-child(17n + 16) .color) {
+    filter: hue-rotate(310deg);
+  }
+  :global(.setting:nth-child(17n + 17) .color) {
+    filter: hue-rotate(330deg);
+  }
+</style>

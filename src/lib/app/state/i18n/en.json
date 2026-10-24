@@ -1,7 +1,6 @@
 {
     "profile": {
         "profile": "Profile",
-        "inbox": "Inbox",
         "saved": "Saved",
         "subscribed": "Subscriptions"
     },
@@ -49,7 +48,8 @@
             "communities": "Communities with **{{default}}**",
             "goto": "Go to **{{default}}**"
         },
-        "notifications": "Notifications"
+        "notifications": "Notifications",
+        "notificationsUnread": "Notifications, {{count}} unread"
     },
     "account": {
         "login": "Log in",
@@ -113,12 +113,7 @@
         },
         "type": "Type",
         "filter": "Filter",
-        "unread": "Unread",
-        "inbox": {
-            "messages": "Messages",
-            "replies": "Replies",
-            "mentions": "Mentions"
-        }
+        "unread": "Unread"
     },
     "form": {
         "username": "Username",
@@ -350,25 +345,39 @@
                 "description": "That content does not originate on your account's server."
             }
         },
-        "inbox": {
-            "title": "Inbox",
-            "markAsRead": "Mark All Read",
+        "notifications": {
+            "title": "Notifications",
+            "settingsLink": "Notification settings",
             "empty": {
-                "title": "No new notifications",
-                "description": "Messages, replies, and mentions will appear here."
+                "title": "No notifications yet",
+                "description": "Replies, mentions and likes will appear here."
             },
-            "item": {
-                "reply": "{{user}} replied to you in {{post}}",
-                "mention": "{{user}} mentioned you in {{post}}",
-                "message": "{{user}} messaged {{recipient}}"
+            "loadFailed": "Could not load notifications.",
+            "unknownUser": "Unknown user",
+            "replyTo": "Reply to {{name}}",
+            "loadingMore": "Loading more notifications",
+            "upvote": {
+                "people": "{{count:number}} {{count; 1:person; default:people;}}",
+                "others": "{{count:number}} {{count; 1:other; default:others;}}",
+                "and": " and ",
+                "listSeparator": ", ",
+                "yourPost": " liked your post",
+                "yourComment": " liked your comment",
+                "titlePost": "Liked your post",
+                "titleComment": "Liked your comment"
             },
-            "messages": {
-                "conversation": "This is the beginning of your conversation with {{user}}",
-                "indicator": "Messaging {{user}}",
-                "start": "Start chat",
-                "empty": {
-                    "title": "No messages"
-                }
+            "linkName": {
+                "postReply": "{{name}} replied to your post",
+                "commentReply": "{{name}} replied to your comment",
+                "mention": "{{name}} mentioned you",
+                "inCommunity": "{{head}} in {{community}}",
+                "withText": "{{head}}: {{text}}",
+                "withTime": "{{head}}. {{time}}"
+            },
+            "reason": {
+                "postReply": "Reply to your post",
+                "commentReply": "Reply to your comment",
+                "mention": "Mentioned you"
             }
         },
         "moderation": {
@@ -1009,6 +1018,17 @@
         },
         "account": {
             "title": "Account"
+        },
+        "notifications": {
+            "title": "Notifications",
+            "loadFailed": "Could not load notification settings.",
+            "loading": "Loading notification settings…",
+            "postReply": "Replies to your posts",
+            "commentReply": "Replies to your comments",
+            "mention": "Mentions",
+            "upvote": "Likes",
+            "saveFailed": "Could not save notification settings.",
+            "accountNotIndexed": "Your account is still being set up. Try again in a minute."
         }
     },
     "error": {

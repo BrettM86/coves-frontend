@@ -62,6 +62,7 @@ The per-section status log (status, last-run date, session notes) is kept in
 | 6   | Profiles & Blocks       | pending | —        |       |
 | 7   | Explore & Discovery     | pending | —        |       |
 | 8   | Settings, Theme & Shell | pending | —        |       |
+| 9   | Notifications           | pending | —        |       |
 
 ---
 
@@ -209,3 +210,98 @@ app shell (navbar/sidebar in `src/lib/ui/`), `src/routes/error/`, `src/routes/le
 
 **Pass when**: all settings persist, theming works both modes, shell navigation
 is correct at both viewports.
+
+## Section 9 — Notifications
+
+**Scope**: `src/routes/notifications/`, `src/routes/settings/notifications/`,
+the navbar bell, `tests/oauth/notifications.spec.ts`
+
+This section is an automated two-account run, not a Playwright MCP walk.
+
+**Scenario** (B is the recipient, A the actor; one browser context each):
+
+- Both sign in once through the local PLC/PDS; each is confirmed by a
+  `putPreferences` with its current value returning 200.
+- B opens `/settings/notifications` and turns on any of the four reasons that
+  is off, waiting for each save.
+- Baseline: B opens `/notifications`. If page one is empty, A comments on a
+  post B creates and B reloads until the row shows. B waits for `updateSeen`
+  to return 200 and the bell to show no badge, then navigates to `/`.
+- In the community, B creates post P and comment C on it, and P shows in the
+  community feed. A, through the web app, comments on P, replies to C, creates
+  post M mentioning `@B` (M's URI taken from the page the app opens after
+  create), and upvotes P and C. M shows in the community feed (60 s bound).
+- Asserted: within 90 s B's bell shows `5` with accessible name
+  "Notifications, 5 unread". On `/notifications` B finds five rows by their
+  targets: a `postReply` for A's comment on P, a `commentReply` for A's reply
+  to C, a `mention` for M, and upvote rows for P and C. Each row's href opens
+  that post or comment. After `updateSeen` returns 200 on that visit, the
+  badge is gone. Back from an opened row restores the list and sends no
+  `updateSeen`.
+
+**Baseline rule**: while B's `seen_at` is NULL the backend counts only the
+newest row as unread, so B must reach a real marked-seen baseline before A
+acts. B must not sit on `/notifications` while A acts; the open list marks
+new rows seen.
+
+**Account setup**:
+
+- `SEED` is the coves checkout that has `cmd/dev-seed`: today branch
+  `qa/16a-backend` at `~/Code/qa-dev-seed-16a-20261015/coves`, until the
+  dev-seed PRD merges into `~/Code/coves`. `~/Code/coves` main has no
+  `cmd/dev-seed` or `make dev-seed` targets.
+- The stack comes from the coves dev seed: `make dev-seed` or
+  `make dev-seed-restore` in `$SEED`.
+- B is the seed's `mari`, from `$SEED/.dev-seed/oauth-test-account.json`.
+- A is a fresh actor, created before every run with a new run token. From
+  `$SEED`, redirect the success JSON into `.dev-seed/fixtures/<token>.json`
+  (file 0600, `.dev-seed/fixtures/` 0700):
+
+  ```bash
+  (umask 077
+   mkdir -p .dev-seed/fixtures
+   chmod 700 .dev-seed .dev-seed/fixtures
+   go run ./cmd/dev-seed fixture post --run <token> \
+     --manifest .dev-seed/manifest.json \
+     --pds-handle-domain .local.coves.dev \
+     --plc-url http://localhost:3002 \
+     --pds-container coves-dev-pds \
+     > .dev-seed/fixtures/<token>.json)
+  ```
+
+  The command prints A's password in that JSON on stdout, so never run it
+  without the redirect. Token rules: 1–10 lowercase base36 characters, starts
+  with a letter, does not start with a manifest key. Never print the passwords
+  in either file.
+
+- Community: `c-science.coves.social` (the seed's `science`).
+
+**Command**: needs the `:8090`/`:5190` live pair, started under lease
+`coves-frontend-live` per the repo profile's Live check. OAuth returns via
+`:8080`; the spec then goes back to `:8090`.
+
+```bash
+OAUTH_WEB_BASE_URL=http://127.0.0.1:8090 \
+OAUTH_TEST_ACCOUNT_FILE=$SEED/.dev-seed/oauth-test-account.json \
+OAUTH_SECOND_ACCOUNT_FILE=$SEED/.dev-seed/fixtures/<token>.json \
+OAUTH_NOTIFICATIONS_COMMUNITY=c-science.coves.social \
+pnpm test:oauth tests/oauth/notifications.spec.ts --reporter=line
+```
+
+A missing account file, missing community or unreachable infrastructure fails
+the run; a skip is a failure.
+
+Use only `--reporter=line`, or the default list reporter without
+`PLAYWRIGHT_LIST_PRINT_STEPS`. Playwright records `fill` values in step titles
+(`Fill "{value}"`), so the html, json and blob reporters, or
+`PLAYWRIGHT_LIST_PRINT_STEPS=1`, would record the passwords.
+
+**Known environment limits**:
+
+- The backend's global rate limit is 100 requests/min per IP. Both browsers
+  and SSR come from 127.0.0.1 and share it, so a row navigation can get a 429.
+- `createPost` is capped at 10 posts per author per community per rolling
+  hour. Each run posts as `mari`, so repeated runs within an hour can fail at
+  `createPost`. `make dev-seed-restore` resets the run's writes as `mari`.
+
+**Pass when**: the command passes against a fresh fixture actor.

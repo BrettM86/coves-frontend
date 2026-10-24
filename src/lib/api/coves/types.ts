@@ -922,6 +922,96 @@ export interface SubmitReportOutput {
 }
 
 // ---------------------------------------------------------------------------
+// Notifications (social.coves.notification.*)
+// ---------------------------------------------------------------------------
+
+/** The account's notification preferences, one switch per notification kind. */
+export interface NotificationPreferences {
+  postReply: boolean
+  commentReply: boolean
+  mention: boolean
+  upvote: boolean
+}
+
+/** Input for `social.coves.notification.putPreferences`: the switches to change. */
+export type PutNotificationPreferencesInput = Partial<NotificationPreferences>
+
+/** Output of `social.coves.notification.getUnreadCount`; capped at 101 (more than 100). */
+export interface UnreadNotificationCount {
+  count: number
+}
+
+/** Why a notification was produced; other reasons may be added later. */
+export type NotificationReason =
+  'postReply' | 'commentReply' | 'mention' | 'upvote' | (string & {})
+
+/** Read-time status of a reference that is no longer available. */
+export type NotificationStatus =
+  'deleted' | 'removedByModerator' | 'removedByServerAdmin' | (string & {})
+
+export interface NotificationActor {
+  did: DID
+  handle?: string
+  displayName?: string
+  avatar?: string
+}
+
+export interface NotificationRootPost {
+  uri: AtUri
+  cid: CID
+  status?: NotificationStatus
+  title?: string
+  labels?: unknown
+  thumbnail?: string
+  thumbnailAlt?: string
+  community?: CommunityRef
+  author?: AuthorView
+  createdAt?: string
+  stats?: PostStats
+}
+
+export interface NotificationSubject {
+  uri: AtUri
+  cid: CID
+  status?: NotificationStatus
+  preview?: string
+  labels?: unknown
+  thumbnail?: string
+  thumbnailAlt?: string
+}
+
+export interface NotificationRecord {
+  uri: AtUri
+  cid: CID
+  status?: NotificationStatus
+  excerpt?: string
+  createdAt?: string
+  labels?: unknown
+  thumbnail?: string
+  thumbnailAlt?: string
+}
+
+/** One row of `social.coves.notification.listNotifications`. */
+export interface NotificationView {
+  reason: NotificationReason
+  sortAt: string
+  isRead: boolean
+  rootPost: NotificationRootPost
+  subject?: NotificationSubject
+  record?: NotificationRecord
+  author?: NotificationActor
+  upvoteCount?: number
+  recentUpvoters?: NotificationActor[]
+}
+
+/** Output of `social.coves.notification.listNotifications`. */
+export interface ListNotificationsResponse {
+  notifications: NotificationView[]
+  cursor?: string
+  seenAt?: string
+}
+
+// ---------------------------------------------------------------------------
 // XRPC error response
 // ---------------------------------------------------------------------------
 

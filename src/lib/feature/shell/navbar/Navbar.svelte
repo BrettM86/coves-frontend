@@ -13,6 +13,8 @@
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import CommandsWrapper from './commands/CommandsHost.svelte'
   import NavButton from '$lib/ui/navbar/NavButton.svelte'
+  import NotificationBell from '$lib/feature/notification/NotificationBell.svelte'
+  import { unreadNotifications } from '$lib/feature/notification/unread.svelte'
 
   interface Props {
     style?: string
@@ -45,6 +47,7 @@
     icon={SquarePen}
     class="order-2 nav-btn-sm-primary"
   />
+  <NotificationBell count={unreadNotifications.count} class="order-3" />
   <Menu placement="bottom">
     {#snippet target(attachment)}
       <button

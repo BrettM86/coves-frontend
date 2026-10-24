@@ -3,6 +3,7 @@
   import { FONT_CLASSES, fontClass } from '$lib/app/util/font'
   import { markHydrated } from '$lib/app/util/ssr'
   import { browser } from '$app/environment'
+  import { afterNavigate, beforeNavigate } from '$app/navigation'
   import { navigating, page } from '$app/state'
   import { profile } from '$lib/app/state/auth.svelte'
   import { locale, t } from '$lib/app/state/i18n'
@@ -16,6 +17,8 @@
   import CovesSidebar from '$lib/feature/instance/CovesSidebar.svelte'
   import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import ModerationModals from '$lib/feature/moderation/ModerationModals.svelte'
+  import { notificationListReturn } from '$lib/feature/notification/return.svelte'
+  import { unreadNotifications } from '$lib/feature/notification/unread.svelte'
 
   import ExpandableImage from '$lib/ui/generic/ExpandableImage.svelte'
   import { Shell } from '$lib/ui/layout'
@@ -55,6 +58,22 @@
       }
       document.body.querySelector('.loader')?.classList.add('hidden')
     }
+  })
+
+  // The unread count lives for the whole tab, so the layout starts it once
+  // and never stops it; the store follows sign-in and sign-out on its own.
+  onMount(() => {
+    unreadNotifications.start()
+    notificationListReturn.start()
+  })
+
+  // Tells a return from a followed notification's thread from other entries.
+  beforeNavigate(notificationListReturn.noteNavigation)
+
+  afterNavigate((navigation) => {
+    notificationListReturn.noteArrival(navigation)
+    if (navigation.to)
+      unreadNotifications.noteNavigation(navigation.to.url.pathname)
   })
 
   if (browser) {

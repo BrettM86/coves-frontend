@@ -45,6 +45,10 @@ import type {
   UpdateProfileOutput,
   UpdateCommentInput,
   UpdateCommentOutput,
+  NotificationPreferences,
+  PutNotificationPreferencesInput,
+  UnreadNotificationCount,
+  ListNotificationsResponse,
 } from './types'
 
 export const NSID = {
@@ -78,6 +82,11 @@ export const NSID = {
   deletePost: 'social.coves.community.post.delete',
   getPost: 'social.coves.community.post.get',
   submitReport: 'social.coves.admin.submitReport',
+  getNotificationPreferences: 'social.coves.notification.getPreferences',
+  putNotificationPreferences: 'social.coves.notification.putPreferences',
+  getUnreadNotificationCount: 'social.coves.notification.getUnreadCount',
+  listNotifications: 'social.coves.notification.listNotifications',
+  updateNotificationsSeen: 'social.coves.notification.updateSeen',
 } as const
 
 export class CovesClient {
@@ -247,5 +256,32 @@ export class CovesClient {
   // rate-limits this endpoint to 10 reports per minute per user.
   submitReport(input: SubmitReportInput): Promise<SubmitReportOutput> {
     return this.xrpc.procedure(NSID.submitReport, input)
+  }
+
+  // Notifications
+  getNotificationPreferences(): Promise<NotificationPreferences> {
+    return this.xrpc.query(NSID.getNotificationPreferences)
+  }
+
+  // Changes only the switches present in `input`; returns the full stored set.
+  putNotificationPreferences(
+    input: PutNotificationPreferencesInput,
+  ): Promise<NotificationPreferences> {
+    return this.xrpc.procedure(NSID.putNotificationPreferences, input)
+  }
+
+  getUnreadNotificationCount(): Promise<UnreadNotificationCount> {
+    return this.xrpc.query(NSID.getUnreadNotificationCount)
+  }
+
+  listNotifications(params: {
+    limit?: number
+    cursor?: string
+  }): Promise<ListNotificationsResponse> {
+    return this.xrpc.query(NSID.listNotifications, params)
+  }
+
+  updateNotificationsSeen(input: { seenAt: string }): Promise<unknown> {
+    return this.xrpc.procedure(NSID.updateNotificationsSeen, input)
   }
 }

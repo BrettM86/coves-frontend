@@ -469,3 +469,60 @@ describe('Moderation methods', () => {
     expect(procedureSpy).toHaveBeenCalledWith(NSID.submitReport, input)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Notification methods
+// ---------------------------------------------------------------------------
+
+describe('Notification methods', () => {
+  // Observe the request that leaves the client: restore the file-level
+  // query spy so the real XrpcClient builds the URL for a fake fetch.
+  function notificationsFetch() {
+    querySpy.mockRestore()
+    const fetchSpy = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ notifications: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    const notificationsClient = new CovesClient({
+      fetchFn: fetchSpy as unknown as typeof fetch,
+      baseUrl: 'https://api.coves.social',
+    })
+    return { fetchSpy, notificationsClient }
+  }
+
+  it('listNotifications() sends one GET to listNotifications with limit and cursor', async () => {
+    const { fetchSpy, notificationsClient } = notificationsFetch()
+
+    await notificationsClient.listNotifications({ limit: 10, cursor: 'c1' })
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const [requested, init] = fetchSpy.mock.calls[0]
+    const url = new URL(String(requested))
+    expect(url.origin).toBe('https://api.coves.social')
+    expect(url.pathname).toBe(
+      '/xrpc/social.coves.notification.listNotifications',
+    )
+    expect([...url.searchParams.entries()].sort()).toEqual([
+      ['cursor', 'c1'],
+      ['limit', '10'],
+    ])
+    expect(init?.method ?? 'GET').toBe('GET')
+  })
+
+  it('listNotifications({}) sends neither limit nor cursor', async () => {
+    const { fetchSpy, notificationsClient } = notificationsFetch()
+
+    await notificationsClient.listNotifications({})
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const [requested, init] = fetchSpy.mock.calls[0]
+    const url = new URL(String(requested))
+    expect(url.pathname).toBe(
+      '/xrpc/social.coves.notification.listNotifications',
+    )
+    expect([...url.searchParams.keys()]).toEqual([])
+    expect(init?.method ?? 'GET').toBe('GET')
+  })
+})

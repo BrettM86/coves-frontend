@@ -322,8 +322,11 @@ it.each([false, true])(
           target.querySelector('section')?.classList.contains('max-h-36'),
         ).toBe(false)
       } else {
-        expect(target.textContent).not.toContain('END_OF_FULL_BODY')
-        expect(target.querySelector('button[title="Expand"]')).not.toBeNull()
+        // Feed cards clamp the preview to five lines instead of expanding.
+        expect(target.querySelector('.line-clamp-5')?.textContent).toContain(
+          'Long paragraph.',
+        )
+        expect(target.querySelector('button[title="Expand"]')).toBeNull()
       }
       toggle('Hide sensitive content').click()
       client.flushSync()

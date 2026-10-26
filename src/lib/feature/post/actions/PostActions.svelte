@@ -26,6 +26,11 @@
   interface Props {
     post: PostView
     view?: View
+    /**
+     * Feed-card action bar: flat icon buttons, menu and share on the left,
+     * comments and votes on the right, no save button.
+     */
+    feed?: boolean
     debug?: boolean
     style?: string
   }
@@ -33,6 +38,7 @@
   let {
     post = $bindable(),
     view = 'cozy',
+    feed = false,
     debug = $bindable(false),
     style = '',
   }: Props = $props()
@@ -53,37 +59,25 @@
   }
 </script>
 
-<footer
-  class={[
-    'flex flex-row gap-2 items-center shrink-0 text-slate-600 dark:text-zinc-400',
-    buttonHeight,
-  ]}
-  class:flex-row-reverse={settings.posts.reverseActions}
-  {style}
->
-  <VoteButton
-    uri={post.uri}
-    cid={post.cid}
-    bind:stats={post.stats}
-    bind:viewer={post.viewer}
-    emptyStats={EMPTY_POST_STATS}
-    emptyViewer={EMPTY_POST_VIEWER}
-    variant="post"
+{#snippet commentsButton(clazz: string, rounding: 'xl' | 'lg')}
+  <Button
+    size="custom"
+    href="{postLink(post)}#comments"
+    color={feed ? 'tertiary' : 'secondary'}
+    class={['text-inherit!', clazz]}
+    {rounding}
+    target={settings.openLinksInNewTab ? '_blank' : ''}
+    aria-label={$t('post.actions.comments')}
   >
-    <Button
-      size="custom"
-      href="{postLink(post)}#comments"
-      class="text-inherit! h-full px-3 relative"
-      rounding="xl"
-      target={settings.openLinksInNewTab ? '_blank' : ''}
-      aria-label={$t('post.actions.comments')}
-    >
-      <Icon src={MessageSquare} size="16" />
-      <FormattedNumber number={post.stats?.commentCount ?? 0} />
-    </Button>
-  </VoteButton>
-  <div class="flex-1"></div>
+    <Icon src={MessageSquare} size="16" />
+    <FormattedNumber
+      number={post.stats?.commentCount ?? 0}
+      class={feed ? 'text-[13px]' : ''}
+    />
+  </Button>
+{/snippet}
 
+{#snippet debugButton()}
   {#if settings.debugInfo}
     {#if debug}
       {#await import('$lib/ui/util/debug/DebugObject.svelte') then { default: DebugObject }}
@@ -99,45 +93,45 @@
       icon={Bug}
     ></Button>
   {/if}
+{/snippet}
 
-  {#if profile.current?.jwt}
-    <Button
-      onclick={async () => {
-        if (!profile.current?.jwt) return
-        toast({ content: 'Saving posts is not yet available', type: 'warning' })
-      }}
-      size="custom"
-      class={buttonSquare}
-      rounding="xl"
-      loading={saving}
-      disabled={saving}
-      title={post.viewer?.saved
-        ? $t('post.actions.unsave')
-        : $t('post.actions.save')}
-      icon={post.viewer?.saved ? BookmarkX : Bookmark}
-    ></Button>
-  {/if}
-
+{#snippet shareButton()}
   <Button
-    rounding="xl"
+    rounding={feed ? 'lg' : 'xl'}
+    color={feed ? 'tertiary' : 'secondary'}
     size="custom"
     class={buttonSquare}
     onclick={() => share()}
     icon={Forward}
     title={$t('post.actions.more.share')}
   />
+{/snippet}
 
+{#snippet moreMenu()}
   {#if profile.current?.jwt}
     <Menu placement="bottom-end">
       {#snippet target(popover)}
-        <Button
-          {@attach popover}
-          title={$t('post.actions.more.label')}
-          rounding="xl"
-          size="custom"
-          class={buttonSquare}
-          icon={Ellipsis}
-        ></Button>
+        {#if feed}
+          <Button
+            {@attach popover}
+            title={$t('post.actions.more.label')}
+            color="tertiary"
+            rounding="lg"
+            size="custom"
+            class="{buttonSquare} text-slate-900/60! dark:text-zinc-100/60!"
+          >
+            <Icon src={Ellipsis} size="20" />
+          </Button>
+        {:else}
+          <Button
+            {@attach popover}
+            title={$t('post.actions.more.label')}
+            rounding="xl"
+            size="custom"
+            class={buttonSquare}
+            icon={Ellipsis}
+          ></Button>
+        {/if}
       {/snippet}
       {#snippet children(open)}
         {#if open}
@@ -151,5 +145,75 @@
         {/if}
       {/snippet}
     </Menu>
+  {/if}
+{/snippet}
+
+<footer
+  class={[
+    'flex flex-row gap-2 items-center shrink-0 text-slate-600 dark:text-zinc-400',
+    buttonHeight,
+  ]}
+  class:flex-row-reverse={settings.posts.reverseActions}
+  {style}
+>
+  {#if feed}
+    <div class="flex flex-row items-center gap-1">
+      {@render moreMenu()}
+      {@render shareButton()}
+      {@render debugButton()}
+    </div>
+    <div class="flex-1"></div>
+    <div class="flex flex-row items-center gap-1 self-stretch">
+      {@render commentsButton('h-full px-2 gap-1', 'lg')}
+      <VoteButton
+        uri={post.uri}
+        cid={post.cid}
+        bind:stats={post.stats}
+        bind:viewer={post.viewer}
+        emptyStats={EMPTY_POST_STATS}
+        emptyViewer={EMPTY_POST_VIEWER}
+        variant="post"
+      />
+    </div>
+  {:else}
+    <VoteButton
+      uri={post.uri}
+      cid={post.cid}
+      bind:stats={post.stats}
+      bind:viewer={post.viewer}
+      emptyStats={EMPTY_POST_STATS}
+      emptyViewer={EMPTY_POST_VIEWER}
+      variant="post"
+    >
+      {@render commentsButton('h-full px-3 relative', 'xl')}
+    </VoteButton>
+    <div class="flex-1"></div>
+
+    {@render debugButton()}
+
+    {#if profile.current?.jwt}
+      <Button
+        onclick={async () => {
+          if (!profile.current?.jwt) return
+          toast({
+            content: 'Saving posts is not yet available',
+            type: 'warning',
+          })
+        }}
+        size="custom"
+        class={buttonSquare}
+        rounding="xl"
+        loading={saving}
+        disabled={saving}
+        title={post.viewer?.saved
+          ? $t('post.actions.unsave')
+          : $t('post.actions.save')}
+        icon={post.viewer?.saved ? BookmarkX : Bookmark}
+      ></Button>
+    {/if}
+
+    {@render shareButton()}
+
+    {@render moreMenu()}
   {/if}
 </footer>

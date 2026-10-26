@@ -96,7 +96,7 @@ const post = (): PostView => ({
   indexedAt: '2026-09-01T00:00:00Z',
   createdAt: '2026-09-01T00:00:00Z',
   stats: { upvotes: 40, downvotes: 4, score: 36, commentCount: 4 },
-  viewer: {},
+  viewer: { saved: false },
   record: {
     $type: 'social.coves.community.post',
     author: 'did:plc:author' as DID,

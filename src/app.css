@@ -24,6 +24,12 @@
   --color-bluesky-brand: #0a7aff;
   --color-bluesky-link: #1185fe;
 
+  /* Feed card palette, from the mobile app. Light values; `.dark` overrides. */
+  --color-community: #4a9994;
+  --color-inset-surface: rgb(241 245 249);
+  --color-inset-border: rgb(226 232 240);
+  --color-card-border: rgb(231 229 228);
+
   /* dark theme */
   --color-primary-100: rgb(248 248 251);
   --color-primary-200: rgb(175 175 185);
@@ -69,6 +75,10 @@ body {
 
 .dark {
   color-scheme: dark;
+  --color-community: #63b5b1;
+  --color-inset-surface: #1a1f26;
+  --color-inset-border: #2a2f36;
+  --color-card-border: #2d2a28;
 }
 
 .wait * {

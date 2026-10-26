@@ -29,7 +29,12 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions (delegates native anchor clicks) -->
 <ul
   bind:this={listEl}
-  class="flex flex-col list-none divide-y divide-slate-200 dark:divide-zinc-800"
+  class={[
+    'flex flex-col list-none',
+    settings.view == 'cozy'
+      ? 'divide-y-[0.5px] divide-card-border'
+      : 'divide-y divide-slate-200 dark:divide-zinc-800',
+  ]}
   onclick={handlePostFeedClick}
 >
   {#if posts?.length == 0}

@@ -590,7 +590,12 @@
     {:else}
       <VirtualList
         id="feed"
-        class="divide-y -mx-3 sm:-mx-6 divide-slate-100 dark:divide-zinc-900"
+        class={[
+          '-mx-3 sm:-mx-6',
+          settings.view == 'cozy'
+            ? 'divide-y-[0.5px] divide-card-border'
+            : 'divide-y divide-slate-100 dark:divide-zinc-900',
+        ]}
         items={posts}
         {initialOffset}
         overscan={3}
@@ -618,7 +623,10 @@
               view={isPinned && settings.posts.compactFeatured
                 ? 'compact'
                 : settings.view}
-              class="px-3 sm:px-6 hover:bg-slate-100/30 hover:dark:bg-zinc-900/30 transition-colors"
+              class={[
+                settings.view == 'cozy' ? 'px-4' : 'px-3 sm:px-6',
+                'hover:bg-slate-100/30 hover:dark:bg-zinc-900/30 transition-colors',
+              ]}
             ></Post>
           </li>
         {/snippet}

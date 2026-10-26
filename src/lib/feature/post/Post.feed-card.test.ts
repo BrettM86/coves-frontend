@@ -54,7 +54,8 @@ describe('Post feed card composition', () => {
     const thumbnails = [...article.querySelectorAll('a img')].filter(
       (image) =>
         image.closest('a')?.getAttribute('href') ===
-        'https://www.thegamer.com/tim-sweeney/',
+          'https://www.thegamer.com/tim-sweeney/' &&
+        !image.closest('[data-testid="external-link-bar"]'),
     )
     expect(thumbnails).toHaveLength(0)
   })

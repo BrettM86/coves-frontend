@@ -2,6 +2,7 @@
   import type { PostView } from '$lib/api/coves/types'
   import { type View, settings } from '$lib/app/state/settings.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
+  import { withPreset } from '$lib/api/coves/image-proxy'
   import type { ClassValue } from 'svelte/elements'
   import {
     PostActions,
@@ -10,8 +11,10 @@
     PostMediaCompact,
     PostMeta,
   } from '.'
+  import ExternalLinkBar from './ExternalLinkBar.svelte'
   import {
     bestImageURL,
+    extractEmbedThumbnail,
     extractEmbedTitle,
     extractEmbedUrl,
     mediaType,
@@ -22,6 +25,7 @@
   import { Badge, Button } from '$lib/ui/kit'
   import { Icon, Info } from '$lib/ui/kit/icon'
   import { t } from '$lib/app/state/i18n'
+  import { parseWebUrl } from '$lib/app/util/url'
 
   interface Props {
     post: PostView
@@ -57,6 +61,9 @@
       ? parseTags(post.record?.title)
       : { tags: [] as readonly MetaTag[], title: post.record?.title },
   )
+  // Home and community feeds; the detail page passes expandBody and keeps
+  // the full layout.
+  let feedCard = $derived(view === 'cozy' && !expandBody)
   let type = $derived(mediaType(post.embed))
   let sensitive = $derived(isSensitivePost(post))
   let nativeImage = $derived(
@@ -79,8 +86,26 @@
   })
   let embedUrl = $derived(extractEmbedUrl(post.embed))
   let embedTitle = $derived(extractEmbedTitle(post.embed))
+  // The feed card shows every external link as a link bar, including URIs
+  // mediaType rejects ('none'): the bar renders those inert.
+  let externalUri = $derived(
+    post.embed?.$type === 'social.coves.embed.external' ||
+      post.embed?.$type === 'social.coves.embed.external#view'
+      ? post.embed.external.uri?.trim() || undefined
+      : undefined,
+  )
+  // A plain link (not an image or a player) replaces PostLink's card on the
+  // feed with a framed thumbnail above the body.
+  let feedLink = $derived(feedCard && !!externalUri && type === 'embed')
+  let feedThumbnailHref = $derived(
+    feedLink && externalUri ? parseWebUrl(externalUri)?.href : undefined,
+  )
+  let feedThumbnail = $derived(
+    feedThumbnailHref ? extractEmbedThumbnail(post.embed) : undefined,
+  )
   let hideTitle = $derived(
-    !concealed &&
+    !feedCard &&
+      !concealed &&
       settings.posts.deduplicateEmbed &&
       !!post.record?.title &&
       embedTitle === post.record.title &&
@@ -122,6 +147,7 @@
 >
   <PostMeta
     {navigation}
+    feed={feedCard}
     community={post.community}
     showCommunity={!hideCommunity}
     user={post.author}
@@ -238,7 +264,9 @@
             '[&>*]:block [&>*]:w-full': view === 'cozy' && nativeImage,
           }}
         >
-          <PostMedia embed={post.embed} {view} {type} {priority} />
+          {#if !feedLink}
+            <PostMedia embed={post.embed} {view} {type} {priority} />
+          {/if}
         </div>
         {#if view == 'compact'}
           <PostMediaCompact
@@ -250,7 +278,38 @@
           />
         {/if}
       {/key}
-      {#if post.record?.content && view != 'compact'}
+      {#if feedThumbnail && feedThumbnailHref}
+        <a
+          href={feedThumbnailHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          tabindex="-1"
+          aria-hidden="true"
+          class="block overflow-hidden rounded-[8px] border border-inset-border"
+        >
+          <img
+            src={withPreset(feedThumbnail, 'embed_thumbnail')}
+            alt=""
+            loading="lazy"
+            width={600}
+            height={180}
+            class="w-full h-45 object-cover bg-inset-surface"
+          />
+        </a>
+      {/if}
+      {#if post.record?.content && feedCard}
+        <div
+          class="p-3 rounded-[10px] bg-inset-surface/70 border-[0.5px] border-inset-border/30"
+        >
+          <PostBody
+            element="section"
+            collapsible={false}
+            body={post.record.content}
+            facets={post.record.facets}
+            class="line-clamp-5 text-[13px] leading-[1.4] text-slate-900/85! dark:text-zinc-100/85!"
+          />
+        </div>
+      {:else if post.record?.content && view != 'compact'}
         <PostBody
           element="section"
           collapsible={!expandBody}
@@ -260,10 +319,13 @@
           class="relative"
         />
       {/if}
+      {#if feedCard && externalUri}
+        <ExternalLinkBar uri={externalUri} />
+      {/if}
     {/if}
   </div>
   {#if actions}
-    <PostActions bind:post style="grid-area: actions;" {view} />
+    <PostActions bind:post style="grid-area: actions;" {view} feed={feedCard} />
   {/if}
 </article>
 

@@ -309,7 +309,7 @@
             collapsible={false}
             body={post.record.content}
             facets={post.record.facets}
-            class="line-clamp-5 text-[13px] leading-[1.4] text-slate-900/85! dark:text-zinc-100/85!"
+            class="feed-body-preview line-clamp-5 text-[13px] leading-[1.4] text-slate-900/85! dark:text-zinc-100/85!"
           />
         </div>
       {:else if post.record?.content && view != 'compact'}
@@ -333,6 +333,16 @@
 </article>
 
 <style>
+  /* Feed-card body preview. Markdown's paragraph leading and block gaps are
+     sized for reading a full post; the five-line clamp needs them tight. */
+  :global(.feed-body-preview p) {
+    line-height: 1.4;
+  }
+
+  :global(.feed-body-preview > * > :not(:last-child)) {
+    margin-block-end: 0.5em;
+  }
+
   .list-type {
     display: grid;
     grid-template-areas: 'meta media' 'title media' 'sensitive media' 'body media' 'embed embed' 'actions actions';

@@ -60,3 +60,32 @@ it('never shows the Expand control on a feed card with an overflowing body', () 
   expect(target.textContent).toContain('Long paragraph.')
   expect(target.querySelector('button[title="Expand"]')).toBeNull()
 })
+
+it('drops the thumbnail frame when the thumbnail fails to load and keeps the link bar', () => {
+  target = document.createElement('div')
+  document.body.appendChild(target)
+  mounted = client.mount(Post, {
+    target,
+    props: { post: linkPost(), view: 'cozy', actions: false },
+    intro: false,
+  })
+  client.flushSync()
+
+  const thumbnail = target.querySelector(
+    'img[src="https://cdn.example.com/thumb.jpg"]',
+  )
+  const frame = thumbnail?.closest('a')
+  expect(frame).not.toBeNull()
+  expect(frame?.closest('[data-testid="external-link-bar"]')).toBeNull()
+
+  thumbnail?.dispatchEvent(new Event('error'))
+  client.flushSync()
+
+  expect(frame?.isConnected).toBe(false)
+  expect(
+    target.querySelector('img[src="https://cdn.example.com/thumb.jpg"]'),
+  ).toBeNull()
+  expect(
+    target.querySelector('[data-testid="external-link-bar"]'),
+  ).not.toBeNull()
+})

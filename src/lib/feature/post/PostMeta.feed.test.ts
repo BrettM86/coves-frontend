@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom'
 import type { AtUri, CommunityRef } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import PostMeta from './PostMeta.svelte'
+import { leafWithText } from './Post.feed-card.render'
 
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
 
@@ -19,7 +20,12 @@ const author = {
   handle: 'mayalin.coves.social' as Handle,
 }
 
-function renderFeedHeader(): HTMLElement {
+function renderFeedHeader(
+  overrides: {
+    showCommunity?: boolean
+    user?: typeof author & { avatar?: string }
+  } = {},
+): HTMLElement {
   const html = render(PostMeta, {
     props: {
       feed: true,
@@ -28,22 +34,12 @@ function renderFeedHeader(): HTMLElement {
       community,
       user: author,
       published: new Date('2026-10-01T00:00:00Z'),
+      ...overrides,
     },
   }).body
   const header = new JSDOM(html).window.document.querySelector('header')
   if (!header) throw new Error('PostMeta rendered no header')
   return header
-}
-
-/** Innermost elements under `root` whose whole text is exactly `text`. */
-function leafWithText(root: Element, text: string): Element[] {
-  return [...root.querySelectorAll('*')].filter(
-    (element) =>
-      element.textContent?.trim() === text &&
-      ![...element.children].some(
-        (child) => child.textContent?.trim() === text,
-      ),
-  )
 }
 
 function commonAncestor(first: Element, second: Element): Element | null {
@@ -91,5 +87,18 @@ describe('PostMeta feed header', () => {
     const header = renderFeedHeader()
     const avatar = header.querySelector('img')
     expect(avatar?.getAttribute('width')).toBe('24')
+  })
+
+  it('shows the author avatar and no community link when the community is hidden', () => {
+    const header = renderFeedHeader({
+      showCommunity: false,
+      user: { ...author, avatar: 'https://cdn.example/mayalin.png' },
+    })
+
+    expect(header.querySelector('a[href^="/c/"]')).toBeNull()
+    const authorAvatar = header.querySelector(
+      'img[src="https://cdn.example/mayalin.png"]',
+    )
+    expect(authorAvatar).not.toBeNull()
   })
 })

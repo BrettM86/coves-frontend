@@ -62,3 +62,24 @@ it('swaps a favicon that fails to load for the globe icon and stays a link', () 
     'https://www.thegamer.com/tim-sweeney/',
   )
 })
+
+it('shows a favicon again after a failed one when the uri changes', async () => {
+  const Fixture = (await import('./ExternalLinkBar.fixture.svelte')).default
+  const fixture = client.mount(Fixture, {
+    target,
+    props: { initialUri: 'https://www.thegamer.com/x' },
+  })
+  mounted = fixture
+  client.flushSync()
+
+  target.querySelector('img')?.dispatchEvent(new Event('error'))
+  client.flushSync()
+  expect(target.querySelector('img')).toBeNull()
+
+  fixture.setUri('https://lemmy.world/post/1')
+  client.flushSync()
+
+  expect(target.querySelector('img')?.getAttribute('src')).toBe(
+    'https://www.google.com/s2/favicons?domain=lemmy.world&sz=32',
+  )
+})

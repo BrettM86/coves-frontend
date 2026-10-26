@@ -103,6 +103,8 @@
   let feedThumbnail = $derived(
     feedThumbnailHref ? extractEmbedThumbnail(post.embed) : undefined,
   )
+  // Keyed by URL so a reused row retries when it shows another thumbnail.
+  let failedThumbnail = $state<string>()
   let hideTitle = $derived(
     !feedCard &&
       !concealed &&
@@ -278,7 +280,7 @@
           />
         {/if}
       {/key}
-      {#if feedThumbnail && feedThumbnailHref}
+      {#if feedThumbnail && feedThumbnailHref && feedThumbnail !== failedThumbnail}
         <a
           href={feedThumbnailHref}
           target="_blank"
@@ -291,6 +293,7 @@
             src={withPreset(feedThumbnail, 'embed_thumbnail')}
             alt=""
             loading="lazy"
+            onerror={() => (failedThumbnail = feedThumbnail)}
             width={600}
             height={180}
             class="w-full h-45 object-cover bg-inset-surface"

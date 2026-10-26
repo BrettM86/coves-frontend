@@ -9,7 +9,8 @@
   // labelled with the raw text so a stored javascript:/data: URI cannot
   // become a navigation.
   let url = $derived(parseWebUrl(uri.trim()))
-  let faviconFailed = $state(false)
+  // Keyed by host: a reused feed row showing another site retries its favicon.
+  let failedFaviconHost = $state<string>()
 </script>
 
 <!--
@@ -26,7 +27,7 @@
     aria-label="Open link to {url.hostname}"
     class="link-bar hover:brightness-95 dark:hover:brightness-125 transition"
   >
-    {#if faviconFailed}
+    {#if url.hostname === failedFaviconHost}
       <Icon src={Globe} size="18" class="shrink-0" />
     {:else}
       <img
@@ -35,7 +36,7 @@
         width="18"
         height="18"
         class="shrink-0 rounded-[4px]"
-        onerror={() => (faviconFailed = true)}
+        onerror={() => (failedFaviconHost = url?.hostname)}
       />
     {/if}
     <span class="link-bar-label">{url.hostname}</span>

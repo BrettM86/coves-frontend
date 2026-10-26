@@ -260,6 +260,8 @@
         <address class="contents not-italic">
           <UserLink
             {user}
+            avatar={!showCommunity}
+            avatarSize={24}
             class="text-xs text-slate-600 dark:text-zinc-400 self-start"
           />
         </address>

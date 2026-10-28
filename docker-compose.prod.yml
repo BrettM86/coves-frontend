@@ -45,11 +45,13 @@ services:
       - coves-internal
     # The image's own HEALTHCHECK hits /healthz, which reports on this process
     # only (never the backend) — see src/routes/healthz/+server.ts.
+    # journald keeps logs across recreates; json-file logs are deleted with
+    # the container. `docker logs` shows only the current container; for
+    # history use `journalctl CONTAINER_NAME=<name>`.
     logging:
-      driver: json-file
+      driver: journald
       options:
-        max-size: "50m"
-        max-file: "5"
+        tag: "{{.Name}}"
 
 networks:
   coves-internal:

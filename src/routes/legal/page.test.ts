@@ -47,7 +47,11 @@ describe('public legal and source links', () => {
 
   it('offers the public corresponding source and local licence', () => {
     const html = render(Legal).body
-    expect(html).toContain('href="https://github.com/BrettM86/coves-frontend"')
+    for (const repository of ['coves-frontend', 'coves', 'tidepool']) {
+      expect(html).toContain(
+        `href="https://tangled.org/bretton.dev/${repository}"`,
+      )
+    }
     expect(html).toContain('href="/license"')
   })
 })

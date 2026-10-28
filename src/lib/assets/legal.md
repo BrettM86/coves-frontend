@@ -19,4 +19,8 @@ This software is provided without warranty. You may redistribute and modify it u
 
 ### Source code
 
-The [Coves frontend source code](https://github.com/BrettM86/coves-frontend) is publicly available.
+The Coves source code is publicly available on Tangled:
+
+- [Coves frontend](https://tangled.org/bretton.dev/coves-frontend)
+- [Coves backend](https://tangled.org/bretton.dev/coves)
+- [Tidepool (production operations)](https://tangled.org/bretton.dev/tidepool)

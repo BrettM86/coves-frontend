@@ -1,3 +1,19 @@
+<script lang="ts" module>
+  // Each open panel's trigger, so a click can be traced back through nested
+  // popovers to the panel that opened them.
+  const panelTriggers = new WeakMap<Element, Element>()
+
+  function opensFrom(panel: Element | null, owner: HTMLElement): boolean {
+    while (panel) {
+      const trigger = panelTriggers.get(panel)
+      if (!trigger) return false
+      if (owner.contains(trigger)) return true
+      panel = trigger.closest('[data-popover-panel]')
+    }
+    return false
+  }
+</script>
+
 <script lang="ts">
   import {
     type Middleware,
@@ -92,8 +108,7 @@
 
     const mouseover = () => openOnHover && toggle(true)
     const mouseleave = () => openOnHover && toggle(false)
-    const focus = () =>
-      openOnHover && !restoringTriggerFocus && toggle(true)
+    const focus = () => openOnHover && !restoringTriggerFocus && toggle(true)
     const focusout = () => openOnHover && toggle(false)
     const click = () => {
       toggle()
@@ -104,7 +119,16 @@
 
           const target = event.target as Element | null
 
-          if (!e?.contains(event.target as Element | null)) {
+          // A nested popover renders in its own portal, outside this panel.
+          // Clicks inside it belong to it, so they must not close this one too.
+          const nested =
+            popoverEl != null &&
+            opensFrom(
+              target?.closest('[data-popover-panel]') ?? null,
+              popoverEl,
+            )
+
+          if (!e?.contains(event.target as Element | null) && !nested) {
             if (target?.closest("[data-autoclose='false']") == null) {
               toggle(false)
               document.removeEventListener('click', clickHandler)
@@ -131,6 +155,10 @@
       if (triggerEl === e) triggerEl = undefined
     }
   }
+
+  $effect(() => {
+    if (popoverEl && triggerEl) panelTriggers.set(popoverEl, triggerEl)
+  })
 
   function onkeydown(event: KeyboardEvent): void {
     if (event.key !== 'Escape') return
@@ -161,6 +189,7 @@
         easing: expoOut,
       }}
       class={['z-150', popoverClass]}
+      data-popover-panel
       use:floatingContent={{ strategy, placement, middleware }}
       use:trapFocus
       bind:this={popoverEl}

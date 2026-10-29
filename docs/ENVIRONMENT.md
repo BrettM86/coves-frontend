@@ -97,7 +97,7 @@ All optional. Booleans accept `true`/`false`. They seed a new user's settings
 
 | Variable                        | Default        | Description                                              |
 | ------------------------------- | -------------- | -------------------------------------------------------- |
-| `PUBLIC_THEME`                  | Kelp default   | JSON theme exported from the theme settings page.        |
+| `PUBLIC_THEME`                  | Kelp default   | Theme page export or colours only. The name is ignored.  |
 | `PUBLIC_COLORSCHEME`            | `system`       | `system`, `light` or `dark`.                             |
 | `PUBLIC_FONT`                   | `inter`        | Font preset.                                             |
 | `PUBLIC_LANGUAGE`               | browser locale | Force a UI language code.                                |

@@ -15,7 +15,7 @@
   --spacing-22: 88px;
 
   --color-slate-25: rgb(252 253 254);
-  --color-zinc-925: 28 28 32;
+  --color-zinc-925: rgb(28 28 32);
 
   --color-bluesky-surface: #151d28;
   --color-bluesky-surface-hover: #1c2939;
@@ -25,7 +25,7 @@
   --color-bluesky-link: #1185fe;
 
   /* dark theme */
-  --color-primary-100: rgb(248 248 251);
+  --color-primary-100: rgb(241 245 249);
   --color-primary-200: rgb(175 175 185);
 
   /* light theme */

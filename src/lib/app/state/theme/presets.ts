@@ -1,4 +1,6 @@
 import { env } from '$env/dynamic/public'
+import { log } from '$lib/app/util/log'
+import { parseThemeImport } from './colors'
 import type { Theme, ThemeColors } from './theme.svelte'
 
 const KELP_DEFAULT = {
@@ -40,23 +42,49 @@ const KELP_DEFAULT = {
   },
 }
 
+/** Fresh deep copy of the Kelp colours, so callers never mutate KELP_DEFAULT. */
+function kelpColors(): ThemeColors {
+  return JSON.parse(JSON.stringify(KELP_DEFAULT))
+}
+
+/**
+ * PUBLIC_THEME takes either format the theme page exports or imports — the
+ * named `{ name, colors }` export or the legacy colours-only object — filled
+ * in from Kelp. Parsed once at import; an invalid value falls back to Kelp
+ * rather than throwing, since this runs at module init.
+ */
+function parseInstanceColors(text: string | undefined): ThemeColors | null {
+  if (!text) return null
+  const result = parseThemeImport(text, kelpColors())
+  if (result.ok) return result.colors
+  log.warn(
+    '[theme] ignoring invalid PUBLIC_THEME, using the Kelp default',
+    undefined,
+    { error: result.error },
+  )
+  return null
+}
+
+const instanceColors = parseInstanceColors(env.PUBLIC_THEME)
+
+/** A fresh copy on every call: themes built from it must not share objects. */
 export function getDefaultColors(): ThemeColors {
-  return env.PUBLIC_THEME ? JSON.parse(env.PUBLIC_THEME) : KELP_DEFAULT
+  return instanceColors
+    ? JSON.parse(JSON.stringify(instanceColors))
+    : kelpColors()
 }
 
 export function getDefaultTheme(): Theme {
   return {
     id: 0,
     colors: getDefaultColors(),
-    name: env.PUBLIC_THEME ? 'Instance Default' : 'Mono',
+    name: instanceColors ? 'Instance Default' : 'Mono',
   }
 }
 
 export const presets: Theme[] = [
   getDefaultTheme(),
-  ...(env.PUBLIC_THEME
-    ? [{ colors: KELP_DEFAULT, id: -10, name: 'Mono' }]
-    : []),
+  ...(instanceColors ? [{ colors: kelpColors(), id: -10, name: 'Mono' }] : []),
   {
     colors: {
       slate: {

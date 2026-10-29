@@ -13,6 +13,9 @@ import { afterEach, beforeEach, describe, expect, inject, it } from 'vitest'
 import {
   RSS_AUTHOR_HANDLE,
   RSS_COMMUNITY,
+  RSS_IMAGE_POST_HERON,
+  RSS_IMAGE_POST_KITE,
+  RSS_IMAGE_POST_URI,
   UNKNOWN_PATHS_PATH,
   XRPC_LOG_PATH,
   type XrpcRequest,
@@ -36,6 +39,15 @@ function itemLinks(xml: string): (string | null)[] {
     doc.querySelectorAll('item > link'),
     (link) => link.textContent,
   )
+}
+
+/** The decoded HTML description of the item with `guid`. */
+function itemDescription(xml: string, guid: string): string | null {
+  const doc = new DOMParser().parseFromString(xml, 'application/xml')
+  const item = Array.from(doc.querySelectorAll('item')).find(
+    (candidate) => candidate.querySelector('guid')?.textContent === guid,
+  )
+  return item?.querySelector('description')?.textContent ?? null
 }
 
 async function readXrpcLog(): Promise<XrpcRequest[]> {
@@ -90,6 +102,24 @@ describe('RSS feeds on the built server', () => {
         (call) => call.authorization !== null || call.cookie !== null,
       ),
     ).toEqual([])
+  })
+
+  it('shows a placed image inside the body and the unplaced image after it', async () => {
+    const response = await fetch(`${baseUrl}/c/${RSS_COMMUNITY}/rss`)
+    const body = await response.text()
+    const html = itemDescription(body, RSS_IMAGE_POST_URI) ?? ''
+    const blocks = Array.from(JSDOM.fragment(html).children, (el) => {
+      const img = el.querySelector('img')
+      return img ? `img ${img.getAttribute('src')}` : `p ${el.textContent}`
+    })
+
+    expect(response.status).toBe(200)
+    expect(blocks).toEqual([
+      'p Before the photo',
+      `img ${RSS_IMAGE_POST_KITE}`,
+      'p After the photo',
+      `img ${RSS_IMAGE_POST_HERON}`,
+    ])
   })
 
   it("serves a user's comments feed", async () => {

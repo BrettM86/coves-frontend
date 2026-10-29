@@ -2,7 +2,7 @@
  * Post and comment bodies as plain semantic HTML for feed readers.
  *
  * Built from the same parse the site renders from (`lex()` for Markdown,
- * `buildRichText()` for faceted content), so linkify, link localization and
+ * `buildRichTextWithPlacements()` for faceted content), so linkify, link localization and
  * the href allowlist match what a visitor sees. The output carries no
  * classes, comments or UI chrome. Every text node and attribute value is
  * HTML-escaped and every href passes {@link resolveHref}; raw HTML in the
@@ -10,15 +10,18 @@
  * site.
  */
 import type { Token, Tokens } from 'marked'
+import { imageUrl } from '$lib/api/coves/image-proxy'
+import type { EmbedImage } from '$lib/api/coves/types'
 import { t } from '$lib/app/state/i18n'
-import { isSafeHref, SAFE_PROTOCOLS } from '$lib/app/util/url'
+import { isSafeHref, parseWebUrl, SAFE_PROTOCOLS } from '$lib/app/util/url'
 import { lex } from '$lib/feature/markdown/Markdown.svelte'
 import { localizeLink } from '$lib/feature/markdown/renderers/plugins'
 import {
-  buildRichText,
-  type Block,
-  type Inline,
+  buildRichTextWithPlacements,
   type LinkSpan,
+  type PlacedBlock,
+  type PlacedImageBlock,
+  type PlacedInline,
   type TextSegment,
 } from '$lib/feature/richtext/facets'
 
@@ -48,6 +51,25 @@ export function resolveHref(href: string, origin: string): string | null {
   } catch {
     return null
   }
+}
+
+/** An absolute http(s) URL for `raw` resolved against `origin`, or null. */
+function absoluteWebUrl(raw: string, origin: string): string | null {
+  // An empty URL would resolve to the site root and pass as a web URL.
+  if (!raw) return null
+  try {
+    return parseWebUrl(new URL(raw, origin).href)?.href ?? null
+  } catch {
+    return null
+  }
+}
+
+/** An image paragraph at its fullsize URL, or nothing when the URL is not an
+ * absolute http(s) URL. */
+export function imageHtml(image: EmbedImage, origin: string): string {
+  const src = absoluteWebUrl(imageUrl(image, 'fullsize') ?? '', origin)
+  if (src === null) return ''
+  return `<p><img src="${escapeHtml(src)}" alt="${escapeHtml(image.alt ?? '')}"></p>`
 }
 
 function anchor(href: string | null, inner: string, title?: string): string {
@@ -219,7 +241,7 @@ function linkOrText(node: TextSegment | LinkSpan, origin: string): string {
   return node.type === 'link' ? richLink(node, origin) : textSegment(node)
 }
 
-function richInlines(nodes: readonly Inline[], origin: string): string {
+function richInlines(nodes: readonly PlacedInline[], origin: string): string {
   return nodes
     .map((node) =>
       node.type === 'spoiler'
@@ -232,7 +254,31 @@ function richInlines(nodes: readonly Inline[], origin: string): string {
     .join('')
 }
 
-function richBlock(block: Block, origin: string): string {
+/**
+ * A placed image; one in a spoiler shows behind the spoiler's reason. An
+ * image without a usable URL links to the item instead, since its facet's
+ * text is no longer in the body.
+ */
+function richImage(
+  block: PlacedImageBlock,
+  origin: string,
+  itemLink: string,
+): string {
+  const html =
+    imageHtml(block.image, origin) ||
+    `<p><a href="${escapeHtml(itemLink)}">View image</a></p>`
+  if (!block.spoiler) return html
+  return spoilerDetails(
+    block.spoiler.reason ?? t.get('content.spoiler.show'),
+    html,
+  )
+}
+
+function richBlock(
+  block: PlacedBlock,
+  origin: string,
+  itemLink: string,
+): string {
   switch (block.type) {
     case 'paragraph':
       return `<p>${richInlines(block.children, origin)}</p>`
@@ -241,17 +287,26 @@ function richBlock(block: Block, origin: string): string {
     case 'codeBlock':
       return `<pre><code>${escapeHtml(block.code)}</code></pre>`
     case 'blockquote':
-      return `<blockquote>${block.children.map((child) => richBlock(child, origin)).join('')}</blockquote>`
+      return `<blockquote>${block.children.map((child) => richBlock(child, origin, itemLink)).join('')}</blockquote>`
+    case 'image':
+      return richImage(block, origin, itemLink)
   }
 }
 
-/** Renders faceted content as HTML with links absolute against `origin`. */
+/**
+ * Renders faceted content as HTML with links absolute against `origin` and
+ * each image in `placed` (facet position to image, from `imageLayout`) drawn
+ * where its facet's text was. A placed image without a usable URL links to
+ * `itemLink`, the item's page on the site.
+ */
 export function richTextToRssHtml(
   content: string,
   facets: unknown[],
   origin: string,
+  placed: ReadonlyMap<number, EmbedImage>,
+  itemLink: string,
 ): string {
-  return buildRichText(content, facets)
-    .map((block) => richBlock(block, origin))
+  return buildRichTextWithPlacements(content, facets, placed)
+    .map((block) => richBlock(block, origin, itemLink))
     .join('')
 }

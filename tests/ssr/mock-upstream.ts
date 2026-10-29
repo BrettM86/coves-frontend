@@ -86,6 +86,40 @@ const RSS_POST = {
   viewer: { saved: false },
 }
 
+/** A faceted post whose first image is placed mid-body by an `#image` facet
+ * over "[kite]" (bytes 17-23) and whose second image stays in the gallery. */
+export const RSS_IMAGE_POST_URI =
+  'at://did:plc:rssauthorabcdefghijklm/social.coves.community.post/rssimagepost'
+export const RSS_IMAGE_POST_KITE =
+  'https://img.coves.test/img/content_full/plain/did:plc:rssauthorabcdefghijklm/kite'
+export const RSS_IMAGE_POST_HERON =
+  'https://img.coves.test/img/content_full/plain/did:plc:rssauthorabcdefghijklm/heron'
+
+const RSS_IMAGE_POST = {
+  ...RSS_POST,
+  uri: RSS_IMAGE_POST_URI,
+  cid: 'bafyreirssimagepostaaa',
+  rkey: 'rssimagepost',
+  record: {
+    ...RSS_POST.record,
+    title: 'RSS image fixture post',
+    content: 'Before the photo\n[kite]\nAfter the photo',
+    facets: [
+      {
+        index: { byteStart: 17, byteEnd: 23 },
+        features: [{ $type: 'social.coves.richtext.facet#image', index: 0 }],
+      },
+    ],
+  },
+  embed: {
+    $type: 'social.coves.embed.images#view',
+    images: [
+      { fullsize: RSS_IMAGE_POST_KITE, alt: 'Kite' },
+      { fullsize: RSS_IMAGE_POST_HERON, alt: 'Heron' },
+    ],
+  },
+}
+
 const RSS_COMMENT = {
   uri: 'at://did:plc:rssauthorabcdefghijklm/social.coves.community.comment/rsscomment',
   cid: 'bafyreirsscommentaaaaa',
@@ -108,7 +142,7 @@ const RSS_COMMENT = {
 /** JSON bodies for the RSS feeds' XRPC calls, keyed by path. */
 const RSS_FIXTURES: Record<string, (query: URLSearchParams) => unknown> = {
   '/xrpc/social.coves.communityFeed.getCommunity': () => ({
-    feed: [{ post: RSS_POST }],
+    feed: [{ post: RSS_POST }, { post: RSS_IMAGE_POST }],
   }),
   '/xrpc/social.coves.community.get': () => ({
     did: RSS_POST.community.did,

@@ -1,10 +1,4 @@
-import { imageUrl } from '$lib/api/coves/image-proxy'
-import type {
-  CommentView,
-  EmbedImage,
-  PostEmbed,
-  PostView,
-} from '$lib/api/coves/types'
+import type { CommentView, PostEmbed, PostView } from '$lib/api/coves/types'
 import { parseWebUrl } from '$lib/app/util/url'
 import { isSensitivePost } from '$lib/feature/post/content-labels'
 import {
@@ -13,40 +7,95 @@ import {
   postTextFallback,
 } from '$lib/feature/post/helpers'
 import { hasFacets } from '$lib/feature/richtext/facets'
+import {
+  imageLayout,
+  removePlacedText,
+} from '$lib/feature/richtext/image-layout'
 import type { RssItem } from './document'
-import { escapeHtml, markdownToRssHtml, richTextToRssHtml } from './html'
-
-/** An absolute http(s) URL for `raw` resolved against `origin`, or null. */
-function absoluteWebUrl(raw: string, origin: string): string | null {
-  // An empty URL would resolve to the site root and pass as a web URL.
-  if (!raw) return null
-  try {
-    return parseWebUrl(new URL(raw, origin).href)?.href ?? null
-  } catch {
-    return null
-  }
-}
+import {
+  escapeHtml,
+  imageHtml,
+  markdownToRssHtml,
+  richTextToRssHtml,
+} from './html'
 
 function absoluteLink(path: string, origin: string): string {
   return new URL(path, origin).href
 }
 
-/** Faceted content renders from its facets, anything else as Markdown. */
+/**
+ * Faceted content renders from its facets, with the embed's placed images in
+ * the body; anything else renders as Markdown.
+ */
 function bodyHtml(
   content: string | undefined,
   facets: unknown,
+  embed: PostEmbed | undefined,
+  itemLink: string,
   origin: string,
 ): string {
   if (!content) return ''
   return hasFacets(facets)
-    ? richTextToRssHtml(content, facets, origin)
+    ? richTextToRssHtml(
+        content,
+        facets,
+        origin,
+        imageLayout(embed, content, facets).placed,
+        itemLink,
+      )
     : markdownToRssHtml(content, origin)
 }
 
-function imageHtml(image: EmbedImage, origin: string): string {
-  const src = absoluteWebUrl(imageUrl(image, 'fullsize') ?? '', origin)
-  if (src === null) return ''
-  return `<p><img src="${escapeHtml(src)}" alt="${escapeHtml(image.alt ?? '')}"></p>`
+/** The images not placed in the body, in index order. */
+function galleryHtml(
+  embed: PostEmbed,
+  content: string | undefined,
+  facets: unknown,
+  origin: string,
+): string {
+  return imageLayout(
+    embed,
+    content ?? '',
+    hasFacets(facets) ? facets : undefined,
+  )
+    .gallery.map((image) => imageHtml(image, origin))
+    .join('')
+}
+
+function externalHtml(fields: {
+  uri: string
+  title?: string
+  description?: string
+}): string {
+  const href = parseWebUrl(fields.uri)?.href ?? null
+  const label = escapeHtml(fields.title || (href ?? ''))
+  const link =
+    href === null
+      ? label && `<p>${label}</p>`
+      : `<p><a href="${escapeHtml(href)}">${label}</a></p>`
+  return fields.description
+    ? `${link}<p>${escapeHtml(fields.description)}</p>`
+    : link
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+/** The external link of a raw imagesWithAttachment record, which arrives
+ * untyped; nothing when it carries no external URI. */
+function recordAttachmentHtml(embed: object): string {
+  const attachment: unknown = Reflect.get(embed, 'attachment')
+  if (typeof attachment !== 'object' || attachment === null) return ''
+  const external: unknown = Reflect.get(attachment, 'external')
+  if (typeof external !== 'object' || external === null) return ''
+  const uri = optionalString(Reflect.get(external, 'uri'))
+  if (!uri) return ''
+  return externalHtml({
+    uri,
+    title: optionalString(Reflect.get(external, 'title')),
+    description: optionalString(Reflect.get(external, 'description')),
+  })
 }
 
 /**
@@ -55,30 +104,35 @@ function imageHtml(image: EmbedImage, origin: string): string {
  */
 function embedHtml(
   embed: PostEmbed | undefined,
+  content: string | undefined,
+  facets: unknown,
   itemLink: string,
   origin: string,
 ): string {
   if (!embed) return ''
-  // The backend sends the raw images record, outside the PostEmbed union,
-  // when it cannot hydrate the blobs into URLs.
+  // The backend sends the raw images and imagesWithAttachment records,
+  // outside the PostEmbed union, when it cannot hydrate the blobs into URLs.
   const type: string = embed.$type
-  if (type === 'social.coves.embed.images') {
-    return `<p><a href="${escapeHtml(itemLink)}">View images</a></p>`
+  const viewImages = `<p><a href="${escapeHtml(itemLink)}">View images</a></p>`
+  if (type === 'social.coves.embed.images') return viewImages
+  if (type === 'social.coves.embed.imagesWithAttachment') {
+    return viewImages + recordAttachmentHtml(embed)
   }
   switch (embed.$type) {
     case 'social.coves.embed.images#view':
-      return embed.images.map((image) => imageHtml(image, origin)).join('')
-    case 'social.coves.embed.external':
-    case 'social.coves.embed.external#view': {
-      const { uri, title, description } = embed.external
-      const href = parseWebUrl(uri)?.href ?? null
-      const label = escapeHtml(title || (href ?? ''))
-      const link =
-        href === null
-          ? label && `<p>${label}</p>`
-          : `<p><a href="${escapeHtml(href)}">${label}</a></p>`
-      return description ? `${link}<p>${escapeHtml(description)}</p>` : link
+      return galleryHtml(embed, content, facets, origin)
+    case 'social.coves.embed.imagesWithAttachment#view': {
+      const { attachment } = embed
+      // A post attachment is a record the feed cannot carry; it adds nothing.
+      const attachmentHtml =
+        attachment.$type === 'social.coves.embed.external#viewExternal'
+          ? externalHtml(attachment)
+          : ''
+      return galleryHtml(embed, content, facets, origin) + attachmentHtml
     }
+    case 'social.coves.embed.external':
+    case 'social.coves.embed.external#view':
+      return externalHtml(embed.external)
     case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
       return `<p><a href="${escapeHtml(itemLink)}">View video</a></p>`
@@ -91,9 +145,14 @@ function embedHtml(
 // A sensitive post's body is withheld from the feed, so its excerpt
 // cannot stand in for a missing title either.
 function postTitle(post: PostView): string {
-  const excerpt = isSensitivePost(post)
-    ? ''
-    : postTextFallback(post.record?.content, 80)
+  const content = post.record?.content
+  const facets = post.record?.facets
+  // Text covered by a placed image is drawn as the image, not read as text.
+  const text =
+    content && hasFacets(facets)
+      ? removePlacedText(post.embed, content, facets)
+      : content
+  const excerpt = isSensitivePost(post) ? '' : postTextFallback(text, 80)
   return post.record?.title || excerpt || `Post by @${post.author.handle}`
 }
 
@@ -118,8 +177,20 @@ export function postToRssItem(post: PostView, origin: string): RssItem {
   return {
     ...item,
     html:
-      bodyHtml(post.record?.content, post.record?.facets, origin) +
-      embedHtml(post.embed, link, origin),
+      bodyHtml(
+        post.record?.content,
+        post.record?.facets,
+        post.embed,
+        link,
+        origin,
+      ) +
+      embedHtml(
+        post.embed,
+        post.record?.content,
+        post.record?.facets,
+        link,
+        origin,
+      ),
   }
 }
 
@@ -146,8 +217,8 @@ export function commentsToRssItems(
       publishedAt: comment.createdAt,
       author: `@${author.handle}`,
       html:
-        bodyHtml(record.content, record.facets, origin) +
-        embedHtml(comment.embed, link, origin),
+        bodyHtml(record.content, record.facets, comment.embed, link, origin) +
+        embedHtml(comment.embed, record.content, record.facets, link, origin),
     })
   }
   return items

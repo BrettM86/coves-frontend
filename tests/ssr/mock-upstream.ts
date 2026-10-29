@@ -6,6 +6,8 @@
  *   - `GET /api/me`            (hooks.server.ts, only when a session cookie is present)
  *   - `GET /xrpc/social.coves.feed.getDiscover` (the `/` page load)
  *   - `GET /xrpc/social.coves.community.list` (`/explore/communities`)
+ *   - `POST /xrpc/social.coves.media.uploadImage` and
+ *     `POST /xrpc/social.coves.actor.updateProfile` (through `/api/proxy`)
  *   - the RSS feeds' calls (`/c/<community>/rss`, `/profile/<handle>/rss`):
  *     `communityFeed.getCommunity`, `community.get`, `actor.getProfile`,
  *     `actor.getPosts`, `actor.getComments` and `community.post.get`
@@ -14,9 +16,12 @@
  *
  * Beyond answering, it RECORDS: every `/xrpc/*` call with the `Authorization`
  * and `Cookie` headers it arrived with, so a test can check what credentials a render
- * actually put on the wire rather than only what it rendered. Both records are
+ * actually put on the wire rather than only what it rendered; and every body
+ * the two write endpoints above received, by size, type and hash, so a test
+ * can prove a proxied upload arrived byte for byte. All records are
  * readable over the control plane, since the tests run in a different process.
  */
+import { createHash } from 'node:crypto'
 import http from 'node:http'
 import type { AddressInfo } from 'node:net'
 
@@ -38,6 +43,9 @@ export const XRPC_LOG_PATH = '/__test/xrpc-requests'
 
 /** Control-plane path listing paths the mock did not recognise. */
 export const UNKNOWN_PATHS_PATH = '/__test/unknown-paths'
+
+/** Control-plane path listing the bodies the write endpoints received. */
+export const RECEIVED_BODIES_PATH = '/__test/received-bodies'
 
 /** Visible content proving the CORS-free XRPC payload reached SSR rendering. */
 export const SSR_POST_MARKER = 'SSR feed post from CORS-free upstream'
@@ -143,6 +151,35 @@ export interface XrpcRequest {
   readonly cookie: string | null
 }
 
+/** One body a write endpoint received, as the upstream saw it. */
+export interface ReceivedBody {
+  readonly path: string
+  /** The inbound `Content-Type` header verbatim, or null if there was none. */
+  readonly contentType: string | null
+  /** Bytes actually received, not the declared `Content-Length`. */
+  readonly size: number
+  /** Lowercase hex SHA-256 of the received bytes. */
+  readonly sha256: string
+  /** The body parsed as JSON when it was sent as JSON, otherwise null. */
+  readonly json: unknown
+}
+
+/** The write endpoints whose bodies are recorded, with the JSON they answer. */
+const WRITE_ENDPOINTS: Record<string, unknown> = {
+  '/xrpc/social.coves.media.uploadImage': {
+    blob: {
+      $type: 'blob',
+      ref: { $link: 'bafkreiuploadedimageaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+      mimeType: 'image/jpeg',
+      size: 0,
+    },
+  },
+  '/xrpc/social.coves.actor.updateProfile': {
+    uri: 'at://did:plc:abcdefghijklmnopqrstuvwx/social.coves.actor.profile/self',
+    cid: 'bafyreiupdatedprofileaaaa',
+  },
+}
+
 export interface MockUpstream {
   /** Origin the built server should be pointed at, e.g. `http://127.0.0.1:51234`. */
   readonly url: string
@@ -161,6 +198,8 @@ export async function startMockUpstream(): Promise<MockUpstream> {
   const unknownPaths: string[] = []
 
   const xrpcRequests: XrpcRequest[] = []
+
+  const receivedBodies: ReceivedBody[] = []
 
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://upstream.invalid')
@@ -189,6 +228,18 @@ export async function startMockUpstream(): Promise<MockUpstream> {
       }
       res.writeHead(200, BASE_HEADERS)
       res.end(JSON.stringify({ paths: [...new Set(unknownPaths)] }))
+      return
+    }
+
+    if (path === RECEIVED_BODIES_PATH) {
+      if (req.method === 'DELETE') {
+        receivedBodies.length = 0
+        res.writeHead(200, BASE_HEADERS)
+        res.end(JSON.stringify({ ok: true }))
+        return
+      }
+      res.writeHead(200, BASE_HEADERS)
+      res.end(JSON.stringify({ bodies: receivedBodies }))
       return
     }
 
@@ -291,6 +342,28 @@ export async function startMockUpstream(): Promise<MockUpstream> {
           ],
         }),
       )
+      return
+    }
+
+    const writeResponse = WRITE_ENDPOINTS[path]
+    if (req.method === 'POST' && writeResponse !== undefined) {
+      const chunks: Buffer[] = []
+      req.on('data', (chunk: Buffer) => chunks.push(chunk))
+      req.on('end', () => {
+        const body = Buffer.concat(chunks)
+        const contentType = req.headers['content-type'] ?? null
+        receivedBodies.push({
+          path,
+          contentType,
+          size: body.length,
+          sha256: createHash('sha256').update(body).digest('hex'),
+          json: contentType?.startsWith('application/json')
+            ? (JSON.parse(body.toString('utf8')) as unknown)
+            : null,
+        })
+        res.writeHead(200, BASE_HEADERS)
+        res.end(JSON.stringify(writeResponse))
+      })
       return
     }
 

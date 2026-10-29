@@ -223,6 +223,58 @@ const CACHE_VALIDATOR_HEADERS = [
   'expires',
 ] as const satisfies readonly Lowercase<string>[]
 
+/** The one proxied route that carries raw image bytes. */
+const IMAGE_UPLOAD_PATH = 'xrpc/social.coves.media.uploadImage'
+
+/**
+ * Largest image body the upload route forwards, matching the backend's 10 MB
+ * cap. Checked here so an oversized upload is refused before it is buffered in
+ * full or sent upstream. Other routes have no proxy cap; Caddy and
+ * BODY_SIZE_LIMIT bound them.
+ */
+const MAXIMUM_IMAGE_UPLOAD_BYTES = 10_000_000
+
+/** Upstream budget for ordinary requests. */
+const UPSTREAM_TIMEOUT_MILLISECONDS = 30_000
+
+/** Upstream budget for image uploads, which the backend stores and processes. */
+const IMAGE_UPLOAD_TIMEOUT_MILLISECONDS = 120_000
+
+/** A 413 answered by the proxy itself, without contacting the upstream. */
+function payloadTooLargeResponse(isImageUpload: boolean): Response {
+  return new Response(
+    JSON.stringify(
+      isImageUpload
+        ? {
+            error: 'ImageTooLarge',
+            message: 'Image must be 10 MB or smaller',
+          }
+        : {
+            error: 'PayloadTooLarge',
+            message: 'Request body is too large',
+          },
+    ),
+    {
+      status: 413,
+      headers: { 'Content-Type': 'application/json' },
+    },
+  )
+}
+
+/**
+ * True when reading the request body failed because it exceeded
+ * BODY_SIZE_LIMIT: adapter-node rejects the read with a SvelteKitError whose
+ * `status` is 413.
+ */
+function isBodySizeLimitError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    error.status === 413
+  )
+}
+
 /**
  * The slice of the SvelteKit request event the proxy actually uses. Narrowing
  * structurally (rather than taking a full RequestEvent) keeps the exported
@@ -251,6 +303,7 @@ async function handler({
   getClientAddress,
 }: ProxyRequestEvent): Promise<Response> {
   const path = params.path
+  const isImageUpload = path === IMAGE_UPLOAD_PATH
 
   // CSRF defense-in-depth: reject cross-origin state-changing requests
   // (see enforceSameOrigin for the full policy rationale).
@@ -389,18 +442,58 @@ async function handler({
     // (ReadableStream) because Node.js undici has issues with ReadableStream
     // bodies in fetch(), causing "expected non-null body source" errors.
     // Using Blob handles both text and binary content types correctly.
+    //
+    // The image upload route refuses a body over MAXIMUM_IMAGE_UPLOAD_BYTES:
+    // first by its declared Content-Length, before anything is read, then by
+    // the buffered size, since Content-Length can be absent or understated.
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      fetchOptions.body = await request.blob()
+      if (
+        isImageUpload &&
+        Number(request.headers.get('content-length')) >
+          MAXIMUM_IMAGE_UPLOAD_BYTES
+      ) {
+        return payloadTooLargeResponse(true)
+      }
+      let body: Blob
+      try {
+        body = await request.blob()
+      } catch (error) {
+        // Past BODY_SIZE_LIMIT adapter-node fails the read with status 413;
+        // answer that directly rather than as an upstream failure. Any other
+        // read error falls through to the 502 handling below.
+        if (isBodySizeLimitError(error)) {
+          log.warn(
+            '[proxy] request body over BODY_SIZE_LIMIT',
+            {
+              requestId: locals.requestId,
+              method: request.method,
+              path: `/${path}`,
+            },
+            error,
+          )
+          return payloadTooLargeResponse(isImageUpload)
+        }
+        throw error
+      }
+      if (isImageUpload && body.size > MAXIMUM_IMAGE_UPLOAD_BYTES) {
+        return payloadTooLargeResponse(true)
+      }
+      fetchOptions.body = body
     }
 
     // Bound upstream latency: a hung backend must fail this request rather
     // than accumulate pending connections until the process is starved.
     // The signal is created only after the client body has been fully read,
-    // so a slow client upload doesn't eat into the upstream's 30s budget.
+    // so a slow client upload doesn't eat into the upstream budget: 120s for
+    // image uploads, which the backend stores and processes, 30s otherwise.
     // Known limitation (accepted risk): the signal continues to govern the
     // response body stream after headers return, so an upstream stream that
-    // takes >30s in total is truncated mid-stream rather than mapped to 504.
-    fetchOptions.signal = AbortSignal.timeout(30_000)
+    // outlasts its budget is truncated mid-stream rather than mapped to 504.
+    fetchOptions.signal = AbortSignal.timeout(
+      isImageUpload
+        ? IMAGE_UPLOAD_TIMEOUT_MILLISECONDS
+        : UPSTREAM_TIMEOUT_MILLISECONDS,
+    )
 
     // globalThis.fetch, never event.fetch — see the TRANSPORT note in the
     // banner. kit's fetch would re-add the very headers the allowlist drops.

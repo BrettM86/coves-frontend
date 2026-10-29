@@ -11,6 +11,7 @@
     id: number | string
     url?: string
     circle?: boolean
+    did?: string
   }
 
   interface Props {
@@ -34,6 +35,7 @@
       <div class="flex-none">
         <Avatar
           url={item.avatar}
+          did={item.did}
           alt={item.name}
           title={item.name}
           width={24}

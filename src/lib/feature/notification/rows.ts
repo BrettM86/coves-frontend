@@ -217,25 +217,31 @@ export interface NotificationAuthor {
   handle?: string
   avatarUrl?: string
   avatarSeed: string
+  /** The author's DID for the default avatar; `""` when none is known. */
+  did: string
 }
 
 /**
  * Who wrote a reply or mention. Without an author the row is attributed to
- * "Unknown user", seeded by the record so each such row gets its own avatar.
+ * "Unknown user", seeded by the record so each such row gets its own avatar,
+ * and its DID is the record URI's authority when that is a DID.
  */
 export function notificationAuthor(
   row: ReplyNotificationRow,
 ): NotificationAuthor {
   const { author } = row
   if (!author) {
+    const authority = parseAtUri(row.record.uri).did
     return {
       name: t.get('routes.notifications.unknownUser'),
       avatarSeed: row.record.uri,
+      did: isValidDID(authority) ? authority : '',
     }
   }
   const result: NotificationAuthor = {
     name: actorName(author),
     avatarSeed: author.did,
+    did: author.did,
   }
   const handle = usableHandle(author.handle)
   if (handle) result.handle = handle

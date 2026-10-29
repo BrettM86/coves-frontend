@@ -25,6 +25,8 @@
     children?: import('svelte').Snippet
     compact?: 'always' | 'lg'
     avatarCircle?: boolean
+    /** A user's DID, so a missing avatar falls back to their default. */
+    did?: string
   }
 
   let {
@@ -41,6 +43,7 @@
     children,
     compact,
     avatarCircle = true,
+    did,
     ...rest
   }: Props = $props()
 </script>
@@ -79,6 +82,7 @@
       <Avatar
         {width}
         url={avatar}
+        {did}
         alt={name}
         circle={avatarCircle}
         class={[

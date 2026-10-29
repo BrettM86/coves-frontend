@@ -34,6 +34,7 @@
       id: block.blockedDid,
       name: profile?.displayName ?? profile?.handle ?? block.blockedDid,
       avatar: profile?.avatar,
+      did: block.blockedDid,
       url: `/profile/${encodeURIComponent(profile?.handle ?? block.blockedDid)}`,
       instance: profile?.handle,
       circle: true,

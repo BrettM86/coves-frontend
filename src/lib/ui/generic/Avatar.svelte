@@ -1,5 +1,6 @@
 <script lang="ts">
   import { withPreset } from '$lib/api/coves/image-proxy'
+  import { defaultAvatar } from '$lib/app/util/default-avatar'
   import { createAvatar } from '@dicebear/core'
   import * as initials from '@dicebear/initials'
   import type { ClassValue } from 'svelte/elements'
@@ -12,6 +13,8 @@
     width: number
     style?: string
     class?: ClassValue
+    /** A user's DID: their fallback is the default avatar, not DiceBear. */
+    did?: string
   }
 
   let {
@@ -22,6 +25,7 @@
     width,
     style = '',
     class: clazz = '',
+    did,
     ...rest
   }: Props = $props()
 
@@ -38,12 +42,22 @@
   )
 
   let imgError = $state(false)
+  let defaultImageError = $state(false)
 
   $effect(() => {
-    // Reset error state when url changes
+    // Reset error state when url or did changes
     void url
+    void did
     imgError = false
+    defaultImageError = false
   })
+
+  // PRD_DEFAULT_AVATARS D13: an empty DID gets a plain Mist circle.
+  const MIST = '#DCE0EA'
+  let fallbackAvatar = $derived(did ? defaultAvatar(did) : undefined)
+  let rounding = $derived(
+    circle === true ? 'rounded-full' : circle === false ? 'rounded-lg' : '',
+  )
 </script>
 
 {#if url && !imgError}
@@ -65,6 +79,24 @@
     ]}
     style="width: {width}px; height: {width}px; {style}"
   />
+{:else if did !== undefined}
+  <div
+    {title}
+    style="width: {width}px; height: {width}px; background-color: {fallbackAvatar?.tint ??
+      MIST};"
+    class={['aspect-square overflow-hidden shrink-0', rounding, clazz]}
+  >
+    {#if fallbackAvatar && !defaultImageError}
+      <img
+        src={fallbackAvatar.url}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onerror={() => (defaultImageError = true)}
+        class="w-full h-full object-cover"
+      />
+    {/if}
+  </div>
 {:else}
   <div
     style="width: {width}px; height: {width}px;"

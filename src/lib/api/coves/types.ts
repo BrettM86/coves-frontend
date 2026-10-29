@@ -510,6 +510,13 @@ export interface EmbedImage {
   aspectRatio?: EmbedImageAspectRatio
 }
 
+/** A rich-text facet feature placing image `index` of the main image list at
+ * the facet's byte range. It must be the facet's only feature. */
+export interface ImageFacetFeature {
+  $type: 'social.coves.richtext.facet#image'
+  index: number
+}
+
 export interface ImageEmbed {
   $type: 'social.coves.embed.images#view'
   images: [EmbedImage, ...EmbedImage[]]
@@ -570,7 +577,8 @@ export interface ExternalViewExternalAttachment {
 
 export interface ImagesWithAttachmentView {
   $type: 'social.coves.embed.imagesWithAttachment#view'
-  images: ImageEmbed
+  /** The image list is empty once galleryEmbed has removed every placed image. */
+  images: Omit<ImageEmbed, 'images'> & { images: EmbedImage[] }
   attachment: ExternalViewExternalAttachment | RecordEmbed
 }
 

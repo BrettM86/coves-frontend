@@ -8,6 +8,7 @@ import type {
   ImagesWithAttachmentView,
 } from '$lib/api/coves/types'
 import PostMedia from './PostMedia.svelte'
+import { galleryEmbed, mediaType } from '../helpers'
 
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
 
@@ -131,4 +132,36 @@ describe('PostMedia cozy: imagesWithAttachment with a strongRef post attachment'
       )
     },
   )
+})
+
+describe('PostMedia cozy: imagesWithAttachment with every image placed', () => {
+  const youtube = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+  const withYoutube: ImagesWithAttachmentView = {
+    ...withExternal,
+    attachment: {
+      $type: 'social.coves.embed.external#viewExternal',
+      uri: youtube,
+      title: 'Harbour video',
+      thumb: 'https://news.example.test/media/harbour-video.jpg',
+      domain: 'www.youtube.com',
+    },
+  }
+
+  it('renders a YouTube attachment as the link card, not an iframe player', () => {
+    const embed = galleryEmbed(withYoutube, [])
+    const { body } = render(PostMedia, {
+      props: { embed, type: mediaType(embed), view: 'cozy' },
+    })
+    const document = new JSDOM(body).window.document
+
+    const card = document.querySelector(`a[href="${youtube}"]`)
+    expect(card).not.toBeNull()
+    expect(card?.closest('.post-link, .post-link-compact')).not.toBeNull()
+    expect(card?.textContent).toContain('Harbour video')
+    expect(card?.querySelector('img')?.getAttribute('src')).toBe(
+      'https://news.example.test/media/harbour-video.jpg',
+    )
+    expect(document.querySelector('iframe')).toBeNull()
+    expect(document.querySelector('img[alt="First image"]')).toBeNull()
+  })
 })

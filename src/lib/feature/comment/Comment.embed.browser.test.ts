@@ -10,6 +10,7 @@ import {
 } from 'vitest'
 import type { AtUri, CID, CommentView, PostEmbed } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
+import { facetOver } from '$lib/feature/richtext/test-helpers'
 
 vi.mock('$app/environment', () => ({
   browser: true,
@@ -234,5 +235,44 @@ describe('comment image embeds', () => {
     expect(target.textContent).toContain(BODY)
     expect(target.querySelector('picture')).toBeNull()
     expect(target.querySelector('[style*="aspect-ratio"]')).toBeNull()
+  })
+})
+
+describe('comment image placements', () => {
+  it('renders the placed image in the body and only the other image in the gallery after it', () => {
+    const content = `${BODY}\n\n[image]`
+    const comment = liveComment(twoImages)
+    if (!comment.record) throw new Error('Missing comment record')
+    comment.record.content = content
+    comment.record.facets = [
+      facetOver(content, '[image]', {
+        $type: 'social.coves.richtext.facet#image',
+        index: 0,
+      }),
+    ]
+    mountComment(comment)
+
+    // The rich-text root: the parent of the paragraph holding the body text.
+    const root = bodyElement().closest('p')?.parentElement
+    expect(root, 'rich-text root').toBeDefined()
+    if (!root) return
+    const placed = target.querySelector('img[alt="Comment first image"]')
+    expect(placed?.getAttribute('src')).toBe(
+      'https://img.coves.test/comment-one-full.jpg',
+    )
+    expect(placed && root.contains(placed)).toBe(true)
+
+    const gallery = [...target.querySelectorAll('img')].filter(
+      (img) =>
+        (img.getAttribute('alt') ?? '').startsWith('Comment ') &&
+        !root.contains(img),
+    )
+    expect(gallery.map((img) => img.getAttribute('alt'))).toEqual([
+      'Comment second image',
+    ])
+    for (const img of gallery)
+      expect(
+        root.compareDocumentPosition(img) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
   })
 })

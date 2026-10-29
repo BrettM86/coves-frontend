@@ -15,9 +15,14 @@
     embedImages,
     extractEmbedTitle,
     extractEmbedUrl,
+    galleryEmbed,
     mediaType,
     postTextFallback,
   } from './helpers'
+  import {
+    imageLayout,
+    removePlacedText,
+  } from '$lib/feature/richtext/image-layout'
   import { titleDuplicatesBlueskyEmbed } from './media/bluesky-card'
   import { type MetaTag, parseTags } from './tags'
   import { isSensitivePost } from './content-labels'
@@ -59,7 +64,15 @@
       ? parseTags(post.record?.title)
       : { tags: [] as readonly MetaTag[], title: post.record?.title },
   )
-  let type = $derived(mediaType(post.embed))
+  let layout = $derived(
+    imageLayout(post.embed, post.record?.content ?? '', post.record?.facets),
+  )
+  /** The embed minus the images placed in the body. */
+  let mediaEmbed = $derived(galleryEmbed(post.embed, layout.gallery))
+  let placedImages = $derived([...layout.placed.values()])
+  /** On the post page the gallery follows a body that places images. */
+  let galleryAfterBody = $derived(expandBody && layout.placed.size > 0)
+  let type = $derived(mediaType(mediaEmbed))
   let sensitive = $derived(isSensitivePost(post))
   let nativeImage = $derived(embedImages(post.embed).length > 0)
   let previewImage = $derived(
@@ -97,7 +110,14 @@
   // slot simply stays empty.
   let compactExcerpt = $derived(
     view == 'compact' && !concealed
-      ? postTextFallback(post.record?.content)
+      ? postTextFallback(
+          post.record?.content &&
+            removePlacedText(
+              post.embed,
+              post.record.content,
+              post.record.facets,
+            ),
+        )
       : undefined,
   )
 
@@ -233,7 +253,7 @@
         </span>
       </Button>
     {:else if !concealed}
-      {#key embedUrl}
+      {#snippet media()}
         <div
           style="grid-area:embed;"
           class={{
@@ -241,11 +261,20 @@
             '[&>*]:w-full': view === 'cozy' && nativeImage,
           }}
         >
-          <PostMedia embed={post.embed} {view} {type} {priority} />
+          <PostMedia
+            embed={mediaEmbed}
+            {view}
+            {type}
+            {priority}
+            {placedImages}
+          />
         </div>
+      {/snippet}
+      {#key embedUrl}
+        {#if !galleryAfterBody}{@render media()}{/if}
         {#if view == 'compact'}
           <PostMediaCompact
-            embed={post.embed}
+            embed={mediaEmbed}
             {type}
             class="{settings.leftAlign ? 'mr-3' : 'ml-3'} shrink no-list-margin"
             style="grid-area: media;"
@@ -259,9 +288,14 @@
           collapsible={!expandBody}
           body={post.record.content}
           facets={post.record.facets}
+          embed={post.embed}
+          inlineImages={expandBody}
           style="grid-area: body"
           class="relative"
         />
+      {/if}
+      {#if galleryAfterBody}
+        {#key embedUrl}{@render media()}{/key}
       {/if}
     {/if}
   </div>

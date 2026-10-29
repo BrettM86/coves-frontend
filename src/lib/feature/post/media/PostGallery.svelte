@@ -6,12 +6,19 @@
 
   interface Props {
     images: EmbedImage[]
+    /** Images placed in the body, which come first in the lightbox. */
+    placedImages?: EmbedImage[]
     blur?: boolean
     /** The likely largest paint (first feed row, a post page): fetch now. */
     priority?: boolean
   }
 
-  let { images, blur = false, priority = false }: Props = $props()
+  let {
+    images,
+    placedImages = [],
+    blur = false,
+    priority = false,
+  }: Props = $props()
 
   /** At most four tiles; the rest are reached through the lightbox. */
   const MAX_TILES = 4
@@ -21,11 +28,11 @@
 
   function open(index: number): void {
     showImage(
-      images.map((image) => ({
+      [...placedImages, ...images].map((image) => ({
         url: imageUrl(image, 'fullsize') ?? '',
         alt: image.alt,
       })),
-      index,
+      placedImages.length + index,
     )
   }
 </script>

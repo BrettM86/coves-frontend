@@ -10,6 +10,7 @@
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
   import { Post } from '$lib/feature/post'
   import { postLink, postTextFallback } from '$lib/feature/post/helpers'
+  import { removePlacedText } from '$lib/feature/richtext/image-layout'
   import {
     isThreadRootGoneError,
     logThreadRootGone,
@@ -264,7 +265,15 @@
     {@const headPost = data.data.value.post}
     {@const headTitle =
       headPost.record?.title ??
-      postTextFallback(headPost.record?.content, 80) ??
+      postTextFallback(
+        headPost.record?.content &&
+          removePlacedText(
+            headPost.embed,
+            headPost.record.content,
+            headPost.record.facets,
+          ),
+        80,
+      ) ??
       `Post by @${headPost.author.handle}`}
     <title>
       {headTitle}

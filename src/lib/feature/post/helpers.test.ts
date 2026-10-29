@@ -23,6 +23,7 @@ import {
   extractEmbedThumbnail,
   extractEmbedTitle,
   extractEmbedUrl,
+  galleryEmbed,
   iframeType,
   isStreamableLink,
   isYoutubeLink,
@@ -1689,5 +1690,48 @@ describe('imagesWithAttachment whose first image has unsafe URLs', () => {
 
   it('yields no fullsize URL rather than the unsafe one or a later image', () => {
     expect(bestImageURL(unsafeFirst, false, 'fullsize')).toBeUndefined()
+  })
+})
+
+describe('galleryEmbed with every image placed and an external attachment', () => {
+  const placedEmbed = (uri: string): ImagesWithAttachmentView => ({
+    $type: 'social.coves.embed.imagesWithAttachment#view',
+    images: {
+      $type: 'social.coves.embed.images#view',
+      images: [
+        {
+          thumb: 'https://img.coves.test/img/content_preview/plain/did:plc:a/one',
+          fullsize: 'https://img.coves.test/img/content_full/plain/did:plc:a/one',
+        },
+      ],
+    },
+    attachment: {
+      $type: 'social.coves.embed.external#viewExternal',
+      uri,
+      title: 'Attached link',
+      thumb: 'https://links.example.test/card.jpg',
+      domain: 'links.example.test',
+    },
+  })
+
+  it.each([
+    'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    'https://streamable.com/abc123',
+    'https://links.example.test/clip.mp4',
+    'https://links.example.test/photo.png',
+    'https://news.example.test/harbour-story',
+  ])('keeps %s classified as a link card', (uri) => {
+    const embed = galleryEmbed(placedEmbed(uri), [])
+    expect(mediaType(embed)).toBe('embed')
+    expect(extractEmbedUrl(embed)).toBe(uri)
+    expect(extractEmbedTitle(embed)).toBe('Attached link')
+    expect(extractEmbedThumbnail(embed)).toBe(
+      'https://links.example.test/card.jpg',
+    )
+  })
+
+  it('classifies an attachment URI that is not a web link as no media', () => {
+    const embed = galleryEmbed(placedEmbed('javascript:alert(1)'), [])
+    expect(mediaType(embed)).toBe('none')
   })
 })

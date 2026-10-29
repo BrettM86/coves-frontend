@@ -14,7 +14,8 @@
   import RichText from '$lib/feature/richtext/RichText.svelte'
   import { hasFacets } from '$lib/feature/richtext/facets'
   import { settings } from '$lib/app/state/settings.svelte'
-  import { embedImages, type PostLinkRef } from '$lib/feature/post'
+  import { type PostLinkRef } from '$lib/feature/post'
+  import { imageLayout } from '$lib/feature/richtext/image-layout'
   import PostGallery from '$lib/feature/post/media/PostGallery.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import { Button, Modal, toast } from '$lib/ui/kit'
@@ -94,7 +95,16 @@
   // comment via a `#comment-<rkey>` URL fragment.
   const domId = $derived(`comment-${parseAtUri(node.comment.uri).rkey}`)
 
-  const commentImages = $derived(embedImages(node.comment.embed))
+  const commentEmbed = $derived(
+    node.comment.isDeleted ? undefined : node.comment.embed,
+  )
+  const commentLayout = $derived(
+    imageLayout(
+      commentEmbed,
+      node.comment.record.content,
+      node.comment.record.facets,
+    ),
+  )
 
   // Shared by the RichText and Markdown body branches.
   const bodyClass = $derived([
@@ -280,6 +290,7 @@
           <RichText
             content={node.comment.record.content}
             facets={node.comment.record.facets}
+            embed={commentEmbed}
             noStyle
             class={bodyClass}
           />
@@ -290,9 +301,12 @@
             class={bodyClass}
           />
         {/if}
-        {#if commentImages.length > 0 && !node.comment.isDeleted}
+        {#if commentLayout.gallery.length > 0}
           <!-- Comment images get no NSFW blur; that is separate comment moderation work. -->
-          <PostGallery images={commentImages} />
+          <PostGallery
+            images={commentLayout.gallery}
+            placedImages={[...commentLayout.placed.values()]}
+          />
         {/if}
         {#if actions}
           <!-- TODO(coves-migration): Re-enable ban/lock checking when API provides banned_from_community and post.locked fields -->

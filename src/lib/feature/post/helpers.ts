@@ -39,6 +39,29 @@ export function embedImages(embed: PostEmbed | undefined): EmbedImage[] {
 }
 
 /**
+ * `embed` as the media block shows it: its images replaced by `gallery`, the
+ * images not placed in the body. With every image placed, an images embed
+ * becomes no embed and an `imagesWithAttachment#view` keeps its shape with an
+ * empty image list, so its external link still renders as the link card (a
+ * post attachment renders nothing). Other embeds are unchanged.
+ */
+export function galleryEmbed(
+  embed: PostEmbed | undefined,
+  gallery: EmbedImage[],
+): PostEmbed | undefined {
+  const [first, ...rest] = gallery
+  if (embed?.$type === 'social.coves.embed.images#view')
+    return first ? { ...embed, images: [first, ...rest] } : undefined
+  if (embed?.$type !== 'social.coves.embed.imagesWithAttachment#view')
+    return embed
+  if (first)
+    return { ...embed, images: { ...embed.images, images: [first, ...rest] } }
+  return externalAttachment(embed)
+    ? { ...embed, images: { ...embed.images, images: [] } }
+    : undefined
+}
+
+/**
  * The flattened external link attached to an `imagesWithAttachment#view`, or
  * undefined when the embed is another kind or its attachment is a post.
  */
@@ -76,7 +99,9 @@ export const bestImageURL = (
     case 'social.coves.embed.images#view':
     case 'social.coves.embed.imagesWithAttachment#view': {
       const img = embedImages(embed)[0]
-      return img ? imageUrl(img, variant) : undefined
+      if (img) return imageUrl(img, variant)
+      // Every image placed in the body (see galleryEmbed): the link card's.
+      return webMediaUrl(externalAttachment(embed)?.thumb) || undefined
     }
     case 'social.coves.embed.external':
     case 'social.coves.embed.external#view': {
@@ -367,8 +392,14 @@ export function mediaType(embed?: PostEmbed): MediaType {
 
   switch (embed.$type) {
     case 'social.coves.embed.images#view':
-    case 'social.coves.embed.imagesWithAttachment#view':
       return 'image'
+    case 'social.coves.embed.imagesWithAttachment#view': {
+      if (embed.images.images.length > 0) return 'image'
+      // Every image placed in the body (see galleryEmbed): what is left is
+      // the attachment, which renders as a link card whatever its URI is.
+      const uri = externalAttachment(embed)?.uri
+      return uri && isWebUrl(uri) ? 'embed' : 'none'
+    }
     case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
       // Normally a blob-proxy URL hydrated by the AppView, but hydration is
@@ -448,7 +479,9 @@ export function extractEmbedThumbnail(embed?: PostEmbed): string | undefined {
     case 'social.coves.embed.images#view':
     case 'social.coves.embed.imagesWithAttachment#view': {
       const img = embedImages(embed)[0]
-      return img ? imageUrl(img, 'thumb') : undefined
+      if (img) return imageUrl(img, 'thumb')
+      // Every image placed in the body (see galleryEmbed): the link card's.
+      return webMediaUrl(externalAttachment(embed)?.thumb) || undefined
     }
     case 'social.coves.embed.external':
     case 'social.coves.embed.external#view':

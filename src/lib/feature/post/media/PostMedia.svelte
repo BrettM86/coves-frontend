@@ -27,6 +27,8 @@
     blur?: boolean
     /** Passed to the gallery: see PostGallery. */
     priority?: boolean
+    /** Passed to the gallery: see PostGallery. */
+    placedImages?: EmbedImage[]
   }
 
   let {
@@ -36,6 +38,7 @@
     opened = undefined,
     blur = false,
     priority = false,
+    placedImages = [],
   }: Props = $props()
 
   let embedUrl = $derived(extractEmbedUrl(embed))
@@ -77,7 +80,7 @@
   - Embed link/card.
 -->
 {#if type === 'image' && view === 'cozy' && galleryImages.length > 0}
-  <PostGallery images={galleryImages} {blur} {priority} />
+  <PostGallery images={galleryImages} {placedImages} {blur} {priority} />
   {#if attachedLink}
     <PostLink
       url={attachedLink.uri}

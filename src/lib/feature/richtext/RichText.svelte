@@ -1,15 +1,23 @@
 <script lang="ts">
+  import { imageUrl } from '$lib/api/coves/image-proxy'
+  import type { PostEmbed } from '$lib/api/coves/types'
   import { settings } from '$lib/app/state/settings.svelte'
+  import { showImage } from '$lib/ui/generic/ExpandableImage.svelte'
+  import type { Snippet } from 'svelte'
   import type { ClassValue } from 'svelte/elements'
+  import { SvelteSet } from 'svelte/reactivity'
   import {
-    buildRichText,
-    type Block,
+    buildRichTextWithPlacements,
     type FacetLevel,
-    type Inline,
     type LinkSpan,
+    type PlacedBlock,
+    type PlacedImageBlock,
+    type PlacedInline,
     type TextSegment,
   } from './facets'
+  import { imageLayout } from './image-layout'
   import RichTextCodeBlock from './RichTextCodeBlock.svelte'
+  import RichTextImage from './RichTextImage.svelte'
   import RichTextSpoiler from './RichTextSpoiler.svelte'
 
   interface Props {
@@ -17,6 +25,13 @@
     content: string
     /** Raw facets array from the record; malformed entries degrade safely. */
     facets?: unknown[]
+    /** The post's or comment's embed; its images back `#image` placements. */
+    embed?: PostEmbed
+    /** False leaves placed images out (feed cards); their covered text
+     * stays hidden either way. */
+    inlineImages?: boolean
+    /** Called when a placed image finishes loading and the body grows. */
+    onimageload?: () => void
     noStyle?: boolean
     style?: string
     class?: ClassValue
@@ -25,12 +40,34 @@
   let {
     content,
     facets = [],
+    embed = undefined,
+    inlineImages = true,
+    onimageload = undefined,
     noStyle = false,
     style = '',
     class: clazz = '',
   }: Props = $props()
 
-  let blocks = $derived(buildRichText(content, facets))
+  let layout = $derived(imageLayout(embed, content, facets))
+  let blocks = $derived(
+    buildRichTextWithPlacements(content, facets, layout.placed),
+  )
+
+  /** Spoiler groups the reader revealed; pieces of one spoiler cut apart by
+   * block boundaries or placed images reveal together. */
+  const revealedSpoilers = new SvelteSet<number>()
+
+  /** Lightbox sequence: placed images in body order, then the gallery. */
+  function openImage(facet: number): void {
+    const sequence = [...layout.placed.values(), ...layout.gallery]
+    showImage(
+      sequence.map((image) => ({
+        url: imageUrl(image, 'fullsize') ?? '',
+        alt: image.alt,
+      })),
+      [...layout.placed.keys()].indexOf(facet),
+    )
+  }
 
   // Mirrors MdHeading's (non-inline) scale so faceted and markdown
   // content match.
@@ -79,17 +116,47 @@
   {:else}{@render textSegment(node)}{/if}
 {/snippet}
 
-{#snippet inlineList(nodes: readonly Inline[])}
+{#snippet spoiler(
+  group: number,
+  reason: string | undefined,
+  block: boolean,
+  children: Snippet,
+)}
+  <RichTextSpoiler
+    {reason}
+    {block}
+    {children}
+    bind:revealed={
+      () => revealedSpoilers.has(group), () => revealedSpoilers.add(group)
+    }
+  />
+{/snippet}
+
+{#snippet inlineList(nodes: readonly PlacedInline[])}
   {#each nodes as node, i (i)}
     {#if node.type === 'spoiler'}
-      <RichTextSpoiler reason={node.reason}>
+      {#snippet spoilerKids()}
         {#each node.children as child, j (j)}{@render linkOrText(child)}{/each}
-      </RichTextSpoiler>
+      {/snippet}
+      {@render spoiler(node.group, node.reason, false, spoilerKids)}
     {:else}{@render linkOrText(node)}{/if}
   {/each}
 {/snippet}
 
-{#snippet blockNode(block: Block)}
+{#snippet imageNode(block: PlacedImageBlock)}
+  {#snippet picture()}
+    <RichTextImage
+      image={block.image}
+      onopen={() => openImage(block.facet)}
+      onload={onimageload}
+    />
+  {/snippet}
+  {#if block.spoiler}
+    {@render spoiler(block.spoiler.group, block.spoiler.reason, true, picture)}
+  {:else}{@render picture()}{/if}
+{/snippet}
+
+{#snippet blockNode(block: PlacedBlock)}
   {#if block.type === 'paragraph'}
     <p class="whitespace-pre-wrap">{@render inlineList(block.children)}</p>
   {:else if block.type === 'heading'}
@@ -110,6 +177,8 @@
     >
       {#each block.children as child, i (i)}{@render blockNode(child)}{/each}
     </blockquote>
+  {:else if block.type === 'image'}
+    {#if inlineImages}{@render imageNode(block)}{/if}
   {/if}
 {/snippet}
 

@@ -14,7 +14,8 @@
   import RichText from '$lib/feature/richtext/RichText.svelte'
   import { hasFacets } from '$lib/feature/richtext/facets'
   import { settings } from '$lib/app/state/settings.svelte'
-  import type { PostLinkRef } from '$lib/feature/post'
+  import { embedImages, type PostLinkRef } from '$lib/feature/post'
+  import PostGallery from '$lib/feature/post/media/PostGallery.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import { Button, Modal, toast } from '$lib/ui/kit'
   import RelativeDate from '$lib/ui/util/RelativeDate.svelte'
@@ -92,6 +93,8 @@
   // Stable anchor id (`comment-<rkey>`) so permalinks can deep-link to this
   // comment via a `#comment-<rkey>` URL fragment.
   const domId = $derived(`comment-${parseAtUri(node.comment.uri).rkey}`)
+
+  const commentImages = $derived(embedImages(node.comment.embed))
 
   // Shared by the RichText and Markdown body branches.
   const bodyClass = $derived([
@@ -286,6 +289,10 @@
             noStyle
             class={bodyClass}
           />
+        {/if}
+        {#if commentImages.length > 0 && !node.comment.isDeleted}
+          <!-- Comment images get no NSFW blur; that is separate comment moderation work. -->
+          <PostGallery images={commentImages} />
         {/if}
         {#if actions}
           <!-- TODO(coves-migration): Re-enable ban/lock checking when API provides banned_from_community and post.locked fields -->

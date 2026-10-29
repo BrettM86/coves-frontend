@@ -558,7 +558,28 @@ export interface RecordEmbed {
   resolved?: unknown
 }
 
-export type PostEmbed = ImageEmbed | ExternalEmbed | VideoEmbed | RecordEmbed
+/** The flattened `social.coves.embed.external#viewExternal` attachment. */
+export interface ExternalViewExternalAttachment {
+  $type: 'social.coves.embed.external#viewExternal'
+  uri: string
+  title?: string
+  description?: string
+  thumb?: string
+  domain?: string
+}
+
+export interface ImagesWithAttachmentView {
+  $type: 'social.coves.embed.imagesWithAttachment#view'
+  images: ImageEmbed
+  attachment: ExternalViewExternalAttachment | RecordEmbed
+}
+
+export type PostEmbed =
+  | ImageEmbed
+  | ExternalEmbed
+  | VideoEmbed
+  | RecordEmbed
+  | ImagesWithAttachmentView
 
 // ---------------------------------------------------------------------------
 // Request / response types — feeds

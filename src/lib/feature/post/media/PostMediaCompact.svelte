@@ -15,6 +15,7 @@
   } from '$lib/ui/kit/icon'
   import {
     bestImageURL,
+    embedImages,
     extractEmbedAlt,
     extractEmbedThumbnail,
     getBlueskyPostEmbed,
@@ -56,6 +57,7 @@
   )
   let altText = $derived(extractEmbedAlt(embed))
   let imageTile = $derived(type === 'image')
+  let imageCount = $derived(embedImages(embed).length)
   let hasThumbnail = $derived(!!genericThumbnailUrl || type === 'image')
   /** The thumbnail URL that failed to load; a blurred thumbnail loads none. */
   let failedSource = $state<string>()
@@ -132,6 +134,16 @@
               if (!blur) failedSource = imageSource
             }}
           />
+          {#if imageTile && imageCount > 1}
+            <span
+              class="absolute top-1 right-1 rounded-lg bg-slate-900/75 px-1.5 text-xs font-medium text-white"
+            >
+              <span aria-hidden="true">{imageCount}</span>
+              <span class="sr-only">
+                {$t('aria.postDecor.imageCount', { count: imageCount })}
+              </span>
+            </span>
+          {/if}
           {#if !imageTile}
             <div
               class={[

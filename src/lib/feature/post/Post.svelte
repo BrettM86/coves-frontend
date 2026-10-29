@@ -12,6 +12,7 @@
   } from '.'
   import {
     bestImageURL,
+    embedImages,
     extractEmbedTitle,
     extractEmbedUrl,
     mediaType,
@@ -60,9 +61,7 @@
   )
   let type = $derived(mediaType(post.embed))
   let sensitive = $derived(isSensitivePost(post))
-  let nativeImage = $derived(
-    post.embed?.$type === 'social.coves.embed.images#view',
-  )
+  let nativeImage = $derived(embedImages(post.embed).length > 0)
   let previewImage = $derived(
     nativeImage ? bestImageURL(post.embed, false, 'thumb') : '',
   )

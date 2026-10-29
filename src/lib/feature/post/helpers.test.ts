@@ -3,6 +3,7 @@ import type {
   CommunityRef,
   ExternalEmbed,
   ImageEmbed,
+  ImagesWithAttachmentView,
   PostView,
   RecordEmbed,
   VideoEmbed,
@@ -1577,5 +1578,116 @@ describe('extractEmbedThumbnail - images#view is unchanged', () => {
     expect(extractEmbedThumbnail(withThumb)).toBe(
       'https://cdn.example.com/pic-thumb.jpg',
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// imagesWithAttachment#view: the images are the media, a flattened external
+// attachment supplies the link, a strongRef post attachment supplies nothing.
+// ---------------------------------------------------------------------------
+
+const galleryImages: ImageEmbed = {
+  $type: 'social.coves.embed.images#view',
+  images: [
+    {
+      thumb: 'https://img.coves.test/img/content_preview/plain/did:plc:a/one',
+      fullsize: 'https://img.coves.test/img/content_full/plain/did:plc:a/one',
+      alt: 'First image',
+    },
+    {
+      thumb: 'https://img.coves.test/img/content_preview/plain/did:plc:a/two',
+      fullsize: 'https://img.coves.test/img/content_full/plain/did:plc:a/two',
+      alt: 'Second image',
+    },
+  ],
+}
+
+const imagesWithExternal: ImagesWithAttachmentView = {
+  $type: 'social.coves.embed.imagesWithAttachment#view',
+  images: galleryImages,
+  attachment: {
+    $type: 'social.coves.embed.external#viewExternal',
+    uri: 'https://news.example.test/harbour-story',
+    title: 'Harbour story',
+    description: 'A story about the harbour',
+    thumb: 'https://img.coves.test/img/embed_thumbnail/plain/did:plc:a/link',
+    domain: 'news.example.test',
+  },
+}
+
+const imagesWithPost: ImagesWithAttachmentView = {
+  $type: 'social.coves.embed.imagesWithAttachment#view',
+  images: galleryImages,
+  attachment: {
+    $type: 'social.coves.embed.post#view',
+    post: {
+      uri: 'at://did:plc:quoted/social.coves.community.post/quoted1' as AtUri,
+      cid: 'bafyquoted' as CID,
+    },
+  },
+}
+
+describe('imagesWithAttachment with an external attachment', () => {
+  it('is an image post', () => {
+    expect(mediaType(imagesWithExternal)).toBe('image')
+  })
+
+  it('takes its image URL from the first image', () => {
+    expect(bestImageURL(imagesWithExternal)).toBe(
+      'https://img.coves.test/img/content_preview/plain/did:plc:a/one',
+    )
+    expect(bestImageURL(imagesWithExternal, false, 'fullsize')).toBe(
+      'https://img.coves.test/img/content_full/plain/did:plc:a/one',
+    )
+  })
+
+  it("takes the link URL and title from the attachment's top level", () => {
+    expect(extractEmbedUrl(imagesWithExternal)).toBe(
+      'https://news.example.test/harbour-story',
+    )
+    expect(extractEmbedTitle(imagesWithExternal)).toBe('Harbour story')
+  })
+})
+
+describe('imagesWithAttachment with a strongRef post attachment', () => {
+  it('is an image post whose image URL is the first image', () => {
+    expect(mediaType(imagesWithPost)).toBe('image')
+    expect(bestImageURL(imagesWithPost)).toBe(
+      'https://img.coves.test/img/content_preview/plain/did:plc:a/one',
+    )
+  })
+
+  it('produces no link or embedded-post URL and no title', () => {
+    expect(extractEmbedUrl(imagesWithPost)).toBeUndefined()
+    expect(extractEmbedTitle(imagesWithPost)).toBeUndefined()
+  })
+})
+
+describe('imagesWithAttachment whose first image has unsafe URLs', () => {
+  const unsafeFirst: ImagesWithAttachmentView = {
+    ...imagesWithExternal,
+    images: {
+      $type: 'social.coves.embed.images#view',
+      images: [
+        {
+          thumb: 'javascript:alert(1)',
+          fullsize: 'data:text/html,x.png',
+          alt: 'Unsafe image',
+        },
+        {
+          thumb: 'https://img.coves.test/img/content_preview/plain/did:plc:a/two',
+          fullsize:
+            'https://img.coves.test/img/content_full/plain/did:plc:a/two',
+        },
+      ],
+    },
+  }
+
+  it('yields no thumb URL rather than the unsafe one or a later image', () => {
+    expect(bestImageURL(unsafeFirst, true, 'thumb')).toBeUndefined()
+  })
+
+  it('yields no fullsize URL rather than the unsafe one or a later image', () => {
+    expect(bestImageURL(unsafeFirst, false, 'fullsize')).toBeUndefined()
   })
 })

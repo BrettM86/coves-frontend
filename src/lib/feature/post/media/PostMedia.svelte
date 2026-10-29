@@ -1,11 +1,16 @@
 <script lang="ts">
-  import type { EmbedImage, PostEmbed } from '$lib/api/coves/types'
+  import type {
+    EmbedImage,
+    ExternalEmbedExternal,
+    PostEmbed,
+  } from '$lib/api/coves/types'
   import { type View } from '$lib/app/state/settings.svelte'
   import { PostIframe, PostLink } from '..'
   import PostGallery from './PostGallery.svelte'
   import BlueskyPostCard from './BlueskyPostCard.svelte'
   import {
     bestImageURL,
+    embedImages,
     extractEmbedThumbnail,
     extractEmbedTitle,
     extractEmbedUrl,
@@ -39,9 +44,29 @@
   let blueskyEmbed = $derived(getBlueskyPostEmbed(embed))
   /** An image embed's images, or the image an external link points at. */
   let galleryImages = $derived.by((): EmbedImage[] => {
-    if (embed?.$type === 'social.coves.embed.images#view') return embed.images
+    const images = embedImages(embed)
+    if (images.length > 0) return images
     const url = bestImageURL(embed, false)
     return url ? [{ thumb: url, fullsize: url }] : []
+  })
+  /**
+   * The link card input for an `imagesWithAttachment` whose attachment is a
+   * flattened external link; a post attachment carries only a strongRef and
+   * renders nothing.
+   */
+  let attachedLink = $derived.by((): ExternalEmbedExternal | undefined => {
+    if (embed?.$type !== 'social.coves.embed.imagesWithAttachment#view')
+      return undefined
+    const attachment = embed.attachment
+    if (attachment.$type !== 'social.coves.embed.external#viewExternal')
+      return undefined
+    return {
+      uri: attachment.uri,
+      title: attachment.title,
+      description: attachment.description,
+      thumb: attachment.thumb,
+      domain: attachment.domain,
+    }
   })
 </script>
 
@@ -53,6 +78,14 @@
 -->
 {#if type === 'image' && view === 'cozy' && galleryImages.length > 0}
   <PostGallery images={galleryImages} {blur} {priority} />
+  {#if attachedLink}
+    <PostLink
+      url={attachedLink.uri}
+      thumbnail_url={attachedLink.thumb}
+      embed_title={attachedLink.title}
+      {view}
+    />
+  {/if}
 {:else if type === 'embed' && blueskyEmbed}
   {#if view !== 'compact'}
     <BlueskyPostCard embed={blueskyEmbed} />

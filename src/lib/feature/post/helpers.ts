@@ -1,4 +1,10 @@
-import type { AtUri, PostEmbed, RecordEmbed } from '$lib/api/coves/types'
+import type {
+  AtUri,
+  EmbedImage,
+  ExternalViewExternalAttachment,
+  PostEmbed,
+  RecordEmbed,
+} from '$lib/api/coves/types'
 import { parseAtUri } from '$lib/api/coves/types'
 import { isImage, isVideo, isWebUrl } from '$lib/app/util/url'
 import { communityLink, communityRouteParam } from '$lib/app/util/links'
@@ -22,6 +28,30 @@ const webMediaUrl = (url: string | undefined): string =>
   url && isWebUrl(url) ? url : ''
 
 /**
+ * The main image list of an image embed: an `images#view`'s images, or the
+ * images of an `imagesWithAttachment#view`. Empty for every other embed.
+ */
+export function embedImages(embed: PostEmbed | undefined): EmbedImage[] {
+  if (embed?.$type === 'social.coves.embed.images#view') return embed.images
+  if (embed?.$type === 'social.coves.embed.imagesWithAttachment#view')
+    return embed.images.images
+  return []
+}
+
+/**
+ * The flattened external link attached to an `imagesWithAttachment#view`, or
+ * undefined when the embed is another kind or its attachment is a post.
+ */
+function externalAttachment(
+  embed: PostEmbed | undefined,
+): ExternalViewExternalAttachment | undefined {
+  return embed?.$type === 'social.coves.embed.imagesWithAttachment#view' &&
+    embed.attachment.$type === 'social.coves.embed.external#viewExternal'
+    ? embed.attachment
+    : undefined
+}
+
+/**
  * Returns the best image URL for a post embed.
  *
  * The selected external or video URL is gated with {@link isWebUrl}: anything
@@ -43,8 +73,9 @@ export const bestImageURL = (
   if (!embed) return ''
 
   switch (embed.$type) {
-    case 'social.coves.embed.images#view': {
-      const img = embed.images[0]
+    case 'social.coves.embed.images#view':
+    case 'social.coves.embed.imagesWithAttachment#view': {
+      const img = embedImages(embed)[0]
       return img ? imageUrl(img, variant) : undefined
     }
     case 'social.coves.embed.external':
@@ -336,6 +367,7 @@ export function mediaType(embed?: PostEmbed): MediaType {
 
   switch (embed.$type) {
     case 'social.coves.embed.images#view':
+    case 'social.coves.embed.imagesWithAttachment#view':
       return 'image'
     case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
@@ -385,6 +417,8 @@ export function extractEmbedUrl(embed?: PostEmbed): string | undefined {
   switch (embed.$type) {
     case 'social.coves.embed.images#view':
       return undefined
+    case 'social.coves.embed.imagesWithAttachment#view':
+      return externalAttachment(embed)?.uri
     case 'social.coves.embed.external':
     case 'social.coves.embed.external#view':
       return embed.external.uri
@@ -411,8 +445,9 @@ export function extractEmbedThumbnail(embed?: PostEmbed): string | undefined {
   if (!embed) return undefined
 
   switch (embed.$type) {
-    case 'social.coves.embed.images#view': {
-      const img = embed.images[0]
+    case 'social.coves.embed.images#view':
+    case 'social.coves.embed.imagesWithAttachment#view': {
+      const img = embedImages(embed)[0]
       return img ? imageUrl(img, 'thumb') : undefined
     }
     case 'social.coves.embed.external':
@@ -443,6 +478,8 @@ export function extractEmbedTitle(embed?: PostEmbed): string | undefined {
     case 'social.coves.embed.external':
     case 'social.coves.embed.external#view':
       return embed.external.title
+    case 'social.coves.embed.imagesWithAttachment#view':
+      return externalAttachment(embed)?.title
     case 'social.coves.embed.images#view':
     case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
@@ -466,7 +503,8 @@ export function extractEmbedAlt(embed?: PostEmbed): string | undefined {
 
   switch (embed.$type) {
     case 'social.coves.embed.images#view':
-      return embed.images[0]?.alt
+    case 'social.coves.embed.imagesWithAttachment#view':
+      return embedImages(embed)[0]?.alt
     case 'social.coves.embed.video':
     case 'social.coves.embed.video#view':
       return embed.alt

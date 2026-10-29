@@ -1180,6 +1180,7 @@
         },
         "postDecor": {
             "openImage": "Open image: {{default}}",
+            "imageCount": "{{count}} images",
             "openLink": "Open link: {{default}}",
             "openPost": "Open post: {{default}}"
         },

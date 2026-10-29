@@ -3,6 +3,7 @@ import type {
   CID,
   CommentRecord,
   CommentView,
+  ImagesEmbedRecord,
   ModerationSourceView,
   StrongRef,
   ThreadViewComment,
@@ -11,6 +12,7 @@ import { parseAtUri } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import { t } from '$lib/app/state/i18n'
 import { log } from '$lib/app/util/log'
+import { freshEmbed, freshPostImageUrls } from '$lib/feature/post/fresh-post'
 import { EMPTY_COMMENT_STATS } from '$lib/feature/vote/subjects'
 
 /**
@@ -66,6 +68,17 @@ export function retainCreatedComments(
   }
   loaded.unshift(...retained)
   return loaded
+}
+
+/**
+ * The composer's `blob:` preview URLs the locally created comments in `tree`
+ * show, which their view revokes once the server copy replaces them.
+ */
+export function localCommentImageUrls(tree: CommentNodeI[]): string[] {
+  return tree.flatMap((node) => [
+    ...freshPostImageUrls(node.comment),
+    ...localCommentImageUrls(node.children),
+  ])
 }
 
 /**
@@ -261,6 +274,10 @@ export function insertCommentIntoTree(
 /**
  * Creates a CommentView for a newly posted comment, suitable for
  * optimistic insertion into the UI tree before server confirmation.
+ *
+ * With `media`, the view shows the composer's `blob:` previews and the record
+ * keeps the uploaded embed, so an edit before the indexed copy loads keeps the
+ * images.
  */
 export function createOptimisticCommentView(
   output: { uri: AtUri; cid: CID },
@@ -269,6 +286,14 @@ export function createOptimisticCommentView(
   parentRef: StrongRef,
   author: { did: string; handle: string; avatar?: string },
   facets?: unknown[],
+  media?: {
+    embed: ImagesEmbedRecord
+    previews: {
+      previewUrl: string
+      alt?: string
+      aspectRatio?: { width: number; height: number }
+    }[]
+  },
 ): NormalizedCommentView {
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one-shot timestamp, never held as reactive state
   const now = new Date().toISOString()
@@ -281,12 +306,14 @@ export function createOptimisticCommentView(
       $type: 'social.coves.community.comment',
       content,
       facets,
+      ...(media ? { embed: media.embed } : {}),
       reply: {
         root: postRef,
         parent: parentRef,
       },
       createdAt: now,
     },
+    ...(media ? { embed: freshEmbed(undefined, media.previews) } : {}),
     author: {
       did: author.did as DID,
       handle: author.handle as Handle,

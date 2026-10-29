@@ -5,6 +5,9 @@
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { formatRelativeDate } from '$lib/ui/util/RelativeDate.svelte'
   import CommentForm from '$lib/feature/comment/CommentForm.svelte'
+  import type { NormalizedCommentView } from '$lib/feature/comment/comments.svelte'
+  import { revokeLocalImageUrl } from '$lib/feature/image-upload/local-image-urls'
+  import { freshPostImageUrls } from '$lib/feature/post/fresh-post'
   import { Button } from '$lib/ui/kit'
   import { MessageSquare } from '$lib/ui/kit/icon'
   import { usableHandle } from '$lib/types/atproto'
@@ -133,8 +136,13 @@
     replying = !replying
   }
 
-  function replyCreatedBy(opening: number): () => void {
-    return () => {
+  function replyCreatedBy(
+    opening: number,
+  ): (comment: NormalizedCommentView) => void {
+    return (comment) => {
+      // The card shows no created comment, so nothing else releases the
+      // composer's image previews it carries.
+      for (const url of freshPostImageUrls(comment)) revokeLocalImageUrl(url)
       if (replying && opening === composerOpening) void closeComposer()
     }
   }

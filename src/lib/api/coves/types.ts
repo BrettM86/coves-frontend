@@ -840,7 +840,8 @@ export interface CreateCommentInput {
   }
   content: string
   facets?: unknown[]
-  embed?: unknown
+  /** Comments only ever carry images, never a link. */
+  embed?: ImagesEmbedRecord
   langs?: string[]
   labels?: unknown
 }

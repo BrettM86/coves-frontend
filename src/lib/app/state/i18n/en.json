@@ -363,6 +363,7 @@
             },
             "loadFailed": "Could not load notifications.",
             "unknownUser": "Unknown user",
+            "image": "Image",
             "replyTo": "Reply to {{name}}",
             "loadingMore": "Loading more notifications",
             "upvote": {

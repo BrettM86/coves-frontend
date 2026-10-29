@@ -20,15 +20,18 @@
     buildCommentsTree,
     findTopLevelIndexByRkey,
     insertCommentIntoTree,
+    localCommentImageUrls,
     retainCreatedComments,
     commentCreatedContext,
     type CommentCreated,
   } from '$lib/feature/comment/comments.svelte'
   import CommentTree from '$lib/feature/comment/CommentTree.svelte'
+  import { revokeLocalImageUrl } from '$lib/feature/image-upload/local-image-urls'
+  import { freshPostImageUrls } from '$lib/feature/post/fresh-post'
   import { postLink } from '$lib/feature/post'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import { Button, Option, Select, toast } from '$lib/ui/kit'
-  import { onMount, setContext, untrack } from 'svelte'
+  import { onDestroy, onMount, setContext, untrack } from 'svelte'
   import { SvelteSet } from 'svelte/reactivity'
   import { EMPTY_POST_STATS } from '$lib/feature/vote/subjects'
   import {
@@ -126,6 +129,7 @@
     untrack(() => {
       if (loaded === treeComments && postUri === treePostUri) return
       treeComments = loaded
+      const shownImageUrls = localCommentImageUrls(tree)
       if (treePostUri !== postUri) {
         createdComments.clear()
         treePostUri = postUri
@@ -141,7 +145,14 @@
           createdComments,
         )
       }
+      // A local comment the server copy replaced no longer shows its previews.
+      const stillShown = new Set(localCommentImageUrls(tree))
+      for (const url of shownImageUrls)
+        if (!stillShown.has(url)) revokeLocalImageUrl(url)
     })
+  })
+  onDestroy(() => {
+    for (const url of localCommentImageUrls(tree)) revokeLocalImageUrl(url)
   })
 
   let virtualizer = $state<CommentListVirtualizer>()
@@ -210,7 +221,12 @@
     <CommentForm
       {postRef}
       oncomment={(cv) => {
-        if (cv.post.uri !== post.uri) return
+        if (cv.post.uri !== post.uri) {
+          // Created on a post this page no longer shows: no tree takes the
+          // composer's image previews, so release them here.
+          for (const url of freshPostImageUrls(cv)) revokeLocalImageUrl(url)
+          return
+        }
         insertCommentIntoTree(tree, cv, false)
         commentCreated(cv)
       }}

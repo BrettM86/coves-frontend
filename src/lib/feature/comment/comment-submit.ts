@@ -11,6 +11,7 @@ import type {
   AtUri,
   CommentRecord,
   CreateCommentInput,
+  ImagesEmbedRecord,
   StrongRef,
   UpdateCommentInput,
 } from '$lib/api/coves/types'
@@ -40,12 +41,26 @@ export function editorSourceFor(record: {
   return serializeMarkup(record.content, [])
 }
 
-/** Wire input for a new comment, compiled from the editor source. */
+/** A comment with no text and no images, which the backend refuses. */
+export class CommentContentEmptyError extends Error {
+  readonly code = 'ContentEmpty'
+
+  constructor() {
+    super('Comment cannot be empty.')
+    this.name = 'CommentContentEmptyError'
+  }
+}
+
+/**
+ * Wire input for a new comment, compiled from the editor source. Empty content
+ * is allowed only when the comment carries at least one image.
+ */
 export async function buildCommentCreate(args: {
   source: string
   postRef: StrongRef
   parentRef?: StrongRef
   resolver: MentionResolver
+  embed?: ImagesEmbedRecord
 }): Promise<CreateCommentInput> {
   // Trimmed twice, for two different reasons: the source, so leading blank
   // lines cannot defeat a block construct on the first line, and then the
@@ -54,12 +69,15 @@ export async function buildCommentCreate(args: {
   const { content, facets } = trimRichText(
     await composeRichText(args.source.trim(), args.resolver),
   )
+  const embed = args.embed?.images.length ? args.embed : undefined
+  if (content === '' && !embed) throw new CommentContentEmptyError()
   const input: CreateCommentInput = {
     // A top-level comment replies to the post itself.
     reply: { root: args.postRef, parent: args.parentRef ?? args.postRef },
     content,
   }
   if (facets) input.facets = facets
+  if (embed) input.embed = embed
   return input
 }
 

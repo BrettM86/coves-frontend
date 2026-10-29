@@ -18,6 +18,13 @@ import type {
 import type { DID, Handle } from '$lib/types/atproto'
 import { locale } from '$lib/app/state/i18n'
 import { settings } from '$lib/app/state/settings.svelte'
+import {
+  imageFile,
+  pickFiles,
+  stubImageDecoding,
+  stubObjectUrls,
+  uploadOutput,
+} from '$lib/feature/image-upload/test-helpers'
 import type { ReplyNotificationRow } from './rows'
 import {
   accessibleName,
@@ -755,7 +762,7 @@ describe('ReplyCard removed or deleted root post card', () => {
 })
 
 describe('ReplyCard bubble excerpt', () => {
-  it('shows the record excerpt in the bubble after the author line, and no excerpt part when there is none', async () => {
+  it('shows the record excerpt in the bubble after the author line, and "Image" when the backend omits it', async () => {
     mountCard(replyRow())
 
     const excerpt = excerptPart()
@@ -772,7 +779,7 @@ describe('ReplyCard bubble excerpt', () => {
     await remountCard(replyRow({ record: replyRecord({ excerpt: undefined }) }))
 
     expect(authorLine()).not.toBeNull()
-    expect(excerptPart()).toBeNull()
+    expect(excerptPart()?.textContent?.trim()).toBe('Image')
   })
 
   it.each<[string, string]>([
@@ -1274,6 +1281,14 @@ describe('ReplyCard Quick Reply', () => {
       'fetch',
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         const url = input instanceof Request ? input.url : String(input)
+        if (
+          url.includes('social.coves.media.uploadImage') &&
+          init?.body instanceof Blob
+        ) {
+          return Promise.resolve(
+            json(200, uploadOutput(init.body, init.body.type)),
+          )
+        }
         if (!url.includes('social.coves.community.comment.create')) {
           unexpectedUrls.push(url)
           return Promise.resolve(json(404, { error: 'UnexpectedFetch' }))
@@ -1689,6 +1704,42 @@ describe('ReplyCard Quick Reply', () => {
     expect(replyButton().getAttribute('aria-expanded')).toBe('false')
     expect(composer()).toBeNull()
   })
+
+  it('revokes the image previews once a reply with images is created, since the card shows no comment', async () => {
+    const objectUrls = stubObjectUrls()
+    stubImageDecoding()
+    mountCard(replyRow())
+    replyButton().click()
+    client.flushSync()
+    const input = target.querySelector<HTMLInputElement>('input[type="file"]')
+    if (!input) throw new Error('The composer has no attachment input')
+    pickFiles(input, [imageFile('rc-heron.png', 'png')])
+    await vi.waitFor(() =>
+      expect(target.querySelector('li img')?.getAttribute('src')).toBe(
+        'blob:http://localhost/rc-heron.png',
+      ),
+    )
+
+    const submitButton = target.querySelector('button[type="submit"]')
+    if (!(submitButton instanceof HTMLButtonElement))
+      throw new Error('The composer has no Submit button')
+    submitButton.click()
+    await vi.waitFor(() => expect(createRequests).toHaveLength(1))
+    createRequests[0]?.resolve(
+      json(200, {
+        uri: 'at://did:plc:viewer7f3kq2/social.coves.community.comment/3kquickreply1',
+        cid: 'bafyreibquickreply1',
+      }),
+    )
+    await settle(client)
+
+    expect(composer()).toBeNull()
+    await vi.waitFor(() =>
+      expect(objectUrls.revoked).toContain(
+        'blob:http://localhost/rc-heron.png',
+      ),
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -1754,10 +1805,6 @@ describe("ReplyCard reply to the viewer's comment", () => {
   it.each<[string, ReplyNotificationRow]>([
     ['a commentReply without a subject', replyRow({ reason: 'commentReply' })],
     [
-      'a commentReply whose subject has no preview',
-      commentReplyRow({ preview: undefined }),
-    ],
-    [
       'a postReply',
       replyRow({
         subject: {
@@ -1772,6 +1819,13 @@ describe("ReplyCard reply to the viewer's comment", () => {
 
     expect(target.querySelector('[data-part="post-card"]')).not.toBeNull()
     expect(yourComment()).toBeNull()
+  })
+
+  it('quotes the viewer\'s comment as "Image" when the backend omits its preview', () => {
+    mountCard(commentReplyRow({ preview: undefined }))
+
+    expect(yourComment()?.querySelector('p')?.textContent?.trim()).toBe('Image')
+    expect(target.querySelector('[data-part="post-card"]')).toBeNull()
   })
 
   it("hides the viewer's comment while the row is concealed", () => {

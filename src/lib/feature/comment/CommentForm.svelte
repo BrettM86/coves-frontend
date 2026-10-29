@@ -6,6 +6,8 @@
   import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
+  import { Attachments } from '$lib/feature/image-upload/attachments.svelte'
+  import AttachmentStrip from '$lib/feature/image-upload/AttachmentStrip.svelte'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { parseMarkup } from '$lib/feature/richtext/compose'
   import RichText from '$lib/feature/richtext/RichText.svelte'
@@ -17,6 +19,7 @@
   import { placeholders } from '$lib/app/util/placeholders'
   import { Button, toast } from '$lib/ui/kit'
   import { Icon, X } from '$lib/ui/kit/icon'
+  import { onDestroy } from 'svelte'
   import type { ClassValue, HTMLTextareaAttributes } from 'svelte/elements'
 
   interface Props extends Omit<HTMLTextareaAttributes, 'oncancel'> {
@@ -62,6 +65,19 @@
   }: Props = $props()
 
   let loading = $state(false)
+  /** The images attached to the comment, uploaded on submit. */
+  let attachments = $state(new Attachments())
+  /** The last strip whose previews a created comment shows. */
+  let handedOff: Attachments | undefined
+  /** Aborted when the form closes, so a running submit creates no comment. */
+  const submission = new AbortController()
+
+  onDestroy(() => {
+    submission.abort()
+    // A teardown reads state from before the update that closed the form, so
+    // after a reply that is still the strip handed to the created comment.
+    if (attachments !== handedOff) attachments.releasePreviews()
+  })
 
   async function submit() {
     if (loading) return
@@ -75,8 +91,6 @@
       toast({ content: $t('toast.loginVoteGate'), type: 'warning' })
       return
     }
-    if (value.trim() === '') return
-
     const notifyCreated = oncomment
     const notifyLoading = onloadingchange
     const author = {
@@ -85,10 +99,26 @@
       avatar: profile.current.avatar,
     }
 
+    // Locked before the wait, so no image picked meanwhile misses the upload.
     loading = true
     notifyLoading?.(true)
+    // An image still being checked joins the strip before the guard.
+    await attachments.whenAdded()
+    if (value.trim() === '' && attachments.items.length === 0) {
+      loading = false
+      notifyLoading?.(false)
+      return
+    }
 
+    const sending = attachments
     try {
+      // Images that already have a blob ref, from an earlier failed submit,
+      // are not uploaded again; any failed upload stops the comment.
+      await sending.uploadMissing(coves(), submission.signal)
+      // Comments only ever carry images, never a link (PRD §3.4).
+      const attached = sending.embedFor()
+      const embed =
+        attached?.$type === 'social.coves.embed.images' ? attached : undefined
       // The textarea holds markup; the record carries canonical plaintext plus
       // facets, compiled here.
       const input = await buildCommentCreate({
@@ -96,8 +126,14 @@
         postRef,
         parentRef,
         resolver: coves(),
+        embed,
       })
+      submission.signal.throwIfAborted()
       const response = await coves().createComment(input)
+      // The created comment now shows these previews: a fresh strip replaces
+      // them, so neither a reset nor closing the form revokes them.
+      handedOff = sending
+      attachments = new Attachments()
       notifyCreated?.(
         createOptimisticCommentView(
           response,
@@ -106,13 +142,27 @@
           input.reply.parent,
           author,
           input.facets,
+          embed && {
+            embed,
+            previews: sending.items.map((item) => ({
+              previewUrl: item.previewUrl,
+              alt: item.alt.trim() || undefined,
+              aspectRatio: item.aspectRatio,
+            })),
+          },
         ),
       )
 
       value = ''
     } catch (err) {
       log.error('[CommentForm] createComment failed', err)
-      if (!(isExpiredSessionError(err) && profile.sessionExpired)) {
+      // A failed upload shows its error on its own tile.
+      const onTile = sending.items.some((item) => item.error === err)
+      const quiet =
+        submission.signal.aborted ||
+        onTile ||
+        (isExpiredSessionError(err) && profile.sessionExpired)
+      if (!quiet) {
         toast({
           content: errorMessage(err),
           type: 'error',
@@ -123,6 +173,16 @@
     loading = false
     notifyLoading?.(false)
   }
+
+  /**
+   * Images dropped or pasted into the comment join the attachment strip,
+   * except while a submit runs or a comment is being edited.
+   */
+  function addTransferredFiles(event: Event, files: FileList | undefined) {
+    if (editing || !files || files.length === 0) return
+    event.preventDefault()
+    if (!loading) void attachments.add(Array.from(files))
+  }
 </script>
 
 <form
@@ -130,6 +190,12 @@
     e.preventDefault()
     submit()
   }}
+  ondragover={(event) => {
+    if (!editing && event.dataTransfer?.types.includes('Files'))
+      event.preventDefault()
+  }}
+  ondrop={(event) => addTransferredFiles(event, event.dataTransfer?.files)}
+  onpaste={(event) => addTransferredFiles(event, event.clipboardData?.files)}
   class="flex flex-col gap-2 relative"
 >
   <MarkdownEditor
@@ -172,4 +238,7 @@
       </Button>
     {/if}
   </MarkdownEditor>
+  {#if !editing}
+    <AttachmentStrip {attachments} busy={loading} onretry={submit} />
+  {/if}
 </form>

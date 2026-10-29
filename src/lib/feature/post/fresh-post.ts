@@ -105,8 +105,11 @@ export function buildFreshPostView(args: {
   }
 }
 
-/** The embed view a just-created post renders until the indexed copy loads. */
-function freshEmbed(
+/**
+ * The embed view a just-created post or comment renders until the indexed
+ * copy loads.
+ */
+export function freshEmbed(
   url: string | undefined,
   images:
     | {
@@ -141,10 +144,13 @@ function freshEmbed(
 }
 
 /**
- * The composer's `blob:` preview URLs a just-created post view renders. The
- * page showing it revokes them once the view gives way to the server copy.
+ * The composer's `blob:` preview URLs a just-created post or comment view
+ * renders. The view showing it revokes them once it gives way to the server
+ * copy.
  */
-export function freshPostImageUrls(post: PostView | undefined): string[] {
+export function freshPostImageUrls(
+  post: { embed?: PostEmbed } | undefined,
+): string[] {
   const embed = post?.embed
   const images =
     embed?.$type === 'social.coves.embed.images#view'

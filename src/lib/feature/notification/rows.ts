@@ -477,9 +477,26 @@ function linkNameText(row: NotificationRow): string | undefined {
 export function upvoteSubjectText(
   row: UpvoteNotificationRow,
 ): string | undefined {
-  const { status, preview } = row.subject
+  const { status, preview, uri } = row.subject
   if (status) return t.get(placeholderCopyKey(status))
+  if (isCommentUri(uri) && isBlank(preview)) return imageOnlyText()
   return preview
+}
+
+/**
+ * A comment's text is empty only when it carries images (the backend refuses
+ * an empty comment without them), and the notification view has no image flag
+ * for comments, so a missing or blank comment excerpt or preview stands for its
+ * images. The backend omits an empty preview or excerpt (`omitempty`), and it
+ * drops rows whose comment is missing or deleted without a status, so a live
+ * comment with no preview key is one with empty content.
+ */
+function isBlank(text: unknown): text is string | undefined {
+  return text === undefined || (typeof text === 'string' && text.trim() === '')
+}
+
+function imageOnlyText(): string {
+  return t.get('routes.notifications.image')
 }
 
 export interface RepliedToComment {
@@ -492,7 +509,7 @@ export interface RepliedToComment {
  * The viewer's comment a `commentReply` row answers, from the row's subject:
  * the placeholder copy when it is removed or deleted, else its preview.
  * Undefined for other reasons, and for a subject that is not a comment or has
- * neither a status nor a preview. On reply rows `subject` is unvalidated wire
+ * a non-string preview. On reply rows `subject` is unvalidated wire
  * data, so its shape is checked here.
  */
 export function repliedToComment(
@@ -508,7 +525,10 @@ export function repliedToComment(
       placeholder: true,
     }
   }
-  if (typeof subject.preview === 'string' && subject.preview.trim() !== '') {
+  if (isBlank(subject.preview)) {
+    return { text: imageOnlyText(), placeholder: false }
+  }
+  if (typeof subject.preview === 'string') {
     return { text: subject.preview, placeholder: false }
   }
   return undefined
@@ -524,6 +544,7 @@ export function repliedToComment(
 export function replyRecordText(row: ReplyNotificationRow): string | undefined {
   const { status, excerpt, uri } = row.record
   if (status) return t.get(placeholderCopyKey(status))
+  if (isCommentUri(uri) && isBlank(excerpt)) return imageOnlyText()
   const { title } = row.rootPost
   if (
     row.reason === 'mention' &&

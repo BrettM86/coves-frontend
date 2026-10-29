@@ -113,6 +113,31 @@
       'material-info px-3 py-1.5 rounded-xl max-w-max',
   ])
 
+  /**
+   * Whether a stored record embed (unchecked wire data) carries images, also
+   * inside `imagesWithAttachment`, matching the backend's empty-content rule.
+   */
+  function hasImages(embed: unknown): boolean {
+    if (
+      typeof embed === 'object' &&
+      embed !== null &&
+      '$type' in embed &&
+      embed.$type === 'social.coves.embed.imagesWithAttachment' &&
+      'images' in embed
+    ) {
+      return hasImages(embed.images)
+    }
+    return (
+      typeof embed === 'object' &&
+      embed !== null &&
+      '$type' in embed &&
+      embed.$type === 'social.coves.embed.images' &&
+      'images' in embed &&
+      Array.isArray(embed.images) &&
+      embed.images.length > 0
+    )
+  }
+
   async function save() {
     if (node.comment.isDeleted) return
     if (!profile.current?.jwt) {
@@ -120,7 +145,7 @@
         toast({ content: $t('toast.sessionExpired'), type: 'warning' })
       return
     }
-    if (newComment.trim() === '') {
+    if (newComment.trim() === '' && !hasImages(node.comment.record.embed)) {
       toast({ content: 'Comment cannot be empty.', type: 'warning' })
       return
     }

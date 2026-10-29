@@ -5,7 +5,13 @@
  * annotate byte ranges that no longer describe the text.
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { AtUri, CID, CommentRecord, StrongRef } from '$lib/api/coves/types'
+import type {
+  AtUri,
+  CID,
+  CommentRecord,
+  ImagesEmbedRecord,
+  StrongRef,
+} from '$lib/api/coves/types'
 import { parseMarkup } from '$lib/feature/richtext/compose'
 import { byteLength, byteRange } from '$lib/feature/richtext/test-helpers'
 import {
@@ -356,18 +362,110 @@ describe('canonical content trimming', () => {
       expect(input.facets).toEqual(facets)
     },
   )
+})
 
-  it('leaves no facet behind when the trim empties the content', async () => {
-    // A code span holding only a space compiles to a one-byte content that the
-    // trim removes entirely. The facet over it would be zero-length, which is
-    // never valid.
+function imagesEmbed(...names: string[]): ImagesEmbedRecord {
+  return {
+    $type: 'social.coves.embed.images',
+    images: names.map((name) => ({
+      image: {
+        $type: 'blob',
+        ref: { $link: `bafy-${name}` },
+        mimeType: 'image/png',
+        size: 1024,
+      },
+      aspectRatio: { width: 300, height: 200 },
+    })),
+  }
+}
+
+describe('buildCommentCreate with images', () => {
+  // Only a comment with images may be sent with no text. The code-span row
+  // compiles to a one-byte content that the trim removes entirely; the facet
+  // over it would be zero-length, which is never valid, so none is sent.
+  it.each([
+    ['an empty source', ''],
+    ['a whitespace-only source', '  \n '],
+    ['a source that compiles to empty content', '` `'],
+  ])(
+    'sends an image comment with %s as empty content and no facets',
+    async (_title, source) => {
+      const embed = imagesEmbed('a.png')
+
+      const input = await buildCommentCreate({
+        source,
+        postRef: POST_REF,
+        resolver: fakeResolver(),
+        embed,
+      })
+
+      expect(input.content).toBe('')
+      expect(Object.keys(input)).not.toContain('facets')
+      expect(input.embed).toEqual({
+        $type: 'social.coves.embed.images',
+        images: [
+          {
+            image: {
+              $type: 'blob',
+              ref: { $link: 'bafy-a.png' },
+              mimeType: 'image/png',
+              size: 1024,
+            },
+            aspectRatio: { width: 300, height: 200 },
+          },
+        ],
+      })
+    },
+  )
+
+  it.each([
+    ['an empty source', ''],
+    ['a whitespace-only source', '  \n '],
+    ['a source that compiles to empty content', '` `'],
+  ])(
+    'rejects a comment with %s and no images as ContentEmpty',
+    async (_title, source) => {
+      await expect(
+        buildCommentCreate({
+          source,
+          postRef: POST_REF,
+          resolver: fakeResolver(),
+        }),
+      ).rejects.toMatchObject({ code: 'ContentEmpty' })
+    },
+  )
+
+  it('sends text with both images as a plain images embed', async () => {
     const input = await buildCommentCreate({
-      source: '` `',
+      source: 'two kites',
       postRef: POST_REF,
       resolver: fakeResolver(),
+      embed: imagesEmbed('a.png', 'b.png'),
     })
 
-    expect(input.content).toBe('')
-    expect(Object.keys(input)).not.toContain('facets')
+    expect(input.content).toBe('two kites')
+    expect(input.embed).toEqual({
+      $type: 'social.coves.embed.images',
+      images: [
+        {
+          image: {
+            $type: 'blob',
+            ref: { $link: 'bafy-a.png' },
+            mimeType: 'image/png',
+            size: 1024,
+          },
+          aspectRatio: { width: 300, height: 200 },
+        },
+        {
+          image: {
+            $type: 'blob',
+            ref: { $link: 'bafy-b.png' },
+            mimeType: 'image/png',
+            size: 1024,
+          },
+          aspectRatio: { width: 300, height: 200 },
+        },
+      ],
+    })
   })
 })

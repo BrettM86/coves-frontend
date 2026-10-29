@@ -1,9 +1,11 @@
 <script lang="ts">
-  import type { PostEmbed } from '$lib/api/coves/types'
+  import type { EmbedImage, PostEmbed } from '$lib/api/coves/types'
   import { type View } from '$lib/app/state/settings.svelte'
-  import { PostIframe, PostImage, PostLink } from '..'
+  import { PostIframe, PostLink } from '..'
+  import PostGallery from './PostGallery.svelte'
   import BlueskyPostCard from './BlueskyPostCard.svelte'
   import {
+    bestImageURL,
     extractEmbedThumbnail,
     extractEmbedTitle,
     extractEmbedUrl,
@@ -18,7 +20,7 @@
     type?: MediaType
     opened?: boolean | undefined
     blur?: boolean
-    /** Passed to an image: see PostImage. */
+    /** Passed to the gallery: see PostGallery. */
     priority?: boolean
   }
 
@@ -35,6 +37,12 @@
   let thumbnailUrl = $derived(extractEmbedThumbnail(embed))
   let embedTitle = $derived(extractEmbedTitle(embed))
   let blueskyEmbed = $derived(getBlueskyPostEmbed(embed))
+  /** An image embed's images, or the image an external link points at. */
+  let galleryImages = $derived.by((): EmbedImage[] => {
+    if (embed?.$type === 'social.coves.embed.images#view') return embed.images
+    const url = bestImageURL(embed, false)
+    return url ? [{ thumb: url, fullsize: url }] : []
+  })
 </script>
 
 <!--
@@ -43,8 +51,8 @@
   - A media item (pictures, videos) (large form factor posts only)
   - Embed link/card.
 -->
-{#if type === 'image' && view === 'cozy' && embed}
-  <PostImage {embed} {blur} {priority} />
+{#if type === 'image' && view === 'cozy' && galleryImages.length > 0}
+  <PostGallery images={galleryImages} {blur} {priority} />
 {:else if type === 'embed' && blueskyEmbed}
   {#if view !== 'compact'}
     <BlueskyPostCard embed={blueskyEmbed} />

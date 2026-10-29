@@ -173,7 +173,7 @@ describe('postToRssItem', () => {
             $type: 'social.coves.embed.images#view',
             images: [
               {
-                image:
+                fullsize:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgone',
                 alt: 'A cat',
               },
@@ -244,7 +244,7 @@ describe('postToRssItem', () => {
             $type: 'social.coves.embed.images#view',
             images: [
               {
-                image:
+                fullsize:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgone',
                 alt: 'A cat',
               },
@@ -370,8 +370,6 @@ describe('postToRssItem', () => {
             $type: 'social.coves.embed.images#view',
             images: [
               {
-                image:
-                  'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgone',
                 thumb:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgone',
                 fullsize:
@@ -379,7 +377,7 @@ describe('postToRssItem', () => {
                 alt: 'A cat',
               },
               {
-                image:
+                fullsize:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgtwo',
               },
             ],
@@ -439,9 +437,9 @@ describe('postToRssItem', () => {
           embed: {
             $type: 'social.coves.embed.images#view',
             images: [
-              { image: dataUrl, fullsize: dataUrl, alt: 'pixel' },
+              { fullsize: dataUrl, alt: 'pixel' },
               {
-                image:
+                fullsize:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgtwo',
               },
             ],
@@ -467,9 +465,9 @@ describe('postToRssItem', () => {
           embed: {
             $type: 'social.coves.embed.images#view',
             images: [
-              { image: '', alt: 'missing' },
+              { fullsize: '', alt: 'missing' },
               {
-                image:
+                fullsize:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgtwo',
               },
             ],
@@ -530,7 +528,7 @@ describe('postToRssItem', () => {
         $type: 'social.coves.embed.images#view',
         images: [
           {
-            image:
+            fullsize:
               'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgone',
             alt: HOSTILE,
           },
@@ -675,7 +673,7 @@ describe('commentsToRssItems', () => {
               $type: 'social.coves.embed.images#view',
               images: [
                 {
-                  image:
+                  fullsize:
                     'https://cdn.example/img/content_preview/plain/did:plc:bob/bafycommentimg',
                 },
               ],

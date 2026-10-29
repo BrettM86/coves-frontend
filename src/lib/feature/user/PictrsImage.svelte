@@ -44,7 +44,12 @@
     <button
       onclick={() =>
         showImage(
-          `${instanceToURL(profile.current.instance)}/pictrs/image/${image.pictrs_alias}`,
+          [
+            {
+              url: `${instanceToURL(profile.current.instance)}/pictrs/image/${image.pictrs_alias}`,
+            },
+          ],
+          0,
         )}
       class="cursor-pointer"
     >

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'svelte/server'
 import { JSDOM } from 'jsdom'
-import type { PostEmbed } from '$lib/api/coves/types'
-import PostImage from './PostImage.svelte'
+import type { EmbedImage } from '$lib/api/coves/types'
+import PostGallery from './PostGallery.svelte'
 
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
 
@@ -10,14 +10,18 @@ const PREVIEW =
   'https://img.coves.test/img/content_preview/plain/did:plc:a/bafy1'
 const FULL = 'https://img.coves.test/img/content_full/plain/did:plc:a/bafy1'
 
-const embed = {
-  $type: 'social.coves.embed.images#view',
-  images: [{ thumb: PREVIEW, fullsize: FULL, alt: 'A lake' }],
-} as unknown as PostEmbed
+const lake: EmbedImage = { thumb: PREVIEW, fullsize: FULL, alt: 'A lake' }
 
+function renderGallery(
+  props: { priority?: boolean; blur?: boolean } = {},
+): Document {
+  const { body } = render(PostGallery, { props: { images: [lake], ...props } })
+  return new JSDOM(body).window.document
+}
+
+/** The backdrop and foreground `<img>` of the single tile, in that order. */
 function images(priority?: boolean): HTMLImageElement[] {
-  const { body } = render(PostImage, { props: { embed, priority } })
-  return [...new JSDOM(body).window.document.querySelectorAll('img')]
+  return [...renderGallery({ priority }).querySelectorAll('img')]
 }
 
 function sourceSets(picture: Element | null): string[] {
@@ -27,9 +31,11 @@ function sourceSets(picture: Element | null): string[] {
   )
 }
 
-describe('PostImage', () => {
+describe('PostGallery with one image', () => {
   it('fetches a feed image lazily by default', () => {
-    for (const img of images()) {
+    const rendered = images()
+    expect(rendered).toHaveLength(2)
+    for (const img of rendered) {
       expect(img.getAttribute('loading')).toBe('lazy')
       expect(img.getAttribute('decoding')).toBe('async')
     }
@@ -60,6 +66,7 @@ describe('PostImage', () => {
     // A zoomed viewport can be 800.5px wide. With `(max-width: 800px)` and
     // `(min-width: 801px)` no source matches, and the <img> falls back to
     // downloading the full size.
+    expect(sources.length).toBeGreaterThan(0)
     expect(sources.at(-1)?.hasAttribute('media')).toBe(false)
   })
 
@@ -69,5 +76,18 @@ describe('PostImage', () => {
 
     expect(wide?.getAttribute('srcset')).toBe(`${PREVIEW} 800w, ${FULL} 1600w`)
     expect(wide?.getAttribute('sizes')).toBe('800px')
+  })
+
+  it('keeps the image URL off a blurred foreground image', () => {
+    const image = renderGallery({ blur: true }).querySelector(
+      'img[alt="A lake"]',
+    )
+
+    expect(image).not.toBeNull()
+    expect(image?.getAttribute('src') ?? '').toBe('')
+    expect(image?.getAttribute('srcset') ?? '').toBe('')
+    expect(
+      [...(image?.classList ?? [])].some((name) => name.startsWith('blur')),
+    ).toBe(true)
   })
 })

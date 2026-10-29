@@ -342,24 +342,29 @@ it.each([
   },
 )
 
-it('preserves native compact image expansion through the image viewer', () => {
+it('renders the native compact thumbnail from thumb and opens the first image in the lightbox list', () => {
   settings.expandImages = true
   const fullsize = 'https://media.example/native.jpg'
   mountTile({
     $type: 'social.coves.embed.images#view',
     images: [
       {
-        image: fullsize,
         thumb: 'https://media.example/native-thumb.jpg',
         fullsize,
         alt: 'Native image control',
       },
     ],
   })
+  expect(target.querySelector('img')?.getAttribute('src')).toBe(
+    'https://media.example/native-thumb.jpg',
+  )
   const button = target.querySelector('img')?.closest('button')
   expect(button).not.toBeNull()
   button?.click()
-  expect(showImage).toHaveBeenCalledExactlyOnceWith(fullsize)
+  expect(showImage).toHaveBeenCalledExactlyOnceWith(
+    [{ url: 'https://media.example/native.jpg', alt: 'Native image control' }],
+    0,
+  )
   expect(document.querySelector('[role="dialog"]')).toBeNull()
 })
 
@@ -403,7 +408,6 @@ it.each([
       $type: 'social.coves.embed.images#view',
       images: [
         {
-          image: 'https://media.example/native.jpg',
           thumb: 'https://media.example/native-thumb.jpg',
           fullsize: 'https://media.example/native.jpg',
           alt: 'Native image',
@@ -443,5 +447,74 @@ it.each([
         : 'https://media.example/external-thumb.jpg',
     )
     expect(revealed?.classList.contains('blur-xl')).toBe(false)
+  },
+)
+
+it('replaces a failed native thumbnail with the placeholder inside the same thumbnail box', async () => {
+  mountTile({
+    $type: 'social.coves.embed.images#view',
+    images: [
+      {
+        thumb: 'https://media.example/native-thumb.jpg',
+        fullsize: 'https://media.example/native.jpg',
+        alt: 'Native image',
+      },
+    ],
+  })
+  const image = target.querySelector('img')
+  const box = image?.closest<HTMLElement>('.w-22')
+  if (!image || !box) throw new Error('Missing compact thumbnail box')
+
+  image.dispatchEvent(new Event('error'))
+  await settle()
+
+  expect(box.isConnected).toBe(true)
+  expect(box.classList).toContain('w-22')
+  expect(box.classList).toContain('h-22')
+  expect(box.textContent).toContain('Image unavailable')
+  expect(box.querySelector('img')).toBeNull()
+})
+
+it.each([
+  {
+    label: 'unsafe thumb',
+    image: {
+      thumb: 'data:image/png;base64,AAAA',
+      fullsize: 'https://media.example/safe-full.jpg',
+      alt: 'Unsafe thumb',
+    },
+    safeThumb: undefined,
+  },
+  {
+    label: 'unsafe fullsize',
+    image: {
+      thumb: 'https://media.example/safe-thumb.jpg',
+      fullsize: 'javascript:alert(1)',
+      alt: 'Unsafe full',
+    },
+    safeThumb: 'https://media.example/safe-thumb.jpg',
+  },
+])(
+  'never renders or opens an $label of a native image',
+  ({ image, safeThumb }) => {
+    mountTile({ $type: 'social.coves.embed.images#view', images: [image] })
+
+    const sources = [...target.querySelectorAll('[src], [srcset]')].flatMap(
+      (element) => [
+        element.getAttribute('src') ?? '',
+        element.getAttribute('srcset') ?? '',
+      ],
+    )
+    for (const source of sources) {
+      expect(source).not.toContain('data:image/png;base64,AAAA')
+      expect(source).not.toContain('javascript:alert(1)')
+    }
+    if (safeThumb)
+      expect(target.querySelector('img')?.getAttribute('src')).toBe(safeThumb)
+
+    target.querySelector('img')?.closest('button')?.click()
+    expect(JSON.stringify(showImage.mock.calls)).not.toContain(
+      'javascript:alert(1)',
+    )
   },
 )

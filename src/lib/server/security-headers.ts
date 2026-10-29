@@ -139,7 +139,7 @@ export function buildContentSecurityPolicy(
   set('style-src', ["'self'", "'unsafe-inline'"])
   set('style-src-elem', dev ? ["'self'", "'unsafe-inline'"] : ["'self'"])
   set('style-src-attr', ["'unsafe-inline'"])
-  // `https:` — post embeds may hotlink images from anywhere (PostImage and
+  // `https:` — post embeds may hotlink images from anywhere (PostGallery and
   // PostLink render thumbnail URLs taken from the record, gated only by a
   // scheme check, and the firehose does not validate them). An image cannot
   // execute script; the cost is the ordinary hotlink cost, already bounded by

@@ -1,5 +1,6 @@
 import type { EmbedImage } from '$lib/api/coves/types'
 import { log } from '$lib/app/util/log'
+import { isWebUrl } from '$lib/app/util/url'
 
 /**
  * Available image proxy presets matching the Coves backend.
@@ -53,13 +54,15 @@ export function withPreset(url: string, preset: ImagePreset): string {
 export type ImageVariant = 'thumb' | 'fullsize'
 
 /**
- * Returns the best URL for an EmbedImage given a display variant.
- * Prefers thumb/fullsize when present and non-empty, falls back to image.
+ * Returns the URL of an EmbedImage's variant, or undefined when the server
+ * sent none for that variant or sent something that is not an absolute
+ * http(s) URL. Every renderer takes its image URL from here: there is no
+ * fallback to the other variant.
  */
 export function imageUrl(
   image: EmbedImage,
   variant: ImageVariant = 'thumb',
-): string {
-  if (variant === 'fullsize') return image.fullsize || image.image
-  return image.thumb || image.image
+): string | undefined {
+  const url = variant === 'fullsize' ? image.fullsize : image.thumb
+  return url && isWebUrl(url) ? url : undefined
 }

@@ -125,7 +125,7 @@ describe('titleDuplicatesBlueskyEmbed', () => {
   it('does not match an image embed whose alt text equals the post title', () => {
     const images: ImageEmbed = {
       $type: 'social.coves.embed.images#view',
-      images: [{ image: 'https://media.example/a.jpg', alt: 'Hello world' }],
+      images: [{ thumb: 'https://media.example/a.jpg', alt: 'Hello world' }],
     }
     expect(titleDuplicatesBlueskyEmbed('Hello world', images)).toBe(false)
   })

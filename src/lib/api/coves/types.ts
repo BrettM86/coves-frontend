@@ -504,7 +504,6 @@ export interface EmbedImageAspectRatio {
 }
 
 export interface EmbedImage {
-  image: string
   thumb?: string
   fullsize?: string
   alt?: string

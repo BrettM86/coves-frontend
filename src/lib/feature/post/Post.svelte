@@ -239,7 +239,7 @@
           style="grid-area:embed;"
           class={{
             contents: view === 'cozy' && !nativeImage,
-            '[&>*]:block [&>*]:w-full': view === 'cozy' && nativeImage,
+            '[&>*]:w-full': view === 'cozy' && nativeImage,
           }}
         >
           <PostMedia embed={post.embed} {view} {type} {priority} />

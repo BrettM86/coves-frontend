@@ -44,7 +44,7 @@ function bodyHtml(
 }
 
 function imageHtml(image: EmbedImage, origin: string): string {
-  const src = absoluteWebUrl(imageUrl(image, 'fullsize'), origin)
+  const src = absoluteWebUrl(imageUrl(image, 'fullsize') ?? '', origin)
   if (src === null) return ''
   return `<p><img src="${escapeHtml(src)}" alt="${escapeHtml(image.alt ?? '')}"></p>`
 }

@@ -26,6 +26,8 @@ const webMediaUrl = (url: string | undefined): string =>
  *
  * The selected external or video URL is gated with {@link isWebUrl}: anything
  * that is not an absolute http(s) URL yields '' rather than a second choice.
+ * An image embed yields undefined when its first image has no acceptable URL
+ * for the variant (see {@link imageUrl}).
  *
  * @param embed - The post embed to extract an image URL from.
  * @param thumbnail - For external embeds only: when true, prefer the external
@@ -37,14 +39,13 @@ export const bestImageURL = (
   embed: PostEmbed | undefined,
   thumbnail: boolean = true,
   variant: ImageVariant = 'thumb',
-): string => {
+): string | undefined => {
   if (!embed) return ''
 
   switch (embed.$type) {
     case 'social.coves.embed.images#view': {
       const img = embed.images[0]
-      if (img) return imageUrl(img, variant)
-      return ''
+      return img ? imageUrl(img, variant) : undefined
     }
     case 'social.coves.embed.external':
     case 'social.coves.embed.external#view': {
@@ -383,7 +384,7 @@ export function extractEmbedUrl(embed?: PostEmbed): string | undefined {
 
   switch (embed.$type) {
     case 'social.coves.embed.images#view':
-      return embed.images[0]?.image
+      return undefined
     case 'social.coves.embed.external':
     case 'social.coves.embed.external#view':
       return embed.external.uri

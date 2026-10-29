@@ -882,6 +882,7 @@
         "general": "General",
         "remove": "Remove",
         "image": "image",
+        "imageUnavailable": "Image unavailable",
         "attach": "Attach file",
         "info": "Info"
     },
@@ -1156,6 +1157,10 @@
         "unknown": "An unexpected error occurred."
     },
     "aria": {
+        "lightbox": {
+            "previous": "Previous image",
+            "next": "Next image"
+        },
         "pagination": {
             "nav": "Pagination",
             "current": "Current page"

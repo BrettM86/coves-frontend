@@ -120,7 +120,9 @@ declare global {
       }
     }
     interface PageState {
-      openImage?: string
+      /** The lightbox: the images it steps through and the one shown. */
+      openImages?: { url: string; alt?: string }[]
+      openImageIndex?: number
       openModals?: string[]
       postFeedOrigin?: {
         url: string

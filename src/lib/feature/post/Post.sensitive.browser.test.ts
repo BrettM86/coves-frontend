@@ -76,7 +76,6 @@ const fixture = (key: string): PostView =>
       $type: 'social.coves.embed.images#view',
       images: [
         {
-          image: 'https://media.example/sensitive-image.jpg',
           thumb: 'https://media.example/sensitive-thumbnail.jpg',
           fullsize: 'https://media.example/sensitive-image.jpg',
           alt: 'Sensitive image',

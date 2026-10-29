@@ -7,7 +7,6 @@ interface AcceptedPlacement extends Range {
   facet: number
   /** Index of the image in the main image list. */
   index: number
-  image: EmbedImage
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -40,17 +39,17 @@ function hasCodeFeature(facet: unknown): boolean {
 }
 
 /**
- * The placements that pass every guard, in body order: the index resolves in
- * `images` and is the first placement of it; the `#image` feature is the
+ * The placements that pass every guard, in body order: the index names one of
+ * `imageCount` images and is the first placement of it; the `#image` feature is the
  * facet's only feature; the range is non-empty, within `content` and on UTF-8
  * character boundaries; and it overlaps no `#code` or `#codeBlock` range.
  */
 function acceptedPlacements(
-  images: readonly EmbedImage[],
+  imageCount: number,
   content: string,
   facets: unknown[] | undefined,
 ): AcceptedPlacement[] {
-  if (images.length === 0 || !facets) return []
+  if (imageCount === 0 || !facets) return []
   const bytes = new TextEncoder().encode(content)
   const isCharacterBoundary = (offset: number) =>
     offset === bytes.length || (bytes[offset] & 0xc0) !== 0x80
@@ -65,14 +64,13 @@ function acceptedPlacements(
     const index = placedIndex(facet)
     const range = facetByteRange(facet)
     if (index === null || !range) return
-    const image = images[index]
-    if (!image || placedIndexes.has(index)) return
+    if (index < 0 || index >= imageCount || placedIndexes.has(index)) return
     const { start, end } = range
     if (start >= end || end > bytes.length) return
     if (!isCharacterBoundary(start) || !isCharacterBoundary(end)) return
     if (codeRanges.some((code) => code.start < end && code.end > start)) return
     placedIndexes.add(index)
-    accepted.push({ start, end, facet: position, index, image })
+    accepted.push({ start, end, facet: position, index })
   })
   return accepted.sort((a, b) => a.start - b.start)
 }
@@ -89,14 +87,32 @@ export function imageLayout(
   facets: unknown[] | undefined,
 ): { gallery: EmbedImage[]; placed: Map<number, EmbedImage> } {
   const images = embedImages(embed)
-  const accepted = acceptedPlacements(images, content, facets)
+  const accepted = acceptedPlacements(images.length, content, facets)
   const placedIndexes = new Set(accepted.map((placement) => placement.index))
   return {
     gallery: images.filter((_, index) => !placedIndexes.has(index)),
     placed: new Map(
-      accepted.map((placement) => [placement.facet, placement.image]),
+      accepted.map((placement) => [placement.facet, images[placement.index]]),
     ),
   }
+}
+
+/**
+ * The accepted placements among `facets` for a record with `imageCount`
+ * images, as facet position → image index in body order: the same guards the
+ * reader applies, for callers that have no view images.
+ */
+export function placedImageIndexes(
+  imageCount: number,
+  content: string,
+  facets: unknown[] | undefined,
+): Map<number, number> {
+  return new Map(
+    acceptedPlacements(imageCount, content, facets).map((placement) => [
+      placement.facet,
+      placement.index,
+    ]),
+  )
 }
 
 /**
@@ -109,7 +125,11 @@ export function removePlacedText(
   content: string,
   facets: unknown[] | undefined,
 ): string {
-  const accepted = acceptedPlacements(embedImages(embed), content, facets)
+  const accepted = acceptedPlacements(
+    embedImages(embed).length,
+    content,
+    facets,
+  )
   if (accepted.length === 0) return content
   const bytes = new TextEncoder().encode(content)
   const decoder = new TextDecoder()

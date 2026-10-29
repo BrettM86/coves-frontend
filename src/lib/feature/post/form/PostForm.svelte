@@ -5,7 +5,10 @@
   import { t } from '$lib/app/state/i18n'
   import AttachmentStrip from '$lib/feature/image-upload/AttachmentStrip.svelte'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
+  import { insertPlacementToken } from '$lib/feature/image-upload/placement-tokens'
+  import PostGallery from '$lib/feature/post/media/PostGallery.svelte'
   import { parseMarkup } from '$lib/feature/richtext/compose'
+  import { imageLayout } from '$lib/feature/richtext/image-layout'
   import RichText from '$lib/feature/richtext/RichText.svelte'
   import { communityAddress } from '$lib/app/util/community'
   import { placeholders } from '$lib/app/util/placeholders'
@@ -66,6 +69,15 @@
         if (form.attachments.items.some((item) => item.error === err)) return
         pushError({ message: errorMessage(err), scope: 'post-form' })
       })
+  }
+
+  let editor = $state<ReturnType<typeof MarkdownEditor>>()
+  const previewEmbed = $derived(form.attachments.previewEmbed())
+
+  function insertPlacement(number: number, alt: string) {
+    editor?.insert((text, caret) =>
+      insertPlacementToken(text, caret, alt, number),
+    )
   }
 
   /**
@@ -146,6 +158,7 @@
     onpaste={(event) => addTransferredFiles(event, event.clipboardData?.files)}
   >
     <MarkdownEditor
+      bind:this={editor}
       label={$t('form.post.body')}
       bind:value={form.body}
       placeholder={placeholders.get('body')}
@@ -154,14 +167,26 @@
       <!-- The preview compiles the markup, so it shows what every client will
          render rather than what a markdown parser makes of it. -->
       {#snippet preview(source)}
-        {@const parsed = parseMarkup(source)}
-        <RichText content={parsed.content} facets={parsed.facets} />
+        {@const embed = previewEmbed}
+        {@const parsed = parseMarkup(source, {
+          imageCount: embed?.images.length ?? 0,
+        })}
+        {@const layout = imageLayout(embed, parsed.content, parsed.facets)}
+        <RichText content={parsed.content} facets={parsed.facets} {embed} />
+        {#if layout.gallery.length > 0}
+          <PostGallery
+            images={layout.gallery}
+            placedImages={[...layout.placed.values()]}
+          />
+        {/if}
       {/snippet}
     </MarkdownEditor>
   </div>
 
   <AttachmentStrip
     attachments={form.attachments}
+    bind:text={form.body}
+    oninsert={insertPlacement}
     busy={loading}
     onretry={submit}
   />

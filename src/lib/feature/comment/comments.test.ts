@@ -491,7 +491,13 @@ describe('buildCommentsTree', () => {
       ...makeCommentRecord(''),
       facets: [{ index: { byteStart: 0, byteEnd: 4 } }],
       langs: ['en'],
-      embed: { $type: 'social.coves.embed.external' },
+      embed: {
+        $type: 'social.coves.embed.post',
+        post: {
+          uri: 'at://did:plc:author/social.coves.community.post/quoted' as AtUri,
+          cid: 'bafyquoted' as CID,
+        },
+      },
       labels: { $type: 'com.atproto.label.defs#selfLabels', values: [] },
     }
     const cv = makeCommentView({

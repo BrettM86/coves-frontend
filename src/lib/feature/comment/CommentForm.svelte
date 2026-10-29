@@ -1,6 +1,6 @@
 <script lang="ts">
   import { coves } from '$lib/api/client.svelte'
-  import type { StrongRef } from '$lib/api/coves/types'
+  import type { PostEmbed, StrongRef } from '$lib/api/coves/types'
   import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
   import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
@@ -8,8 +8,12 @@
   import { t } from '$lib/app/state/i18n'
   import { Attachments } from '$lib/feature/image-upload/attachments.svelte'
   import AttachmentStrip from '$lib/feature/image-upload/AttachmentStrip.svelte'
+  import { embedImages } from '$lib/feature/post/helpers'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
+  import { insertPlacementToken } from '$lib/feature/image-upload/placement-tokens'
+  import PostGallery from '$lib/feature/post/media/PostGallery.svelte'
   import { parseMarkup } from '$lib/feature/richtext/compose'
+  import { imageLayout } from '$lib/feature/richtext/image-layout'
   import RichText from '$lib/feature/richtext/RichText.svelte'
   import {
     createOptimisticCommentView,
@@ -38,6 +42,8 @@
     id?: string
     label?: string
     editing?: boolean
+    /** The edited comment's embed: its images preview and can be placed. */
+    savedEmbed?: PostEmbed
     /** Called when a submit starts (true) and when it settles (false). */
     onloadingchange?: (loading: boolean) => void
     /** The confirmed write, including the author and refs captured at submit. */
@@ -57,6 +63,7 @@
     actions = true,
     preview: previewAction = true,
     editing = false,
+    savedEmbed = undefined,
     oncancel,
     oncomment,
     onconfirm,
@@ -71,6 +78,18 @@
   let handedOff: Attachments | undefined
   /** Aborted when the form closes, so a running submit creates no comment. */
   const submission = new AbortController()
+
+  let editor = $state<ReturnType<typeof MarkdownEditor>>()
+  const savedImages = $derived(embedImages(savedEmbed))
+  const previewEmbed = $derived(
+    editing ? savedEmbed : attachments.previewEmbed(),
+  )
+
+  function insertPlacement(number: number, alt: string) {
+    editor?.insert((text, caret) =>
+      insertPlacementToken(text, caret, alt, number),
+    )
+  }
 
   onDestroy(() => {
     submission.abort()
@@ -199,6 +218,7 @@
   class="flex flex-col gap-2 relative"
 >
   <MarkdownEditor
+    bind:this={editor}
     {...rest}
     {rows}
     placeholder={locked
@@ -211,8 +231,18 @@
     previewButton={previewAction}
   >
     {#snippet preview(source)}
-      {@const parsed = parseMarkup(source)}
-      <RichText content={parsed.content} facets={parsed.facets} />
+      {@const embed = previewEmbed}
+      {@const parsed = parseMarkup(source, {
+        imageCount: embedImages(embed).length,
+      })}
+      {@const layout = imageLayout(embed, parsed.content, parsed.facets)}
+      <RichText content={parsed.content} facets={parsed.facets} {embed} />
+      {#if layout.gallery.length > 0}
+        <PostGallery
+          images={layout.gallery}
+          placedImages={[...layout.placed.values()]}
+        />
+      {/if}
     {/snippet}
     <div class="flex-1"></div>
     {#if actions}
@@ -239,6 +269,14 @@
     {/if}
   </MarkdownEditor>
   {#if !editing}
-    <AttachmentStrip {attachments} busy={loading} onretry={submit} />
+    <AttachmentStrip
+      {attachments}
+      bind:text={value}
+      oninsert={insertPlacement}
+      busy={loading}
+      onretry={submit}
+    />
+  {:else}
+    <AttachmentStrip images={savedImages} oninsert={insertPlacement} />
   {/if}
 </form>

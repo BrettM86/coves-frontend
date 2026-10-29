@@ -16,8 +16,10 @@ import { get } from 'svelte/store'
 import type {
   AtUri,
   CID,
+  CommentRecord,
   CommentView,
   ImagesEmbedRecord,
+  ImagesWithAttachmentRecord,
   PostEmbed,
   UpdateCommentInput,
 } from '$lib/api/coves/types'
@@ -131,21 +133,21 @@ const imagesView: PostEmbed = {
 
 // A comment written by another client: images wrapped together with a quoted
 // post, which the backend accepts on comments.
-const imagesWithAttachmentRecord = {
+const imagesWithAttachmentRecord: ImagesWithAttachmentRecord = {
   $type: 'social.coves.embed.imagesWithAttachment',
   images: imagesRecord,
   attachment: {
     $type: 'social.coves.embed.post',
     post: {
-      uri: 'at://did:plc:author/social.coves.community.post/quoted',
-      cid: 'bafyquoted',
+      uri: 'at://did:plc:author/social.coves.community.post/quoted' as AtUri,
+      cid: 'bafyquoted' as CID,
     },
   },
 }
 
 function ownComment(
   withImages: boolean,
-  recordEmbed: Record<string, unknown> = { ...imagesRecord },
+  recordEmbed: CommentRecord['embed'] = { ...imagesRecord },
 ): CommentView {
   return {
     uri: COMMENT_URI,

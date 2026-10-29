@@ -41,6 +41,24 @@
     textArea.selectionEnd = inserted.selectionEnd
   }
 
+  /**
+   * Replaces the text through `edit`, given the caret, and leaves the caret
+   * where `edit` puts it. A textarea keeps its caret while a button outside
+   * it has focus; in the preview, the caret is the end of the text.
+   */
+  export function insert(
+    edit: (text: string, caret: number) => { text: string; caret: number },
+  ) {
+    const current = value ?? ''
+    const inserted = edit(current, textArea?.selectionEnd ?? current.length)
+    value = inserted.text
+    if (!textArea) return
+    textArea.value = inserted.text
+    textArea.focus()
+    textArea.selectionStart = inserted.caret
+    textArea.selectionEnd = inserted.caret
+  }
+
   // Indexed by the raw KeyboardEvent.key, so the lookup is a plain string and
   // may miss.
   const shortcuts: Record<string, MarkupKind | undefined> = {

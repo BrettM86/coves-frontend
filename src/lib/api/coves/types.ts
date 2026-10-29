@@ -93,15 +93,25 @@ export interface ExternalEmbedRecord {
   external: { uri: string }
 }
 
-/** The `social.coves.embed.imagesWithAttachment` embed of a post record. */
+/** The `social.coves.embed.post` embed: a quoted post. */
+export interface QuotedPostEmbedRecord {
+  $type: 'social.coves.embed.post'
+  post: StrongRef
+}
+
+/** The `social.coves.embed.imagesWithAttachment` embed of a record. */
 export interface ImagesWithAttachmentRecord {
   $type: 'social.coves.embed.imagesWithAttachment'
   images: {
     $type?: 'social.coves.embed.images'
     images: ImagesEmbedRecordImage[]
   }
-  attachment: ExternalEmbedRecord
+  attachment: ExternalEmbedRecord | QuotedPostEmbedRecord
 }
+
+/** The embeds a `social.coves.community.comment` record admits. */
+export type CommentEmbedRecord =
+  ImagesEmbedRecord | ImagesWithAttachmentRecord | QuotedPostEmbedRecord
 
 // ---------------------------------------------------------------------------
 // Record types — the actual atProto records stored in repositories
@@ -129,7 +139,7 @@ export interface CommentRecord {
   createdAt: string
   facets?: unknown[]
   langs?: string[]
-  embed?: unknown
+  embed?: CommentEmbedRecord
   labels?: unknown
 }
 
@@ -871,7 +881,7 @@ export interface UpdateCommentInput {
   uri: AtUri
   content: string
   facets?: unknown[]
-  embed?: unknown
+  embed?: CommentEmbedRecord
   langs?: string[]
   labels?: unknown
 }

@@ -27,7 +27,11 @@
   import UserLink from '../user/UserLink.svelte'
   import CommentActions from './CommentActions.svelte'
   import CommentForm from './CommentForm.svelte'
-  import { buildCommentUpdate, editorSourceFor } from './comment-submit'
+  import {
+    buildCommentUpdate,
+    commentImageCount,
+    editorSourceFor,
+  } from './comment-submit'
   import {
     type CommentNodeI,
     type NormalizedCommentView,
@@ -90,6 +94,8 @@
   // re-parsed every comment in the thread for an editor almost never opened.
   let newComment = $state('')
   let editingLoad = $state(false)
+  /** Placements the editor source could not express when editing started. */
+  let droppedPlacements = $state(0)
 
   // Stable anchor id (`comment-<rkey>`) so permalinks can deep-link to this
   // comment via a `#comment-<rkey>` URL fragment.
@@ -189,8 +195,14 @@
       <div>{$t('form.edit')}</div>
     {/snippet}
     <div class="contents">
+      {#if droppedPlacements > 0}
+        <p role="status" class="text-sm text-slate-600 dark:text-zinc-400">
+          {$t('comment.droppedPlacements')}
+        </p>
+      {/if}
       <CommentForm
         bind:value={newComment}
+        savedEmbed={commentEmbed}
         {postRef}
         actions={false}
         preview={true}
@@ -340,7 +352,12 @@
             {post}
             bind:replying
             onedit={() => {
-              newComment = editorSourceFor(node.comment.record)
+              const opened = editorSourceFor(
+                node.comment.record,
+                commentImageCount(node.comment.record.embed),
+              )
+              newComment = opened.source
+              droppedPlacements = opened.droppedPlacements
               editing = true
             }}
             disabled={false}

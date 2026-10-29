@@ -159,6 +159,8 @@
             "removeImage": "Remove image {{number}}",
             "moveImageEarlier": "Move image {{number}} earlier",
             "moveImageLater": "Move image {{number}} later",
+            "insertImage": "Insert in text: image {{number}}",
+            "insertInText": "Insert in text",
             "uploadingImage": "Uploading image {{number}}",
             "processingImage": "Resizing image to fit the upload limit",
             "retryUpload": "Retry"
@@ -777,6 +779,7 @@
         },
         "locked": "This post is locked.",
         "banned": "You are banned from this community.",
+        "droppedPlacements": "Some images placed in the text could not be kept in place and now show after the text.",
         "more": "Load more",
         "thread": "Continue this thread",
         "collapse": "Collapse",

@@ -135,30 +135,35 @@ export interface PlacedHeadingBlock {
   readonly children: readonly PlacedInline[]
 }
 
-/** A placed image, drawn as a block where its facet's text was. */
-export interface PlacedImageBlock {
+/** A placed image, drawn as a block where its facet's text was. `Image` is
+ * whatever the caller placed: the reader's view image, or anything else a
+ * caller that needs only the facet position passes. */
+export interface PlacedImageBlock<Image = EmbedImage> {
   readonly type: 'image'
   /** Position of the placing facet in the facets array. */
   readonly facet: number
-  readonly image: EmbedImage
+  readonly image: Image
   /** Set when the placement lies in a spoiler: the image reveals with it. */
   readonly spoiler?: { readonly group: number; readonly reason?: string }
 }
 
-export interface PlacedBlockquoteBlock {
+export interface PlacedBlockquoteBlock<Image = EmbedImage> {
   readonly type: 'blockquote'
   readonly level: FacetLevel
   readonly children: readonly (
-    PlacedParagraphBlock | PlacedHeadingBlock | CodeBlock | PlacedImageBlock
+    | PlacedParagraphBlock
+    | PlacedHeadingBlock
+    | CodeBlock
+    | PlacedImageBlock<Image>
   )[]
 }
 
-export type PlacedBlock =
+export type PlacedBlock<Image = EmbedImage> =
   | PlacedParagraphBlock
   | PlacedHeadingBlock
   | CodeBlock
-  | PlacedBlockquoteBlock
-  | PlacedImageBlock
+  | PlacedBlockquoteBlock<Image>
+  | PlacedImageBlock<Image>
 
 /** True when a record's facets field holds at least one entry. */
 export function hasFacets(facets: unknown): facets is unknown[] {
@@ -664,23 +669,24 @@ export function buildRichText(
 // Image-aware tree assembly
 // ---------------------------------------------------------------------------
 
-interface Placement extends Range {
+interface Placement<Image> extends Range {
   facet: number
-  image: EmbedImage
+  image: Image
 }
 
-type Piece =
-  { kind: 'text'; range: Range } | { kind: 'image'; placement: Placement }
+type Piece<Image> =
+  | { kind: 'text'; range: Range }
+  | { kind: 'image'; placement: Placement<Image> }
 
 /** Cut `[start, end)` around the placements overlapping it: the uncovered
  * text pieces in order, each placement starting inside the range after the
  * text before it. Covered text appears in no piece. */
-function cutAround(
+function cutAround<Image>(
   start: number,
   end: number,
-  placements: readonly Placement[],
-): Piece[] {
-  const pieces: Piece[] = []
+  placements: readonly Placement<Image>[],
+): Piece<Image>[] {
+  const pieces: Piece<Image>[] = []
   let cursor = start
   for (const placement of placements) {
     if (placement.end <= start || placement.start >= end) continue
@@ -723,10 +729,10 @@ function spoilerGroup(ctx: InlineContext, range: Range): number {
   )
 }
 
-function imageBlock(
+function imageBlock<Image>(
   ctx: InlineContext,
-  placement: Placement,
-): PlacedImageBlock {
+  placement: Placement<Image>,
+): PlacedImageBlock<Image> {
   const group = spoilerGroup(ctx, placement)
   const block = {
     type: 'image',
@@ -738,13 +744,13 @@ function imageBlock(
     : { ...block, spoiler: { group, reason: ctx.spoilers[group].reason } }
 }
 
-function placedGap(
+function placedGap<Image>(
   ctx: InlineContext,
   start: number,
   end: number,
-  placements: readonly Placement[],
-): (PlacedParagraphBlock | PlacedImageBlock)[] {
-  const out: (PlacedParagraphBlock | PlacedImageBlock)[] = []
+  placements: readonly Placement<Image>[],
+): (PlacedParagraphBlock | PlacedImageBlock<Image>)[] {
+  const out: (PlacedParagraphBlock | PlacedImageBlock<Image>)[] = []
   for (const piece of cutAround(start, end, placements)) {
     if (piece.kind === 'image') {
       out.push(imageBlock(ctx, piece.placement))
@@ -758,14 +764,14 @@ function placedGap(
   return out
 }
 
-function placedBlocksForRange(
+function placedBlocksForRange<Image>(
   ctx: InlineContext,
   start: number,
   end: number,
   blockRanges: BlockRange[],
-  placements: readonly Placement[],
-): PlacedBlock[] {
-  const out: PlacedBlock[] = []
+  placements: readonly Placement<Image>[],
+): PlacedBlock<Image>[] {
+  const out: PlacedBlock<Image>[] = []
   let cursor = start
   for (const block of blockRanges) {
     out.push(...placedGap(ctx, cursor, block.start, placements))
@@ -812,7 +818,7 @@ function placedBlocksForRange(
           block.children,
           placements,
         ).filter(
-          (child): child is PlacedBlockquoteBlock['children'][number] =>
+          (child): child is PlacedBlockquoteBlock<Image>['children'][number] =>
             child.type !== 'blockquote',
         )
         out.push({ type: 'blockquote', level: block.level, children })
@@ -831,11 +837,11 @@ function placedBlocksForRange(
  * image block in place of its covered text. `placed` must hold only accepted
  * placements; `buildRichText` is the tree without them.
  */
-export function buildRichTextWithPlacements(
+export function buildRichTextWithPlacements<Image = EmbedImage>(
   content: string,
   facets: unknown[],
-  placed: ReadonlyMap<number, EmbedImage>,
-): readonly PlacedBlock[] {
+  placed: ReadonlyMap<number, Image>,
+): readonly PlacedBlock<Image>[] {
   const bytes = new TextEncoder().encode(content)
   const decoder = new TextDecoder()
   const annotations = parseAnnotations(bytes, decoder, facets)
@@ -847,7 +853,7 @@ export function buildRichTextWithPlacements(
     spoilers: mergeSpoilers(annotations.spoilers),
   }
   const placements = [...placed]
-    .flatMap(([facet, image]): Placement[] => {
+    .flatMap(([facet, image]): Placement<Image>[] => {
       const range = facetByteRange(facets[facet])
       return range ? [{ ...range, facet, image }] : []
     })

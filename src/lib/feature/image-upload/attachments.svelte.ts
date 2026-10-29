@@ -1,6 +1,7 @@
 import type {
   BlobRef,
   CreatePostInput,
+  ImageEmbed,
   ImagesEmbedRecord,
   ImagesEmbedRecordImage,
   UploadImageOutput,
@@ -182,6 +183,21 @@ export class Attachments {
     )
     if (failures.length > 0) throw failures[0]
     signal?.throwIfAborted()
+  }
+
+  /**
+   * These images as a view embed of their `blob:` previews, so a composer
+   * preview renders placed images in the body and the rest after it.
+   */
+  previewEmbed(): ImageEmbed | undefined {
+    const [first, ...rest] = this.items.map((item) => ({
+      thumb: item.previewUrl,
+      fullsize: item.previewUrl,
+      alt: item.alt.trim() || undefined,
+      aspectRatio: item.aspectRatio,
+    }))
+    if (!first) return undefined
+    return { $type: 'social.coves.embed.images#view', images: [first, ...rest] }
   }
 
   /**

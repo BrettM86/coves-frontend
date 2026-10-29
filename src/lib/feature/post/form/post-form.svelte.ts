@@ -93,7 +93,13 @@ export class PostFormState {
     // The body is lightweight markup; the record carries canonical plaintext
     // plus facets. Compiling here is what makes every client render the same
     // thing, and it is the step that resolves an @handle to a DID.
-    const { content, facets } = await composeRichText(this.body ?? '', coves())
+    const { content, facets } = await composeRichText(
+      this.body ?? '',
+      coves(),
+      {
+        imageCount: this.attachments.items.length,
+      },
+    )
 
     // Images that already have a blob ref, from an earlier failed submit, are
     // not uploaded again; any failed upload stops the post being created.

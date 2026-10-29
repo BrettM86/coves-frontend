@@ -17,6 +17,7 @@ import { byteLength, byteRange } from '$lib/feature/richtext/test-helpers'
 import {
   buildCommentCreate,
   buildCommentUpdate,
+  commentImageCount,
   editorSourceFor,
 } from './comment-submit'
 
@@ -69,7 +70,7 @@ describe('editorSourceFor', () => {
       facets: [{ index: byteRange('say loud now', 'loud'), features: [bold] }],
     })
 
-    const source = editorSourceFor(stored)
+    const source = editorSourceFor(stored, 0).source
 
     // The markup carries markers the plain content does not.
     expect(source).not.toBe(stored.content)
@@ -79,7 +80,9 @@ describe('editorSourceFor', () => {
   })
 
   it('returns the plain content when the record has no facets', () => {
-    expect(editorSourceFor({ content: 'just words' })).toBe('just words')
+    expect(editorSourceFor({ content: 'just words' }, 0).source).toBe(
+      'just words',
+    )
   })
 })
 
@@ -172,9 +175,9 @@ describe('buildCommentUpdate', () => {
   it('passes embed, langs and labels through from the record', async () => {
     // An update is a full record replacement, so anything not re-sent is
     // cleared on the server.
-    const embed = {
-      $type: 'social.coves.embed.external',
-      external: { uri: 'https://example.com/a' },
+    const embed: CommentRecord['embed'] = {
+      $type: 'social.coves.embed.post',
+      post: POST_REF,
     }
     const labels = {
       $type: 'com.atproto.label.defs#selfLabels',
@@ -261,7 +264,7 @@ describe('editorSourceFor — content that looks like markup', () => {
       // The record has no facets, so every marker in it is literal text. Seeding
       // the editor with it unescaped would compile those markers into formatting
       // on the next save and delete the characters.
-      const reparsed = parseMarkup(editorSourceFor({ content }))
+      const reparsed = parseMarkup(editorSourceFor({ content }, 0).source)
 
       expect(reparsed.content).toBe(content)
       expect(reparsed.facets).toEqual([])
@@ -282,7 +285,7 @@ describe('editorSourceFor — content that looks like markup', () => {
       ],
     })
 
-    const reparsed = parseMarkup(editorSourceFor(stored))
+    const reparsed = parseMarkup(editorSourceFor(stored, 0).source)
 
     expect(reparsed.content).toBe(stored.content)
   })
@@ -467,5 +470,50 @@ describe('buildCommentCreate with images', () => {
         },
       ],
     })
+  })
+})
+
+describe('commentImageCount — embeds from the network', () => {
+  // The record embed is whatever the AppView indexed, so a malformed or
+  // unknown-typed embed must count as no images rather than throw.
+  it.each([
+    ['an images embed without images', { $type: 'social.coves.embed.images' }],
+    [
+      'an images embed whose images is not an array',
+      { $type: 'social.coves.embed.images', images: 'nope' },
+    ],
+    [
+      'images with attachment without images',
+      { $type: 'social.coves.embed.imagesWithAttachment' },
+    ],
+    [
+      'images with attachment whose inner images is not an array',
+      {
+        $type: 'social.coves.embed.imagesWithAttachment',
+        images: { $type: 'social.coves.embed.images', images: null },
+      },
+    ],
+    [
+      'an unknown embed type',
+      { $type: 'social.coves.embed.external', external: { uri: 'x' } },
+    ],
+    ['an object without $type', { images: [1, 2] }],
+    ['undefined', undefined],
+    ['null', null],
+    ['a string', 'social.coves.embed.images'],
+  ])('counts %s as 0 images', (_label, embed) => {
+    expect(commentImageCount(embed)).toBe(0)
+  })
+
+  it('counts well-formed images and images with attachment', () => {
+    expect(
+      commentImageCount({ $type: 'social.coves.embed.images', images: [1, 2] }),
+    ).toBe(2)
+    expect(
+      commentImageCount({
+        $type: 'social.coves.embed.imagesWithAttachment',
+        images: { images: [1, 2, 3] },
+      }),
+    ).toBe(3)
   })
 })

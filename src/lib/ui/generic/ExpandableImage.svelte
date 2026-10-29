@@ -1,8 +1,8 @@
 <script lang="ts" module>
   import { pushState, replaceState } from '$app/navigation'
   import { page } from '$app/state'
+  import { isImageSourceUrl } from '$lib/api/coves/image-proxy'
   import { t } from '$lib/app/state/i18n'
-  import { isWebUrl } from '$lib/app/util/url'
   import { Button, Material, toast } from '$lib/ui/kit'
   import { ChevronLeft, ChevronRight, Forward, X } from '$lib/ui/kit/icon'
   import { backOut } from 'svelte/easing'
@@ -31,7 +31,9 @@
     Math.min(Math.max(page.state.openImageIndex ?? 0, 0), images.length - 1),
   )
   let current = $derived(images[index])
-  let url = $derived(current && isWebUrl(current.url) ? current.url : undefined)
+  let url = $derived(
+    current && isImageSourceUrl(current.url) ? current.url : undefined,
+  )
   /** URLs that failed to load: each shows the placeholder, not a broken image. */
   const failed = new SvelteSet<string>()
   let overlay = $state<HTMLDivElement>()

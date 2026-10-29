@@ -1,5 +1,8 @@
 import {
   type CreatePostOutput,
+  type EmbedImage,
+  type ImageEmbed,
+  type PostEmbed,
   type PostView,
   parseAtUri,
 } from '$lib/api/coves/types'
@@ -51,6 +54,12 @@ export function buildFreshPostView(args: {
   url?: string
   labels?: unknown
   facets?: unknown[]
+  /** The attached images, shown from the composer's `blob:` preview URLs. */
+  images?: {
+    previewUrl: string
+    alt?: string
+    aspectRatio?: { width: number; height: number }
+  }[]
 }): PostView | undefined {
   const viewer = profile.current
   if (viewer.type !== 'authenticated') return undefined
@@ -90,10 +99,64 @@ export function buildFreshPostView(args: {
       facets: args.facets,
       labels: args.labels,
     },
-    embed: args.url
-      ? { $type: 'social.coves.embed.external', external: { uri: args.url } }
-      : undefined,
+    embed: freshEmbed(args.url, args.images),
     stats: { ...EMPTY_POST_STATS },
     viewer: { saved: false },
   }
+}
+
+/** The embed view a just-created post renders until the indexed copy loads. */
+function freshEmbed(
+  url: string | undefined,
+  images:
+    | {
+        previewUrl: string
+        alt?: string
+        aspectRatio?: { width: number; height: number }
+      }[]
+    | undefined,
+): PostEmbed | undefined {
+  const views: EmbedImage[] = (images ?? []).map((image) => ({
+    thumb: image.previewUrl,
+    fullsize: image.previewUrl,
+    ...(image.alt ? { alt: image.alt } : {}),
+    ...(image.aspectRatio ? { aspectRatio: image.aspectRatio } : {}),
+  }))
+  const [first, ...rest] = views
+  if (!first) {
+    return url
+      ? { $type: 'social.coves.embed.external', external: { uri: url } }
+      : undefined
+  }
+  const imagesView: ImageEmbed = {
+    $type: 'social.coves.embed.images#view',
+    images: [first, ...rest],
+  }
+  if (!url) return imagesView
+  return {
+    $type: 'social.coves.embed.imagesWithAttachment#view',
+    images: imagesView,
+    attachment: { $type: 'social.coves.embed.external#viewExternal', uri: url },
+  }
+}
+
+/**
+ * The composer's `blob:` preview URLs a just-created post view renders. The
+ * page showing it revokes them once the view gives way to the server copy.
+ */
+export function freshPostImageUrls(post: PostView | undefined): string[] {
+  const embed = post?.embed
+  const images =
+    embed?.$type === 'social.coves.embed.images#view'
+      ? embed.images
+      : embed?.$type === 'social.coves.embed.imagesWithAttachment#view'
+        ? embed.images.images
+        : []
+  return [
+    ...new Set(
+      images
+        .flatMap((image) => [image.thumb, image.fullsize])
+        .filter((url): url is string => !!url?.startsWith('blob:')),
+    ),
+  ]
 }

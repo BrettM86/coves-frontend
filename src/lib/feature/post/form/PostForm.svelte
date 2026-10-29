@@ -3,6 +3,7 @@
   import { errorMessage } from '$lib/app/util/error'
   import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import { t } from '$lib/app/state/i18n'
+  import AttachmentStrip from '$lib/feature/image-upload/AttachmentStrip.svelte'
   import MarkdownEditor from '$lib/feature/markdown/MarkdownEditor.svelte'
   import { parseMarkup } from '$lib/feature/richtext/compose'
   import RichText from '$lib/feature/richtext/RichText.svelte'
@@ -14,7 +15,7 @@
   import ErrorContainer, { pushError } from '$lib/ui/info/ErrorContainer.svelte'
   import { Header } from '$lib/ui/layout'
   import { Button, Label, Switch, TextInput } from '$lib/ui/kit'
-  import { untrack, type Snippet } from 'svelte'
+  import { onDestroy, untrack, type Snippet } from 'svelte'
   import { PostFormState, type PostSubmitResult } from './post-form.svelte'
 
   interface Props {
@@ -30,36 +31,58 @@
   let form = $state<PostFormState>(untrack(() => init) ?? new PostFormState())
 
   let loading = $state<boolean>(false)
+  /** Set once a created post's view owns the image previews. */
+  let previewsHandedOff = false
+  /** Aborted when the form closes, so a running submit creates no post. */
+  const submission = new AbortController()
 
   // autofillPost was removed as it depends on the Lemmy getSiteMetadata API.
   // TODO(coves-migration): re-enable when a Coves equivalent is available.
-</script>
 
-<form
-  onsubmit={(e) => {
-    e.preventDefault()
+  onDestroy(() => {
+    submission.abort()
+    if (!previewsHandedOff) form.attachments.releasePreviews()
+  })
+
+  function submit() {
     if (loading) return
     loading = true
 
     form
-      .submit()
+      .submit(submission.signal)
       .catch((err: unknown) => {
         // Only failed creation can be retried; navigation must not create another post.
         loading = false
         throw err
       })
       .then((result) => {
+        previewsHandedOff = result.post !== undefined
         onsubmit?.(result)
       })
       .catch((err: unknown) => {
+        if (submission.signal.aborted) return
         if (isExpiredSessionError(err) && profile.sessionExpired) return
-        pushError({
-          message: errorMessage(
-            err instanceof Error ? err.message : String(err),
-          ),
-          scope: 'post-form',
-        })
+        // A failed upload shows its error on its own tile.
+        if (form.attachments.items.some((item) => item.error === err)) return
+        pushError({ message: errorMessage(err), scope: 'post-form' })
       })
+  }
+
+  /**
+   * Images dropped or pasted into the body join the attachment strip, except
+   * while a submit runs: the strip is fixed until it settles.
+   */
+  function addTransferredFiles(event: Event, files: FileList | undefined) {
+    if (!files || files.length === 0) return
+    event.preventDefault()
+    if (!loading) void form.attachments.add(Array.from(files))
+  }
+</script>
+
+<form
+  onsubmit={(e) => {
+    e.preventDefault()
+    submit()
   }}
   class="flex flex-col gap-4 h-full"
 >
@@ -113,19 +136,35 @@
     label={$t('form.post.title')}
     class="font-display font-medium text-2xl"
   />
-  <MarkdownEditor
-    label={$t('form.post.body')}
-    bind:value={form.body}
-    placeholder={placeholders.get('body')}
-    previewButton
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="contents"
+    ondragover={(event) => {
+      if (event.dataTransfer?.types.includes('Files')) event.preventDefault()
+    }}
+    ondrop={(event) => addTransferredFiles(event, event.dataTransfer?.files)}
+    onpaste={(event) => addTransferredFiles(event, event.clipboardData?.files)}
   >
-    <!-- The preview compiles the markup, so it shows what every client will
+    <MarkdownEditor
+      label={$t('form.post.body')}
+      bind:value={form.body}
+      placeholder={placeholders.get('body')}
+      previewButton
+    >
+      <!-- The preview compiles the markup, so it shows what every client will
          render rather than what a markdown parser makes of it. -->
-    {#snippet preview(source)}
-      {@const parsed = parseMarkup(source)}
-      <RichText content={parsed.content} facets={parsed.facets} />
-    {/snippet}
-  </MarkdownEditor>
+      {#snippet preview(source)}
+        {@const parsed = parseMarkup(source)}
+        <RichText content={parsed.content} facets={parsed.facets} />
+      {/snippet}
+    </MarkdownEditor>
+  </div>
+
+  <AttachmentStrip
+    attachments={form.attachments}
+    busy={loading}
+    onretry={submit}
+  />
 
   <TextInput
     label={$t('form.post.url')}

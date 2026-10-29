@@ -59,6 +59,50 @@ export function tryAsCID(value: string): CID | null {
   return isValidCID(value) ? value : null
 }
 
+/** An atProto blob reference as returned by social.coves.media.uploadImage. */
+export interface BlobRef {
+  $type: 'blob'
+  ref: { $link: string }
+  mimeType: string
+  size: number
+}
+
+export interface UploadImageOutput {
+  blob: BlobRef
+  mimeType: string
+  size: number
+  aspectRatio: { width: number; height: number }
+}
+
+/** One image of a `social.coves.embed.images` record. */
+export interface ImagesEmbedRecordImage {
+  image: BlobRef
+  alt?: string
+  aspectRatio?: { width: number; height: number }
+}
+
+/** The `social.coves.embed.images` embed of a post record. */
+export interface ImagesEmbedRecord {
+  $type: 'social.coves.embed.images'
+  images: ImagesEmbedRecordImage[]
+}
+
+/** The `social.coves.embed.external` embed of a post record. */
+export interface ExternalEmbedRecord {
+  $type: 'social.coves.embed.external'
+  external: { uri: string }
+}
+
+/** The `social.coves.embed.imagesWithAttachment` embed of a post record. */
+export interface ImagesWithAttachmentRecord {
+  $type: 'social.coves.embed.imagesWithAttachment'
+  images: {
+    $type?: 'social.coves.embed.images'
+    images: ImagesEmbedRecordImage[]
+  }
+  attachment: ExternalEmbedRecord
+}
+
 // ---------------------------------------------------------------------------
 // Record types — the actual atProto records stored in repositories
 // ---------------------------------------------------------------------------
@@ -766,7 +810,7 @@ export interface CreatePostInput {
   community: DID
   title?: string
   content?: string
-  embed?: unknown
+  embed?: ExternalEmbedRecord | ImagesEmbedRecord | ImagesWithAttachmentRecord
   labels?: unknown
   facets?: unknown[]
 }

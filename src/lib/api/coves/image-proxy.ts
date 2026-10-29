@@ -51,12 +51,37 @@ export function withPreset(url: string, preset: ImagePreset): string {
   return `${base}/img/${preset}/plain/${parsed.did}/${parsed.cid}`
 }
 
+/**
+ * `blob:` URLs the composer made for picked images and has not yet revoked.
+ * Only these `blob:` URLs pass {@link isImageSourceUrl}; one a server view
+ * supplies is refused.
+ */
+const localImageUrls = new Set<string>()
+
+/** Registers a live object URL of a picked image with the gate. */
+export function addLocalImageUrl(url: string): void {
+  localImageUrls.add(url)
+}
+
+/** Removes a revoked object URL from the gate. */
+export function deleteLocalImageUrl(url: string): void {
+  localImageUrls.delete(url)
+}
+
+/**
+ * Whether an image URL may be rendered: an absolute http(s) URL, or a
+ * registered, unrevoked local `blob:` URL.
+ */
+export function isImageSourceUrl(url: string): boolean {
+  return isWebUrl(url) || localImageUrls.has(url)
+}
+
 export type ImageVariant = 'thumb' | 'fullsize'
 
 /**
  * Returns the URL of an EmbedImage's variant, or undefined when the server
- * sent none for that variant or sent something that is not an absolute
- * http(s) URL. Every renderer takes its image URL from here: there is no
+ * sent none for that variant or sent something {@link isImageSourceUrl}
+ * refuses. Every renderer takes its image URL from here: there is no
  * fallback to the other variant.
  */
 export function imageUrl(
@@ -64,5 +89,5 @@ export function imageUrl(
   variant: ImageVariant = 'thumb',
 ): string | undefined {
   const url = variant === 'fullsize' ? image.fullsize : image.thumb
-  return url && isWebUrl(url) ? url : undefined
+  return url && isImageSourceUrl(url) ? url : undefined
 }

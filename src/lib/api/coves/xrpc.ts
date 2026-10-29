@@ -8,6 +8,8 @@ export class XrpcError extends Error {
     public errorName: string,
     message: string,
     retryAfterSeconds?: number,
+    /** The lexicon method whose call failed, when known. */
+    public nsid?: string,
   ) {
     super(message)
     this.name = 'XrpcError'
@@ -67,7 +69,7 @@ export class XrpcClient {
     const res = await this.#fetchFn(url.toString())
 
     if (!res.ok) {
-      throw await this.#parseError(res)
+      throw await this.#parseError(res, nsid)
     }
 
     try {
@@ -90,8 +92,52 @@ export class XrpcClient {
       body: input !== undefined ? JSON.stringify(input) : undefined,
     })
 
+    return this.#procedureOutput<O>(res, nsid)
+  }
+
+  /**
+   * POSTs `body` as-is with `contentType`. The request aborts when `signal`
+   * aborts or `timeoutMs` passes, whichever is first.
+   */
+  async procedureRaw<O>(
+    nsid: string,
+    body: Blob,
+    contentType: string,
+    options?: { signal?: AbortSignal; timeoutMs?: number },
+  ): Promise<O> {
+    const url = new URL(`/xrpc/${nsid}`, this.#baseUrl)
+    const controller = new AbortController()
+    const abort = () => controller.abort(options?.signal?.reason)
+    const callerSignal = options?.signal
+    if (callerSignal?.aborted) abort()
+    callerSignal?.addEventListener('abort', abort, { once: true })
+    const timer =
+      options?.timeoutMs === undefined
+        ? undefined
+        : setTimeout(
+            () =>
+              controller.abort(
+                new DOMException('The upload timed out', 'TimeoutError'),
+              ),
+            options.timeoutMs,
+          )
+    try {
+      const res = await this.#fetchFn(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': contentType },
+        body,
+        signal: controller.signal,
+      })
+      return await this.#procedureOutput<O>(res, nsid)
+    } finally {
+      clearTimeout(timer)
+      callerSignal?.removeEventListener('abort', abort)
+    }
+  }
+
+  async #procedureOutput<O>(res: Response, nsid: string): Promise<O> {
     if (!res.ok) {
-      throw await this.#parseError(res)
+      throw await this.#parseError(res, nsid)
     }
 
     if (res.status === 204) {
@@ -114,7 +160,7 @@ export class XrpcClient {
     }
   }
 
-  async #parseError(res: Response): Promise<XrpcError> {
+  async #parseError(res: Response, nsid: string): Promise<XrpcError> {
     let errorName = 'UnknownError'
     let message = `XRPC request failed with status ${res.status}`
     try {
@@ -131,7 +177,13 @@ export class XrpcClient {
       (res.status === 503 && errorName === 'DiscoverUnavailable')
         ? parseRetryAfter(res.headers.get('Retry-After'))
         : undefined
-    return new XrpcError(res.status, errorName, message, retryAfterSeconds)
+    return new XrpcError(
+      res.status,
+      errorName,
+      message,
+      retryAfterSeconds,
+      nsid,
+    )
   }
 }
 

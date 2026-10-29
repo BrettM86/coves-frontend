@@ -160,6 +160,7 @@
             "moveImageEarlier": "Move image {{number}} earlier",
             "moveImageLater": "Move image {{number}} later",
             "uploadingImage": "Uploading image {{number}}",
+            "processingImage": "Resizing image to fit the upload limit",
             "retryUpload": "Retry"
         },
         "profile": {

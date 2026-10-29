@@ -10,11 +10,14 @@ export type ImageFileCheck =
   | { ok: true; contentType: ImageContentType; width: number; height: number }
   | {
       ok: false
-      code:
-        | 'UnsupportedImageFormat'
-        | 'ImageTooManyBytes'
-        | 'ImageTooManyPixels'
-        | 'InvalidImage'
+      code: 'ImageTooManyBytes' | 'ImageTooManyPixels'
+      /** The sniffed format, so an oversized image can be re-encoded. */
+      contentType: ImageContentType
+      message: string
+    }
+  | {
+      ok: false
+      code: 'UnsupportedImageFormat' | 'InvalidImage'
       message: string
     }
 
@@ -24,11 +27,11 @@ export type AltTextCheck =
 
 const FORMAT_MESSAGE = 'Use a JPEG, PNG, WebP or GIF image.'
 const CONVERT_MESSAGE = 'Convert it to JPEG first.'
-const INVALID_IMAGE: ImageFileCheck = {
+export const INVALID_IMAGE = {
   ok: false,
   code: 'InvalidImage',
   message: 'This image could not be read. Try a different image.',
-}
+} as const satisfies ImageFileCheck
 
 /** Enough leading bytes to recognise every format below. */
 const SNIFF_BYTES = 16
@@ -131,7 +134,11 @@ export async function checkImageFile(
     return {
       ok: false,
       code: 'ImageTooManyBytes',
-      message: 'This image is larger than 10 MB. Use a smaller image.',
+      contentType: sniffed,
+      message:
+        sniffed === 'image/gif'
+          ? 'This GIF is larger than 10 MB. To keep their animation, animated GIFs must be under 10 MB.'
+          : 'This image is larger than 10 MB. Use a smaller image.',
     }
   }
   let dimensions: { width: number; height: number }
@@ -145,8 +152,11 @@ export async function checkImageFile(
     return {
       ok: false,
       code: 'ImageTooManyPixels',
+      contentType: sniffed,
       message:
-        'This image has more than 50 million pixels. Use a smaller image.',
+        sniffed === 'image/gif'
+          ? 'This GIF has more than 50 million pixels. To keep their animation, animated GIFs must be under 50 million pixels.'
+          : 'This image has more than 50 million pixels. Use a smaller image.',
     }
   }
   return { ok: true, contentType: sniffed, width, height }

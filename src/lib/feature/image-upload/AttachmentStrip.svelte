@@ -67,6 +67,18 @@
       {attachments.message}
     </p>
   {/if}
+  {#if attachments.processing > 0}
+    <div
+      role="status"
+      class="flex flex-row items-center gap-3 p-2 rounded-xl border border-slate-200 dark:border-zinc-800
+      text-sm text-slate-600 dark:text-zinc-400"
+    >
+      <div
+        class="shrink-0 w-24 h-24 rounded-lg bg-slate-100 dark:bg-zinc-900 animate-pulse"
+      ></div>
+      {$t('form.post.processingImage')}
+    </div>
+  {/if}
   {#if attachments.items.length > 0}
     <ol class="flex flex-col gap-3">
       {#each attachments.items as item, index (item.id)}

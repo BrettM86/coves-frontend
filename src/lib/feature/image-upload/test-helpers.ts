@@ -13,14 +13,36 @@ const ascii = (text: string): number[] =>
 const MAGIC = {
   jpeg: [0xff, 0xd8, 0xff, 0xe0],
   png: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  webp: [...ascii('RIFF'), 0x24, 0x00, 0x00, 0x00, ...ascii('WEBP')],
   gif: ascii('GIF89a'),
 }
 
-const TYPES = { jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif' }
+const TYPES = {
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+}
 
 /** A small image file with real magic bytes, named so its object URL is too. */
 export function imageFile(name: string, format: keyof typeof MAGIC): File {
   const bytes = new Uint8Array(64)
+  bytes.set(MAGIC[format])
+  return new File([bytes], name, { type: TYPES[format] })
+}
+
+/** One byte over the 10,000,000-byte limit. */
+export const OVERSIZED_BYTES = 10_000_001
+
+/**
+ * An image file of {@link OVERSIZED_BYTES} bytes: real magic bytes, then
+ * zero padding.
+ */
+export function oversizedImageFile(
+  name: string,
+  format: keyof typeof MAGIC,
+): File {
+  const bytes = new Uint8Array(OVERSIZED_BYTES)
   bytes.set(MAGIC[format])
   return new File([bytes], name, { type: TYPES[format] })
 }

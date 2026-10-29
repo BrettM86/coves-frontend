@@ -5,8 +5,9 @@ import type {
   ImagesEmbedRecordImage,
   UploadImageOutput,
 } from '$lib/api/coves/types'
-import { checkImageFile, type ImageContentType } from './image-file'
+import type { ImageContentType } from './image-file'
 import { createLocalImageUrl, revokeLocalImageUrl } from './local-image-urls'
+import { prepareImageFile, reencodeImage, type Reencode } from './reencode'
 
 export interface Attachment {
   id: string
@@ -46,14 +47,21 @@ export class Attachments {
   items = $state<Attachment[]>([])
   /** The latest pick-time refusal, such as a ninth image or a bad format. */
   message = $state<string | undefined>()
+  /** The number of picked images being re-encoded to fit the limits. */
+  processing = $state(0)
   readonly #decodeDimensions?: DecodeDimensions
+  readonly #reencode: Reencode
   /** Settles once every add started so far has finished. */
   #added: Promise<void> = Promise.resolve()
   /** Set by {@link releasePreviews}: a later check adds nothing. */
   #released = false
 
-  constructor(options?: { decodeDimensions?: DecodeDimensions }) {
+  constructor(options?: {
+    decodeDimensions?: DecodeDimensions
+    reencode?: Reencode
+  }) {
     this.#decodeDimensions = options?.decodeDimensions
+    this.#reencode = options?.reencode ?? reencodeImage
   }
 
   /**
@@ -204,7 +212,17 @@ export class Attachments {
     file: Blob,
     id = `attachment-${++nextId}`,
   ): Promise<Attachment | undefined> {
-    const check = await checkImageFile(file, this.#decodeDimensions)
+    const check = await prepareImageFile(file, {
+      decodeDimensions: this.#decodeDimensions,
+      reencode: async (source, contentType) => {
+        this.processing++
+        try {
+          return await this.#reencode(source, contentType)
+        } finally {
+          this.processing--
+        }
+      },
+    })
     // The composer closed during the check: there is no strip to join.
     if (this.#released) return undefined
     if (!check.ok) {
@@ -213,9 +231,9 @@ export class Attachments {
     }
     return {
       id,
-      file,
+      file: check.file,
       contentType: check.contentType,
-      previewUrl: createLocalImageUrl(file),
+      previewUrl: createLocalImageUrl(check.file),
       alt: '',
       status: 'pending',
     }

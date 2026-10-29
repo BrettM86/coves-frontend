@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UploadImageOutput } from '$lib/api/coves/types'
 import { imageUrl } from '$lib/api/coves/image-proxy'
+import { log } from '$lib/app/util/log'
 import { Attachments } from './attachments.svelte'
 
 // ---------------------------------------------------------------------------
@@ -666,5 +667,94 @@ describe('Attachments.releasePreviews during a pick-time check', () => {
 
     expect(attachments.items).toEqual([])
     expect(created.filter((url) => !revokedUrls.includes(url))).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Oversized images: GIFs refused, re-encode results checked again
+// ---------------------------------------------------------------------------
+
+/** A re-encoder stub that records what it was asked and answers with `answer`. */
+function recordingReencoder(answer: (file: Blob) => Promise<Blob>) {
+  const calls: { size: number; contentType: string }[] = []
+  const reencode = (
+    file: Blob,
+    contentType: 'image/jpeg' | 'image/png' | 'image/webp',
+  ) => {
+    calls.push({ size: file.size, contentType })
+    return answer(file)
+  }
+  return { reencode, calls }
+}
+
+describe('Attachments with an oversized GIF', () => {
+  it.each([
+    {
+      name: 'over 10,000,000 bytes',
+      size: 10_000_001,
+      dimensions: DECODED,
+      limit: '10 MB',
+    },
+    {
+      name: 'of 8000x7000 pixels',
+      size: 101,
+      dimensions: { width: 8000, height: 7000 },
+      limit: '50 million',
+    },
+  ])(
+    'refuses a GIF $name with a message about animated GIFs, never re-encoding it',
+    async ({ size, dimensions, limit }) => {
+      const { reencode, calls } = recordingReencoder(async (file) => file)
+      const attachments = new Attachments({
+        decodeDimensions: async () => dimensions,
+        reencode,
+      })
+
+      await attachments.add([imageFile(size, 'gif')])
+
+      expect(attachments.items).toEqual([])
+      expect(calls).toEqual([])
+      expect(attachments.message).toContain(limit)
+      expect(attachments.message).toContain('animated')
+    },
+  )
+})
+
+describe('Attachments re-encoding an oversized PNG', () => {
+  it('refuses the image with the size message when the re-encoded file is still over 10,000,000 bytes', async () => {
+    const { reencode, calls } = recordingReencoder(async () =>
+      imageFile(10_000_001, 'jpeg', 'image/jpeg'),
+    )
+    const attachments = new Attachments({ decodeDimensions, reencode })
+
+    await attachments.add([imageFile(10_000_002, 'png')])
+
+    expect(attachments.items).toEqual([])
+    expect(attachments.message).toContain('10 MB')
+    expect(attachments.message).not.toContain('Use a JPEG, PNG, WebP or GIF')
+    expect(calls).toEqual([{ size: 10_000_002, contentType: 'image/png' }])
+  })
+
+  it('refuses the image with the size message and logs the cause without the file name when re-encoding fails', async () => {
+    const warn = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    const failure = new Error('The image could not be decoded')
+    const { reencode } = recordingReencoder(async () => {
+      throw failure
+    })
+    const attachments = new Attachments({ decodeDimensions, reencode })
+
+    await attachments.add([
+      new File([imageFile(10_000_001, 'png')], 'private-holiday.png'),
+    ])
+
+    expect(attachments.items).toEqual([])
+    expect(attachments.message).toContain('10 MB')
+    expect(attachments.message).toContain('Use a smaller image')
+    expect(attachments.message).not.toContain('could not be read')
+    expect(warn).toHaveBeenCalledTimes(1)
+    const [message, cause, fields] = warn.mock.calls[0] ?? []
+    expect(cause).toBe(failure)
+    expect(fields).toEqual({ contentType: 'image/png', size: 10_000_001 })
+    expect(JSON.stringify([message, fields])).not.toContain('private-holiday')
   })
 })

@@ -163,7 +163,8 @@
             "insertInText": "Insert in text",
             "uploadingImage": "Uploading image {{number}}",
             "processingImage": "Resizing image to fit the upload limit",
-            "retryUpload": "Retry"
+            "retryUpload": "Retry",
+            "altTextTooLong": "The alt text of image {{number}} is too long. Use at most 1000 characters."
         },
         "profile": {
             "displayName": "Display name",
@@ -728,7 +729,10 @@
         },
         "image": {
             "zoomIn": "Zoom in",
-            "zoomOut": "Zoom out"
+            "zoomOut": "Zoom out",
+            "label": "Image",
+            "altTitle": "Alt",
+            "altBadge": "ALT"
         },
         "bluesky": {
             "cardLabel": "Bluesky post",
@@ -779,6 +783,7 @@
         },
         "locked": "This post is locked.",
         "banned": "You are banned from this community.",
+        "contentEmpty": "Comment cannot be empty.",
         "droppedPlacements": "Some images placed in the text could not be kept in place and now show after the text.",
         "more": "Load more",
         "thread": "Continue this thread",
@@ -1170,6 +1175,9 @@
         "request_timeout": "The upload took too long to send. Try again.",
         "image_too_large": "This image is larger than 10 MB. Use a smaller image.",
         "unsupported_image_format": "Use a JPEG, PNG, WebP or GIF image.",
+        "unsupported_image_format_convert": "Use a JPEG, PNG, WebP or GIF image. Convert it to JPEG first.",
+        "gif_too_large": "This GIF is larger than 10 MB. To keep their animation, animated GIFs must be under 10 MB.",
+        "gif_dimensions_too_large": "This GIF has more than 50 million pixels. To keep their animation, animated GIFs must be under 50 million pixels.",
         "image_dimensions_too_large": "This image has more than 50 million pixels. Use a smaller image.",
         "invalid_image": "This image could not be read. Try a different image.",
         "upload_rate_limited": "You have uploaded too many images. Try again in ten minutes.",
@@ -1182,8 +1190,11 @@
         "request_canceled": "The upload was canceled before it finished. Try again.",
         "invalid_embed": "The post’s images or link could not be attached. Check them and try again.",
         "too_many_images": "A post can have at most 8 images.",
+        "too_many_comment_images": "A comment can have at most 8 images.",
+        "invalid_comment_embed": "The comment’s images or quoted post could not be attached. Check them and try again.",
         "invalid_image_facet": "An image placed in the text does not match an attached image.",
         "content_empty": "There is nothing to post. Add text or an image.",
+        "comment_content_empty": "The comment is empty. Add text or an image.",
         "upload_sign_in_again": "Sign in again to upload images.",
         "upload_sign_in_again_note": "Your text will be kept; add the images again after signing in.",
         "upload_sign_in_again_action": "Sign in",

@@ -109,7 +109,7 @@
 
   let loading = $state(false)
   /** The images attached to the comment, uploaded on submit. */
-  let attachments = $state(new Attachments())
+  let attachments = $state(new Attachments({ target: 'comment' }))
   /** The last strip whose previews a created comment shows. */
   let handedOff: Attachments | undefined
   /** Aborted when the form closes, so a running submit creates no comment. */
@@ -188,7 +188,7 @@
       // The created comment now shows these previews: a fresh strip replaces
       // them, so neither a reset nor closing the form revokes them.
       handedOff = sending
-      attachments = new Attachments()
+      attachments = new Attachments({ target: 'comment' })
       notifyCreated?.(
         createOptimisticCommentView(
           response,

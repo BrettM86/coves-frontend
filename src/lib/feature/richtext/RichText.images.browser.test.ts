@@ -408,3 +408,17 @@ function ancestorsWithin(element: Element, root: Element): HTMLElement[] {
   }
   return found
 }
+
+describe('RichText placed image without alt text', () => {
+  it('labels its button "Image"', async () => {
+    const content = `Look ${COVERED}`
+    await mountBody(
+      content,
+      [facetOver(content, COVERED, image(0))],
+      embedOf({ ...SUNSET, alt: undefined }),
+    )
+
+    const button = placedImage('').closest('button')
+    expect(button?.getAttribute('aria-label')).toBe('Image')
+  })
+})

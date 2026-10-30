@@ -285,6 +285,20 @@ describe('PostFormState image attachments', () => {
     expect(uploadImage).not.toHaveBeenCalled()
     expect(createPost).not.toHaveBeenCalled()
   })
+
+  it('names image 2 in English when its alt text is over the limit', async () => {
+    const form = new PostFormState({ community: COMMUNITY, title: 'a post' })
+    await form.attachments.add([jpegFile(101), jpegFile(102)])
+    form.attachments.setAlt(
+      form.attachments.items[1]?.id ?? '',
+      'a'.repeat(1001),
+    )
+
+    expect(form.validate()).toBe(
+      'The alt text of image 2 is too long. Use at most 1000 characters.',
+    )
+  })
+
   it('waits for an image still being checked, then creates the post once with it', async () => {
     let finishDecode: (() => void) | undefined
     vi.stubGlobal(

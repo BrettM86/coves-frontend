@@ -443,6 +443,30 @@ describe('PostForm attachment strip', () => {
   })
 })
 
+describe('PostForm over-8 refusal', () => {
+  it('says a post can have at most 8 images when a ninth is picked', async () => {
+    immediateClient()
+    mountForm()
+    pickFiles(
+      fileInput(),
+      [1, 2, 3, 4, 5, 6, 7, 8].map((index) =>
+        imageFile(`pf-eight-${index}.png`, 'png'),
+      ),
+    )
+    await vi.waitFor(() => expect(tiles()).toHaveLength(8))
+
+    pickFiles(fileInput(), [imageFile('pf-ninth.png', 'png')])
+    await settle()
+
+    expect(tiles()).toHaveLength(8)
+    expect(
+      [...target.querySelectorAll('[role="alert"]')].map((alert) =>
+        alert.textContent?.trim(),
+      ),
+    ).toContain('A post can have at most 8 images.')
+  })
+})
+
 describe('PostForm image upload on submit', () => {
   it('keeps submit disabled and starts no new upload or create request while uploads and then the create request run', async () => {
     const { uploads, creates } = deferredClient()

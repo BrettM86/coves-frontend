@@ -21,6 +21,16 @@ const xrpcMessages: Record<string, string> = {
 }
 
 /**
+ * Comment-worded messages, applied only to createComment and updateComment
+ * failures in place of the post-worded xrpcMessages entries.
+ */
+const commentMessages: Record<string, string> = {
+  TooManyImages: 'too_many_comment_images',
+  InvalidEmbed: 'invalid_comment_embed',
+  ContentEmpty: 'comment_content_empty',
+}
+
+/**
  * Upload-worded messages, applied only to uploadImage failures: several of
  * these names are global backend sentinels that any call can return.
  */
@@ -94,6 +104,14 @@ export function errorMessage(error: any, instance?: string): string {
       if (typeof code === 'string' && Object.hasOwn(uploadMessages, code)) {
         return t.get(`error.${uploadMessages[code]}`)
       }
+    }
+    if (
+      (error?.nsid === NSID.createComment ||
+        error?.nsid === NSID.updateComment) &&
+      typeof code === 'string' &&
+      Object.hasOwn(commentMessages, code)
+    ) {
+      return t.get(`error.${commentMessages[code]}`)
     }
     if (typeof code === 'string' && Object.hasOwn(xrpcMessages, code)) {
       return t.get(`error.${xrpcMessages[code]}`)

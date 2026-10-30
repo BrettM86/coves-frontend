@@ -233,7 +233,7 @@ async function pickAndExpect(row: Row): Promise<void> {
     height: row.height,
     transparent: row.transparent,
   })
-  const attachments = new Attachments()
+  const attachments = new Attachments({ target: 'post' })
 
   await attachments.add([file])
 

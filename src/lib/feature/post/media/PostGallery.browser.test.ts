@@ -286,12 +286,27 @@ describe('PostGallery ALT badge', () => {
     expect(showImage).not.toHaveBeenCalled()
   })
 
+  it('titles the alt text modal "Alt"', async () => {
+    await mountGallery({ images: [lake] })
+
+    altButton(tiles()[0])?.click()
+    client.flushSync()
+
+    expect(get(shownModal)?.title).toBe('Alt')
+  })
+
   it('has no ALT badge for an image without alt text', async () => {
     await mountGallery({ images: [photo(1, { alt: undefined })] })
 
     const [tile] = tiles()
     expect(altButton(tile)).toBeUndefined()
     expect(target.textContent).not.toContain('ALT')
+  })
+
+  it('labels the expand button of an image without alt text "Image"', async () => {
+    await mountGallery({ images: [photo(1, { alt: undefined })] })
+
+    expect(expandButton(tiles()[0]).getAttribute('aria-label')).toBe('Image')
   })
 })
 

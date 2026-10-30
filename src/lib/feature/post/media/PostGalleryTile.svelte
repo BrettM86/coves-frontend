@@ -1,6 +1,7 @@
 <script lang="ts">
   import { imageUrl } from '$lib/api/coves/image-proxy'
   import type { EmbedImage } from '$lib/api/coves/types'
+  import { t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
   import ImageUnavailable from '$lib/ui/generic/ImageUnavailable.svelte'
   import { Button, modal } from '$lib/ui/kit'
@@ -78,7 +79,7 @@
     this={settings.expandImages ? 'button' : 'div'}
     class="group absolute inset-0 block h-full w-full cursor-pointer"
     data-sveltekit-preload-data="off"
-    aria-label={image.alt ?? 'Image'}
+    aria-label={image.alt ?? $t('post.image.label')}
     onclick={onopen}
     role="button"
     tabindex="0"
@@ -133,13 +134,14 @@
   </svelte:element>
   {#if image.alt}
     <Button
-      onclick={() => modal({ title: 'Alt', body: image.alt ?? '' })}
+      onclick={() =>
+        modal({ title: $t('post.image.altTitle'), body: image.alt ?? '' })}
       color="tertiary"
       size="md"
       rounding="pill"
       class="absolute bottom-2 right-2 border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
     >
-      ALT
+      {$t('post.image.altBadge')}
     </Button>
   {/if}
 </div>

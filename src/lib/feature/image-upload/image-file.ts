@@ -1,3 +1,5 @@
+import { t } from '$lib/app/state/i18n'
+
 export type ImageContentType =
   'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
 
@@ -25,13 +27,14 @@ export type AltTextCheck =
   | { ok: true }
   | { ok: false; code: 'AltTextTooManyGraphemes' | 'AltTextTooManyBytes' }
 
-const FORMAT_MESSAGE = 'Use a JPEG, PNG, WebP or GIF image.'
-const CONVERT_MESSAGE = 'Convert it to JPEG first.'
-export const INVALID_IMAGE = {
-  ok: false,
-  code: 'InvalidImage',
-  message: 'This image could not be read. Try a different image.',
-} as const satisfies ImageFileCheck
+/** An InvalidImage refusal, its message translated when it is returned. */
+function invalidImage(): ImageFileCheck {
+  return {
+    ok: false,
+    code: 'InvalidImage',
+    message: t.get('error.invalid_image'),
+  }
+}
 
 /** Enough leading bytes to recognise every format below. */
 const SNIFF_BYTES = 16
@@ -117,17 +120,18 @@ export async function checkImageFile(
   try {
     head = new Uint8Array(await readBytes(file.slice(0, SNIFF_BYTES)))
   } catch {
-    return INVALID_IMAGE
+    return invalidImage()
   }
   const sniffed = sniff(head)
   if (sniffed === undefined || sniffed === 'convertible') {
     return {
       ok: false,
       code: 'UnsupportedImageFormat',
-      message:
+      message: t.get(
         sniffed === 'convertible'
-          ? `${FORMAT_MESSAGE} ${CONVERT_MESSAGE}`
-          : FORMAT_MESSAGE,
+          ? 'error.unsupported_image_format_convert'
+          : 'error.unsupported_image_format',
+      ),
     }
   }
   if (file.size > MAXIMUM_IMAGE_BYTES) {
@@ -135,17 +139,18 @@ export async function checkImageFile(
       ok: false,
       code: 'ImageTooManyBytes',
       contentType: sniffed,
-      message:
+      message: t.get(
         sniffed === 'image/gif'
-          ? 'This GIF is larger than 10 MB. To keep their animation, animated GIFs must be under 10 MB.'
-          : 'This image is larger than 10 MB. Use a smaller image.',
+          ? 'error.gif_too_large'
+          : 'error.image_too_large',
+      ),
     }
   }
   let dimensions: { width: number; height: number }
   try {
     dimensions = await decodeDimensions(file)
   } catch {
-    return INVALID_IMAGE
+    return invalidImage()
   }
   const { width, height } = dimensions
   if (width * height > MAXIMUM_IMAGE_PIXELS) {
@@ -153,10 +158,11 @@ export async function checkImageFile(
       ok: false,
       code: 'ImageTooManyPixels',
       contentType: sniffed,
-      message:
+      message: t.get(
         sniffed === 'image/gif'
-          ? 'This GIF has more than 50 million pixels. To keep their animation, animated GIFs must be under 50 million pixels.'
-          : 'This image has more than 50 million pixels. Use a smaller image.',
+          ? 'error.gif_dimensions_too_large'
+          : 'error.image_dimensions_too_large',
+      ),
     }
   }
   return { ok: true, contentType: sniffed, width, height }

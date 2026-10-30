@@ -19,6 +19,7 @@ import type {
   AtUri,
   CID,
   CreateCommentInput,
+  StrongRef,
   UploadImageOutput,
 } from '$lib/api/coves/types'
 import {
@@ -174,7 +175,9 @@ async function settle(): Promise<void> {
   }
 }
 
-function mountForm(props: { editing?: boolean } = {}): void {
+function mountForm(
+  props: { editing?: boolean; parentRef?: StrongRef } = {},
+): void {
   mounted = client.mount(CommentForm, {
     target,
     intro: false,
@@ -446,5 +449,64 @@ describe('CommentForm drop and paste', () => {
     expect(dropped.defaultPrevented).toBe(false)
     expect(pasted.defaultPrevented).toBe(false)
     expect(tiles()).toHaveLength(0)
+  })
+})
+
+describe('CommentForm over-8 refusal', () => {
+  const parentRef = {
+    uri: 'at://did:plc:other/social.coves.community.comment/two' as AtUri,
+    cid: 'bafyparent' as CID,
+  }
+
+  it.each([
+    { name: 'a top-level comment form', props: {} },
+    { name: 'a reply form', props: { parentRef } },
+  ])(
+    'says a comment can have at most 8 images when a ninth is picked in $name',
+    async ({ props }) => {
+      mountForm(props)
+      pickFiles(
+        fileInput(),
+        [1, 2, 3, 4, 5, 6, 7, 8].map((index) =>
+          imageFile(`cf-eight-${index}.png`, 'png'),
+        ),
+      )
+      await vi.waitFor(() => expect(tiles()).toHaveLength(8))
+
+      pickFiles(fileInput(), [imageFile('cf-ninth.png', 'png')])
+      await settle()
+
+      expect(tiles()).toHaveLength(8)
+      expect(form().querySelector('[role="alert"]')?.textContent?.trim()).toBe(
+        'A comment can have at most 8 images.',
+      )
+    },
+  )
+
+  it('says a comment can have at most 8 images when a ninth is picked after a comment was sent from the same form', async () => {
+    uploadImage.mockImplementation((file: File, contentType: string) =>
+      Promise.resolve(uploadOutput(file, contentType)),
+    )
+    createComment.mockResolvedValue(CREATED)
+    mountForm()
+    await pickOneImage()
+    submitForm()
+    await vi.waitFor(() => expect(createComment).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(tiles()).toHaveLength(0))
+
+    pickFiles(
+      fileInput(),
+      [1, 2, 3, 4, 5, 6, 7, 8].map((index) =>
+        imageFile(`cf-after-send-${index}.png`, 'png'),
+      ),
+    )
+    await vi.waitFor(() => expect(tiles()).toHaveLength(8))
+    pickFiles(fileInput(), [imageFile('cf-after-send-ninth.png', 'png')])
+    await settle()
+
+    expect(tiles()).toHaveLength(8)
+    expect(form().querySelector('[role="alert"]')?.textContent?.trim()).toBe(
+      'A comment can have at most 8 images.',
+    )
   })
 })

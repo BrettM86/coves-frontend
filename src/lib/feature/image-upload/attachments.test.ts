@@ -145,7 +145,7 @@ describe('Attachments add, remove, replace and reorder', () => {
     }))
 
   it('reorders with moveEarlier and moveLater, each image keeping its own alt, preview URL and blob', async () => {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
     await attachments.add([imageFile(101), imageFile(102), imageFile(103)])
     attachments.setAlt(idAt(attachments, 0), 'first')
     attachments.setAlt(idAt(attachments, 1), 'second')
@@ -200,7 +200,7 @@ describe('Attachments add, remove, replace and reorder', () => {
   })
 
   it('leaves the order alone when the first image is moved earlier or the last moved later', async () => {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
     await attachments.add([imageFile(101), imageFile(102), imageFile(103)])
 
     attachments.moveEarlier(idAt(attachments, 0))
@@ -212,7 +212,7 @@ describe('Attachments add, remove, replace and reorder', () => {
   })
 
   it('adds only the first picked image past 7 and says at most 8 are allowed', async () => {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
     await attachments.add(
       [101, 102, 103, 104, 105, 106, 107].map((size) => imageFile(size)),
     )
@@ -222,11 +222,11 @@ describe('Attachments add, remove, replace and reorder', () => {
     expect(attachments.items.map((item) => item.file.size)).toEqual([
       101, 102, 103, 104, 105, 106, 107, 108,
     ])
-    expect(attachments.message).toMatch(/\b8\b/)
+    expect(attachments.message).toBe('A post can have at most 8 images.')
   })
 
   it('does not add a file that is not a supported image, and says which formats are', async () => {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
 
     await attachments.add([
       imageFile(101),
@@ -235,11 +235,11 @@ describe('Attachments add, remove, replace and reorder', () => {
     ])
 
     expect(attachments.items.map((item) => item.file.size)).toEqual([101, 103])
-    expect(attachments.message).toContain('Use a JPEG, PNG, WebP or GIF image.')
+    expect(attachments.message).toBe('Use a JPEG, PNG, WebP or GIF image.')
   })
 
   it('drops a removed image with its blob ref and revokes its preview URL', async () => {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
     await attachments.add([imageFile(101), imageFile(102)])
     await attachments.uploadMissing(immediateClient)
 
@@ -262,7 +262,7 @@ describe('Attachments add, remove, replace and reorder', () => {
   })
 
   it('replaces an uploaded image in place with a pending one that has no blob ref, revoking the old preview URL', async () => {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
     await attachments.add([imageFile(101), imageFile(102)])
     await attachments.uploadMissing(immediateClient)
 
@@ -316,7 +316,7 @@ describe('Attachments.uploadMissing', () => {
    * the first moved one place later: strip order is 102, 101, 103, 104, 105.
    */
   async function fiveReorderedImages() {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
     await attachments.add([
       imageFile(101, 'jpeg'),
       imageFile(102, 'png', 'image/jpeg'),
@@ -447,7 +447,7 @@ describe('Attachments.embedFor', () => {
 
   /** Two uploaded images: alt '  a cat  ' and an all-space alt. */
   async function twoUploadedImages() {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
     await attachments.add([imageFile(101), imageFile(102, 'png')])
     attachments.setAlt(idAt(attachments, 0), '  a cat  ')
     attachments.setAlt(idAt(attachments, 1), '   ')
@@ -478,13 +478,13 @@ describe('Attachments.embedFor', () => {
   ]
 
   it('is undefined when there are no images and no URL', () => {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
 
     expect(attachments.embedFor()).toBeUndefined()
   })
 
   it('is the external embed when there are no images and a URL', () => {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
 
     expect(attachments.embedFor(URL_UNDER_TEST)).toEqual({
       $type: 'social.coves.embed.external',
@@ -575,6 +575,7 @@ describe('Attachments with overlapping adds', () => {
   it('keeps the strip at 8 when two adds overlap at 7, adding the first and refusing the second', async () => {
     const decoder = holdableDecoder()
     const attachments = new Attachments({
+      target: 'post',
       decodeDimensions: decoder.decodeDimensions,
     })
     await attachments.add(
@@ -599,7 +600,7 @@ describe('Attachments with overlapping adds', () => {
 
 describe('Attachments.uploadMissing with an abort signal', () => {
   it('rejects without uploading when the signal is already aborted, leaving every image pending', async () => {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
     await attachments.add([imageFile(101), imageFile(102)])
     const { client, started } = abortableClient()
     const controller = new AbortController()
@@ -617,7 +618,7 @@ describe('Attachments.uploadMissing with an abort signal', () => {
   })
 
   it('puts an image whose upload is aborted back to pending with no error, and rejects with the abort reason', async () => {
-    const attachments = new Attachments({ decodeDimensions })
+    const attachments = new Attachments({ target: 'post', decodeDimensions })
     await attachments.add([imageFile(101), imageFile(102), imageFile(103)])
     const { client, started } = abortableClient()
     const controller = new AbortController()
@@ -655,6 +656,7 @@ describe('Attachments.releasePreviews during a pick-time check', () => {
     }
     const decoder = holdableDecoder()
     const attachments = new Attachments({
+      target: 'post',
       decodeDimensions: decoder.decodeDimensions,
     })
     decoder.hold()
@@ -706,6 +708,7 @@ describe('Attachments with an oversized GIF', () => {
     async ({ size, dimensions, limit }) => {
       const { reencode, calls } = recordingReencoder(async (file) => file)
       const attachments = new Attachments({
+        target: 'post',
         decodeDimensions: async () => dimensions,
         reencode,
       })
@@ -725,7 +728,11 @@ describe('Attachments re-encoding an oversized PNG', () => {
     const { reencode, calls } = recordingReencoder(async () =>
       imageFile(10_000_001, 'jpeg', 'image/jpeg'),
     )
-    const attachments = new Attachments({ decodeDimensions, reencode })
+    const attachments = new Attachments({
+      target: 'post',
+      decodeDimensions,
+      reencode,
+    })
 
     await attachments.add([imageFile(10_000_002, 'png')])
 
@@ -741,7 +748,11 @@ describe('Attachments re-encoding an oversized PNG', () => {
     const { reencode } = recordingReencoder(async () => {
       throw failure
     })
-    const attachments = new Attachments({ decodeDimensions, reencode })
+    const attachments = new Attachments({
+      target: 'post',
+      decodeDimensions,
+      reencode,
+    })
 
     await attachments.add([
       new File([imageFile(10_000_001, 'png')], 'private-holiday.png'),

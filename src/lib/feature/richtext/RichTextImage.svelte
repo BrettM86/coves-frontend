@@ -1,6 +1,7 @@
 <script lang="ts">
   import { imageUrl } from '$lib/api/coves/image-proxy'
   import type { EmbedImage } from '$lib/api/coves/types'
+  import { t } from '$lib/app/state/i18n'
   import ImageUnavailable from '$lib/ui/generic/ImageUnavailable.svelte'
 
   interface Props {
@@ -44,7 +45,7 @@
       type="button"
       class="block h-full w-full cursor-pointer"
       data-sveltekit-preload-data="off"
-      aria-label={image.alt ?? 'Image'}
+      aria-label={image.alt ?? $t('post.image.label')}
       onclick={onopen}
     >
       <img

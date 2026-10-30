@@ -317,3 +317,63 @@ describe('errorMessage for image upload and image post errors', () => {
     expect(errorMessage(createPostError)).not.toContain(SIGN_IN_TO_UPLOAD)
   })
 })
+
+describe('errorMessage for a backend InvalidEmbed or ContentEmpty refusal', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  it.each([
+    [
+      'InvalidEmbed',
+      'createComment',
+      NSID.createComment,
+      'error.invalid_comment_embed',
+    ],
+    [
+      'ContentEmpty',
+      'updateComment',
+      NSID.updateComment,
+      'error.comment_content_empty',
+    ],
+    ['InvalidEmbed', 'createPost', NSID.createPost, 'error.invalid_embed'],
+    ['ContentEmpty', 'no call named', undefined, 'error.content_empty'],
+  ])('maps %s from %s to its key', (code, _call, nsid, key) => {
+    expect(
+      errorMessage(
+        new XrpcError(
+          400,
+          code,
+          'XRPC request failed with status 400',
+          undefined,
+          nsid,
+        ),
+      ),
+    ).toBe(key)
+  })
+})
+
+describe('errorMessage for a backend TooManyImages refusal', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  it.each([
+    ['createComment', NSID.createComment, 'error.too_many_comment_images'],
+    ['updateComment', NSID.updateComment, 'error.too_many_comment_images'],
+    ['createPost', NSID.createPost, 'error.too_many_images'],
+    ['no call named', undefined, 'error.too_many_images'],
+  ])('maps TooManyImages from %s to its key', (_call, nsid, key) => {
+    expect(
+      errorMessage(
+        new XrpcError(
+          400,
+          'TooManyImages',
+          'XRPC request failed with status 400',
+          undefined,
+          nsid,
+        ),
+      ),
+    ).toBe(key)
+  })
+})

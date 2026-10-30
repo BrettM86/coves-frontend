@@ -17,6 +17,7 @@ import { byteLength, byteRange } from '$lib/feature/richtext/test-helpers'
 import {
   buildCommentCreate,
   buildCommentUpdate,
+  CommentContentEmptyError,
   commentImageCount,
   editorSourceFor,
 } from './comment-submit'
@@ -515,5 +516,13 @@ describe('commentImageCount — embeds from the network', () => {
         images: { images: [1, 2, 3] },
       }),
     ).toBe(3)
+  })
+})
+
+describe('CommentContentEmptyError', () => {
+  it('says in English that a comment cannot be empty', () => {
+    expect(new CommentContentEmptyError().message).toBe(
+      'Comment cannot be empty.',
+    )
   })
 })

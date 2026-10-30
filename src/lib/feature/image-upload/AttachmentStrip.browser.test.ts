@@ -98,6 +98,7 @@ function heldReencoder() {
 
 function mountStrip(reencode: ReturnType<typeof heldReencoder>['reencode']) {
   const attachments = new Attachments({
+    target: 'post',
     decodeDimensions: async () => ({ width: 640, height: 480 }),
     reencode,
   })
@@ -156,6 +157,7 @@ describe('AttachmentStrip while an oversized image is re-encoded', () => {
 /** Mounts a strip of two images whose uploads both failed with `error`. */
 async function mountFailedStrip(error: unknown, onsignin?: () => void) {
   const attachments = new Attachments({
+    target: 'post',
     decodeDimensions: async () => ({ width: 640, height: 480 }),
   })
   await attachments.add([

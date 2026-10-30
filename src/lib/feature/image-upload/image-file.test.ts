@@ -176,3 +176,55 @@ describe('checkAltText', () => {
     expect(checkAltText(alt)).toEqual(expected)
   })
 })
+
+describe('checkImageFile refusal sentences', () => {
+  it.each([
+    {
+      name: 'a text file typed image/jpeg',
+      file: () =>
+        new Blob(['hello, this is not an image'], { type: 'image/jpeg' }),
+      decoder: decodes(640, 480),
+      sentence: 'Use a JPEG, PNG, WebP or GIF image.',
+    },
+    {
+      name: 'a HEIC file',
+      file: () => blobOf(HEIC, 'image/heic'),
+      decoder: decodes(640, 480),
+      sentence: 'Use a JPEG, PNG, WebP or GIF image. Convert it to JPEG first.',
+    },
+    {
+      name: 'a JPEG over 10 MB',
+      file: () => blobOf(JPEG, 'image/jpeg', 10_000_001),
+      decoder: decodes(640, 480),
+      sentence: 'This image is larger than 10 MB. Use a smaller image.',
+    },
+    {
+      name: 'a GIF over 10 MB',
+      file: () => blobOf(GIF89A, 'image/gif', 10_000_001),
+      decoder: decodes(640, 480),
+      sentence:
+        'This GIF is larger than 10 MB. To keep their animation, animated GIFs must be under 10 MB.',
+    },
+    {
+      name: 'a PNG over 50 million pixels',
+      file: () => blobOf(PNG),
+      decoder: decodes(50_000_001, 1),
+      sentence:
+        'This image has more than 50 million pixels. Use a smaller image.',
+    },
+    {
+      name: 'a GIF over 50 million pixels',
+      file: () => blobOf(GIF89A),
+      decoder: decodes(8000, 7000),
+      sentence:
+        'This GIF has more than 50 million pixels. To keep their animation, animated GIFs must be under 50 million pixels.',
+    },
+  ])(
+    'refuses $name with its English sentence',
+    async ({ file, decoder, sentence }) => {
+      const check = await checkImageFile(file(), decoder)
+
+      expect(check.ok ? 'accepted' : check.message).toBe(sentence)
+    },
+  )
+})

@@ -1,4 +1,5 @@
 import { coves } from '$lib/api/client.svelte'
+import { t } from '$lib/app/state/i18n'
 import { isWebUrl } from '$lib/app/util/url'
 import type {
   CommunityRef,
@@ -56,7 +57,7 @@ export class PostFormState {
     this.body = $state(post?.body)
     this.url = $state(post?.url)
     this.nsfw = $state(post?.nsfw ?? false)
-    this.attachments = new Attachments()
+    this.attachments = new Attachments({ target: 'post' })
   }
 
   validate(): string | null {
@@ -67,7 +68,7 @@ export class PostFormState {
       (item) => !checkAltText(item.alt).ok,
     )
     if (overLimit >= 0)
-      return `The alt text of image ${overLimit + 1} is too long. Use at most 1000 characters.`
+      return t.get('form.post.altTextTooLong', { number: overLimit + 1 })
 
     return null
   }

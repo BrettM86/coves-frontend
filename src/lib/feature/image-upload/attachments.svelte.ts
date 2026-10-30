@@ -6,6 +6,7 @@ import type {
   ImagesEmbedRecordImage,
   UploadImageOutput,
 } from '$lib/api/coves/types'
+import { t } from '$lib/app/state/i18n'
 import type { ImageContentType } from './image-file'
 import { createLocalImageUrl, revokeLocalImageUrl } from './local-image-urls'
 import { prepareImageFile, reencodeImage, type Reencode } from './reencode'
@@ -36,7 +37,6 @@ type DecodeDimensions = (
 
 const MAXIMUM_ATTACHMENTS = 8
 const MAXIMUM_CONCURRENT_UPLOADS = 2
-const TOO_MANY_MESSAGE = 'A post can have at most 8 images.'
 
 let nextId = 0
 
@@ -50,6 +50,7 @@ export class Attachments {
   message = $state<string | undefined>()
   /** The number of picked images being re-encoded to fit the limits. */
   processing = $state(0)
+  readonly #target: 'post' | 'comment'
   readonly #decodeDimensions?: DecodeDimensions
   readonly #reencode: Reencode
   /** Settles once every add started so far has finished. */
@@ -57,12 +58,15 @@ export class Attachments {
   /** Set by {@link releasePreviews}: a later check adds nothing. */
   #released = false
 
-  constructor(options?: {
+  /** `target` is the composer, which words the over-8 refusal. */
+  constructor(options: {
+    target: 'post' | 'comment'
     decodeDimensions?: DecodeDimensions
     reencode?: Reencode
   }) {
-    this.#decodeDimensions = options?.decodeDimensions
-    this.#reencode = options?.reencode ?? reencodeImage
+    this.#target = options.target
+    this.#decodeDimensions = options.decodeDimensions
+    this.#reencode = options.reencode ?? reencodeImage
   }
 
   /**
@@ -85,7 +89,11 @@ export class Attachments {
     this.message = undefined
     for (const file of files) {
       if (this.items.length >= MAXIMUM_ATTACHMENTS) {
-        this.message = TOO_MANY_MESSAGE
+        this.message = t.get(
+          this.#target === 'comment'
+            ? 'error.too_many_comment_images'
+            : 'error.too_many_images',
+        )
         return
       }
       const attachment = await this.#attachmentFor(file)

@@ -15,6 +15,7 @@ import type {
   StrongRef,
   UpdateCommentInput,
 } from '$lib/api/coves/types'
+import { t } from '$lib/app/state/i18n'
 import { parseMarkup, trimRichText } from '$lib/feature/richtext/compose'
 import { placedImageIndexes } from '$lib/feature/richtext/image-layout'
 import {
@@ -94,7 +95,7 @@ export class CommentContentEmptyError extends Error {
   readonly code = 'ContentEmpty'
 
   constructor() {
-    super('Comment cannot be empty.')
+    super(t.get('comment.contentEmpty'))
     this.name = 'CommentContentEmptyError'
   }
 }

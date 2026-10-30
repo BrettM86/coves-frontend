@@ -25,6 +25,10 @@ import {
   stubObjectUrls,
   uploadOutput,
 } from '$lib/feature/image-upload/test-helpers'
+import {
+  saveComposerDraft,
+  storedCommentDraftParent,
+} from '$lib/feature/image-upload/draft-restore'
 import type { ReplyNotificationRow } from './rows'
 import {
   accessibleName,
@@ -1739,6 +1743,63 @@ describe('ReplyCard Quick Reply', () => {
         'blob:http://localhost/rc-heron.png',
       ),
     )
+  })
+
+  describe('restoring a draft saved before signing in again', () => {
+    beforeEach(() => sessionStorage.clear())
+
+    const otherCommentUri =
+      'at://did:plc:bob/social.coves.community.comment/3kothercomment1'
+
+    it.each<[string, () => ReplyNotificationRow, string]>([
+      [
+        'a reply comment, keyed by the comment',
+        () => replyRow(),
+        'at://did:plc:alice4x7k/social.coves.community.comment/3kcommentcats1',
+      ],
+      [
+        'a post mention, keyed by the root post',
+        () =>
+          replyRow({
+            reason: 'mention',
+            record: replyRecord({
+              uri: mentionPostUri,
+              cid: 'bafyreibmentionpost1' as CID,
+              excerpt: 'Hey @viewer',
+            }),
+          }),
+        'at://did:plc:viewer7f3kq2/social.coves.community.post/3kpostcats1',
+      ],
+    ])(
+      'opens the composer holding the saved text on mount for %s',
+      (_title, row, parentUri) => {
+        saveComposerDraft('/notifications', {
+          kind: 'comment',
+          parentUri,
+          body: 'Kept while signing in',
+        })
+
+        mountCard(row())
+
+        expect(composer()?.value).toBe('Kept while signing in')
+        expect(replyButton().getAttribute('aria-expanded')).toBe('true')
+      },
+    )
+
+    it('leaves the composer closed and the draft stored when the draft is for another comment', () => {
+      saveComposerDraft('/notifications', {
+        kind: 'comment',
+        parentUri: otherCommentUri,
+        body: 'Kept while signing in',
+      })
+
+      mountCard(replyRow())
+
+      expect(composer()).toBeNull()
+      expect(storedCommentDraftParent('/notifications')).toBe(
+        'at://did:plc:bob/social.coves.community.comment/3kothercomment1',
+      )
+    })
   })
 })
 

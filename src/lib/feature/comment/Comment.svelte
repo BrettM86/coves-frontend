@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { getContext } from 'svelte'
+  import { getContext, untrack } from 'svelte'
+  import { browser } from '$app/environment'
   import { page } from '$app/state'
+  import { storedCommentDraftParent } from '$lib/feature/image-upload/draft-restore'
   import { coves } from '$lib/api/client.svelte'
   import type { StrongRef } from '$lib/api/coves/types'
   import { parseAtUri } from '$lib/api/coves/types'
@@ -96,6 +98,15 @@
   let editingLoad = $state(false)
   /** Placements the editor source could not express when editing started. */
   let droppedPlacements = $state(0)
+
+  // A reply draft saved before signing in reopens this comment's composer.
+  if (
+    browser &&
+    untrack(
+      () => storedCommentDraftParent(page.url.pathname) === node.comment.uri,
+    )
+  )
+    replying = true
 
   // Stable anchor id (`comment-<rkey>`) so permalinks can deep-link to this
   // comment via a `#comment-<rkey>` URL fragment.

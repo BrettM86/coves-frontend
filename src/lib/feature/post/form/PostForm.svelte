@@ -1,5 +1,13 @@
 <script lang="ts">
+  import { browser } from '$app/environment'
+  import { goto } from '$app/navigation'
+  import { page } from '$app/state'
   import { profile } from '$lib/app/state/auth.svelte'
+  import { loginUrl } from '$lib/app/util/login-url'
+  import {
+    restorePostDraft,
+    saveComposerDraft,
+  } from '$lib/feature/image-upload/draft-restore'
   import { errorMessage } from '$lib/app/util/error'
   import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import { t } from '$lib/app/state/i18n'
@@ -32,6 +40,25 @@
   // `init` is by contract the initial form state only — the form owns its
   // contents from here on, and re-seeding would discard the user's edits.
   let form = $state<PostFormState>(untrack(() => init) ?? new PostFormState())
+
+  // A draft saved before a sign-in redirect replaces the initial text.
+  const restored = browser ? restorePostDraft(page.url.pathname) : undefined
+  if (restored) {
+    form.title = restored.title
+    form.url = restored.url
+    form.body = restored.body
+  }
+
+  /** Keeps the typed text (never the images) and goes to sign in again. */
+  function signIn() {
+    saveComposerDraft(page.url.pathname, {
+      kind: 'post',
+      title: form.title,
+      url: form.url ?? '',
+      body: form.body ?? '',
+    })
+    goto(loginUrl(page.url))
+  }
 
   let loading = $state<boolean>(false)
   /** Set once a created post's view owns the image previews. */
@@ -189,6 +216,7 @@
     oninsert={insertPlacement}
     busy={loading}
     onretry={submit}
+    onsignin={signIn}
   />
 
   <TextInput

@@ -11,7 +11,10 @@
   import { Button } from '$lib/ui/kit'
   import { MessageSquare } from '$lib/ui/kit/icon'
   import { usableHandle } from '$lib/types/atproto'
-  import { tick } from 'svelte'
+  import { tick, untrack } from 'svelte'
+  import { browser } from '$app/environment'
+  import { page } from '$app/state'
+  import { storedCommentDraftParent } from '$lib/feature/image-upload/draft-restore'
   import {
     isCommentUri,
     isSensitiveRow,
@@ -123,6 +126,17 @@
       ? { uri: row.record.uri, cid: row.record.cid }
       : undefined,
   )
+
+  // A draft saved before signing in reopens the composer it came from.
+  if (
+    browser &&
+    untrack(
+      () =>
+        storedCommentDraftParent(page.url.pathname) ===
+        (parentRef?.uri ?? postRef.uri),
+    )
+  )
+    toggleComposer()
 
   function isNonEmptyString(value: unknown): boolean {
     return typeof value === 'string' && value !== ''

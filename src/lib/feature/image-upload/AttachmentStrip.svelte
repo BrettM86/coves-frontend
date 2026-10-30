@@ -2,7 +2,7 @@
   import { imageUrl } from '$lib/api/coves/image-proxy'
   import type { EmbedImage } from '$lib/api/coves/types'
   import { t } from '$lib/app/state/i18n'
-  import { errorMessage } from '$lib/app/util/error'
+  import { errorMessage, isUploadSignInError } from '$lib/app/util/error'
   import { Button, Label, TextInput } from '$lib/ui/kit'
   import {
     ChevronLeft,
@@ -36,6 +36,8 @@
     busy?: boolean
     /** Retries the submit after a failed upload. */
     onretry?: () => void
+    /** Saves the composer text and signs in again after an upload refusal. */
+    onsignin?: () => void
   }
 
   let {
@@ -45,7 +47,15 @@
     oninsert,
     busy = false,
     onretry,
+    onsignin,
   }: Props = $props()
+
+  const signInNeeded = $derived(
+    !!onsignin &&
+      !!attachments?.items.some(
+        (item) => item.status === 'failed' && isUploadSignInError(item.error),
+      ),
+  )
 
   const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif'
   const MAXIMUM_ATTACHMENTS = 8
@@ -164,6 +174,22 @@
         {strip.message}
       </p>
     {/if}
+    {#if signInNeeded}
+      <div
+        role="alert"
+        class="flex flex-row flex-wrap items-center gap-2 p-2 rounded-xl border border-slate-200 dark:border-zinc-800"
+      >
+        <div class="flex flex-col flex-1 min-w-0 text-sm">
+          <p>{$t('error.upload_sign_in_again')}</p>
+          <p class="text-slate-600 dark:text-zinc-400">
+            {$t('error.upload_sign_in_again_note')}
+          </p>
+        </div>
+        <Button size="sm" color="primary" onclick={() => onsignin?.()}>
+          {$t('error.upload_sign_in_again_action')}
+        </Button>
+      </div>
+    {/if}
     {#if strip.processing > 0}
       <div
         role="status"
@@ -209,7 +235,8 @@
                 class="w-full h-1"
                 aria-label={$t('form.post.uploadingImage', { number })}
               ></progress>
-            {:else if item.status === 'failed'}
+            {:else if item.status === 'failed' && !(onsignin && isUploadSignInError(item.error))}
+              <!-- A sign-in refusal shows once, in the strip's sign-in banner. -->
               <div class="flex flex-row items-center gap-2">
                 <p class="text-sm text-red-600 dark:text-red-400 flex-1">
                   {errorMessage(item.error)}

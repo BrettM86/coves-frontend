@@ -49,11 +49,15 @@ let mounted: ReturnType<(typeof import('svelte'))['mount']> | undefined
 let client: typeof import('svelte')
 let AttachmentStrip: (typeof import('./AttachmentStrip.svelte'))['default']
 let Attachments: (typeof import('./attachments.svelte'))['Attachments']
+let XrpcError: (typeof import('$lib/api/coves/xrpc'))['XrpcError']
+let NSID: (typeof import('$lib/api/coves/client'))['NSID']
 
 beforeAll(async () => {
   client = await import('svelte')
   AttachmentStrip = (await import('./AttachmentStrip.svelte')).default
   Attachments = (await import('./attachments.svelte')).Attachments
+  XrpcError = (await import('$lib/api/coves/xrpc')).XrpcError
+  NSID = (await import('$lib/api/coves/client')).NSID
 }, 60_000)
 
 beforeEach(() => {
@@ -146,5 +150,87 @@ describe('AttachmentStrip while an oversized image is re-encoded', () => {
 
     expect(processingTile()).toBeNull()
     expect(imageTiles()).toHaveLength(0)
+  })
+})
+
+/** Mounts a strip of two images whose uploads both failed with `error`. */
+async function mountFailedStrip(error: unknown, onsignin?: () => void) {
+  const attachments = new Attachments({
+    decodeDimensions: async () => ({ width: 640, height: 480 }),
+  })
+  await attachments.add([
+    imageFile('one.jpg', 'jpeg'),
+    imageFile('two.jpg', 'jpeg'),
+  ])
+  await attachments
+    .uploadMissing({
+      uploadImage: () => Promise.reject(error),
+    })
+    .catch(() => {})
+  mounted = client.mount(AttachmentStrip, {
+    target,
+    intro: false,
+    props: { attachments, onretry: () => {}, onsignin },
+  })
+  await settle()
+}
+
+const retryButtons = () =>
+  [...target.querySelectorAll('button')].filter((button) =>
+    button.textContent?.includes('form.post.retryUpload'),
+  )
+const textCount = (text: string) =>
+  [...target.querySelectorAll('p')].filter(
+    (paragraph) => paragraph.textContent?.trim() === text,
+  ).length
+
+describe('AttachmentStrip failed tiles', () => {
+  it.each([['MissingBlobScope'], ['PermissionDenied']])(
+    'shows the %s sign-in message once and no Retry when sign-in is offered',
+    async (code) => {
+      await mountFailedStrip(
+        new XrpcError(403, code, 'Refused', undefined, NSID.uploadImage),
+        () => {},
+      )
+
+      expect(imageTiles()).toHaveLength(2)
+      expect(textCount('error.upload_sign_in_again')).toBe(1)
+      expect(retryButtons()).toHaveLength(0)
+      expect(
+        target.querySelector('[aria-label="form.post.removeImage"]'),
+      ).not.toBeNull()
+    },
+  )
+
+  it('keeps the message and Retry on each tile for other failures', async () => {
+    await mountFailedStrip(
+      new XrpcError(
+        500,
+        'InternalServerError',
+        'Boom',
+        undefined,
+        NSID.uploadImage,
+      ),
+      () => {},
+    )
+
+    expect(imageTiles()).toHaveLength(2)
+    expect(textCount('error.server_error')).toBe(2)
+    expect(retryButtons()).toHaveLength(2)
+  })
+
+  it('keeps the message and Retry on each tile when sign-in is not offered', async () => {
+    await mountFailedStrip(
+      new XrpcError(
+        403,
+        'MissingBlobScope',
+        'Refused',
+        undefined,
+        NSID.uploadImage,
+      ),
+    )
+
+    expect(textCount('error.upload_sign_in_again')).toBe(2)
+    expect(retryButtons()).toHaveLength(2)
   })
 })

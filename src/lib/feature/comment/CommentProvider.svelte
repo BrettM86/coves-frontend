@@ -27,6 +27,7 @@
   } from '$lib/feature/comment/comments.svelte'
   import CommentTree from '$lib/feature/comment/CommentTree.svelte'
   import { revokeLocalImageUrl } from '$lib/feature/image-upload/local-image-urls'
+  import { storedCommentDraftParent } from '$lib/feature/image-upload/draft-restore'
   import { freshPostImageUrls } from '$lib/feature/post/fresh-post'
   import { postLink } from '$lib/feature/post'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
@@ -100,6 +101,12 @@
   }
 
   const postRef: StrongRef = $derived({ uri: post.uri, cid: post.cid })
+  // A top-level draft saved before signing in reopens its form to restore.
+  if (
+    browser &&
+    untrack(() => storedCommentDraftParent(page.url.pathname) === post.uri)
+  )
+    commenting = true
 
   // `tree` has to stay $state, not $derived: insertCommentIntoTree() mutates it
   // in place for optimistic replies and CommentTree takes it via bind:nodes.

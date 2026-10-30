@@ -43,6 +43,16 @@ const uploadMessages: Record<string, string> = {
 /** Upload refusals that a fresh sign-in, granting the blob scope, resolves. */
 const uploadSignInErrors = new Set(['MissingBlobScope', 'PermissionDenied'])
 
+/** True for an uploadImage refusal that signing in again resolves. */
+export function isUploadSignInError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+  const { nsid, errorName, error: name } = error as Record<string, unknown>
+  return (
+    nsid === NSID.uploadImage &&
+    uploadSignInErrors.has(String(errorName ?? name))
+  )
+}
+
 /** Fetch failures and temporary upstream outages, not arbitrary TypeErrors. */
 export function isBackendUnavailable(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false
@@ -78,7 +88,7 @@ export function errorMessage(error: any, instance?: string): string {
     // known error name wins over the generic 429 and 5xx messages.
     const code = error?.errorName ?? error?.error
     if (error?.nsid === NSID.uploadImage) {
-      if (uploadSignInErrors.has(code)) {
+      if (isUploadSignInError(error)) {
         return t.get('error.upload_sign_in_again')
       }
       if (typeof code === 'string' && Object.hasOwn(uploadMessages, code)) {

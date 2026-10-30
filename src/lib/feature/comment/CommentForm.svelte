@@ -1,9 +1,18 @@
 <script lang="ts">
+  import { browser } from '$app/environment'
+  import { goto } from '$app/navigation'
+  import { page } from '$app/state'
   import { coves } from '$lib/api/client.svelte'
+  import { parseAtUri } from '$lib/api/coves/types'
   import type { PostEmbed, StrongRef } from '$lib/api/coves/types'
   import { profile } from '$lib/app/state/auth.svelte'
   import { errorMessage } from '$lib/app/util/error'
   import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
+  import { loginUrl } from '$lib/app/util/login-url'
+  import {
+    restoreCommentDraft,
+    saveComposerDraft,
+  } from '$lib/feature/image-upload/draft-restore'
   import { log } from '$lib/app/util/log'
   import { t } from '$lib/app/state/i18n'
   import { Attachments } from '$lib/feature/image-upload/attachments.svelte'
@@ -23,7 +32,7 @@
   import { placeholders } from '$lib/app/util/placeholders'
   import { Button, toast } from '$lib/ui/kit'
   import { Icon, X } from '$lib/ui/kit/icon'
-  import { onDestroy } from 'svelte'
+  import { onDestroy, untrack } from 'svelte'
   import type { ClassValue, HTMLTextareaAttributes } from 'svelte/elements'
 
   interface Props extends Omit<HTMLTextareaAttributes, 'oncancel'> {
@@ -70,6 +79,33 @@
     onloadingchange,
     ...rest
   }: Props = $props()
+
+  // A draft saved before a sign-in redirect refills a new comment's text.
+  untrack(() => {
+    if (!browser || editing) return
+    const restored = restoreCommentDraft(
+      page.url.pathname,
+      parentRef?.uri ?? postRef.uri,
+    )
+    if (restored !== undefined) value = restored
+  })
+
+  /** Keeps the typed text (never the images) and goes to sign in again. */
+  function signIn() {
+    saveComposerDraft(page.url.pathname, {
+      kind: 'comment',
+      parentUri: parentRef?.uri ?? postRef.uri,
+      body: value,
+    })
+    // A reply returns to its parent's anchor, so the thread mounts that row.
+    goto(
+      loginUrl(
+        parentRef
+          ? new URL(`#comment-${parseAtUri(parentRef.uri).rkey}`, page.url)
+          : page.url,
+      ),
+    )
+  }
 
   let loading = $state(false)
   /** The images attached to the comment, uploaded on submit. */
@@ -275,6 +311,7 @@
       oninsert={insertPlacement}
       busy={loading}
       onretry={submit}
+      onsignin={signIn}
     />
   {:else}
     <AttachmentStrip images={savedImages} oninsert={insertPlacement} />

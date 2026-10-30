@@ -33,6 +33,12 @@ import {
   stubObjectUrls,
   uploadOutput,
 } from '$lib/feature/image-upload/test-helpers'
+import {
+  restoreCommentDraft,
+  storedCommentDraftParent,
+} from '$lib/feature/image-upload/draft-restore'
+import english from '$lib/app/state/i18n/en.json'
+import { goto } from '$app/navigation'
 
 vi.mock('$app/environment', () => ({
   browser: true,
@@ -74,8 +80,9 @@ vi.mock('svelte/transition', async (importOriginal) => ({
   scale: () => ({ duration: 0 }),
 }))
 
-const { createComment, profile } = vi.hoisted(() => ({
+const { createComment, uploadImage, profile } = vi.hoisted(() => ({
   createComment: vi.fn(),
+  uploadImage: vi.fn(),
   profile: {
     isAuthenticated: true,
     meta: {},
@@ -91,8 +98,7 @@ const { createComment, profile } = vi.hoisted(() => ({
 vi.mock('$lib/api/client.svelte', () => ({
   coves: () => ({
     createComment,
-    uploadImage: async (file: File, contentType: string) =>
-      uploadOutput(file, contentType),
+    uploadImage,
   }),
 }))
 vi.mock('$lib/app/state/auth.svelte', () => ({ profile }))
@@ -201,6 +207,8 @@ function serverCopy(): ThreadViewComment {
 let target: HTMLDivElement
 let client: typeof import('svelte')
 let Harness: typeof import('./CommentProvider.test-harness.svelte').default
+let XrpcError: (typeof import('$lib/api/coves/xrpc'))['XrpcError']
+let NSID: (typeof import('$lib/api/coves/client'))['NSID']
 let isImageSourceUrl: (typeof import('$lib/api/coves/image-proxy'))['isImageSourceUrl']
 let mounted:
   | {
@@ -215,6 +223,8 @@ beforeAll(async () => {
   Harness = (await import('./CommentProvider.test-harness.svelte')).default
   isImageSourceUrl = (await import('$lib/api/coves/image-proxy'))
     .isImageSourceUrl
+  XrpcError = (await import('$lib/api/coves/xrpc')).XrpcError
+  NSID = (await import('$lib/api/coves/client')).NSID
 }, 60_000)
 
 beforeEach(async () => {
@@ -229,6 +239,12 @@ beforeEach(async () => {
     },
   )
   createComment.mockReset()
+  uploadImage.mockReset()
+  uploadImage.mockImplementation(async (file: File, contentType: string) =>
+    uploadOutput(file, contentType),
+  )
+  vi.mocked(goto).mockReset()
+  sessionStorage.clear()
   objectUrls = stubObjectUrls()
   stubImageDecoding()
   target = document.createElement('div')
@@ -241,14 +257,14 @@ afterEach(async () => {
   vi.unstubAllGlobals()
 })
 
-function mountProvider(): {
+function mountProvider(initialComments: ThreadViewComment[] = [existing]): {
   refresh: (comments: ThreadViewComment[]) => void
   navigate: (post: PostView) => void
 } {
   const provider = client.mount(Harness, {
     target,
     intro: false,
-    props: { initialPost: postFixture(), initialComments: [existing] },
+    props: { initialPost: postFixture(), initialComments },
   })
   mounted = provider
   client.flushSync()
@@ -439,4 +455,87 @@ describe('optimistic comment with images', () => {
     await vi.waitFor(() => expect(objectUrls.revoked).toContain(egret))
     expect(isImageSourceUrl(egret)).toBe(false)
   })
+})
+
+describe('signing in again after an upload the session may not make', () => {
+  const POST_PATH = '/c/community.test/post/author.test/one'
+  const KEPT = 'Kept while signing in'
+  const second: ThreadViewComment = {
+    comment: commentView(
+      {
+        uri: 'at://did:plc:bob/social.coves.community.comment/second' as AtUri,
+        cid: 'bafysecond' as CID,
+      },
+      'Second comment',
+      { did: 'did:plc:bob' as DID, handle: 'bob.test' as Handle },
+    ),
+    replies: [],
+  }
+
+  /** Each open composer as [its comment's element id or 'top-level', its text]. */
+  function openComposers(): [string, string][] {
+    return [...target.querySelectorAll('form')].map((form) => [
+      form.closest('li[id^="comment-"]')?.id ?? 'top-level',
+      form.querySelector('textarea')?.value ?? '',
+    ])
+  }
+
+  it.each<[string, () => void, string, string, string]>([
+    [
+      'the top-level comment form',
+      () => button('Add a comment').click(),
+      '/login?redirect=%2Fc%2Fcommunity.test%2Fpost%2Fauthor.test%2Fone',
+      'top-level',
+      'at://did:plc:author/social.coves.community.post/one',
+    ],
+    [
+      'the reply composer under the second comment',
+      () => {
+        const reply = [...commentElement('second').querySelectorAll('button')]
+          .filter((element) => element.textContent?.trim() === 'Reply')
+          .at(0)
+        if (!reply) throw new Error('The second comment has no Reply button')
+        reply.click()
+      },
+      '/login?redirect=%2Fc%2Fcommunity.test%2Fpost%2Fauthor.test%2Fone%23comment-second',
+      'comment-second',
+      'at://did:plc:bob/social.coves.community.comment/second',
+    ],
+  ])(
+    'sends %s to sign in and reopens it holding the text on return, without the images',
+    async (_title, open, redirect, owner, parentUri) => {
+      uploadImage.mockRejectedValue(
+        new XrpcError(
+          403,
+          'MissingBlobScope',
+          'Refused',
+          undefined,
+          NSID.uploadImage,
+        ),
+      )
+      mountProvider([existing, second])
+      open()
+      client.flushSync()
+      await submitComposer([imageFile('sia-kite.jpg', 'jpeg')], KEPT)
+      expect(createComment).not.toHaveBeenCalled()
+
+      button(english.error.upload_sign_in_again_action).click()
+      await settle()
+      expect(goto).toHaveBeenCalledWith(redirect)
+
+      if (mounted) await client.unmount(mounted, { outro: false })
+      mounted = undefined
+      mountProvider([existing, second])
+      await settle()
+
+      expect(
+        openComposers().filter(
+          ([where, text]) => !(where === 'top-level' && text === ''),
+        ),
+      ).toEqual([[owner, KEPT]])
+      expect(target.querySelectorAll('form li img')).toHaveLength(0)
+      expect(storedCommentDraftParent(POST_PATH)).toBeUndefined()
+      expect(restoreCommentDraft(POST_PATH, parentUri)).toBeUndefined()
+    },
+  )
 })

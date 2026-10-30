@@ -17,6 +17,11 @@ import {
 import type { CreatePostInput, UploadImageOutput } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import english from '$lib/app/state/i18n/en.json'
+import { goto } from '$app/navigation'
+import {
+  restorePostDraft,
+  saveComposerDraft,
+} from '$lib/feature/image-upload/draft-restore'
 import {
   dropFiles,
   imageFile,
@@ -112,6 +117,7 @@ beforeAll(async () => {
 }, 60_000)
 
 beforeEach(() => {
+  sessionStorage.clear()
   objectUrls = stubObjectUrls()
   stubImageDecoding()
   target = document.createElement('div')
@@ -232,6 +238,42 @@ function bodyTextarea(): HTMLTextAreaElement {
   const textarea = heading?.parentElement?.querySelector('textarea')
   if (!textarea) throw new Error('The form has no body textarea')
   return textarea
+}
+
+/** The textarea under the post title's label. */
+function titleTextarea(): HTMLTextAreaElement {
+  const label = [...target.querySelectorAll('label')].find((element) =>
+    element.textContent?.trim().startsWith(englishAt('form.post.title')),
+  )
+  const textarea = label?.querySelector('textarea')
+  if (!textarea) throw new Error('The form has no title textarea')
+  return textarea
+}
+
+/** The input the URL label points at. */
+function urlInput(): HTMLInputElement {
+  const label = [...target.querySelectorAll('label')].find(
+    (element) => element.textContent?.trim() === englishAt('form.post.url'),
+  )
+  const id = label?.getAttribute('for')
+  const input = id ? document.getElementById(id) : null
+  if (!(input instanceof HTMLInputElement))
+    throw new Error('The form has no URL input')
+  return input
+}
+
+function buttonNamed(name: string): HTMLButtonElement | undefined {
+  return [...target.querySelectorAll('button')].find(
+    (button) => accessibleName(button) === name,
+  )
+}
+
+/** Every string, number or other non-object value inside a parsed JSON value. */
+function jsonLeaves(value: unknown): unknown[] {
+  if (Array.isArray(value)) return [value]
+  if (typeof value === 'object' && value !== null)
+    return Object.values(value).flatMap(jsonLeaves)
+  return [value]
 }
 
 function submitButton(): HTMLButtonElement {
@@ -537,5 +579,131 @@ describe('PostForm image upload on submit', () => {
     await settle()
 
     expect(target.textContent).toContain(englishAt('error.invalid_embed'))
+  })
+})
+
+describe('PostForm sign in again after an upload refusal', () => {
+  const TITLE = 'Kites over the bay'
+  const URL_TEXT = 'https://example.com/kites'
+  const BODY = 'Seven red kites today.'
+  const ALT = 'A red kite against a grey sky'
+
+  /** Fills the form, attaches one image with alt text, and fails its upload. */
+  async function failUpload(error: unknown): Promise<void> {
+    const { uploads } = deferredClient()
+    mountForm()
+    typeInto(titleTextarea(), TITLE)
+    typeInto(urlInput(), URL_TEXT)
+    typeInto(bodyTextarea(), BODY)
+    pickFiles(fileInput(), [imageFile('kite-photo.png', 'png')])
+    await vi.waitFor(() => expect(tiles()).toHaveLength(1))
+    typeInto(altInput(tiles()[0]), ALT)
+
+    submitForm()
+    await vi.waitFor(() => expect(uploads).toHaveLength(1))
+    uploads[0].reject(error)
+    await settle()
+    expect(
+      tileButton(tiles()[0], /^retry$/i) ??
+        buttonNamed(englishAt('error.upload_sign_in_again_action')),
+      'the form shows the failed upload',
+    ).toBeDefined()
+  }
+
+  it.each([['MissingBlobScope'], ['PermissionDenied']])(
+    'a 403 %s offers Sign in, which keeps the typed text and only it, and goes to the login page back to /create/post',
+    async (code) => {
+      await failUpload(
+        new XrpcError(403, code, 'Refused', undefined, NSID.uploadImage),
+      )
+
+      expect(target.textContent).toContain(
+        englishAt('error.upload_sign_in_again'),
+      )
+      expect(target.textContent).toContain(
+        englishAt('error.upload_sign_in_again_note'),
+      )
+      const signIn = buttonNamed(englishAt('error.upload_sign_in_again_action'))
+      expect(signIn, 'the Sign in button').toBeDefined()
+      expect(
+        tileButton(tiles()[0], /^retry$/i),
+        'no Retry that cannot succeed before signing in',
+      ).toBeUndefined()
+
+      signIn?.click()
+      await settle()
+
+      expect(vi.mocked(goto)).toHaveBeenCalledWith(
+        '/login?redirect=%2Fcreate%2Fpost',
+      )
+      expect(sessionStorage.length).toBe(1)
+      const stored = sessionStorage.getItem(sessionStorage.key(0) ?? '')
+      const leaves = jsonLeaves(JSON.parse(stored ?? 'null'))
+      for (const leaf of leaves) {
+        expect(['/create/post', 'post', TITLE, URL_TEXT, BODY]).toContain(leaf)
+      }
+      expect(restorePostDraft('/create/post')).toEqual({
+        title: TITLE,
+        url: URL_TEXT,
+        body: BODY,
+      })
+    },
+  )
+
+  it('a 401 on the upload offers no Sign in button', async () => {
+    await failUpload(
+      new XrpcError(
+        401,
+        'AuthenticationRequired',
+        'Unauthorized',
+        undefined,
+        NSID.uploadImage,
+      ),
+    )
+
+    expect(
+      buttonNamed(englishAt('error.upload_sign_in_again_action')),
+    ).toBeUndefined()
+  })
+})
+
+describe('PostForm restores a draft saved before signing in', () => {
+  it('fills title, URL and body from the draft for /create/post, with no images, and consumes it', () => {
+    saveComposerDraft('/create/post', {
+      kind: 'post',
+      title: 'Kites over the bay',
+      url: 'https://example.com/kites',
+      body: 'Seven red kites today.',
+    })
+    immediateClient()
+
+    mountForm()
+
+    expect(titleTextarea().value).toBe('Kites over the bay')
+    expect(urlInput().value).toBe('https://example.com/kites')
+    expect(bodyTextarea().value).toBe('Seven red kites today.')
+    expect(tiles()).toHaveLength(0)
+    expect(restorePostDraft('/create/post')).toBeUndefined()
+  })
+
+  it('fills nothing from a draft saved for another path, and leaves that draft stored', () => {
+    saveComposerDraft('/create/other', {
+      kind: 'post',
+      title: 'Kites over the bay',
+      url: 'https://example.com/kites',
+      body: 'Seven red kites today.',
+    })
+    immediateClient()
+
+    mountForm()
+
+    expect(titleTextarea().value).toBe('A post')
+    expect(urlInput().value).toBe('')
+    expect(bodyTextarea().value).toBe('')
+    expect(restorePostDraft('/create/other')).toEqual({
+      title: 'Kites over the bay',
+      url: 'https://example.com/kites',
+      body: 'Seven red kites today.',
+    })
   })
 })

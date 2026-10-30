@@ -1185,6 +1185,8 @@
         "invalid_image_facet": "An image placed in the text does not match an attached image.",
         "content_empty": "There is nothing to post. Add text or an image.",
         "upload_sign_in_again": "Sign in again to upload images.",
+        "upload_sign_in_again_note": "Your text will be kept; add the images again after signing in.",
+        "upload_sign_in_again_action": "Sign in",
         "unknown": "An unexpected error occurred."
     },
     "aria": {

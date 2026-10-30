@@ -31,6 +31,7 @@ import {
   stubObjectUrls,
   uploadOutput,
 } from '$lib/feature/image-upload/test-helpers'
+import { load } from '../../../../routes/create/post/+page'
 
 vi.mock('$app/environment', () => ({
   browser: true,
@@ -76,21 +77,32 @@ const api = vi.hoisted(() => ({ client: {} as Record<string, unknown> }))
 vi.mock('$lib/api/client.svelte', () => ({ coves: () => api.client }))
 
 // `buildFreshPostView` needs an authenticated viewer, and the real auth module
-// touches browser storage at import time.
-vi.mock('$lib/app/state/auth.svelte', () => ({
-  profile: {
-    current: {
-      type: 'authenticated',
-      id: 'did:plc:viewer',
-      did: 'did:plc:viewer',
-      handle: 'viewer.test',
-      jwt: 'authenticated',
+// touches browser storage at import time. Controllable so a test can hold the
+// stored guest a full page load starts with; reset around every test.
+const { authenticatedViewer, storedProfile } = vi.hoisted(() => {
+  const authenticatedViewer = {
+    type: 'authenticated',
+    id: 'did:plc:viewer' as string | number,
+    did: 'did:plc:viewer' as string | undefined,
+    handle: 'viewer.test' as string | undefined,
+    jwt: 'authenticated' as string | undefined,
+  }
+  return {
+    authenticatedViewer,
+    storedProfile: {
+      current: { ...authenticatedViewer },
+      isAuthenticated: true,
+      meta: {},
+      sessionExpired: false,
     },
-    isAuthenticated: true,
-    meta: {},
-    sessionExpired: false,
-  },
-}))
+  }
+})
+function resetStoredProfile(): void {
+  storedProfile.current = { ...authenticatedViewer }
+  storedProfile.isAuthenticated = true
+  storedProfile.sessionExpired = false
+}
+vi.mock('$lib/app/state/auth.svelte', () => ({ profile: storedProfile }))
 
 let target: HTMLDivElement
 let mounted: ReturnType<(typeof import('svelte'))['mount']> | undefined
@@ -102,6 +114,17 @@ let CovesClient: (typeof import('$lib/api/coves/client'))['CovesClient']
 let NSID: (typeof import('$lib/api/coves/client'))['NSID']
 let imageUrl: (typeof import('$lib/api/coves/image-proxy'))['imageUrl']
 let objectUrls: { revoked: string[] }
+
+/** The root layout's data the create page guard reads through `parent()`. */
+interface LayoutSession {
+  session: { authenticated: boolean } | null
+  sessionExpired: boolean
+}
+// The create page load reads only the URL and the root layout's session.
+const loadCreatePostPage = load as (event: {
+  url: URL
+  parent: () => Promise<LayoutSession>
+}) => Promise<void>
 
 // Cold-loading PostForm and its tree takes seconds under full-suite load;
 // pay it once, outside any per-test timeout.
@@ -117,6 +140,7 @@ beforeAll(async () => {
 }, 60_000)
 
 beforeEach(() => {
+  resetStoredProfile()
   sessionStorage.clear()
   objectUrls = stubObjectUrls()
   stubImageDecoding()
@@ -129,6 +153,7 @@ afterEach(async () => {
   mounted = undefined
   target.remove()
   vi.unstubAllGlobals()
+  resetStoredProfile()
 })
 
 const PICKED = 'blob:http://localhost/picked.png'
@@ -708,6 +733,42 @@ describe('PostForm restores a draft saved before signing in', () => {
     expect(bodyTextarea().value).toBe('Seven red kites today.')
     expect(tiles()).toHaveLength(0)
     expect(restorePostDraft('/create/post')).toBeUndefined()
+  })
+
+  it('fills title, URL and body after the create page load lets a signed-in session through while the stored profile is still the guest', async () => {
+    saveComposerDraft('/create/post', {
+      kind: 'post',
+      title: 'Kites over the bay',
+      url: 'https://example.com/kites',
+      body: 'Seven red kites today.',
+    })
+    immediateClient()
+    // A full page load runs the route load before the root layout syncs the
+    // stored profile, which still holds the guest.
+    storedProfile.current = {
+      type: 'guest',
+      id: -1,
+      did: undefined,
+      handle: undefined,
+      jwt: undefined,
+    }
+    storedProfile.isAuthenticated = false
+    storedProfile.sessionExpired = false
+
+    expect(
+      await loadCreatePostPage({
+        url: new URL('http://localhost/create/post'),
+        parent: async () => ({
+          session: { authenticated: true },
+          sessionExpired: false,
+        }),
+      }),
+    ).toBeUndefined()
+    mountForm()
+
+    expect(titleTextarea().value).toBe('Kites over the bay')
+    expect(urlInput().value).toBe('https://example.com/kites')
+    expect(bodyTextarea().value).toBe('Seven red kites today.')
   })
 
   it('fills nothing from a draft saved for another path, and leaves that draft stored', () => {

@@ -24,11 +24,16 @@
   --color-bluesky-brand: #0a7aff;
   --color-bluesky-link: #1185fe;
 
-  /* Feed card palette, from the mobile app. Light values; `.dark` overrides. */
-  --color-community: #4a9994;
-  --color-inset-surface: rgb(241 245 249);
-  --color-inset-border: rgb(226 232 240);
-  --color-card-border: rgb(231 229 228);
+  /* Feed card palette. Light values; `.dark` overrides. The inset surface
+     fills the body bubble and the link card. */
+  --color-community: #2f7d79;
+  --color-inset-surface: #ffffff;
+  --color-inset-border: #d6d3ce;
+  --color-inset-hover: #f8f7f5;
+  --color-card-border: #e3e1dd;
+  --color-meta: #6b6b73;
+  --color-muted: #4f4f56;
+  --color-image-edge: rgb(0 0 0 / 0.06);
 
   /* dark theme */
   --color-primary-100: rgb(241 245 249);
@@ -76,9 +81,18 @@ body {
 .dark {
   color-scheme: dark;
   --color-community: #63b5b1;
-  --color-inset-surface: #1a1f26;
-  --color-inset-border: #2a2f36;
-  --color-card-border: #2d2a28;
+  --color-inset-surface: #232325;
+  --color-inset-border: rgb(66 66 70 / 0.6);
+  --color-inset-hover: #2a2a2c;
+  --color-card-border: #2b2a31;
+  --color-meta: #8b919c;
+  --color-muted: #b6c2d2;
+  --color-image-edge: rgb(255 255 255 / 0.06);
+
+  @media (width < 40rem) {
+    --color-inset-surface: #1b1b1d;
+    --color-inset-hover: #222224;
+  }
 }
 
 .wait * {

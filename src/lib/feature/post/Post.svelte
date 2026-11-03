@@ -2,7 +2,6 @@
   import type { PostView } from '$lib/api/coves/types'
   import { type View, settings } from '$lib/app/state/settings.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
-  import { withPreset } from '$lib/api/coves/image-proxy'
   import type { ClassValue } from 'svelte/elements'
   import {
     PostActions,
@@ -11,7 +10,7 @@
     PostMediaCompact,
     PostMeta,
   } from '.'
-  import ExternalLinkBar from './ExternalLinkBar.svelte'
+  import LinkCard from './LinkCard.svelte'
   import {
     bestImageURL,
     extractEmbedThumbnail,
@@ -26,7 +25,6 @@
   import { Badge, Button } from '$lib/ui/kit'
   import { Icon, Info } from '$lib/ui/kit/icon'
   import { t } from '$lib/app/state/i18n'
-  import { parseWebUrl } from '$lib/app/util/url'
 
   interface Props {
     post: PostView
@@ -87,8 +85,8 @@
   })
   let embedUrl = $derived(extractEmbedUrl(post.embed))
   let embedTitle = $derived(extractEmbedTitle(post.embed))
-  // The feed card shows every external link as a link bar, including URIs
-  // mediaType rejects ('none'): the bar renders those inert.
+  // The feed card shows every external link as a link card, including URIs
+  // mediaType rejects ('none'): the card renders those inert.
   let externalUri = $derived(
     post.embed?.$type === 'social.coves.embed.external' ||
       post.embed?.$type === 'social.coves.embed.external#view'
@@ -96,16 +94,8 @@
       : undefined,
   )
   // A plain link (not an image or a player) replaces PostLink's card on the
-  // feed with a framed thumbnail above the body.
+  // feed with the link card below the body, thumbnail included.
   let feedLink = $derived(feedCard && !!externalUri && type === 'embed')
-  let feedThumbnailHref = $derived(
-    feedLink && externalUri ? parseWebUrl(externalUri)?.href : undefined,
-  )
-  let feedThumbnail = $derived(
-    feedThumbnailHref ? extractEmbedThumbnail(post.embed) : undefined,
-  )
-  // Keyed by URL so a reused row retries when it shows another thumbnail.
-  let failedThumbnail = $state<string>()
   let hideTitle = $derived(
     !feedCard &&
       !concealed &&
@@ -145,7 +135,9 @@
     'relative group/post',
     settings.leftAlign && 'left-align',
     view == 'compact' && 'py-3 list-type compact',
-    view == 'cozy' && 'py-5 flex flex-col gap-2',
+    view == 'cozy' && 'py-5 flex flex-col',
+    // The link card sizes its thumbnail against the card's width.
+    view == 'cozy' && (feedCard ? '@container gap-2.5' : 'gap-2'),
     clazz,
   ]}
   id={post.uri}
@@ -267,11 +259,18 @@
           style="grid-area:embed;"
           class={{
             contents: view === 'cozy' && !nativeImage,
-            '[&>*]:block [&>*]:w-full': view === 'cozy' && nativeImage,
+            '[&>*]:block [&>*]:w-full':
+              view === 'cozy' && nativeImage && !feedCard,
           }}
         >
           {#if !feedLink}
-            <PostMedia embed={post.embed} {view} {type} {priority} />
+            <PostMedia
+              embed={post.embed}
+              {view}
+              {type}
+              {priority}
+              feed={feedCard}
+            />
           {/if}
         </div>
         {#if view == 'compact'}
@@ -284,36 +283,16 @@
           />
         {/if}
       {/key}
-      {#if feedThumbnail && feedThumbnailHref && feedThumbnail !== failedThumbnail}
-        <a
-          href={feedThumbnailHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          tabindex="-1"
-          aria-hidden="true"
-          class="block overflow-hidden rounded-[8px] border border-inset-border"
-        >
-          <img
-            src={withPreset(feedThumbnail, 'embed_thumbnail')}
-            alt=""
-            loading="lazy"
-            onerror={() => (failedThumbnail = feedThumbnail)}
-            width={600}
-            height={180}
-            class="w-full h-45 object-cover bg-inset-surface"
-          />
-        </a>
-      {/if}
       {#if post.record?.content && feedCard}
         <div
-          class="p-3 rounded-[10px] bg-inset-surface/70 border-[0.5px] border-inset-border/30"
+          class="px-3 py-2.5 rounded-[12px] bg-inset-surface border-[0.5px] border-inset-border"
         >
           <PostBody
             element="section"
             collapsible={false}
             body={post.record.content}
             facets={post.record.facets}
-            class="feed-body-preview line-clamp-5 text-[13px] leading-[1.4] text-slate-900/85! dark:text-zinc-100/85!"
+            class="feed-body-preview line-clamp-5 text-[15px] leading-[1.45]"
           />
         </div>
       {:else if post.record?.content && view != 'compact'}
@@ -327,7 +306,12 @@
         />
       {/if}
       {#if feedCard && externalUri}
-        <ExternalLinkBar uri={externalUri} />
+        <LinkCard
+          uri={externalUri}
+          title={embedTitle !== post.record?.title ? embedTitle : undefined}
+          thumbnail={feedLink ? extractEmbedThumbnail(post.embed) : undefined}
+          fixedHeight={!!post.record?.content}
+        />
       {/if}
     {/if}
   </div>
@@ -338,13 +322,14 @@
 
 <style>
   /* Feed-card body preview. Markdown's paragraph leading and block gaps are
-     sized for reading a full post; the five-line clamp needs them tight. */
+     sized for reading a full post; the preview reads like plain text, where
+     the blank line between paragraphs takes one line. */
   :global(.feed-body-preview p) {
-    line-height: 1.4;
+    line-height: 1.45;
   }
 
   :global(.feed-body-preview > * > :not(:last-child)) {
-    margin-block-end: 0.5em;
+    margin-block-end: 1lh;
   }
 
   .list-type {

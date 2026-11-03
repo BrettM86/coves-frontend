@@ -11,9 +11,14 @@
     blur?: boolean
     /** The likely largest paint (first feed row, a post page): fetch now. */
     priority?: boolean
+    /**
+     * Feed card: the image keeps its natural size up to 560px tall, with no
+     * blurred backdrop beside it.
+     */
+    feed?: boolean
   }
 
-  let { embed, blur = false, priority = false }: Props = $props()
+  let { embed, blur = false, priority = false, feed = false }: Props = $props()
 
   let img = $state<HTMLImageElement>()
   let imageLoaded: boolean | null = $state(null)
@@ -27,6 +32,13 @@
   let altText = $derived(extractEmbedAlt(embed))
   let previewUrl = $derived(bestImageURL(embed, false, 'thumb'))
   let fullImageUrl = $derived(bestImageURL(embed, false, 'fullsize'))
+  // A feed image reserves its own ratio before it loads; elsewhere, and when
+  // the embed has none, the box hint stays 512x300.
+  let aspectRatio = $derived(
+    feed && embed.$type === 'social.coves.embed.images#view'
+      ? embed.images[0].aspectRatio
+      : undefined,
+  )
 </script>
 
 <!--
@@ -47,9 +59,13 @@
 <svelte:element
   this={settings.expandImages ? 'button' : 'div'}
   class={[
-    'container/a z-10 rounded-2xl cursor-pointer relative overflow-hidden',
-    'bg-slate-100 dark:bg-zinc-900 transition-colors',
-    'border border-slate-200 dark:border-zinc-800 group',
+    'z-10 cursor-pointer relative overflow-hidden group',
+    feed
+      ? 'block w-fit max-w-full rounded-[12px]'
+      : [
+          'container/a rounded-2xl bg-slate-100 dark:bg-zinc-900 transition-colors',
+          'border border-slate-200 dark:border-zinc-800',
+        ],
   ]}
   data-sveltekit-preload-data="off"
   aria-label={altText ?? 'Image'}
@@ -57,17 +73,19 @@
   role="button"
   tabindex="0"
 >
-  <picture class="inset-0 absolute -z-10 rounded-xl overflow-hidden">
-    {@render sources()}
-    <img
-      loading={priority ? 'eager' : 'lazy'}
-      decoding="async"
-      src={previewUrl}
-      alt=""
-      class=" object-cover w-full h-full opacity-50 blur-lg"
-    />
-  </picture>
-  <picture class="max-h-[60vh]">
+  {#if !feed}
+    <picture class="inset-0 absolute -z-10 rounded-xl overflow-hidden">
+      {@render sources()}
+      <img
+        loading={priority ? 'eager' : 'lazy'}
+        decoding="async"
+        src={previewUrl}
+        alt=""
+        class=" object-cover w-full h-full opacity-50 blur-lg"
+      />
+    </picture>
+  {/if}
+  <picture class={feed ? 'block' : 'max-h-[60vh]'}>
     {@render sources()}
     <img
       bind:this={img}
@@ -76,13 +94,16 @@
       fetchpriority={priority ? 'high' : 'auto'}
       decoding="async"
       class={[
-        'max-w-full rounded-xl z-30 transition-all max-h-[60vh] duration-500 object-contain mx-auto group-hover:scale-98 group-active:scale-95',
+        'max-w-full z-30 transition-all duration-500 group-hover:scale-98 group-active:scale-95',
+        feed
+          ? 'block w-auto h-auto max-h-[560px] rounded-[12px] outline-1 -outline-offset-1 outline-image-edge'
+          : 'rounded-xl max-h-[60vh] object-contain mx-auto',
         'duration-200 ease-cubic',
         imageLoaded === false ? 'opacity-0' : 'opacity-100',
         blur && 'blur-3xl',
       ]}
-      width={512}
-      height={300}
+      width={aspectRatio?.width ?? 512}
+      height={aspectRatio?.height ?? 300}
       alt={altText ?? ''}
       onload={() => (imageLoaded = true)}
       onerror={() => (imageLoaded = true)}

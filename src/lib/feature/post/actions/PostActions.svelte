@@ -27,8 +27,9 @@
     post: PostView
     view?: View
     /**
-     * Feed-card action bar: flat icon buttons, menu and share on the left,
-     * comments and votes on the right, no save button.
+     * Feed-card action bar: flat icon buttons, votes and comments on the
+     * left, share and the menu on the right, no save button. Phones mirror
+     * it, as the app does.
      */
     feed?: boolean
     debug?: boolean
@@ -42,8 +43,22 @@
     debug = $bindable(false),
     style = '',
   }: Props = $props()
-  let buttonHeight = $derived(view == 'compact' ? 'h-7.5' : 'h-8')
-  let buttonSquare = $derived(view == 'compact' ? 'w-7.5 h-7.5' : 'w-8 h-8')
+  let buttonHeight = $derived(
+    feed ? 'h-9' : view == 'compact' ? 'h-7.5' : 'h-8',
+  )
+  let buttonSquare = $derived(
+    feed ? 'w-9 h-9' : view == 'compact' ? 'w-7.5 h-7.5' : 'w-8 h-8',
+  )
+  // The feed bar reverses below sm; reverseActions flips either direction.
+  let direction = $derived(
+    feed
+      ? settings.posts.reverseActions
+        ? 'flex-row-reverse max-sm:flex-row'
+        : 'flex-row max-sm:flex-row-reverse'
+      : settings.posts.reverseActions
+        ? 'flex-row-reverse'
+        : 'flex-row',
+  )
 
   function share(): void {
     const link = new URL(postLink(post), location.origin).toString()
@@ -118,7 +133,7 @@
             color="tertiary"
             rounding="lg"
             size="custom"
-            class="{buttonSquare} text-slate-900/60! dark:text-zinc-100/60!"
+            class="{buttonSquare} text-inherit!"
           >
             <Icon src={Ellipsis} size="20" />
           </Button>
@@ -150,31 +165,31 @@
 
 <footer
   class={[
-    'flex flex-row gap-2 items-center shrink-0 text-slate-600 dark:text-zinc-400',
+    'flex items-center shrink-0',
+    feed
+      ? 'feed-actions gap-1 -mx-2 text-muted'
+      : 'gap-2 text-slate-600 dark:text-zinc-400',
+    direction,
     buttonHeight,
   ]}
-  class:flex-row-reverse={settings.posts.reverseActions}
   {style}
 >
   {#if feed}
-    <div class="flex flex-row items-center gap-1">
-      {@render moreMenu()}
-      {@render shareButton()}
-      {@render debugButton()}
-    </div>
+    <!-- One flat row, so the phone's reversed bar keeps up before down. -->
+    <VoteButton
+      uri={post.uri}
+      cid={post.cid}
+      bind:stats={post.stats}
+      bind:viewer={post.viewer}
+      emptyStats={EMPTY_POST_STATS}
+      emptyViewer={EMPTY_POST_VIEWER}
+      variant="post"
+    />
+    {@render commentsButton('h-full px-2 gap-1', 'lg')}
     <div class="flex-1"></div>
-    <div class="flex flex-row items-center gap-1 self-stretch">
-      {@render commentsButton('h-full px-2 gap-1', 'lg')}
-      <VoteButton
-        uri={post.uri}
-        cid={post.cid}
-        bind:stats={post.stats}
-        bind:viewer={post.viewer}
-        emptyStats={EMPTY_POST_STATS}
-        emptyViewer={EMPTY_POST_VIEWER}
-        variant="post"
-      />
-    </div>
+    {@render debugButton()}
+    {@render shareButton()}
+    {@render moreMenu()}
   {:else}
     <VoteButton
       uri={post.uri}
@@ -217,3 +232,16 @@
     {@render moreMenu()}
   {/if}
 </footer>
+
+<style>
+  /* Feed bar: 36px targets with the bubble fill on hover. */
+  .feed-actions :global(:is(a, button)) {
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 10px;
+  }
+
+  .feed-actions :global(:is(a, button):hover) {
+    background-color: var(--color-inset-surface);
+  }
+</style>

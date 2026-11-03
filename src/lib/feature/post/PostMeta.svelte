@@ -39,7 +39,7 @@
     uri?: string
     edited?: string
     view?: View
-    /** Feed-card header: round community avatar, split mention, time on the right. */
+    /** Feed-card header: square community avatar, split mention, time on the right. */
     feed?: boolean
     badges?: Record<BadgeType, boolean>
     tags?: readonly MetaTag[]
@@ -114,7 +114,7 @@
   @component
   This component will build two different things: a post's meta block and the title.
 -->
-{#snippet communityAvatar(size: number, circle: boolean)}
+{#snippet communityAvatar(size: number, feedSize = false)}
   <Popover>
     {#snippet target(attachment)}
       <button
@@ -122,15 +122,20 @@
         class={[
           'row-span-2 shrink-0 self-center group/btn',
           'bg-slate-200 dark:bg-zinc-800 cursor-pointer',
-          circle ? 'rounded-full' : 'rounded-lg mr-2',
+          feedSize ? 'rounded-[8px] sm:rounded-[11px]' : 'rounded-lg mr-2',
         ]}
       >
+        <!-- The feed's avatar is 24px on phones and 36px from sm up; the
+             important classes beat Avatar's inline size. -->
         <Avatar
           url={community?.avatar}
           width={size}
           alt={community?.name}
-          {circle}
-          class="group-hover/btn:scale-90 group-active/btn:scale-[.85] transition-transform"
+          circle={false}
+          class={[
+            'group-hover/btn:scale-90 group-active/btn:scale-[.85] transition-transform',
+            feedSize && 'size-6! sm:size-9! rounded-[8px]! sm:rounded-[11px]!',
+          ]}
         />
       </button>
     {/snippet}
@@ -229,28 +234,28 @@
 
 {#if feed}
   <header
-    class="flex flex-row items-center gap-2 w-full min-w-0 max-w-full text-xs text-slate-600 dark:text-zinc-400"
+    class="flex flex-row items-center gap-2 sm:gap-2.5 w-full min-w-0 max-w-full text-xs text-muted"
     {style}
   >
     {#if navigation}
       <div class="self-center">{@render navigation()}</div>
     {/if}
     {#if showCommunity && community}
-      {@render communityAvatar(24, true)}
+      {@render communityAvatar(36, true)}
     {/if}
     <div class="flex flex-col flex-1 min-w-0">
       {#if showCommunity && community && communityParts}
         <CommunityLink
           {community}
-          class="gap-0! text-sm no-list-margin justify-self-start"
+          class="gap-0! text-sm sm:text-[15px] no-list-margin justify-self-start"
         >
-          <span class="font-medium text-community truncate shrink-0 max-w-full">
+          <span
+            class="font-medium sm:font-bold text-community truncate shrink-0 max-w-full"
+          >
             !{communityParts.name}
           </span>
           {#if communityParts.origin}
-            <span
-              class="text-slate-600/60 dark:text-zinc-400/60 truncate min-w-0"
-            >
+            <span class="text-meta truncate min-w-0">
               {communityParts.origin}
             </span>
           {/if}
@@ -262,7 +267,7 @@
             {user}
             avatar={!showCommunity}
             avatarSize={24}
-            class="text-xs text-slate-600 dark:text-zinc-400 self-start"
+            class="text-xs sm:text-[13px] text-muted self-start"
           />
         </address>
       {/if}
@@ -274,7 +279,7 @@
     {#if published}
       <RelativeDate
         date={published}
-        class="shrink-0 text-sm text-slate-900/50 dark:text-zinc-100/50"
+        class="shrink-0 text-sm sm:text-[13px] text-meta tabular-nums"
       />
     {/if}
   </header>
@@ -295,7 +300,7 @@
       </div>
     {/if}
     {#if showCommunity && community}
-      {@render communityAvatar(view == 'compact' ? 24 : 32, false)}
+      {@render communityAvatar(view == 'compact' ? 24 : 32)}
     {/if}
     {#if showCommunity && community}
       <CommunityLink
@@ -381,6 +386,12 @@
     font-weight: 500;
     line-height: 1.25;
     letter-spacing: -0.3px;
+
+    @variant sm {
+      font-size: 18px;
+      line-height: 28px;
+      letter-spacing: normal;
+    }
   }
 
   .meta {

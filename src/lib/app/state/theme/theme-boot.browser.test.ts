@@ -34,6 +34,7 @@ beforeEach(() => {
   html().className = ''
   html().removeAttribute('style')
   delete html().dataset.defaultColorScheme
+  html().removeAttribute('data-grain')
   mockPrefersDark(false)
 })
 
@@ -128,6 +129,55 @@ describe('theme-boot.js with storage access denied', () => {
       runBootScript()
 
       expect(html().classList.contains('dark')).toBe(dark)
+    },
+  )
+})
+
+/**
+ * The server stamps data-grain on <html> only without PUBLIC_THEME; grain is
+ * for the built-in Mono default (id 0). theme.svelte.ts persists the selected
+ * theme id as currentTheme in 'theme.data'.
+ */
+describe('theme-boot.js grain marker', () => {
+  const themeData = (currentTheme: number) =>
+    JSON.stringify({
+      scheme: 'system',
+      currentTheme,
+      themes:
+        currentTheme > 0
+          ? [{ id: currentTheme, name: 'Custom 1', colors: {} }]
+          : [],
+    })
+
+  it.each([
+    { selection: 'nothing stored', stored: null, grain: true },
+    { selection: 'Mono (id 0)', stored: themeData(0), grain: true },
+    { selection: 'Classic (id -1)', stored: themeData(-1), grain: false },
+    { selection: 'AMOLED (id -2)', stored: themeData(-2), grain: false },
+    { selection: 'a custom theme (id 1)', stored: themeData(1), grain: false },
+  ])(
+    'server stamped grain, stored $selection → grain $grain',
+    ({ stored, grain }) => {
+      html().setAttribute('data-grain', '')
+      if (stored !== null) localStorage.setItem('theme.data', stored)
+
+      runBootScript()
+
+      expect(html().hasAttribute('data-grain')).toBe(grain)
+    },
+  )
+
+  it.each([
+    { selection: 'nothing stored', stored: null },
+    { selection: 'id 0', stored: themeData(0) },
+  ])(
+    'never adds grain the server did not stamp (PUBLIC_THEME), stored $selection',
+    ({ stored }) => {
+      if (stored !== null) localStorage.setItem('theme.data', stored)
+
+      runBootScript()
+
+      expect(html().hasAttribute('data-grain')).toBe(false)
     },
   )
 })

@@ -179,20 +179,20 @@ describe('ThemePreset', () => {
     {
       scheme: 'light' as const,
       systemDark: false,
-      background: '248 250 252',
-      text: '15 23 42',
+      background: '253 252 250',
+      text: '26 26 28',
     },
     {
       scheme: 'dark' as const,
       systemDark: false,
-      background: '25 25 29',
-      text: '248 248 251',
+      background: '15 15 16',
+      text: '255 248 240',
     },
     {
       scheme: 'system' as const,
       systemDark: true,
-      background: '25 25 29',
-      text: '248 248 251',
+      background: '15 15 16',
+      text: '255 248 240',
     },
   ])(
     'previews the $scheme colour scheme (system dark: $systemDark)',

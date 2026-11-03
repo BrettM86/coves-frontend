@@ -43,7 +43,7 @@ function kelpColors() {
   return {
     slate: {
       '25': '252 253 254',
-      '50': '248 250 252',
+      '50': '253 252 250',
       '100': '241 245 249',
       '200': '226 232 240',
       '300': '203 213 225',
@@ -52,12 +52,12 @@ function kelpColors() {
       '600': '71 85 105',
       '700': '51 65 85',
       '800': '30 41 59',
-      '900': '15 23 42',
+      '900': '26 26 28',
       '950': '2 6 23',
     },
     zinc: {
       '50': '252 252 254',
-      '100': '248 248 251',
+      '100': '255 248 240',
       '200': '235 235 240',
       '300': '222 222 228',
       '400': '175 175 185',
@@ -67,7 +67,7 @@ function kelpColors() {
       '800': '47 47 54',
       '900': '34 34 39',
       '925': '28 28 32',
-      '950': '25 25 29',
+      '950': '15 15 16',
     },
     primary: {
       '100': '241 245 249',
@@ -419,6 +419,27 @@ describe('theme.importIntoCurrent', () => {
       theme.importIntoCurrent(JSON.stringify({ zinc: { '900': '#ff0000' } })),
     ).toBe('preset-not-editable')
     expect(theme.current.colors).toEqual(kelpColors())
+  })
+})
+
+describe('default Mono palette without PUBLIC_THEME', () => {
+  it.each([
+    ['zinc', '950', '15 15 16'], // dark page base #0f0f10
+    ['zinc', '100', '255 248 240'], // dark ink #fff8f0
+    ['slate', '50', '253 252 250'], // light page base #fdfcfa
+    ['slate', '900', '26 26 28'], // light ink #1a1a1c
+  ])('%s-%s is %s', async (category, shade, expected) => {
+    const { theme, getDefaultColors } = await importThemeWith(null, {})
+    expect(theme.current.id).toBe(0)
+    expect(theme.current.name).toBe('Mono')
+    expect(theme.current.colors[category]?.[shade]).toBe(expected)
+    expect(getDefaultColors()[category]?.[shade]).toBe(expected)
+  })
+
+  it('passes every contrast check on the theme page', async () => {
+    const { getDefaultColors } = await importThemeWith(null, {})
+    const { themeContrastWarnings } = await import('./colors')
+    expect(themeContrastWarnings(getDefaultColors())).toEqual([])
   })
 })
 

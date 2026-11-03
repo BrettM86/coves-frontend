@@ -18,6 +18,11 @@ declare module 'vitest' {
     ssrBaseUrl: string
     /** The mock upstream's origin, for reading its XRPC request log. */
     mockUpstreamUrl: string
+    /**
+     * A second built server, same build and upstream, with a valid
+     * PUBLIC_THEME. The main server runs with PUBLIC_THEME removed.
+     */
+    ssrInstanceThemeBaseUrl: string
   }
 }
 
@@ -99,54 +104,76 @@ async function waitForPort(
   }
 }
 
+/** The PUBLIC_THEME the second server runs with: valid, legacy colours-only. */
+const INSTANCE_THEME = JSON.stringify({ zinc: { '950': '0 0 0' } })
+
+/**
+ * Boots `node build` against the mock upstream and waits for its port.
+ * `extraEnv` entries set to undefined are removed from the inherited env, so
+ * the host's shell can't decide what the server sees.
+ */
+async function startServer(
+  upstreamUrl: string,
+  extraEnv: NodeJS.ProcessEnv,
+): Promise<{ child: ChildProcess; baseUrl: string; log: () => string }> {
+  const port = await freePort()
+  const baseUrl = `http://127.0.0.1:${port}`
+
+  let serverLog = ''
+  const child = spawn('node', ['build'], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      // NODE_ENV=production so the built server behaves as it will in deploy
+      // (adapter-node and Svelte's runtime read it). `$app/environment`'s `dev`
+      // is fixed at build time and already false here, so this does NOT
+      // decide the dev-only canonical-host redirect in hooks.server.ts.
+      NODE_ENV: 'production',
+      HOST: '127.0.0.1',
+      PORT: String(port),
+      ORIGIN: baseUrl,
+      PUBLIC_SSR_ENABLED: 'true',
+      PUBLIC_INSTANCE_URL: baseUrl,
+      PUBLIC_INTERNAL_INSTANCE: upstreamUrl,
+      ALLOW_HTTP_INTERNAL_INSTANCE: 'true',
+      ...extraEnv,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  child.stdout?.on('data', (chunk: Buffer) => (serverLog += chunk.toString()))
+  child.stderr?.on('data', (chunk: Buffer) => (serverLog += chunk.toString()))
+
+  try {
+    await waitForPort(port, child, () => serverLog)
+  } catch (error) {
+    child.kill('SIGKILL')
+    throw error
+  }
+  return { child, baseUrl, log: () => serverLog }
+}
+
 export default async function setup(
   project: TestProject,
 ): Promise<() => Promise<void>> {
   await run('pnpm', ['build'], { ...process.env, ADAPTER: 'node' })
 
   let upstream: MockUpstream | undefined
-  let server: ChildProcess | undefined
+  const servers: ChildProcess[] = []
 
   const teardown = async (): Promise<void> => {
-    server?.kill('SIGKILL')
+    for (const server of servers) server.kill('SIGKILL')
     await upstream?.close()
   }
 
   try {
     upstream = await startMockUpstream()
-    const port = await freePort()
-    const baseUrl = `http://127.0.0.1:${port}`
-
-    let serverLog = ''
-    server = spawn('node', ['build'], {
-      cwd: REPO_ROOT,
-      env: {
-        ...process.env,
-        // NODE_ENV=production so the built server behaves as it will in deploy
-        // (adapter-node and Svelte's runtime read it). `$app/environment`'s `dev`
-        // is fixed at build time and already false here, so this does NOT
-        // decide the dev-only canonical-host redirect in hooks.server.ts.
-        NODE_ENV: 'production',
-        HOST: '127.0.0.1',
-        PORT: String(port),
-        ORIGIN: baseUrl,
-        PUBLIC_SSR_ENABLED: 'true',
-        PUBLIC_INSTANCE_URL: baseUrl,
-        PUBLIC_INTERNAL_INSTANCE: upstream.url,
-        ALLOW_HTTP_INTERNAL_INSTANCE: 'true',
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
+    const main = await startServer(upstream.url, { PUBLIC_THEME: undefined })
+    servers.push(main.child)
+    const themed = await startServer(upstream.url, {
+      PUBLIC_THEME: INSTANCE_THEME,
     })
-    server.stdout?.on(
-      'data',
-      (chunk: Buffer) => (serverLog += chunk.toString()),
-    )
-    server.stderr?.on(
-      'data',
-      (chunk: Buffer) => (serverLog += chunk.toString()),
-    )
-
-    await waitForPort(port, server, () => serverLog)
+    servers.push(themed.child)
+    const baseUrl = main.baseUrl
 
     // One warm-up render, checked here rather than in the tests. A page that
     // grows a new upstream call would otherwise reach the suite as a 500 and
@@ -156,12 +183,13 @@ export default async function setup(
     if (warmup.status !== 200 || upstream.unknownPaths.length > 0) {
       throw new Error(
         `warm-up GET / returned ${warmup.status}; ` +
-          `unmocked upstream paths: ${JSON.stringify(upstream.unknownPaths)}\n${serverLog}`,
+          `unmocked upstream paths: ${JSON.stringify(upstream.unknownPaths)}\n${main.log()}`,
       )
     }
 
     project.provide('ssrBaseUrl', baseUrl)
     project.provide('mockUpstreamUrl', upstream.url)
+    project.provide('ssrInstanceThemeBaseUrl', themed.baseUrl)
   } catch (error) {
     await teardown()
     throw error

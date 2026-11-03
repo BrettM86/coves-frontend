@@ -22,7 +22,7 @@ function kelpColors() {
   return {
     slate: {
       '25': '252 253 254',
-      '50': '248 250 252',
+      '50': '253 252 250',
       '100': '241 245 249',
       '200': '226 232 240',
       '300': '203 213 225',
@@ -31,12 +31,12 @@ function kelpColors() {
       '600': '71 85 105',
       '700': '51 65 85',
       '800': '30 41 59',
-      '900': '15 23 42',
+      '900': '26 26 28',
       '950': '2 6 23',
     },
     zinc: {
       '50': '252 252 254',
-      '100': '248 248 251',
+      '100': '255 248 240',
       '200': '235 235 240',
       '300': '222 222 228',
       '400': '175 175 185',
@@ -46,7 +46,7 @@ function kelpColors() {
       '800': '47 47 54',
       '900': '34 34 39',
       '925': '28 28 32',
-      '950': '25 25 29',
+      '950': '15 15 16',
     },
     primary: {
       '100': '241 245 249',
@@ -71,14 +71,14 @@ function seedCustomTheme() {
   )
 }
 
-async function importTheme() {
+async function importTheme(publicEnv: Record<string, string> = {}) {
   vi.resetModules()
   vi.doMock('$app/environment', () => ({
     browser: true,
     dev: true,
     building: false,
   }))
-  vi.doMock('$env/dynamic/public', () => ({ env: {} }))
+  vi.doMock('$env/dynamic/public', () => ({ env: publicEnv }))
   const { theme } = await import('./theme.svelte')
   const { flushSync: flushRuntime } = await import('svelte')
   // The mocked `svelte` entry survives vi.resetModules() but the compiled
@@ -158,6 +158,94 @@ describe('theme reactive persistence', () => {
       expect(lower).toContain('samesite=lax')
     })
   })
+})
+
+/**
+ * Grain is on only for the built-in Mono default (theme id 0 with no
+ * PUBLIC_THEME). The server stamps data-grain on <html>; the theme state keeps
+ * it in step with the selected theme.
+ */
+describe('theme grain marker on <html>', () => {
+  const hasGrain = () => document.documentElement.hasAttribute('data-grain')
+
+  beforeEach(() => {
+    document.documentElement.setAttribute('data-grain', '')
+  })
+
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-grain')
+  })
+
+  it.each([
+    { selected: -1, name: 'Classic', grain: false },
+    { selected: -2, name: 'AMOLED', grain: false },
+    { selected: 0, name: 'Mono', grain: true },
+  ])(
+    'selecting $name (id $selected) leaves grain $grain',
+    async ({ selected, grain }) => {
+      const { theme, flushSync } = await importTheme()
+
+      theme.data.currentTheme = selected
+      await flushSync()
+
+      expect(hasGrain()).toBe(grain)
+    },
+  )
+
+  it('removes grain while a custom theme is selected', async () => {
+    seedCustomTheme()
+    const { flushSync } = await importTheme()
+    await flushSync()
+
+    expect(hasGrain()).toBe(false)
+  })
+
+  // These start without the marker so they fail unless the state adds it back,
+  // not just leaves the server's marker alone.
+  it('restores grain when switching back to Mono', async () => {
+    document.documentElement.removeAttribute('data-grain')
+    const { theme, flushSync } = await importTheme()
+    theme.data.currentTheme = -1
+    await flushSync()
+
+    theme.data.currentTheme = 0
+    await flushSync()
+
+    expect(hasGrain()).toBe(true)
+  })
+
+  it('restores grain when switching from a custom theme back to Mono', async () => {
+    // theme-boot.js already removed it for the stored custom selection.
+    document.documentElement.removeAttribute('data-grain')
+    seedCustomTheme()
+    const { theme, flushSync } = await importTheme()
+    await flushSync()
+
+    theme.data.currentTheme = 0
+    await flushSync()
+
+    expect(hasGrain()).toBe(true)
+  })
+
+  it.each([
+    { selected: 0, name: 'Instance Default' },
+    { selected: -10, name: 'Mono' },
+  ])(
+    'never sets grain with PUBLIC_THEME, selecting $name (id $selected)',
+    async ({ selected }) => {
+      document.documentElement.removeAttribute('data-grain')
+      const { theme, flushSync } = await importTheme({
+        PUBLIC_THEME: JSON.stringify({ zinc: { '950': '1 2 3' } }),
+      })
+
+      theme.data.currentTheme = -1
+      await flushSync()
+      theme.data.currentTheme = selected
+      await flushSync()
+
+      expect(hasGrain()).toBe(false)
+    },
+  )
 })
 
 describe('theme cross-tab sync', () => {

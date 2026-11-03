@@ -39,15 +39,29 @@
       ? embed.images[0].aspectRatio
       : undefined,
   )
-  // Before it loads, the feed image holds the box it will fill: its ratio, at
-  // its natural width or the width 560px of height allows, whichever is less.
+  // Before it loads, the feed image holds the box it will fill: its ratio at
+  // the width 560px of height allows. aspectRatio is a ratio, not pixels, so
+  // the reservation is not clamped to it; a definite px width keeps the box
+  // non-zero inside the w-fit wrapper, where a percentage would resolve to 0.
+  let reservedWidth = $derived(
+    aspectRatio
+      ? Math.round(((560 * aspectRatio.width) / aspectRatio.height) * 100) / 100
+      : undefined,
+  )
+  // Once loaded, a smaller image shows at its natural width, never upscaled.
+  let loadedWidth = $state<number>()
   let reservedStyle = $derived.by(() => {
-    if (!aspectRatio) return undefined
-    const { width, height } = aspectRatio
-    const reserved =
-      Math.round(Math.min(width, (560 * width) / height) * 100) / 100
-    return `aspect-ratio: ${width} / ${height}; width: min(100%, ${reserved}px)`
+    if (!aspectRatio || reservedWidth === undefined) return undefined
+    const width = loadedWidth ?? reservedWidth
+    return `aspect-ratio: ${aspectRatio.width} / ${aspectRatio.height}; width: ${width}px`
   })
+
+  function onImageLoad(event: Event) {
+    imageLoaded = true
+    if (reservedWidth === undefined) return
+    const { naturalWidth } = event.currentTarget as HTMLImageElement
+    if (naturalWidth > 0) loadedWidth = Math.min(reservedWidth, naturalWidth)
+  }
 </script>
 
 <!--
@@ -117,7 +131,7 @@
       height={aspectRatio?.height ?? 300}
       style={reservedStyle}
       alt={altText ?? ''}
-      onload={() => (imageLoaded = true)}
+      onload={onImageLoad}
       onerror={() => (imageLoaded = true)}
     />
   </picture>

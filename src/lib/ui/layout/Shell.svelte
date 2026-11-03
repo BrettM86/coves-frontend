@@ -198,4 +198,12 @@
       }
     }
   }
+
+  /* Under Mono the body's base colour and grain are the page surface: the
+     panels let it through and keep their borders. */
+  :global(html[data-grain])
+    .shell-content
+    :global(:is(.shell-main, .shell-aside)) {
+    background-color: transparent;
+  }
 </style>

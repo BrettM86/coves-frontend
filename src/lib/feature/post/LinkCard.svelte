@@ -210,6 +210,11 @@
     }
   }
 
+  /* Host line plus two title lines fit the fixed height with 10px a side. */
+  .fixed-height .text {
+    padding-block: 10px;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .thumb img {
       transition: none;

@@ -325,11 +325,12 @@ $effect.root(() => {
     }
   })
   $effect(() => {
-    // The page grain belongs to the built-in Mono default only.
+    // The page grain belongs to the built-in Mono default only, keyed on the
+    // theme that shows: a selected id that no longer exists falls back to it.
     if (browser)
       document.documentElement.toggleAttribute(
         'data-grain',
-        defaultThemeIsMono && theme.data.currentTheme === 0,
+        defaultThemeIsMono && theme.current.id === 0,
       )
   })
 })

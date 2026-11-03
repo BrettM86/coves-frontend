@@ -17,6 +17,13 @@
   --color-slate-25: rgb(252 253 254);
   --color-zinc-925: rgb(28 28 32);
 
+  /* Mono's page and ink, so a first visit paints Mono before any theme
+     variables reach <html>; a selected theme's inline variables override. */
+  --color-slate-50: rgb(253 252 250);
+  --color-slate-900: rgb(26 26 28);
+  --color-zinc-100: rgb(255 248 240);
+  --color-zinc-950: rgb(15 15 16);
+
   --color-bluesky-surface: #151d28;
   --color-bluesky-surface-hover: #1c2939;
   --color-bluesky-border: #2c3a4e;
@@ -24,16 +31,23 @@
   --color-bluesky-brand: #0a7aff;
   --color-bluesky-link: #1185fe;
 
-  /* Feed card palette. Light values; `.dark` overrides. The inset surface
-     fills the body bubble and the link card. */
-  --color-community: #2f7d79;
-  --color-inset-surface: #ffffff;
-  --color-inset-border: #d6d3ce;
-  --color-inset-hover: #f8f7f5;
-  --color-card-border: #e3e1dd;
-  --color-meta: #6b6b73;
-  --color-muted: #4f4f56;
-  --color-image-edge: rgb(0 0 0 / 0.06);
+  /* Feed card palette for every theme but Mono. Light values; `.dark`
+     overrides, and html[data-grain] below swaps in Mono's own. The inset
+     surface fills the body bubble and the link card. Meta, muted, hover and
+     the image edge follow the theme's slate shades, so custom themes drive
+     them. */
+  --color-community: #4a9994;
+  --color-inset-surface: rgb(241 245 249);
+  --color-inset-border: rgb(226 232 240);
+  --color-inset-hover: color-mix(in srgb, var(--color-inset-surface), black 3%);
+  --color-card-border: rgb(231 229 228);
+  --color-meta: var(--color-slate-500);
+  --color-muted: var(--color-slate-600);
+  --color-image-edge: color-mix(
+    in srgb,
+    var(--color-slate-900) 6%,
+    transparent
+  );
 
   /* dark theme */
   --color-primary-100: rgb(241 245 249);
@@ -96,6 +110,29 @@ html[data-grain] body {
 
 .dark {
   color-scheme: dark;
+  --color-community: #63b5b1;
+  --color-inset-surface: #1a1f26;
+  --color-inset-border: #2a2f36;
+  --color-inset-hover: color-mix(in srgb, var(--color-inset-surface), white 4%);
+  --color-card-border: #2d2a28;
+  --color-meta: var(--color-zinc-400);
+  --color-muted: var(--color-zinc-300);
+  --color-image-edge: color-mix(in srgb, var(--color-zinc-50) 6%, transparent);
+}
+
+/* The Mono default's own feed card palette (App colors). */
+html[data-grain] {
+  --color-community: #2f7d79;
+  --color-inset-surface: #ffffff;
+  --color-inset-border: #d6d3ce;
+  --color-inset-hover: #f8f7f5;
+  --color-card-border: #e3e1dd;
+  --color-meta: #6b6b73;
+  --color-muted: #4f4f56;
+  --color-image-edge: rgb(0 0 0 / 0.06);
+}
+
+html.dark[data-grain] {
   --color-community: #63b5b1;
   --color-inset-surface: #232325;
   --color-inset-border: rgb(66 66 70 / 0.6);

@@ -39,6 +39,15 @@
       ? embed.images[0].aspectRatio
       : undefined,
   )
+  // Before it loads, the feed image holds the box it will fill: its ratio, at
+  // its natural width or the width 560px of height allows, whichever is less.
+  let reservedStyle = $derived.by(() => {
+    if (!aspectRatio) return undefined
+    const { width, height } = aspectRatio
+    const reserved =
+      Math.round(Math.min(width, (560 * width) / height) * 100) / 100
+    return `aspect-ratio: ${width} / ${height}; width: min(100%, ${reserved}px)`
+  })
 </script>
 
 <!--
@@ -96,14 +105,17 @@
       class={[
         'max-w-full z-30 transition-all duration-500 group-hover:scale-98 group-active:scale-95',
         feed
-          ? 'block w-auto h-auto max-h-[560px] rounded-[12px] outline-1 -outline-offset-1 outline-image-edge'
+          ? 'block h-auto max-h-[560px] rounded-[12px] outline-1 -outline-offset-1 outline-image-edge'
           : 'rounded-xl max-h-[60vh] object-contain mx-auto',
+        // Without a ratio there is nothing to reserve: the natural size shows.
+        feed && !aspectRatio && 'w-auto',
         'duration-200 ease-cubic',
         imageLoaded === false ? 'opacity-0' : 'opacity-100',
         blur && 'blur-3xl',
       ]}
       width={aspectRatio?.width ?? 512}
       height={aspectRatio?.height ?? 300}
+      style={reservedStyle}
       alt={altText ?? ''}
       onload={() => (imageLoaded = true)}
       onerror={() => (imageLoaded = true)}

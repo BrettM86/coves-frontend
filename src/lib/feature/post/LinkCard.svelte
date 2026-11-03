@@ -133,7 +133,8 @@
     overflow: hidden;
   }
 
-  .inert .host-label {
+  .inert .host-label,
+  .text:has(.title) .host-label {
     -webkit-line-clamp: 1;
     line-clamp: 1;
   }

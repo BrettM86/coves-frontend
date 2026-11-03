@@ -293,7 +293,7 @@
             collapsible={false}
             body={post.record.content}
             facets={post.record.facets}
-            class="feed-body-preview line-clamp-5 text-[15px] leading-[1.45]"
+            class="feed-body-preview line-clamp-5 text-[15px] leading-[1.45] [&_p]:whitespace-pre-line"
           />
         </div>
       {:else if post.record?.content && view != 'compact'}

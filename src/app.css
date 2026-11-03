@@ -78,6 +78,22 @@ body {
   @apply bg-slate-50 text-slate-900 dark:bg-zinc-950 dark:text-zinc-100 accent-slate-950 dark:accent-zinc-50;
 }
 
+/* The Mono default's page grain: a pre-rendered noise tile over the page
+   colour, scrolling with the page. hooks.server.ts and theme-boot.js keep
+   data-grain on <html> only while Mono is the selected theme. */
+html[data-grain] body {
+  background-image: url('./lib/assets/grain.webp');
+  background-repeat: repeat;
+  background-attachment: scroll;
+}
+
+/* Mono's phone page is a step darker than its desktop zinc-950. */
+@media (width < 40rem) {
+  html.dark[data-grain] body {
+    background-color: #0b0a0e;
+  }
+}
+
 .dark {
   color-scheme: dark;
   --color-community: #63b5b1;

@@ -97,13 +97,14 @@
   // feed with the link card below the body, thumbnail included.
   let feedLink = $derived(feedCard && !!externalUri && type === 'embed')
   let hideTitle = $derived(
-    !feedCard &&
-      !concealed &&
+    !concealed &&
       settings.posts.deduplicateEmbed &&
       !!post.record?.title &&
       // Link titles are single-line strings and match exactly; Bluesky text
-      // is free-form, so its match ignores whitespace differences.
-      (embedTitle === post.record.title ||
+      // is free-form, so its match ignores whitespace differences. The feed
+      // card keeps a heading that repeats the link title and drops the title
+      // from its link card instead.
+      ((!feedCard && embedTitle === post.record.title) ||
         titleDuplicatesBlueskyEmbed(post.record.title, post.embed)) &&
       view !== 'compact' &&
       type !== 'iframe',

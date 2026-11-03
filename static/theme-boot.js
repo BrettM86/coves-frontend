@@ -34,6 +34,14 @@
     var varsShape =
       /^(\s*--color-[a-z]+-[a-z0-9]+:rgb\(\d{1,3} \d{1,3} \d{1,3}\);)+\s*$/
     if (vars && varsShape.test(vars)) html.setAttribute('style', vars)
+
+    // The server stamps data-grain only for the built-in Mono default; drop
+    // it when the stored selection is another theme (id 0 is the default).
+    if (html.hasAttribute('data-grain')) {
+      var data = JSON.parse(localStorage.getItem('theme.data') || 'null')
+      if (data && data.currentTheme !== undefined && data.currentTheme !== 0)
+        html.removeAttribute('data-grain')
+    }
   } catch (_error) {
     // Storage blocked or matchMedia missing: the page still renders.
   }

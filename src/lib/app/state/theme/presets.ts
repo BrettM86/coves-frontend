@@ -6,7 +6,7 @@ import type { Theme, ThemeColors } from './theme.svelte'
 const KELP_DEFAULT = {
   slate: {
     25: '252 253 254',
-    50: '248 250 252',
+    50: '253 252 250',
     100: '241 245 249',
     200: '226 232 240',
     300: '203 213 225',
@@ -15,12 +15,12 @@ const KELP_DEFAULT = {
     600: '71 85 105',
     700: '51 65 85',
     800: '30 41 59',
-    900: '15 23 42',
+    900: '26 26 28',
     950: '2 6 23',
   },
   zinc: {
     '50': '252 252 254',
-    '100': '248 248 251',
+    '100': '255 248 240',
     '200': '235 235 240',
     '300': '222 222 228',
     '400': '175 175 185',
@@ -30,7 +30,7 @@ const KELP_DEFAULT = {
     '800': '47 47 54',
     '900': '34 34 39',
     '925': '28 28 32',
-    '950': '25 25 29',
+    '950': '15 15 16',
   },
   primary: {
     100: '241 245 249',
@@ -66,6 +66,12 @@ function parseInstanceColors(text: string | undefined): ThemeColors | null {
 }
 
 const instanceColors = parseInstanceColors(env.PUBLIC_THEME)
+
+/**
+ * Whether the default theme (id 0) is Mono, the one theme that draws the page
+ * grain. hooks.server.ts stamps data-grain on <html> from this.
+ */
+export const defaultThemeIsMono = instanceColors === null
 
 /** A fresh copy on every call: themes built from it must not share objects. */
 export function getDefaultColors(): ThemeColors {

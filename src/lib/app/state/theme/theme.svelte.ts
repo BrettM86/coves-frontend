@@ -1,6 +1,11 @@
 import { browser } from '$app/environment'
 import { env } from '$env/dynamic/public'
-import { getDefaultColors, getDefaultTheme, presets } from './presets'
+import {
+  defaultThemeIsMono,
+  getDefaultColors,
+  getDefaultTheme,
+  presets,
+} from './presets'
 import { log } from '$lib/app/util/log'
 import {
   normalizeColor,
@@ -318,6 +323,14 @@ $effect.root(() => {
       persistColorScheme(theme.colorScheme)
       persistColorSchemeCookie(theme.colorScheme)
     }
+  })
+  $effect(() => {
+    // The page grain belongs to the built-in Mono default only.
+    if (browser)
+      document.documentElement.toggleAttribute(
+        'data-grain',
+        defaultThemeIsMono && theme.data.currentTheme === 0,
+      )
   })
 })
 

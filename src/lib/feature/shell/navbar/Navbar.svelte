@@ -68,6 +68,7 @@
           >
             <Avatar
               url={profile.current.avatar}
+              did={profile.current.did}
               width={36}
               alt={profile.current.handle}
               class="group-hover:scale-90 transition-transform group-active:scale-85"

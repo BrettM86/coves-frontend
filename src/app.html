@@ -1,10 +1,16 @@
 <!doctype html>
-<html class="dark %coves.font%" lang="en">
+<html
+  class="%coves.colorscheme% %coves.font%"
+  data-default-color-scheme="%coves.defaultcolorscheme%"
+  lang="en"
+>
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%sveltekit.assets%/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Applies the stored colour scheme and theme colours before first paint. -->
+    <script src="/theme-boot.js"></script>
     %sveltekit.head%
   </head>
   <body>

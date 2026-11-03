@@ -68,6 +68,7 @@
         <EntityHeader
           avatarCircle
           avatar={profile.avatar}
+          did={profile.did}
           name={profile.displayName ?? profile.handle ?? 'Unknown'}
           banner={profile.banner}
           bio={profile.description}

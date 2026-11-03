@@ -509,16 +509,96 @@
             },
             "preset": {
                 "title": "cannot be modified",
-                "description": "This is a default theme, and cannot be modified.",
+                "description": "This is a built-in theme and can't be edited. Duplicate it to make an editable copy.",
                 "delete": {
                     "title": "Delete theme",
-                    "confirm": "Confirm"
+                    "confirm": "Confirm",
+                    "label": "Delete theme",
+                    "description": "Delete \"{{default}}\"? This can't be undone."
                 },
                 "default": "Default",
                 "classic": "Classic",
                 "imported": "Your theme",
                 "new": "New theme",
-                "presets": "Presets"
+                "presets": "Presets",
+                "duplicate": "Duplicate",
+                "copyName": "{{default}} copy",
+                "rename": "Rename theme",
+                "sample": "Posts and comments look like this."
+            },
+            "accentLight": "Accent (light)",
+            "accentDark": "Accent (dark)",
+            "tint": {
+                "label": "Tint neutrals from accent",
+                "hint": "Picking a strength gives backgrounds, borders and text a hint of your accent color while keeping their lightness. The reset button next to them puts the default neutrals back. If a tint makes any text hard to read, a contrast warning appears above.",
+                "subtle": "Subtle",
+                "medium": "Medium",
+                "strong": "Strong",
+                "reset": "Reset to the default neutrals"
+            },
+            "swatch": {
+                "hex": "hex value"
+            },
+            "import": {
+                "description": "Paste a theme exported from Coves. It replaces the colors of the current theme. If the pasted theme has a name, the current theme takes that name too.",
+                "placeholder": "{\"name\": \"My theme\", \"colors\": {...}}",
+                "invalidJson": "That isn't valid JSON.",
+                "invalidTheme": "That JSON isn't a theme.",
+                "presetNotEditable": "Built-in themes can't be edited. Duplicate it first."
+            },
+            "export": {
+                "copied": "Copied theme to clipboard.",
+                "failed": "Couldn't copy the theme to the clipboard."
+            },
+            "contrast": {
+                "warning": "Some text may be hard to read. These color pairs are below the recommended 4.5:1 contrast:",
+                "pairs": {
+                    "lightBody": "Body text (light)",
+                    "darkBody": "Body text (dark)",
+                    "lightPrimaryButton": "Primary button (light)",
+                    "darkPrimaryButton": "Primary button (dark)",
+                    "lightAccent": "Accent text (light)",
+                    "darkAccent": "Accent text (dark)"
+                }
+            },
+            "category": {
+                "slate": "Light mode",
+                "zinc": "Dark mode",
+                "other": "Black and white"
+            },
+            "role": {
+                "slate": {
+                    "25": "Code blocks, mobile toolbar",
+                    "50": "Page background",
+                    "100": "Cards, hover",
+                    "200": "Borders, hover",
+                    "300": "Strong borders",
+                    "400": "Faint text",
+                    "500": "Muted text",
+                    "600": "Secondary text",
+                    "700": "Emphasized text",
+                    "800": "Strong text",
+                    "900": "Body text, headings",
+                    "950": "Darkest text"
+                },
+                "zinc": {
+                    "50": "Brightest text",
+                    "100": "Body text, headings",
+                    "200": "Strong text",
+                    "300": "Emphasized text",
+                    "400": "Secondary text",
+                    "500": "Muted text",
+                    "600": "Faint text",
+                    "700": "Strong borders, hover",
+                    "800": "Borders, hover",
+                    "900": "Cards, panels",
+                    "925": "Code blocks, mobile toolbar",
+                    "950": "Page background"
+                },
+                "other": {
+                    "black": "Pure black",
+                    "white": "Pure white"
+                }
             }
         },
         "community": {

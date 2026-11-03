@@ -51,6 +51,7 @@
     {#snippet prefix()}
       <Avatar
         url={profile.current.avatar}
+        did={profile.current.did}
         alt={profile.current.handle}
         width={24}
       />

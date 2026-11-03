@@ -22,13 +22,15 @@ import type { AddressInfo } from 'node:net'
 
 /**
  * The accounts this upstream knows, keyed by the `coves_session` cookie value
- * that authenticates as each. Two of them, so a test can tell "each request
- * sees ITS OWN account" apart from "every request sees the only account there
- * is". Any other cookie value gets a 401.
+ * that authenticates as each. `a` and `b` let a test tell "each request sees
+ * ITS OWN account" apart from "every request sees the only account there is".
+ * `c` has no `avatar` and the PRD_DEFAULT_AVATARS §4.2 vector DID, which
+ * maps to `ocean-wave` on Seafoam. Any other cookie value gets a 401.
  */
 export const MOCK_ACCOUNTS = {
   a: { did: 'did:plc:abcdefghijklmnopqrstuvwx', handle: 'mari.test' },
   b: { did: 'did:plc:zyxwvutsrqponmlkjihgfedc', handle: 'alex.test' },
+  c: { did: 'did:plc:ewvi7nxzyoun6zhxrhs64oiz', handle: 'no-avatar.test' },
 } as const
 
 export type MockAccountKey = keyof typeof MOCK_ACCOUNTS

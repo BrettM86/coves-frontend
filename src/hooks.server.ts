@@ -160,8 +160,7 @@ function isNetworkError(error: unknown): boolean {
   return false
 }
 
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const session: Handle = async ({ event, resolve }) => {
   // Minted before any branch below can return, so log lines from anywhere in
@@ -395,6 +394,29 @@ function preloadInHead({ type }: { type: string }): boolean {
   return type === 'js' || type === 'css' || type === 'font'
 }
 
+type ColorScheme = 'system' | 'light' | 'dark'
+
+function isColorScheme(value: unknown): value is ColorScheme {
+  return value === 'system' || value === 'light' || value === 'dark'
+}
+
+/** PUBLIC_COLORSCHEME, or 'system' when it is unset or not a known scheme. */
+function defaultColorScheme(): ColorScheme {
+  const configured = publicEnv.PUBLIC_COLORSCHEME
+  return isColorScheme(configured) ? configured : 'system'
+}
+
+/**
+ * The <html> class for the `colorScheme` cookie the theme state writes, or for
+ * the configured default on a first visit. Only light renders light: dark and
+ * system (whose real value only the browser knows) render dark, and
+ * static/theme-boot.js corrects system before first paint.
+ */
+function colorSchemeClass(cookie: string | undefined): string {
+  const scheme = isColorScheme(cookie) ? cookie : defaultColorScheme()
+  return scheme === 'light' ? '' : 'dark'
+}
+
 /**
  * Every response that reaches `handle` — Kit pages, endpoints, and the manual
  * early returns in `session` above — leaves with the full security header
@@ -430,10 +452,16 @@ export const handle: Handle = async ({ event, resolve }) => {
         transformPageChunk: async (input) => {
           kitPage = true
           const html = (await opts?.transformPageChunk?.(input)) ?? input.html
-          return html.replace(
-            '%coves.font%',
-            fontClass(defaultFont(publicEnv.PUBLIC_FONT)),
-          )
+          return html
+            .replace(
+              '%coves.colorscheme%',
+              colorSchemeClass(event.cookies.get('colorScheme')),
+            )
+            .replace('%coves.defaultcolorscheme%', defaultColorScheme())
+            .replace(
+              '%coves.font%',
+              fontClass(defaultFont(publicEnv.PUBLIC_FONT)),
+            )
         },
       }),
   })

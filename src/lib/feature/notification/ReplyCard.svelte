@@ -266,6 +266,7 @@
           <div data-part="author" class="flex items-center gap-2 min-w-0">
             <Avatar
               url={author.avatarUrl}
+              did={author.did}
               alt={author.avatarSeed}
               width={24}
               class="shrink-0"

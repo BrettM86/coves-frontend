@@ -96,7 +96,13 @@
 >
   {@render children?.()}
   {#if avatar}
-    <Avatar url={user.avatar} alt={label} width={avatarSize} class="shrink-0" />
+    <Avatar
+      url={user.avatar}
+      did={user.did}
+      alt={label}
+      width={avatarSize}
+      class="shrink-0"
+    />
   {/if}
   <span
     class="font-medium handle-text shrink min-w-0 {envBadge &&

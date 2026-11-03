@@ -112,6 +112,7 @@
           {#each upvoters as upvoter}
             <Avatar
               url={upvoter.avatar}
+              did={upvoter.did}
               alt={upvoter.did}
               width={32}
               class="ring-2 ring-slate-50 dark:ring-zinc-950"

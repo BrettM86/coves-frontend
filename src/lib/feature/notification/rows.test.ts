@@ -344,6 +344,7 @@ describe('parseNotificationRows', () => {
         name: 'Unknown user',
         avatarSeed:
           'at://did:plc:replieranon/social.coves.community.comment/3kcommentanon',
+        did: 'did:plc:replieranon',
       })
     },
   )
@@ -663,6 +664,7 @@ describe('notificationAuthor', () => {
         handle: string | undefined
         avatarUrl: string | undefined
         avatarSeed: string
+        did: string
       },
     ]
   >([
@@ -675,6 +677,7 @@ describe('notificationAuthor', () => {
         avatarUrl: undefined,
         avatarSeed:
           'at://did:plc:replieranon/social.coves.community.comment/3kcommentanon',
+        did: 'did:plc:replieranon',
       },
     ],
     [
@@ -686,6 +689,26 @@ describe('notificationAuthor', () => {
         avatarUrl: undefined,
         avatarSeed:
           'at://did:plc:replierquiet/social.coves.community.comment/3kcommentquiet',
+        did: 'did:plc:replierquiet',
+      },
+    ],
+    [
+      // The parser rejects a record URI whose authority is not a DID, so the
+      // row is built directly to reach the fallback.
+      'a reply without author whose record URI authority is not a DID',
+      asReplyRow({
+        ...without(replyRow('handle'), 'author'),
+        record: {
+          ...replyRecord('handle'),
+          uri: 'at://alice.example/social.coves.community.comment/3k' as AtUri,
+        },
+      }),
+      {
+        name: 'Unknown user',
+        handle: undefined,
+        avatarUrl: undefined,
+        avatarSeed: 'at://alice.example/social.coves.community.comment/3k',
+        did: '',
       },
     ],
     [
@@ -696,6 +719,7 @@ describe('notificationAuthor', () => {
         handle: undefined,
         avatarUrl: undefined,
         avatarSeed: 'did:plc:alice4x7k',
+        did: 'did:plc:alice4x7k',
       },
     ],
     [
@@ -718,6 +742,7 @@ describe('notificationAuthor', () => {
         avatarUrl:
           'https://cdn.local.coves.dev/avatar/did:plc:alice4x7k/bafkreialice',
         avatarSeed: 'did:plc:alice4x7k',
+        did: 'did:plc:alice4x7k',
       },
     ],
     [
@@ -738,6 +763,7 @@ describe('notificationAuthor', () => {
         avatarUrl:
           'https://cdn.local.coves.dev/avatar/did:plc:alice4x7k/bafkreialice',
         avatarSeed: 'did:plc:alice4x7k',
+        did: 'did:plc:alice4x7k',
       },
     ],
   ])('describes %s', (_title, row, expected) => {
@@ -748,6 +774,7 @@ describe('notificationAuthor', () => {
       handle: author.handle,
       avatarUrl: author.avatarUrl,
       avatarSeed: author.avatarSeed,
+      did: author.did,
     }).toStrictEqual(expected)
   })
 })

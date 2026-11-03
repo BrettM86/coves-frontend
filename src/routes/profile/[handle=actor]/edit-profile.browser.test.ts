@@ -318,6 +318,40 @@ describe('edit profile from the profile header', () => {
     )
   })
 
+  it('shows the DID default avatar in the header of a profile with no avatar', async () => {
+    const ProfilePage = (await import('./+page.svelte')).default
+    // PRD_DEFAULT_AVATARS §4.2 vector: ocean-wave on Seafoam (#D5E6E3).
+    const profile = {
+      ...ownedProfile,
+      did: 'did:plc:ewvi7nxzyoun6zhxrhs64oiz' as DID,
+      avatar: undefined,
+    }
+    mounted = client.mount(ProfilePage, {
+      target,
+      props: {
+        data: {
+          data: {
+            value: {
+              profile,
+              posts: { feed: [] },
+              comments: { comments: [] },
+            },
+          },
+        } as unknown as PageData,
+      },
+      intro: false,
+    })
+    client.flushSync()
+
+    const picture = target.querySelector<HTMLImageElement>(
+      'img[src="/img/default-avatars/v1/ocean-wave.webp"]',
+    )
+    expect(picture).not.toBeNull()
+    expect(picture?.parentElement?.style.backgroundColor).toBe(
+      'rgb(213, 230, 227)',
+    )
+  })
+
   it('opens a prefilled editor and closes it after a successful save', async () => {
     const UserActions = (await import('./UserActions.svelte')).default
     mounted = client.mount(UserActions, {

@@ -74,6 +74,7 @@
         {#if handle && post.author}
           <Avatar
             url={post.author.avatar}
+            did={post.author.did}
             alt={post.author.did}
             width={20}
             class="shrink-0"

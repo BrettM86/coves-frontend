@@ -92,20 +92,30 @@ body {
   @apply bg-slate-50 text-slate-900 dark:bg-zinc-950 dark:text-zinc-100 accent-slate-950 dark:accent-zinc-50;
 }
 
-/* The Mono default's page grain: a pre-rendered noise tile over the page
+/* The Mono default's page surface: a pre-rendered noise tile over the page
    colour, scrolling with the page. hooks.server.ts and theme-boot.js keep
-   data-grain on <html> only while Mono is the selected theme. */
-html[data-grain] body {
-  background-image: url('./lib/assets/grain.webp');
-  background-repeat: repeat;
-  background-attachment: scroll;
+   data-grain on <html> only while Mono is the selected theme. Opaque bands
+   that sit on the page (.page-band: the page header, the navbar) paint the
+   same surface so they carry no seam against it. */
+html[data-grain] {
+  --page-base: var(--color-slate-50);
+  --page-grain: url('./lib/assets/grain.webp');
 }
 
 /* Mono's phone page is a step darker than its desktop zinc-950. */
-@media (width < 40rem) {
-  html.dark[data-grain] body {
-    background-color: #0b0a0e;
+html.dark[data-grain] {
+  --page-base: var(--color-zinc-950);
+
+  @media (width < 40rem) {
+    --page-base: #0b0a0e;
   }
+}
+
+html[data-grain] :is(body, .page-band) {
+  background-color: var(--page-base);
+  background-image: var(--page-grain);
+  background-repeat: repeat;
+  background-attachment: scroll;
 }
 
 .dark {

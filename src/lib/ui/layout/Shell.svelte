@@ -40,14 +40,14 @@
   <div class={['shell-navbar-holder', !dockVisible && 'max-md:-bottom-24!']}>
     <div class="md:hidden flex justify-between" dir="ltr">
       <InvertedCorner
-        class="w-8 h-8 text-slate-50 dark:text-zinc-950 rotate-270"
+        class="dock-corner w-8 h-8 text-slate-50 dark:text-zinc-950 rotate-270"
       />
       <InvertedCorner
-        class="w-8 h-8 text-slate-50 dark:text-zinc-950 rotate-180"
+        class="dock-corner w-8 h-8 text-slate-50 dark:text-zinc-950 rotate-180"
       />
     </div>
     {@render navbar?.({
-      class: ['shell-navbar'],
+      class: ['shell-navbar', 'page-band'],
     })}
   </div>
   <div class={['shell-content flex-1', settings.newWidth && 'limit-width']}>
@@ -102,6 +102,19 @@
           }
         }
       }
+    }
+  }
+
+  /* Under Mono the navbar is the page surface, opaque so content scrolls
+     under it unseen, and the dock's corners take the same base colour.
+     .page-band is in the selector only to outrank the dark rules above. */
+  :global(html[data-grain]) .shell-navbar-holder {
+    :global(.shell-navbar.page-band) {
+      background-color: var(--page-base);
+    }
+
+    :global(.dock-corner) {
+      color: var(--page-base);
     }
   }
 

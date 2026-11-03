@@ -95,6 +95,29 @@ describe('Post feed card link card', () => {
     expect(link?.textContent?.trim()).toBe('the interview')
   })
 
+  // The preview keeps a plain body's single line breaks: the paragraph text
+  // still holds the '\n' characters, and the preview element declares
+  // pre-line whitespace on its paragraphs with the `[&_p]:whitespace-pre-line`
+  // class token so they render as line breaks.
+  it.each([
+    {
+      name: 'three lines',
+      body: 'first\nsecond\nthird',
+      text: 'first\nsecond\nthird',
+    },
+    { name: 'two lines', body: 'alpha\nbeta', text: 'alpha\nbeta' },
+  ])('keeps the single line breaks of a $name plain body', ({ body, text }) => {
+    const preview = feedCard(linkPost({ body })).querySelector(
+      '.feed-body-preview',
+    )
+
+    expect(preview).not.toBeNull()
+    if (!preview) return
+    const paragraphs = [...preview.querySelectorAll('p')]
+    expect(paragraphs.map((paragraph) => paragraph.textContent)).toEqual([text])
+    expect(preview.classList.contains('[&_p]:whitespace-pre-line')).toBe(true)
+  })
+
   it('renders a body longer than 1000 characters through to its end', () => {
     const body = 'Long paragraph. '.repeat(100) + 'END_OF_FULL_BODY'
     const preview = bodyInset(feedCard(linkPost({ body })))
@@ -135,6 +158,56 @@ describe('Post feed card images', () => {
         (token) => token === 'w-full' || token.endsWith(':w-full'),
       ),
     ).toEqual([])
+  })
+
+  /** The image's inline style declarations, as written. */
+  const inlineStyle = (image: Element): Record<string, string> =>
+    Object.fromEntries(
+      (image.getAttribute('style') ?? '')
+        .split(';')
+        .map((declaration) => declaration.split(':'))
+        .filter((parts) => parts.length === 2)
+        .map(([property, value]) => [property.trim(), value.trim()]),
+    )
+
+  // Before it loads, a feed image with an aspectRatio reserves its box:
+  // `aspect-ratio: <width> / <height>` and `width: min(100%, <N>px)`, where N
+  // is min(natural width, 560 * width / height) rounded to 2 decimals with
+  // trailing zeros dropped (560, not 560.00). It drops the `w-auto` class.
+  it.each([
+    {
+      ratio: { width: 880, height: 880 },
+      aspect: '880 / 880',
+      width: 'min(100%, 560px)',
+    },
+    {
+      ratio: { width: 434, height: 1074 },
+      aspect: '434 / 1074',
+      width: 'min(100%, 226.29px)',
+    },
+    {
+      ratio: { width: 300, height: 100 },
+      aspect: '300 / 100',
+      width: 'min(100%, 300px)',
+    },
+  ])(
+    'reserves $width at $aspect before a feed image loads',
+    ({ ratio, aspect, width }) => {
+      const image = mainImage(feedCard(imagePost(ratio)))
+
+      expect(image).toBeDefined()
+      if (!image) return
+      expect(inlineStyle(image)).toEqual({ 'aspect-ratio': aspect, width })
+      expect(image.classList.contains('w-auto')).toBe(false)
+    },
+  )
+
+  it('reserves no width for a feed image without an aspectRatio', () => {
+    const image = mainImage(feedCard(imagePost()))
+
+    expect(image).toBeDefined()
+    if (!image) return
+    expect(inlineStyle(image).width).toBeUndefined()
   })
 
   it('keeps the detail page image at full width and 60vh', () => {

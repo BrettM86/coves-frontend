@@ -227,6 +227,17 @@ describe('theme grain marker on <html>', () => {
     expect(hasGrain()).toBe(true)
   })
 
+  it('sets grain when the selected custom id no longer exists and Mono shows', async () => {
+    document.documentElement.removeAttribute('data-grain')
+    const { theme, flushSync } = await importTheme()
+
+    theme.data.currentTheme = 99
+    await flushSync()
+
+    expect(theme.current.name).toBe('Mono')
+    expect(hasGrain()).toBe(true)
+  })
+
   it.each([
     { selected: 0, name: 'Instance Default' },
     { selected: -10, name: 'Mono' },

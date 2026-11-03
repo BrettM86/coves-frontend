@@ -61,7 +61,10 @@ export const IMAGE_THUMB = 'https://cdn.example.com/photo-thumb.jpg'
 export const IMAGE_FULL = 'https://cdn.example.com/photo-full.jpg'
 
 /** The same post with a native image embed in place of the link. */
-export function imagePost(): PostView {
+export function imagePost(aspectRatio?: {
+  width: number
+  height: number
+}): PostView {
   return {
     ...linkPost(),
     embed: {
@@ -72,6 +75,7 @@ export function imagePost(): PostView {
           thumb: IMAGE_THUMB,
           fullsize: IMAGE_FULL,
           alt: 'A cat',
+          ...(aspectRatio ? { aspectRatio } : {}),
         },
       ],
     },

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, expect, it, vi } from 'vitest'
 import type { PostView } from '$lib/api/coves/types'
-import { linkPost } from './Post.feed-card.fixture'
+import { IMAGE_FULL, imagePost, linkPost } from './Post.feed-card.fixture'
 
 vi.mock('$app/environment', () => ({
   browser: true,
@@ -91,4 +91,40 @@ it('removes the thumbnail when it fails to load and keeps the link card', () => 
     'https://www.thegamer.com/tim-sweeney/',
   )
   expect(kept?.textContent).toContain('www.thegamer.com')
+})
+
+// Once a feed image loads, its reserved width shrinks to the natural width
+// when that is smaller, and never grows past the reserved width (no upscale).
+it.each([
+  {
+    ratio: { width: 3, height: 1 },
+    natural: { width: 300, height: 100 },
+    width: '300px',
+  },
+  {
+    ratio: { width: 1, height: 1 },
+    natural: { width: 2000, height: 2000 },
+    width: '560px',
+  },
+])('sets a loaded feed image to width $width', ({ ratio, natural, width }) => {
+  target = document.createElement('div')
+  document.body.appendChild(target)
+  mounted = client.mount(Post, {
+    target,
+    props: { post: imagePost(ratio), view: 'cozy', actions: false },
+    intro: false,
+  })
+  client.flushSync()
+
+  const image = [...target.querySelectorAll('img')].find((element) =>
+    (element.getAttribute('src') ?? '').includes(IMAGE_FULL),
+  )
+  expect(image).toBeDefined()
+  if (!image) return
+  Object.defineProperty(image, 'naturalWidth', { value: natural.width })
+  Object.defineProperty(image, 'naturalHeight', { value: natural.height })
+  image.dispatchEvent(new Event('load'))
+  client.flushSync()
+
+  expect(image.style.width).toBe(width)
 })

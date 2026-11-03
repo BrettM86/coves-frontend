@@ -171,25 +171,21 @@ describe('Post feed card images', () => {
     )
 
   // Before it loads, a feed image with an aspectRatio reserves its box:
-  // `aspect-ratio: <width> / <height>` and `width: min(100%, <N>px)`, where N
-  // is min(natural width, 560 * width / height) rounded to 2 decimals with
-  // trailing zeros dropped (560, not 560.00). It drops the `w-auto` class.
+  // `aspect-ratio: <width> / <height>` and `width: <N>px`, where N is
+  // 560 * width / height rounded to 2 decimals with trailing zeros dropped.
+  // aspectRatio is a ratio, not pixel dimensions ({4, 3} is valid), so N is
+  // never clamped to aspectRatio.width, and there is no percentage: inside the
+  // image's w-fit wrapper a percentage width resolves to 0 before load. The
+  // `max-w-full` class keeps the image inside its column; `w-auto` is gone.
   it.each([
-    {
-      ratio: { width: 880, height: 880 },
-      aspect: '880 / 880',
-      width: 'min(100%, 560px)',
-    },
+    { ratio: { width: 880, height: 880 }, aspect: '880 / 880', width: '560px' },
     {
       ratio: { width: 434, height: 1074 },
       aspect: '434 / 1074',
-      width: 'min(100%, 226.29px)',
+      width: '226.29px',
     },
-    {
-      ratio: { width: 300, height: 100 },
-      aspect: '300 / 100',
-      width: 'min(100%, 300px)',
-    },
+    { ratio: { width: 4, height: 3 }, aspect: '4 / 3', width: '746.67px' },
+    { ratio: { width: 1, height: 1 }, aspect: '1 / 1', width: '560px' },
   ])(
     'reserves $width at $aspect before a feed image loads',
     ({ ratio, aspect, width }) => {
@@ -198,6 +194,7 @@ describe('Post feed card images', () => {
       expect(image).toBeDefined()
       if (!image) return
       expect(inlineStyle(image)).toEqual({ 'aspect-ratio': aspect, width })
+      expect(image.classList.contains('max-w-full')).toBe(true)
       expect(image.classList.contains('w-auto')).toBe(false)
     },
   )

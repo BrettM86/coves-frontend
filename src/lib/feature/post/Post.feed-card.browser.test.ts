@@ -61,7 +61,7 @@ it('never shows the Expand control on a feed card with an overflowing body', () 
   expect(target.querySelector('button[title="Expand"]')).toBeNull()
 })
 
-it('drops the thumbnail frame when the thumbnail fails to load and keeps the link bar', () => {
+it('removes the thumbnail when it fails to load and keeps the link card', () => {
   target = document.createElement('div')
   document.body.appendChild(target)
   mounted = client.mount(Post, {
@@ -71,21 +71,24 @@ it('drops the thumbnail frame when the thumbnail fails to load and keeps the lin
   })
   client.flushSync()
 
+  const card = target.querySelector('[data-testid="link-card"]')
   const thumbnail = target.querySelector(
     'img[src="https://cdn.example.com/thumb.jpg"]',
   )
-  const frame = thumbnail?.closest('a')
-  expect(frame).not.toBeNull()
-  expect(frame?.closest('[data-testid="external-link-bar"]')).toBeNull()
+  expect(card).not.toBeNull()
+  expect(thumbnail).not.toBeNull()
+  expect(card?.contains(thumbnail)).toBe(true)
 
   thumbnail?.dispatchEvent(new Event('error'))
   client.flushSync()
 
-  expect(frame?.isConnected).toBe(false)
   expect(
     target.querySelector('img[src="https://cdn.example.com/thumb.jpg"]'),
   ).toBeNull()
-  expect(
-    target.querySelector('[data-testid="external-link-bar"]'),
-  ).not.toBeNull()
+  const kept = target.querySelector('[data-testid="link-card"]')
+  expect(kept).not.toBeNull()
+  expect(kept?.getAttribute('href')).toBe(
+    'https://www.thegamer.com/tim-sweeney/',
+  )
+  expect(kept?.textContent).toContain('www.thegamer.com')
 })

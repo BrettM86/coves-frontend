@@ -137,7 +137,12 @@ describe('PostActions feed mode', () => {
     {
       who: 'guest',
       current: undefined,
-      leading: ['post.actions.more.share'],
+      expected: [
+        'post.actions.vote.upvote',
+        'post.actions.vote.downvote',
+        'post.actions.comments',
+        'post.actions.more.share',
+      ],
     },
     {
       who: 'signed-in',
@@ -147,11 +152,17 @@ describe('PostActions feed mode', () => {
         handle: 'viewer.test',
         jwt: 'authenticated',
       },
-      leading: ['post.actions.more.label', 'post.actions.more.share'],
+      expected: [
+        'post.actions.vote.upvote',
+        'post.actions.vote.downvote',
+        'post.actions.comments',
+        'post.actions.more.share',
+        'post.actions.more.label',
+      ],
     },
   ])(
-    '$who: renders $leading | comments, upvote, downvote in two sibling groups',
-    ({ current, leading }) => {
+    '$who: renders $expected with upvote and downvote in one group',
+    ({ current, expected }) => {
       auth.profile.current = current
       auth.profile.isAuthenticated = current !== undefined
       Object.assign(Element.prototype, {
@@ -180,26 +191,17 @@ describe('PostActions feed mode', () => {
       if (!bar) return
 
       const controls = [...bar.querySelectorAll('a, button')].filter(isVisible)
-      const trailing = [
-        'post.actions.comments',
-        'post.actions.vote.upvote',
-        'post.actions.vote.downvote',
-      ]
-      expect(controls.map(accessibleName)).toEqual([...leading, ...trailing])
+      expect(controls.map(accessibleName)).toEqual(expected)
 
-      const leadingControls = controls.slice(0, leading.length)
-      const trailingControls = controls.slice(leading.length)
-      const leadingGroup = groupOf(leadingControls[0], trailingControls, bar)
-      const trailingGroup = groupOf(trailingControls[0], leadingControls, bar)
-      expect(leadingGroup).not.toBe(trailingGroup)
-      expect(leadingGroup.parentElement).toBe(trailingGroup.parentElement)
-      for (const control of leadingControls)
-        expect(leadingGroup.contains(control)).toBe(true)
-      for (const control of trailingControls)
-        expect(trailingGroup.contains(control)).toBe(true)
-
-      expect(trailingControls[0].textContent?.trim()).toBe('4')
-      expect(trailingGroup.textContent).toContain('36')
+      // The phone footer reverses its children; up and down must stay
+      // together in one child so they keep their order there.
+      const [upvote, downvote, comments, ...rest] = controls
+      const voteGroup = groupOf(upvote, [comments, ...rest], bar)
+      expect(voteGroup).toBe(groupOf(downvote, [comments, ...rest], bar))
+      expect(voteGroup.contains(downvote)).toBe(true)
+      expect(voteGroup.contains(comments)).toBe(false)
+      expect(voteGroup.textContent).toContain('36')
+      expect(comments.textContent?.trim()).toBe('4')
     },
   )
 })

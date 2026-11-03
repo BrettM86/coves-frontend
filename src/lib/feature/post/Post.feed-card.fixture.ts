@@ -56,3 +56,24 @@ export function linkPost({
     },
   } as PostView
 }
+
+export const IMAGE_THUMB = 'https://cdn.example.com/photo-thumb.jpg'
+export const IMAGE_FULL = 'https://cdn.example.com/photo-full.jpg'
+
+/** The same post with a native image embed in place of the link. */
+export function imagePost(): PostView {
+  return {
+    ...linkPost(),
+    embed: {
+      $type: 'social.coves.embed.images#view',
+      images: [
+        {
+          image: IMAGE_FULL,
+          thumb: IMAGE_THUMB,
+          fullsize: IMAGE_FULL,
+          alt: 'A cat',
+        },
+      ],
+    },
+  }
+}

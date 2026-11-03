@@ -83,10 +83,18 @@ describe('PostMeta feed header', () => {
     ).toBe(true)
   })
 
-  it('renders the community avatar at 24px', () => {
+  it('declares the community avatar 24px below sm and 36px from sm up', () => {
     const header = renderFeedHeader()
     const avatar = header.querySelector('img')
-    expect(avatar?.getAttribute('width')).toBe('24')
+    expect(avatar).not.toBeNull()
+    if (!avatar) return
+
+    const classes = [...avatar.classList]
+    // A fixed inline width would override the responsive classes unless
+    // they are marked important.
+    const important = /width:\s*\d/.test(avatar.getAttribute('style') ?? '')
+    expect(classes).toContain(important ? 'size-6!' : 'size-6')
+    expect(classes).toContain(important ? 'sm:size-9!' : 'sm:size-9')
   })
 
   it('shows the author avatar and no community link when the community is hidden', () => {

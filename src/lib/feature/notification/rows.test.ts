@@ -21,6 +21,7 @@ import {
   parseNotificationRows,
   placeholderCopyKey,
   repliedToComment,
+  replyRecordText,
   upvoteNames,
   upvoteSentence,
   upvoteSubjectText,
@@ -1515,14 +1516,72 @@ function catsUpvoteGroup(
 }
 
 /**
- * A 200-grapheme title: the backend cuts a post mention's excerpt from it at
- * 140 graphemes with no ellipsis, while rootPost.title keeps it whole.
+ * A 200-grapheme title, for a post mention whose excerpt is a prefix of it
+ * with no ellipsis, while rootPost.title keeps it whole.
  */
 const longTitle = 'Lost grey cat seen near the Elm Street bakery. '
   .repeat(5)
   .slice(0, 200)
 
 describe('notificationLinkName', () => {
+  /** One ASCII letter and one ZWJ family emoji: two grapheme clusters. */
+  const clusterPair = 'a👨‍👩‍👧'
+
+  it.each<[string, NotificationRow, string, string]>([
+    [
+      'a reply whose excerpt is 1,000 graphemes',
+      catsReplyRow('lncap1', {
+        record: {
+          ...replyRecord('lncap1'),
+          excerpt: clusterPair.repeat(500),
+        },
+      }),
+      'Alice replied to your post in !cats@coves.social: ' +
+        clusterPair.repeat(70) +
+        '. 3 hours ago',
+      clusterPair.repeat(500),
+    ],
+    [
+      'an upvote whose subject preview is 1,000 graphemes',
+      catsUpvoteGroup('lncap2', {
+        uri: postUri('lncap2'),
+        cid: cid('rootlncap2'),
+        preview: clusterPair.repeat(500),
+      }),
+      'Alice and Bob liked your post: ' +
+        clusterPair.repeat(70) +
+        '. 3 hours ago',
+      clusterPair.repeat(500),
+    ],
+    [
+      'a reply whose excerpt is exactly 140 graphemes',
+      catsReplyRow('lncap3', {
+        record: {
+          ...replyRecord('lncap3'),
+          excerpt: clusterPair.repeat(70),
+        },
+      }),
+      'Alice replied to your post in !cats@coves.social: ' +
+        clusterPair.repeat(70) +
+        '. 3 hours ago',
+      clusterPair.repeat(70),
+    ],
+  ])(
+    'caps the text of %s at its first 140 grapheme clusters, keeping the visible text whole',
+    (_title, row, expectedName, expectedVisibleText) => {
+      const visibleText =
+        row.reason === 'upvote' ? upvoteSubjectText(row) : replyRecordText(row)
+      expect(visibleText).toBe(expectedVisibleText)
+
+      const name = notificationLinkName(row, {
+        time: linkTime,
+        concealed: false,
+      })
+
+      expect(name).toBe(expectedName)
+    },
+  )
+
   it.each<[string, UpvoteNotificationRow, string]>([
     [
       'a post',
@@ -1820,7 +1879,7 @@ describe('notificationLinkName', () => {
       'Alice mentioned you in !cats@coves.social. 3 hours ago',
     ],
     [
-      'a post mention whose excerpt is the backend cut of a title over 140 graphemes',
+      'a post mention whose excerpt is a prefix of its title',
       catsReplyRow('ln8g', {
         reason: 'mention',
         rootPost: {

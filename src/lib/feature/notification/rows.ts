@@ -435,8 +435,10 @@ function plain(text: string): UpvoteSentencePart {
  * mentions, in which community), then the row's text, then `time` verbatim;
  * an empty `time` leaves the time segment and its ". " separator out.
  * The text is the excerpt or preview, or the placeholder copy of a removed or
- * deleted record; it is left out when `concealed` (the caller's sensitive-
- * content decision). Never names the root post's title or any image alt.
+ * deleted record, cut to its first 140 graphemes (no ellipsis) so a long
+ * excerpt does not flood a screen reader; it is left out when `concealed` (the
+ * caller's sensitive-content decision). Never names the root post's title or
+ * any image alt.
  */
 export function notificationLinkName(
   row: NotificationRow,
@@ -471,8 +473,23 @@ function linkNameHead(row: NotificationRow): string {
   })
 }
 
+/** Graphemes of a row's text the link name keeps. */
+const MAX_LINK_NAME_TEXT_GRAPHEMES = 140
+
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+
 function linkNameText(row: NotificationRow): string | undefined {
-  return row.reason === 'upvote' ? upvoteSubjectText(row) : replyRecordText(row)
+  const text =
+    row.reason === 'upvote' ? upvoteSubjectText(row) : replyRecordText(row)
+  if (!text) return text
+  let kept = ''
+  let count = 0
+  for (const { segment } of graphemes.segment(text)) {
+    if (count === MAX_LINK_NAME_TEXT_GRAPHEMES) break
+    kept += segment
+    count++
+  }
+  return kept
 }
 
 /**
@@ -523,9 +540,10 @@ export function repliedToComment(
 /**
  * The text a reply or mention row shows for its record, shared by the card
  * and the link name: the placeholder copy of a removed or deleted record, else
- * its excerpt. A post mention's excerpt is the backend's 140-grapheme cut of
- * the post's own title (no ellipsis), which the root title already shows, so
- * it is left out when the title equals or starts with it.
+ * its excerpt. A post mention's excerpt is the backend's 1,000-grapheme cut
+ * of the post's own title (no ellipsis), which the root title already shows,
+ * so it is left out when the title equals or starts with it. Lexicon titles
+ * are at most 300 graphemes, so the cut never shortens a title.
  */
 export function replyRecordText(row: ReplyNotificationRow): string | undefined {
   const { status, excerpt, uri } = row.record

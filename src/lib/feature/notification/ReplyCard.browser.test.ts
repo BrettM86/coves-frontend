@@ -796,6 +796,14 @@ describe('ReplyCard bubble excerpt', () => {
     expect(excerptPart()?.classList.contains('italic')).toBe(false)
     expect(excerptPart()?.classList.contains('text-slate-800')).toBe(true)
   })
+
+  it('clamps a long excerpt to five lines, keeping its whole text', () => {
+    const longExcerpt = 'Such a fluffy cat. '.repeat(50).trim()
+    mountCard(replyRow({ record: replyRecord({ excerpt: longExcerpt }) }))
+
+    expect(excerptPart()?.textContent?.trim()).toBe(longExcerpt)
+    expect(excerptPart()?.classList.contains('line-clamp-5')).toBe(true)
+  })
 })
 
 describe('ReplyCard removed root post', () => {
@@ -871,7 +879,7 @@ describe('ReplyCard post mention excerpt', () => {
     expect(excerptPart()).toBeNull()
   })
 
-  it('omits the excerpt of a post mention whose title is over 140 graphemes and whose excerpt is its backend cut', () => {
+  it('omits the excerpt of a post mention whose excerpt is a prefix of its title', () => {
     const longTitle = 'Lost grey cat seen near the Elm Street bakery. '
       .repeat(5)
       .slice(0, 200)

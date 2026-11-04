@@ -290,7 +290,7 @@
             <p
               data-part="excerpt"
               class={[
-                'mt-1.5 text-sm break-words whitespace-pre-line',
+                'mt-1.5 text-sm break-words whitespace-pre-line line-clamp-5',
                 row.record.status
                   ? 'italic text-slate-600 dark:text-zinc-400'
                   : 'text-slate-800 dark:text-zinc-200',

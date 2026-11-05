@@ -58,7 +58,6 @@
     type={iframeType(embedUrl)}
     url={embedUrl}
     {opened}
-    title={embedTitle}
   />
 {:else if type === 'embed' && embedUrl}
   <PostLink

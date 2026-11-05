@@ -32,7 +32,6 @@ interface Options {
   readonly opened?: boolean
   readonly autoplay?: boolean
   readonly thumbnail?: string
-  readonly title?: string
 }
 
 /** Renders with the embed opened, which is what both call sites do on SSR. */
@@ -44,7 +43,6 @@ const renderIframe = (url: string, options: Options = {}): string =>
       opened: options.opened ?? true,
       autoplay: options.autoplay ?? false,
       thumbnail: options.thumbnail,
-      title: options.title,
     },
   }).body
 
@@ -297,20 +295,6 @@ describe('PostIframe - unopened preview', () => {
         'src="https://img.coves.test/img/embed_thumbnail/plain/did:plc:a/b"',
       )
       expect(textNodes(html)).toContain(host)
-    },
-  )
-
-  it.each(PREVIEW_CASES)(
-    'does not render the title prop for %s %j',
-    (type, url) => {
-      const html = renderIframe(url, {
-        type,
-        opened: false,
-        thumbnail: POSTER_THUMBNAIL,
-        title: 'Zebra Quokka Title',
-      })
-
-      expect(html).not.toContain('Zebra Quokka Title')
     },
   )
 

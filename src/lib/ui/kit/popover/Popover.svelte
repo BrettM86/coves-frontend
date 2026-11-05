@@ -12,6 +12,24 @@
     }
     return false
   }
+
+  // The most recent click seen on its way down, so a popover opened by a
+  // click elsewhere (not on its trigger) can ignore that same click when it
+  // bubbles up to the document.
+  let latestClick: Event | undefined
+  let watchingClicks = false
+
+  function watchClicks(): void {
+    if (watchingClicks) return
+    watchingClicks = true
+    document.addEventListener(
+      'click',
+      (event) => {
+        latestClick = event
+      },
+      { capture: true },
+    )
+  }
 </script>
 
 <script lang="ts">
@@ -110,34 +128,7 @@
     const mouseleave = () => openOnHover && toggle(false)
     const focus = () => openOnHover && !restoringTriggerFocus && toggle(true)
     const focusout = () => openOnHover && toggle(false)
-    const click = () => {
-      toggle()
-
-      if (autoClose) {
-        const clickHandler = (event: Event) => {
-          if (!e) return
-
-          const target = event.target as Element | null
-
-          // A nested popover renders in its own portal, outside this panel.
-          // Clicks inside it belong to it, so they must not close this one too.
-          const nested =
-            popoverEl != null &&
-            opensFrom(
-              target?.closest('[data-popover-panel]') ?? null,
-              popoverEl,
-            )
-
-          if (!e?.contains(event.target as Element | null) && !nested) {
-            if (target?.closest("[data-autoclose='false']") == null) {
-              toggle(false)
-              document.removeEventListener('click', clickHandler)
-            }
-          }
-        }
-        document.addEventListener('click', clickHandler)
-      }
-    }
+    const click = () => toggle()
     e.addEventListener('mouseover', mouseover)
     e.addEventListener('mouseleave', mouseleave)
     e.addEventListener('focus', focus)
@@ -158,6 +149,38 @@
 
   $effect(() => {
     if (popoverEl && triggerEl) panelTriggers.set(popoverEl, triggerEl)
+  })
+
+  // The outside-click listener follows `open`, not the trigger's click, so a
+  // popover opened programmatically (Search opens on typing) closes on an
+  // outside click too.
+  $effect(() => {
+    watchClicks()
+    if (!open || !autoClose) return
+
+    const openingClick = latestClick
+    const clickHandler = (event: Event) => {
+      if (event === openingClick) return
+      const trigger = triggerEl
+      if (!trigger) return
+
+      const target = event.target as Element | null
+
+      // A nested popover renders in its own portal, outside this panel.
+      // Clicks inside it belong to it, so they must not close this one too.
+      const nested =
+        popoverEl != null &&
+        opensFrom(target?.closest('[data-popover-panel]') ?? null, popoverEl)
+
+      if (trigger.contains(target) || nested) return
+      if (target?.closest("[data-autoclose='false']") != null) return
+
+      trigger.focus()
+      open = false
+    }
+
+    document.addEventListener('click', clickHandler)
+    return () => document.removeEventListener('click', clickHandler)
   })
 
   function onkeydown(event: KeyboardEvent): void {

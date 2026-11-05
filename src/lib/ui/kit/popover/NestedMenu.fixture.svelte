@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Menu, MenuButton, Option, Select } from '$lib/ui/kit'
+  import { Menu, MenuButton, Option, Popover, Select } from '$lib/ui/kit'
 
   interface Props {
     value?: string
@@ -8,6 +8,8 @@
 
   let { value = $bindable('system'), size = $bindable('small') }: Props =
     $props()
+
+  let externalOpen = $state(false)
 </script>
 
 <Menu>
@@ -31,3 +33,10 @@
   </Select>
 </Menu>
 <button>Outside</button>
+<button onclick={() => (externalOpen = true)}>Open from elsewhere</button>
+<Popover bind:open={externalOpen}>
+  {#snippet target(attachment)}
+    <button {@attach attachment}>External trigger</button>
+  {/snippet}
+  <p data-testid="external-panel">External panel</p>
+</Popover>

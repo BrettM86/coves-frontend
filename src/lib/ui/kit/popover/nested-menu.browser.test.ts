@@ -112,3 +112,25 @@ describe('nested menus', () => {
     expect(openMenus()).toBe(0)
   })
 })
+
+describe('popover opened from outside its trigger', () => {
+  it('stays open after the opening click and closes on the next outside click', async () => {
+    const panel = () =>
+      document.body.querySelector('[data-testid="external-panel"]')
+
+    // A real click runs a microtask checkpoint after each listener, so
+    // Svelte's effects flush before the click reaches the document. A
+    // scripted click() does not, so flush from a body listener, which runs
+    // after Svelte's delegated handler on the mount target.
+    const flushMidDispatch = () => client.flushSync()
+    document.body.addEventListener('click', flushMidDispatch)
+    await click('Open from elsewhere')
+    document.body.removeEventListener('click', flushMidDispatch)
+
+    expect(panel()).not.toBeNull()
+
+    await click('Outside')
+
+    expect(panel()).toBeNull()
+  })
+})

@@ -63,13 +63,13 @@
     children,
     onselect,
     oninput,
+    onkeydown,
     onerror,
     ...rest
   }: Props<T> = $props()
 
   const debounceFunc = debounce(async () => {
     searching = true
-    openMenu = true
     searchError = undefined
     try {
       items = await search(query)
@@ -100,10 +100,26 @@
             debounceFunc()
           }}
           onfocus={(e) => {
+            // Focus only prefetches results. The menu opens from a click on
+            // the input (the Popover trigger toggle) or from typing; opening
+            // on focus would reopen it whenever the Popover or its focus trap
+            // hands focus back to the input on close.
             searching = true
-            openMenu = true
             oninput?.(e)
             debounceFunc()
+          }}
+          onkeydown={(e) => {
+            // ArrowDown opens the results from the keyboard, the way a click
+            // on the input does. Focus usually prefetched them already.
+            if (e.key === 'ArrowDown' && !openMenu) {
+              e.preventDefault()
+              if (!searching && items.length == 0 && !searchError) {
+                searching = true
+                debounceFunc()
+              }
+              openMenu = true
+            }
+            onkeydown?.(e)
           }}
           {required}
           {...rest}

@@ -164,6 +164,32 @@ describe('PostGallery tile size', () => {
   })
 })
 
+// Before hydration, the offscreen neighbour page must already be out of the
+// tab order, or keyboard focus scrolls the clipped strip sideways.
+describe('PostGallery pages in the server render', () => {
+  it('marks the second page of a 6-image gallery inert in the markup', () => {
+    const images = Array.from({ length: 6 }, (_, n) => ({
+      ...lake,
+      fullsize: `https://img.coves.test/img/content_full/plain/did:plc:a/i${n}`,
+      alt: `Image ${n + 1}`,
+    }))
+    const document = new JSDOM(render(PostGallery, { props: { images } }).body)
+      .window.document
+    const tileButton = (name: string): Element | undefined =>
+      [...document.querySelectorAll('[data-gallery-tile] [aria-label]')].find(
+        (element) => element.getAttribute('aria-label') === name,
+      )
+
+    for (const name of ['Image 5', 'Image 6']) {
+      const tile = tileButton(name)
+      expect(tile, `${name} is rendered`).toBeDefined()
+      expect(tile?.closest('[inert]'), `${name} is inert`).not.toBeNull()
+    }
+    for (const name of ['Image 1', 'Image 4'])
+      expect(tileButton(name)?.closest('[inert]')).toBeNull()
+  })
+})
+
 describe('PostGallery in a feed card', () => {
   const feedDocument = (images: EmbedImage[], blur = false): Document =>
     new JSDOM(render(PostGallery, { props: { images, feed: true, blur } }).body)

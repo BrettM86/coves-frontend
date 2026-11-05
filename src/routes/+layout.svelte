@@ -87,7 +87,12 @@
     })
 
     $effect(() => {
-      document.documentElement.setAttribute('style', theme.vars)
+      // Replacing the inline style must keep an open lightbox's scroll lock.
+      const html = document.documentElement
+      const { overflow, scrollbarGutter } = html.style
+      html.setAttribute('style', theme.vars)
+      html.style.overflow = overflow
+      html.style.scrollbarGutter = scrollbarGutter
     })
 
     $effect(() => {

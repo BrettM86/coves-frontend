@@ -7,7 +7,6 @@
     UIEventHandler,
   } from 'svelte/elements'
   import { scrollY } from 'svelte/reactivity/window'
-  import InvertedCorner from './InvertedCorner.svelte'
 
   interface Props extends HTMLAttributes<HTMLDivElement> {
     children?: Snippet
@@ -38,14 +37,6 @@
 {@render children?.()}
 <div class="min-h-screen flex flex-col">
   <div class={['shell-navbar-holder', !dockVisible && 'max-md:-bottom-24!']}>
-    <div class="md:hidden flex justify-between" dir="ltr">
-      <InvertedCorner
-        class="dock-corner w-8 h-8 text-slate-50 dark:text-zinc-950 rotate-270"
-      />
-      <InvertedCorner
-        class="dock-corner w-8 h-8 text-slate-50 dark:text-zinc-950 rotate-180"
-      />
-    </div>
     {@render navbar?.({
       class: ['shell-navbar', 'page-band'],
     })}
@@ -106,15 +97,11 @@
   }
 
   /* Under Coves the navbar is the page surface, opaque so content scrolls
-     under it unseen, and the dock's corners take the same base colour.
+     under it unseen.
      .page-band is in the selector only to outrank the dark rules above. */
   :global(html[data-grain]) .shell-navbar-holder {
     :global(.shell-navbar.page-band) {
       background-color: var(--page-base);
-    }
-
-    :global(.dock-corner) {
-      color: var(--page-base);
     }
   }
 

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { get } from 'svelte/store'
 import type { EmbedImage } from '$lib/api/coves/types'
 import { shownModal } from '$lib/ui/kit/modal/modal'
+import { touchDriver, useTouchEnvironment } from './touch-test-helpers'
 
 const { showImage } = vi.hoisted(() => ({ showImage: vi.fn() }))
 
@@ -130,11 +131,14 @@ function photos(count: number): EmbedImage[] {
   return Array.from({ length: count }, (_, index) => photo(index + 1))
 }
 
-/** Each tile is the box that reserves its space with an inline aspect-ratio. */
+/**
+ * Each tile of the current page is the box that reserves its space with an
+ * inline aspect-ratio. Neighbouring pages may be rendered too, but `inert`.
+ */
 function tiles(): HTMLElement[] {
   const found = [
     ...target.querySelectorAll<HTMLElement>('[style*="aspect-ratio"]'),
-  ]
+  ].filter((tile) => !tile.closest('[inert]'))
   if (found.length === 0) throw new Error('PostGallery rendered no tile')
   return found
 }
@@ -474,10 +478,19 @@ describe('PostGallery pages of four', () => {
     fullsize: `https://img.coves.test/img/content_full/plain/did:plc:a/i${n}`,
     alt: `Image ${n + 1}`,
   }))
+  /** Every rendered tile's open button, on any page. */
+  const allTileButtons = (): HTMLElement[] => [
+    ...target.querySelectorAll<HTMLElement>(
+      '[data-gallery-tile] [aria-label^="Image "]',
+    ),
+  ]
+  /** The open buttons of the current page: the one page that is not inert. */
+  const currentTileButtons = (): HTMLElement[] =>
+    allTileButtons().filter((tile) => !tile.closest('[inert]'))
   const tileNames = (): string[] =>
-    [...target.querySelectorAll('.grid [aria-label]')]
-      .map((tile) => tile.getAttribute('aria-label') ?? '')
-      .filter((name) => name.startsWith('Image '))
+    currentTileButtons().map((tile) => tile.getAttribute('aria-label') ?? '')
+  const tileButton = (name: string): HTMLElement | undefined =>
+    allTileButtons().find((tile) => tile.getAttribute('aria-label') === name)
   const button = (name: string): HTMLButtonElement | undefined =>
     [...target.querySelectorAll('button')].find(
       (element) => element.getAttribute('aria-label') === name,
@@ -514,9 +527,9 @@ describe('PostGallery pages of four', () => {
 
     button('Next images')?.click()
     client.flushSync()
-    ;(
-      target.querySelector('.grid [aria-label="Image 6"]') as HTMLElement
-    ).click()
+    currentTileButtons()
+      .find((tile) => tile.getAttribute('aria-label') === 'Image 6')
+      ?.click()
 
     expect(showImage).toHaveBeenCalledWith(expect.any(Array), 5)
   })
@@ -526,6 +539,482 @@ describe('PostGallery pages of four', () => {
 
     expect(dots()).toBeNull()
     expect(button('Next images')).toBeUndefined()
+  })
+
+  describe('touch swipe', () => {
+    const six = seven.slice(0, 6)
+    const PAGE_ONE = ['Image 1', 'Image 2', 'Image 3', 'Image 4']
+    const PAGE_TWO = ['Image 5', 'Image 6']
+
+    useTouchEnvironment()
+    const { pointer, drag, swipe } = touchDriver(() => client.flushSync())
+
+    // jsdom has no layout, so every width reads 0. The swipe commits past half
+    // the gallery's width, so give every element a 400px width for the test.
+    // The getters are stubbed on the prototypes, not on one element, so the
+    // test does not depend on which element or which property (clientWidth,
+    // offsetWidth or getBoundingClientRect().width) the gallery reads.
+    const WIDTH = 400
+    /**
+     * The displayed width getBoundingClientRect() reports. Under CSS `zoom`
+     * it differs from clientWidth: feed posts render at `zoom: 0.9`, where a
+     * 400px gallery displays 360px wide and pointer clientX deltas are in
+     * displayed px. A test may change it before mounting.
+     */
+    let rectWidth = WIDTH
+    beforeEach(() => {
+      rectWidth = WIDTH
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(
+        WIDTH,
+      )
+      vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(
+        WIDTH,
+      )
+      vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
+        () => new DOMRect(0, 0, rectWidth, 300),
+      )
+    })
+    afterEach(() => {
+      vi.restoreAllMocks()
+      rectWidth = WIDTH
+    })
+
+    /** The open button of the first tile now shown, where the finger lands. */
+    function firstTile(): HTMLElement {
+      const [found] = currentTileButtons()
+      if (!found) throw new Error('PostGallery rendered no tile button')
+      return found
+    }
+
+    /** Top-level parts of a CSS value, split on `separator` outside parentheses. */
+    function topLevel(value: string, separator: RegExp): string[] {
+      const parts: string[] = []
+      let depth = 0
+      let part = ''
+      for (const char of value) {
+        if (char === '(') depth++
+        if (char === ')') depth--
+        if (depth === 0 && separator.test(char)) {
+          if (part.trim()) parts.push(part.trim())
+          part = ''
+        } else part += char
+      }
+      if (part.trim()) parts.push(part.trim())
+      return parts
+    }
+
+    /**
+     * A horizontal length such as `-120px`, `-100%` or
+     * `calc(-100% - 120px)` in px, with % taken of one 400px page.
+     */
+    function toPixels(length: string): number {
+      const terms = length
+        .replace(/^calc\((.*)\)$/, '$1')
+        .replace(/\s-\s/g, ' + -')
+        .replace(/--/g, '')
+        .split(/\s\+\s/)
+      let total = 0
+      for (const term of terms) {
+        const match = /^(-?\d*\.?\d+)(px|%)?$/.exec(term.trim())
+        if (!match) throw new Error(`Cannot read the length "${length}"`)
+        const amount = Number(match[1])
+        total += match[2] === '%' ? (amount / 100) * WIDTH : amount
+      }
+      return total
+    }
+
+    /**
+     * The strip's horizontal offset in px: the inline transform or translate
+     * of the innermost element holding every rendered tile. 0 is the first
+     * page at rest, -400 the second.
+     */
+    function stripOffset(): number {
+      const rendered = [...target.querySelectorAll('[data-gallery-tile]')]
+      const strip = [...target.querySelectorAll<HTMLElement>('*')]
+        .filter(
+          (element) =>
+            (element.style.transform || element.style.translate) &&
+            rendered.every((tile) => element.contains(tile)),
+        )
+        .at(-1)
+      if (!strip) throw new Error('No tile strip with an inline offset')
+      const { transform, translate } = strip.style
+      if (transform && transform !== 'none') {
+        const call = /translate(?:X|3d)?\((.*)\)/.exec(transform)
+        if (!call) throw new Error(`Cannot read the transform "${transform}"`)
+        return toPixels(topLevel(call[1], /,/)[0])
+      }
+      if (translate && translate !== 'none')
+        return toPixels(topLevel(translate, /\s/)[0])
+      return 0
+    }
+
+    // 250px: past half the 400px width, so these page however slowly.
+    const LEFT = { from: [350, 100], to: [100, 100] } as const
+    const RIGHT = { from: [100, 100], to: [350, 100] } as const
+
+    async function mountOnPage(page: 1 | 2): Promise<void> {
+      await mountGallery({ images: six })
+      if (page === 2) {
+        button('Next images')?.click()
+        client.flushSync()
+      }
+      expect(tileNames()).toEqual(page === 1 ? PAGE_ONE : PAGE_TWO)
+    }
+
+    it.each<{
+      name: string
+      page: 1 | 2
+      from: readonly [number, number]
+      to: readonly [number, number]
+      pointerType?: string
+      shown: string[]
+      dots: string
+    }>([
+      // Change expected.
+      {
+        name: 'swipe left pages on',
+        page: 1,
+        ...LEFT,
+        shown: PAGE_TWO,
+        dots: 'Page 2 of 2',
+      },
+      {
+        name: 'swipe right pages back',
+        page: 2,
+        ...RIGHT,
+        shown: PAGE_ONE,
+        dots: 'Page 1 of 2',
+      },
+      // Guard rows: no change expected.
+      {
+        name: 'swipe right on the first page stays',
+        page: 1,
+        ...RIGHT,
+        shown: PAGE_ONE,
+        dots: 'Page 1 of 2',
+      },
+      {
+        name: 'swipe left on the last page stays',
+        page: 2,
+        ...LEFT,
+        shown: PAGE_TWO,
+        dots: 'Page 2 of 2',
+      },
+      {
+        name: 'a vertical touch move does not page',
+        page: 1,
+        from: [150, 50],
+        to: [150, 170],
+        shown: PAGE_ONE,
+        dots: 'Page 1 of 2',
+      },
+      {
+        name: 'a mouse drag does not page',
+        page: 1,
+        ...LEFT,
+        pointerType: 'mouse',
+        shown: PAGE_ONE,
+        dots: 'Page 1 of 2',
+      },
+    ])('$name', async ({ page, from, to, pointerType, shown, dots: label }) => {
+      await mountOnPage(page)
+
+      swipe(firstTile(), { from: [...from], to: [...to], pointerType })
+
+      expect(tileNames()).toEqual(shown)
+      expect(dots()?.getAttribute('aria-label')).toBe(label)
+    })
+
+    it('swallows the click after a swipe, but not a later tap', async () => {
+      await mountOnPage(1)
+
+      swipe(firstTile(), { from: [...LEFT.from], to: [...LEFT.to] })
+      firstTile().click()
+      client.flushSync()
+      expect(showImage).not.toHaveBeenCalled()
+
+      const tile = firstTile()
+      pointer(tile, 'pointerdown', { at: [100, 100] })
+      vi.advanceTimersByTime(80)
+      pointer(tile, 'pointerup', { at: [100, 100] })
+      tile.click()
+      expect(showImage).toHaveBeenCalledWith(expect.any(Array), 4)
+    })
+
+    // A real browser usually sends no click after a moved touch, so the next
+    // click may come from Enter or a screen reader, with no touch before it.
+    it('opens on a later click with no touch before it, after a swipe that sent no click', async () => {
+      await mountOnPage(1)
+
+      swipe(firstTile(), { from: [...LEFT.from], to: [...LEFT.to] })
+      expect(tileNames()).toEqual(PAGE_TWO)
+      vi.advanceTimersByTime(1000)
+
+      firstTile().click()
+      client.flushSync()
+      expect(showImage).toHaveBeenCalledWith(expect.any(Array), 4)
+    })
+
+    it('drops a swipe cancelled midway, and the next swipe still pages', async () => {
+      await mountOnPage(1)
+
+      const tile = firstTile()
+      pointer(tile, 'pointerdown', { at: [200, 100] })
+      vi.advanceTimersByTime(100)
+      pointer(tile, 'pointermove', { at: [150, 100] })
+      pointer(tile, 'pointercancel', { at: [150, 100] })
+      pointer(tile, 'pointermove', { at: [100, 100] })
+      pointer(tile, 'pointerup', { at: [100, 100] })
+      expect(tileNames()).toEqual(PAGE_ONE)
+
+      swipe(firstTile(), { from: [...LEFT.from], to: [...LEFT.to] })
+      expect(tileNames()).toEqual(PAGE_TWO)
+    })
+
+    it('drops a swipe when a second finger lands, and the next swipe still pages', async () => {
+      await mountOnPage(1)
+
+      const tile = firstTile()
+      pointer(tile, 'pointerdown', { at: [200, 100], pointerId: 1 })
+      pointer(tile, 'pointerdown', { at: [250, 150], pointerId: 2 })
+      vi.advanceTimersByTime(100)
+      pointer(tile, 'pointermove', { at: [150, 100], pointerId: 1 })
+      vi.advanceTimersByTime(100)
+      pointer(tile, 'pointermove', { at: [100, 100], pointerId: 1 })
+      pointer(tile, 'pointerup', { at: [100, 100], pointerId: 1 })
+      pointer(tile, 'pointerup', { at: [250, 150], pointerId: 2 })
+      expect(tileNames()).toEqual(PAGE_ONE)
+
+      swipe(firstTile(), { from: [...LEFT.from], to: [...LEFT.to] })
+      expect(tileNames()).toEqual(PAGE_TWO)
+    })
+
+    it('follows a held finger without paging, with the next page already rendered', async () => {
+      await mountOnPage(1)
+
+      // 120px over a second: slow, and short of half the width.
+      drag(firstTile(), { from: [300, 100], to: [180, 100], ms: 1000 })
+
+      expect(stripOffset()).toBe(-120)
+      expect(tileNames()).toEqual(PAGE_ONE)
+      expect(dots()?.getAttribute('aria-label')).toBe('Page 1 of 2')
+      const next = tileButton('Image 5')
+      expect(next).toBeDefined()
+      expect(next?.closest('[inert]')).not.toBeNull()
+    })
+
+    it.each<{
+      name: string
+      from: [number, number]
+      to: [number, number]
+      ms: number
+      shown: string[]
+      dots: string
+      rest: number
+    }>([
+      {
+        name: 'a slow release short of half the width springs back',
+        from: [300, 100],
+        to: [180, 100],
+        ms: 1000,
+        shown: PAGE_ONE,
+        dots: 'Page 1 of 2',
+        rest: 0,
+      },
+      {
+        name: 'a slow release past half the width pages on',
+        from: [300, 100],
+        to: [80, 100],
+        ms: 1000,
+        shown: PAGE_TWO,
+        dots: 'Page 2 of 2',
+        rest: -400,
+      },
+      {
+        name: 'a short quick flick pages on',
+        from: [300, 100],
+        to: [240, 100],
+        ms: 80,
+        shown: PAGE_TWO,
+        dots: 'Page 2 of 2',
+        rest: -400,
+      },
+    ])('$name', async ({ from, to, ms, shown, dots: label, rest }) => {
+      await mountOnPage(1)
+
+      swipe(firstTile(), { from, to, ms })
+
+      expect(tileNames()).toEqual(shown)
+      expect(dots()?.getAttribute('aria-label')).toBe(label)
+      expect(stripOffset()).toBe(rest)
+    })
+
+    it('follows the finger and pages past half the displayed width inside a zoomed feed', async () => {
+      // zoom: 0.9 — displayed 360px, local 400px.
+      rectWidth = 360
+      await mountOnPage(1)
+
+      // 190px of displayed movement over a second: slow, past half of 360
+      // but short of half of 400.
+      drag(firstTile(), { from: [300, 100], to: [110, 100], ms: 1000 })
+
+      // 190 displayed px are 190 / 0.9 ≈ 211 local px.
+      const offset = stripOffset()
+      expect(offset).toBeGreaterThanOrEqual(-213)
+      expect(offset).toBeLessThanOrEqual(-209)
+      expect(tileNames()).toEqual(PAGE_ONE)
+
+      pointer(firstTile(), 'pointerup', { at: [110, 100] })
+      expect(tileNames()).toEqual(PAGE_TWO)
+      expect(dots()?.getAttribute('aria-label')).toBe('Page 2 of 2')
+    })
+
+    it('resists a drag past the first page and stays on it', async () => {
+      await mountOnPage(1)
+
+      drag(firstTile(), { from: [50, 100], to: [350, 100], ms: 1500 })
+      const offset = stripOffset()
+      expect(offset).toBeGreaterThan(0)
+      expect(offset).toBeLessThan(300)
+
+      pointer(firstTile(), 'pointerup', { at: [350, 100] })
+      expect(tileNames()).toEqual(PAGE_ONE)
+      expect(dots()?.getAttribute('aria-label')).toBe('Page 1 of 2')
+      expect(stripOffset()).toBe(0)
+    })
+
+    it.each<{ page: 1 | 2; current: string[]; neighbour: string[] }>([
+      { page: 1, current: PAGE_ONE, neighbour: PAGE_TWO },
+      { page: 2, current: PAGE_TWO, neighbour: PAGE_ONE },
+    ])(
+      'leaves only page $page out of inert, its neighbour hidden',
+      async ({ page, current, neighbour }) => {
+        await mountOnPage(page)
+
+        for (const name of current)
+          expect(tileButton(name)?.closest('[inert]')).toBeNull()
+        for (const name of neighbour) {
+          const tile = tileButton(name)
+          expect(tile, `${name} is rendered`).toBeDefined()
+          expect(tile?.closest('[inert]')).not.toBeNull()
+          expect(tile?.closest('[aria-hidden="true"]')).not.toBeNull()
+        }
+      },
+    )
+
+    /**
+     * A drag as timed pointer moves: lands at `start`, then each step moves
+     * `dx` px over `ms`, in `moves` even pointermoves, then lifts.
+     */
+    function timedSwipe(
+      element: Element,
+      start: [number, number],
+      steps: { dx: number; ms: number; moves: number }[],
+    ): void {
+      let [x] = start
+      const y = start[1]
+      pointer(element, 'pointerdown', { at: [x, y] })
+      for (const { dx, ms, moves } of steps) {
+        for (let move = 0; move < moves; move++) {
+          vi.advanceTimersByTime(ms / moves)
+          x += dx / moves
+          pointer(element, 'pointermove', { at: [x, y] })
+        }
+      }
+      pointer(element, 'pointerup', { at: [x, y] })
+    }
+
+    // Native carousels judge a flick by the speed and direction at release,
+    // not by the average over the whole drag.
+    it.each<{
+      name: string
+      steps: { dx: number; ms: number; moves: number }[]
+      shown: string[]
+      dots: string
+    }>([
+      {
+        name: 'a slow 100px drag ending in a quick 60px flick pages on',
+        steps: [
+          { dx: -100, ms: 800, moves: 8 },
+          { dx: -60, ms: 80, moves: 2 },
+        ],
+        shown: PAGE_TWO,
+        dots: 'Page 2 of 2',
+      },
+      {
+        name: 'a slow 150px drag flicked 50px back stays',
+        steps: [
+          { dx: -150, ms: 600, moves: 6 },
+          { dx: 50, ms: 60, moves: 2 },
+        ],
+        shown: PAGE_ONE,
+        dots: 'Page 1 of 2',
+      },
+      {
+        name: 'a quick 160px drag flicked 50px back stays',
+        steps: [
+          { dx: -160, ms: 120, moves: 3 },
+          { dx: 50, ms: 60, moves: 2 },
+        ],
+        shown: PAGE_ONE,
+        dots: 'Page 1 of 2',
+      },
+    ])('$name', async ({ steps, shown, dots: label }) => {
+      await mountOnPage(1)
+
+      timedSwipe(firstTile(), [300, 100], steps)
+
+      expect(tileNames()).toEqual(shown)
+      expect(dots()?.getAttribute('aria-label')).toBe(label)
+    })
+
+    it('opens the tile on a sloppy tap that jiggles 14px sideways', async () => {
+      await mountOnPage(1)
+
+      const tile = firstTile()
+      pointer(tile, 'pointerdown', { at: [100, 100] })
+      vi.advanceTimersByTime(60)
+      pointer(tile, 'pointermove', { at: [107, 100] })
+      vi.advanceTimersByTime(60)
+      pointer(tile, 'pointermove', { at: [114, 100] })
+      pointer(tile, 'pointerup', { at: [114, 100] })
+      tile.click()
+      client.flushSync()
+
+      expect(tileNames()).toEqual(PAGE_ONE)
+      expect(showImage).toHaveBeenCalledWith(expect.any(Array), 0)
+    })
+
+    // A contact whose pointerup never reached the gallery (its target
+    // re-rendered mid-gesture) must not make every later touch a second finger.
+    it('pages on a fresh primary touch after a contact that never lifted', async () => {
+      await mountOnPage(1)
+
+      pointer(firstTile(), 'pointerdown', { at: [200, 100], pointerId: 1 })
+      vi.advanceTimersByTime(1000)
+
+      swipe(firstTile(), {
+        from: [...LEFT.from],
+        to: [...LEFT.to],
+        pointerId: 2,
+        isPrimary: true,
+      })
+
+      expect(tileNames()).toEqual(PAGE_TWO)
+      expect(dots()?.getAttribute('aria-label')).toBe('Page 2 of 2')
+    })
+
+    it('keeps the strip still on a mostly vertical drag', async () => {
+      await mountOnPage(1)
+
+      drag(firstTile(), { from: [150, 50], to: [180, 170] })
+      expect(stripOffset()).toBe(0)
+
+      pointer(firstTile(), 'pointerup', { at: [180, 170] })
+      expect(tileNames()).toEqual(PAGE_ONE)
+      expect(dots()?.getAttribute('aria-label')).toBe('Page 1 of 2')
+    })
   })
 })
 

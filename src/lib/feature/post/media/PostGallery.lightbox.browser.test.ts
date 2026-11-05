@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EmbedImage } from '$lib/api/coves/types'
+import {
+  touchDriver,
+  useTouchEnvironment,
+  useVisualViewport,
+  type Point,
+} from './touch-test-helpers'
 
 type PageState = Record<string, unknown>
 const navigation = vi.hoisted(() => ({
@@ -385,4 +391,343 @@ describe('lightbox tall image', () => {
     const image = await openMeasured(1600, 900)
     expect(image.className).toMatch(/(^|\s)max-h-/)
   })
+})
+
+/**
+ * Whether the image, or a box between it and the lightbox host, is moved by
+ * an inline translate: the image following the finger.
+ */
+function displaced(start: HTMLElement = lightboxImage()): boolean {
+  const lightbox = host('lightbox')
+  for (
+    let element: HTMLElement | null = start;
+    element && element !== lightbox;
+    element = element.parentElement
+  ) {
+    const style = element.getAttribute('style') ?? ''
+    const translates = [
+      ...style.matchAll(/translate(?:X|Y|3d)?\(([^)]*)\)/g),
+      ...style.matchAll(/(?:^|;)\s*translate\s*:\s*([^;]+)/g),
+    ]
+    for (const [, values] of translates) {
+      const numbers = values.match(/-?\d+(?:\.\d+)?/g) ?? []
+      if (numbers.some((number) => Number(number) !== 0)) return true
+    }
+  }
+  return false
+}
+
+function isOpen(): boolean {
+  return host('lightbox').querySelector('img') !== null
+}
+
+const backSpy = () => vi.mocked(window.history.back)
+
+/** Layers in the lightbox with an inline opacity below 1: a faded backdrop. */
+function fadedLayers(): HTMLElement[] {
+  return [...host('lightbox').querySelectorAll<HTMLElement>('[style]')].filter(
+    (element) => {
+      const opacity = element.style.opacity
+      return opacity !== '' && Number(opacity) < 1
+    },
+  )
+}
+
+/** The overlay itself, outside the image: where a tap lands on the backdrop. */
+function backdropLayer(): HTMLElement {
+  const overlay = host('lightbox').firstElementChild
+  if (!(overlay instanceof HTMLElement)) throw new Error('No lightbox overlay')
+  const image = lightboxImage()
+  const layer = [...overlay.children].find(
+    (child): child is HTMLElement =>
+      child instanceof HTMLElement && !child.contains(image),
+  )
+  return layer ?? overlay
+}
+
+describe('lightbox touch dismiss', () => {
+  useTouchEnvironment()
+  const { pointer, drag, swipe } = touchDriver(() => client.flushSync())
+
+  const DOWN = { from: [200, 200], to: [200, 350] } as const
+  const UP = { from: [200, 350], to: [200, 200] } as const
+
+  async function openOne(): Promise<HTMLImageElement> {
+    await mountHarness(photos(3))
+    await openTile(2)
+    backSpy().mockClear()
+    return lightboxImage()
+  }
+
+  it.each<{ name: string; from: Point; to: Point }>([
+    { name: 'a swipe down', from: [...DOWN.from], to: [...DOWN.to] },
+    { name: 'a swipe up', from: [...UP.from], to: [...UP.to] },
+  ])(
+    '$name moves the image with the finger and closes with one Back, trailing click included',
+    async ({ from, to }) => {
+      const image = await openOne()
+      expect(displaced()).toBe(false)
+
+      drag(image, { from, to })
+      expect(displaced()).toBe(true)
+
+      pointer(image, 'pointerup', { at: to })
+      await settle()
+      expect(backSpy()).toHaveBeenCalledTimes(1)
+
+      image.click()
+      await settle()
+      expect(backSpy()).toHaveBeenCalledTimes(1)
+      expect(isOpen()).toBe(false)
+      expect(navigation.index()).toBe(0)
+    },
+  )
+
+  it.each<{ name: string; from: Point; to: Point }>([
+    { name: 'a swipe down', from: [...DOWN.from], to: [...DOWN.to] },
+    { name: 'a swipe up', from: [...UP.from], to: [...UP.to] },
+  ])(
+    '$name on the unavailable placeholder moves it with the finger and closes with one Back',
+    async ({ from, to }) => {
+      const image = await openOne()
+      image.dispatchEvent(new Event('error'))
+      await settle()
+
+      const label = [...host('lightbox').querySelectorAll('span')].find(
+        (span) => span.textContent?.trim() === UNAVAILABLE,
+      )
+      const placeholder = label?.parentElement
+      if (!placeholder) throw new Error('The lightbox shows no placeholder')
+      expect(displaced(placeholder)).toBe(false)
+
+      drag(placeholder, { from, to })
+      expect(displaced(placeholder)).toBe(true)
+
+      pointer(placeholder, 'pointerup', { at: to })
+      await settle()
+      expect(backSpy()).toHaveBeenCalledTimes(1)
+      expect(host('lightbox').textContent).not.toContain(UNAVAILABLE)
+      expect(navigation.index()).toBe(0)
+    },
+  )
+
+  // A real browser sends no click after a touch that moved, so none is sent.
+  it('stays open and returns to rest after a slow 20px drag', async () => {
+    const image = await openOne()
+
+    swipe(image, { from: [200, 200], to: [200, 220], ms: 600 })
+    await settle()
+
+    expect(isOpen()).toBe(true)
+    expect(backSpy()).not.toHaveBeenCalled()
+    expect(displaced()).toBe(false)
+  })
+
+  it('returns to rest and stays open when the touch is cancelled', async () => {
+    const image = await openOne()
+
+    pointer(image, 'pointerdown', { at: [200, 200] })
+    vi.advanceTimersByTime(100)
+    pointer(image, 'pointermove', { at: [200, 300] })
+    expect(displaced()).toBe(true)
+    pointer(image, 'pointercancel', { at: [200, 300] })
+    await settle()
+
+    expect(isOpen()).toBe(true)
+    expect(backSpy()).not.toHaveBeenCalled()
+    expect(displaced()).toBe(false)
+  })
+
+  it('stays open at rest when a second finger lands during the drag', async () => {
+    const image = await openOne()
+
+    pointer(image, 'pointerdown', { at: [200, 200], pointerId: 1 })
+    vi.advanceTimersByTime(50)
+    pointer(image, 'pointermove', { at: [200, 250], pointerId: 1 })
+    expect(displaced()).toBe(true)
+    pointer(image, 'pointerdown', { at: [260, 260], pointerId: 2 })
+    vi.advanceTimersByTime(50)
+    pointer(image, 'pointermove', { at: [200, 300], pointerId: 1 })
+    vi.advanceTimersByTime(100)
+    pointer(image, 'pointermove', { at: [200, 350], pointerId: 1 })
+    pointer(image, 'pointerup', { at: [200, 350], pointerId: 1 })
+    pointer(image, 'pointerup', { at: [260, 260], pointerId: 2 })
+    await settle()
+
+    expect(isOpen()).toBe(true)
+    expect(backSpy()).not.toHaveBeenCalled()
+    expect(displaced()).toBe(false)
+  })
+
+  it('stays open when a second finger lands on the backdrop during the drag', async () => {
+    const image = await openOne()
+    const backdrop = backdropLayer()
+
+    pointer(image, 'pointerdown', { at: [200, 200], pointerId: 1 })
+    vi.advanceTimersByTime(50)
+    pointer(image, 'pointermove', { at: [200, 250], pointerId: 1 })
+    pointer(backdrop, 'pointerdown', { at: [20, 20], pointerId: 2 })
+    vi.advanceTimersByTime(150)
+    pointer(image, 'pointermove', { at: [200, 350], pointerId: 1 })
+    pointer(image, 'pointerup', { at: [200, 350], pointerId: 1 })
+    pointer(backdrop, 'pointerup', { at: [20, 20], pointerId: 2 })
+    await settle()
+
+    expect(isOpen()).toBe(true)
+    expect(backSpy()).not.toHaveBeenCalled()
+  })
+
+  it.each<{ name: string; close: () => Promise<void> }>([
+    { name: 'Escape', close: () => key('Escape') },
+    {
+      name: 'browser Back',
+      close: async () => {
+        navigation.back()
+        await settle()
+      },
+    },
+  ])('reopens at rest after $name closes it mid-drag', async ({ close }) => {
+    const image = await openOne()
+
+    pointer(image, 'pointerdown', { at: [200, 200] })
+    vi.advanceTimersByTime(100)
+    pointer(image, 'pointermove', { at: [200, 300] })
+    expect(displaced()).toBe(true)
+
+    await close()
+    expect(isOpen()).toBe(false)
+
+    await openTile(2)
+    expect(isOpen()).toBe(true)
+    expect(displaced()).toBe(false)
+    expect(fadedLayers()).toEqual([])
+  })
+
+  describe('pinch-zoomed page', () => {
+    useVisualViewport(2)
+
+    // Zoomed in, a vertical drag pans the zoomed view instead.
+    it('neither moves nor closes the image on a 150px drag down', async () => {
+      const image = await openOne()
+
+      drag(image, { from: [...DOWN.from], to: [...DOWN.to] })
+      expect(displaced()).toBe(false)
+      pointer(image, 'pointerup', { at: [...DOWN.to] })
+      await settle()
+
+      expect(isOpen()).toBe(true)
+      expect(backSpy()).not.toHaveBeenCalled()
+    })
+  })
+
+  // A tall image keeps native scrolling: a vertical swipe scrolls it.
+  it('does not close a tall 400x1600 image on a swipe down', async () => {
+    const image = await openOne()
+    Object.defineProperty(image, 'naturalWidth', { value: 400 })
+    Object.defineProperty(image, 'naturalHeight', { value: 1600 })
+    image.dispatchEvent(new Event('load'))
+    await settle()
+
+    swipe(lightboxImage(), { from: [...DOWN.from], to: [...DOWN.to] })
+    await settle()
+
+    expect(isOpen()).toBe(true)
+    expect(backSpy()).not.toHaveBeenCalled()
+    expect(displaced()).toBe(false)
+  })
+
+  // Long ALT text or a landscape phone can make the overlay scroll for an
+  // image that is not tall: a drag up then scrolls to read, not closes.
+  it('does not close a 1600x900 image on a drag up when the overlay scrolls', async () => {
+    const image = await openOne()
+    const overlay = host('lightbox').firstElementChild
+    if (!(overlay instanceof HTMLElement))
+      throw new Error('No lightbox overlay')
+    Object.defineProperty(overlay, 'clientHeight', {
+      configurable: true,
+      value: 800,
+    })
+    Object.defineProperty(overlay, 'scrollHeight', {
+      configurable: true,
+      value: 1200,
+    })
+    Object.defineProperty(image, 'naturalWidth', { value: 1600 })
+    Object.defineProperty(image, 'naturalHeight', { value: 900 })
+    image.dispatchEvent(new Event('load'))
+    await settle()
+
+    swipe(lightboxImage(), { from: [...UP.from], to: [...UP.to] })
+    await settle()
+
+    expect(isOpen()).toBe(true)
+    expect(backSpy()).not.toHaveBeenCalled()
+  })
+
+  it('reopens at rest after a swipe down closes it, and a slow drag then stays at rest', async () => {
+    const image = await openOne()
+
+    swipe(image, { from: [...DOWN.from], to: [...DOWN.to] })
+    await settle()
+    expect(isOpen()).toBe(false)
+
+    await openTile(3)
+    expect(isOpen()).toBe(true)
+    expect(displaced()).toBe(false)
+    expect(fadedLayers()).toEqual([])
+
+    swipe(lightboxImage(), { from: [200, 200], to: [200, 220], ms: 600 })
+    await settle()
+    expect(isOpen()).toBe(true)
+    expect(displaced()).toBe(false)
+  })
+
+  it('stays open on a 200px swipe left across the image', async () => {
+    const image = await openOne()
+
+    swipe(image, { from: [300, 200], to: [100, 200] })
+    await settle()
+
+    expect(isOpen()).toBe(true)
+    expect(backSpy()).not.toHaveBeenCalled()
+  })
+})
+
+describe('lightbox scroll lock', () => {
+  const html = document.documentElement
+  beforeEach(() => {
+    html.style.overflow = 'scroll'
+    html.style.scrollbarGutter = 'auto'
+  })
+  afterEach(() => {
+    html.style.overflow = ''
+    html.style.scrollbarGutter = ''
+  })
+
+  it.each<{ name: string; close: () => Promise<void> }>([
+    { name: 'on close', close: () => key('Escape') },
+    {
+      name: 'on unmount',
+      close: async () => {
+        if (mounted) await client.unmount(mounted, { outro: false })
+        mounted = undefined
+      },
+    },
+  ])(
+    'locks page scroll while open and restores it $name',
+    async ({ close }) => {
+      await mountHarness(photos(3))
+      expect(html.style.overflow).toBe('scroll')
+
+      await openTile(1)
+      expect(html.style.overflow).toBe('hidden')
+
+      await press(/next/i)
+      expect(html.style.overflow).toBe('hidden')
+
+      await close()
+      await settle()
+      expect(html.style.overflow).toBe('scroll')
+      expect(html.style.scrollbarGutter).toBe('auto')
+    },
+  )
 })

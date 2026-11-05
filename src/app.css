@@ -93,10 +93,12 @@ body {
 }
 
 /* The Coves default's page surface: a pre-rendered noise tile over the page
-   colour, scrolling with the page. hooks.server.ts and theme-boot.js keep
-   data-grain on <html> only while Coves is the selected theme. Opaque bands
-   that sit on the page (.page-band: the page header, the navbar) paint the
-   same surface so they carry no seam against it. */
+   colour. On the body it is fixed, so the side panels stay still; the feed
+   column (Shell.svelte) paints its own copy, which scrolls. hooks.server.ts
+   and theme-boot.js keep data-grain on <html> only while Coves is the
+   selected theme. Opaque bands that sit on the page (.page-band: the page
+   header, the navbar) paint the same surface so they carry no seam against
+   it. */
 html[data-grain] {
   --page-base: var(--color-slate-50);
   --page-grain: url('./lib/assets/grain.webp');
@@ -111,11 +113,21 @@ html.dark[data-grain] {
   }
 }
 
+/* A background on <html> keeps the body's from moving to the canvas, so the
+   body paints above app.html's z-index:-50 boot splash and hides it once the
+   app has content. */
+html[data-grain] {
+  background-color: var(--page-base);
+}
+
 html[data-grain] :is(body, .page-band) {
   background-color: var(--page-base);
   background-image: var(--page-grain);
   background-repeat: repeat;
-  background-attachment: scroll;
+}
+
+html[data-grain] body {
+  background-attachment: fixed;
 }
 
 .dark {

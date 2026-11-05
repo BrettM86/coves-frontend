@@ -212,11 +212,16 @@
     }
   }
 
-  /* Under Coves the body's base colour and grain are the page surface: the
-     panels let it through and keep their borders. */
-  :global(html[data-grain])
-    .shell-content
-    :global(:is(.shell-main, .shell-aside)) {
+  /* Under Coves the side panels let the body's fixed grain through and keep
+     their borders; the feed column carries its own grain, which scrolls with
+     the posts. */
+  :global(html[data-grain]) .shell-content :global(.shell-aside) {
     background-color: transparent;
+  }
+
+  :global(html[data-grain]) .shell-content :global(.shell-main) {
+    background-color: var(--page-base);
+    background-image: var(--page-grain);
+    background-repeat: repeat;
   }
 </style>

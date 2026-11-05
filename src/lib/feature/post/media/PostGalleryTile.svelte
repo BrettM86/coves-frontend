@@ -185,7 +185,7 @@
       type="button"
       onclick={() =>
         modal({ title: $t('post.image.altTitle'), body: image.alt ?? '' })}
-      class="absolute bottom-2 right-2 cursor-pointer rounded-[9px] bg-[#222]/90 px-2.5 py-1.5 text-[14px] font-bold leading-none tracking-wide text-white transition-colors hover:bg-[#222] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      class="absolute bottom-2 right-2 cursor-pointer rounded-[7px] bg-[#222]/90 px-[7.5px] py-[4.5px] text-[10.5px] font-bold leading-none tracking-wide text-white transition-colors hover:bg-[#222] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
     >
       {$t('post.image.altBadge')}
     </button>

@@ -79,7 +79,7 @@
         width={800}
         height={800}
         src={url}
-        class="max-w-full mx-auto my-auto overscroll-contain bg-white dark:bg-zinc-900"
+        class="max-w-full max-h-svh w-auto h-auto object-contain mx-auto my-auto overscroll-contain bg-white dark:bg-zinc-900"
         transition:scale={{ start: 1.04, easing: backOut, duration: 250 }}
         alt={current.alt ?? ''}
         onerror={() => failed.add(url)}

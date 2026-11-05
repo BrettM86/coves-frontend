@@ -86,5 +86,9 @@ describe('PostIframe play button', () => {
     expect(frames[0]?.getAttribute('src')).toBe(
       'https://streamable.com/e/abc123?autoplay=1',
     )
+    // Only the unopened preview is 2:1; the player goes back to 16:9.
+    expect(
+      target.querySelector('.iframe-container')?.classList.contains('preview'),
+    ).toBe(false)
   })
 })

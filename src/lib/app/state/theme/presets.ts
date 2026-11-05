@@ -3,10 +3,11 @@ import { log } from '$lib/app/util/log'
 import { parseThemeImport } from './colors'
 import type { Theme, ThemeColors } from './theme.svelte'
 
-const KELP_DEFAULT = {
+/** The original Kelp palette, kept as the Mono preset (id -10). */
+const MONO_COLORS = {
   slate: {
     25: '252 253 254',
-    50: '253 252 250',
+    50: '248 250 252',
     100: '241 245 249',
     200: '226 232 240',
     300: '203 213 225',
@@ -15,12 +16,12 @@ const KELP_DEFAULT = {
     600: '71 85 105',
     700: '51 65 85',
     800: '30 41 59',
-    900: '26 26 28',
+    900: '15 23 42',
     950: '2 6 23',
   },
   zinc: {
     '50': '252 252 254',
-    '100': '255 248 240',
+    '100': '248 248 251',
     '200': '235 235 240',
     '300': '222 222 228',
     '400': '175 175 185',
@@ -30,7 +31,7 @@ const KELP_DEFAULT = {
     '800': '47 47 54',
     '900': '34 34 39',
     '925': '28 28 32',
-    '950': '15 15 16',
+    '950': '25 25 29',
   },
   primary: {
     100: '241 245 249',
@@ -42,23 +43,30 @@ const KELP_DEFAULT = {
   },
 }
 
-/** Fresh deep copy of the Kelp colours, so callers never mutate KELP_DEFAULT. */
-function kelpColors(): ThemeColors {
-  return JSON.parse(JSON.stringify(KELP_DEFAULT))
+/** Mono with the Coves page and ink: the default theme without PUBLIC_THEME. */
+const COVES_COLORS = {
+  ...MONO_COLORS,
+  slate: { ...MONO_COLORS.slate, 50: '253 252 250', 900: '26 26 28' },
+  zinc: { ...MONO_COLORS.zinc, '100': '255 248 240', '950': '15 15 16' },
+}
+
+/** A fresh deep copy, so callers never mutate the palette constants. */
+function copyColors(colors: ThemeColors): ThemeColors {
+  return JSON.parse(JSON.stringify(colors))
 }
 
 /**
  * PUBLIC_THEME takes either format the theme page exports or imports — the
  * named `{ name, colors }` export or the legacy colours-only object — filled
- * in from Kelp. Parsed once at import; an invalid value falls back to Kelp
+ * in from Mono. Parsed once at import; an invalid value falls back to Coves
  * rather than throwing, since this runs at module init.
  */
 function parseInstanceColors(text: string | undefined): ThemeColors | null {
   if (!text) return null
-  const result = parseThemeImport(text, kelpColors())
+  const result = parseThemeImport(text, copyColors(MONO_COLORS))
   if (result.ok) return result.colors
   log.warn(
-    '[theme] ignoring invalid PUBLIC_THEME, using the Kelp default',
+    '[theme] ignoring invalid PUBLIC_THEME, using the Coves default',
     undefined,
     { error: result.error },
   )
@@ -68,29 +76,27 @@ function parseInstanceColors(text: string | undefined): ThemeColors | null {
 const instanceColors = parseInstanceColors(env.PUBLIC_THEME)
 
 /**
- * Whether the default theme (id 0) is Mono, the one theme that draws the page
- * grain. hooks.server.ts stamps data-grain on <html> from this.
+ * Whether the default theme (id 0) is Coves, the one theme that draws the
+ * page grain. hooks.server.ts stamps data-grain on <html> from this.
  */
-export const defaultThemeIsMono = instanceColors === null
+export const defaultThemeIsCoves = instanceColors === null
 
 /** A fresh copy on every call: themes built from it must not share objects. */
 export function getDefaultColors(): ThemeColors {
-  return instanceColors
-    ? JSON.parse(JSON.stringify(instanceColors))
-    : kelpColors()
+  return copyColors(instanceColors ?? COVES_COLORS)
 }
 
 export function getDefaultTheme(): Theme {
   return {
     id: 0,
     colors: getDefaultColors(),
-    name: instanceColors ? 'Instance Default' : 'Mono',
+    name: instanceColors ? 'Instance Default' : 'Coves',
   }
 }
 
 export const presets: Theme[] = [
   getDefaultTheme(),
-  ...(instanceColors ? [{ colors: kelpColors(), id: -10, name: 'Mono' }] : []),
+  { colors: copyColors(MONO_COLORS), id: -10, name: 'Mono' },
   {
     colors: {
       slate: {

@@ -1,7 +1,7 @@
 import { browser } from '$app/environment'
 import { env } from '$env/dynamic/public'
 import {
-  defaultThemeIsMono,
+  defaultThemeIsCoves,
   getDefaultColors,
   getDefaultTheme,
   presets,
@@ -325,12 +325,12 @@ $effect.root(() => {
     }
   })
   $effect(() => {
-    // The page grain belongs to the built-in Mono default only, keyed on the
+    // The page grain belongs to the built-in Coves default only, keyed on the
     // theme that shows: a selected id that no longer exists falls back to it.
     if (browser)
       document.documentElement.toggleAttribute(
         'data-grain',
-        defaultThemeIsMono && theme.current.id === 0,
+        defaultThemeIsCoves && theme.current.id === 0,
       )
   })
 })

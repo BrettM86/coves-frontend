@@ -118,6 +118,58 @@ describe('Post feed card link card', () => {
     expect(preview.classList.contains('[&_p]:whitespace-pre-line')).toBe(true)
   })
 
+  // line-clamp-5 counts line boxes, not the blank-line margins between
+  // paragraphs, so the preview also caps its box at five line-heights.
+  it('caps the body preview at five line-heights', () => {
+    const preview = feedCard(
+      linkPost({ body: 'one\n\ntwo\n\nthree\n\nfour\n\nfive' }),
+    ).querySelector('.feed-body-preview')
+
+    expect(preview).not.toBeNull()
+    if (!preview) return
+    expect(preview.classList.contains('line-clamp-5')).toBe(true)
+    expect(preview.classList.contains('max-h-[5lh]!')).toBe(true)
+  })
+
+  // PostBody sets a muted text colour; the feed preview uses the main ink
+  // and marks it important so it wins over PostBody's own colour classes.
+  it('renders the body preview in the main ink colour', () => {
+    const preview = feedCard().querySelector('.feed-body-preview')
+
+    expect(preview).not.toBeNull()
+    if (!preview) return
+    expect(preview.classList.contains('text-slate-900!')).toBe(true)
+    expect(preview.classList.contains('dark:text-zinc-100!')).toBe(true)
+  })
+
+  it('keeps the detail page body in its muted colour', () => {
+    const article = renderPost(linkPost(), { view: 'cozy', expandBody: true })
+    const body = [...article.querySelectorAll('section')].find((section) =>
+      section.textContent?.includes('Sweeney spoke at length.'),
+    )
+
+    expect(body).toBeDefined()
+    if (!body) return
+    expect(body.classList.contains('text-slate-600')).toBe(true)
+    expect(body.classList.contains('text-slate-900!')).toBe(false)
+    expect(body.classList.contains('dark:text-zinc-100!')).toBe(false)
+  })
+
+  it('shows a YouTube link as the player plus one link card without a thumbnail', () => {
+    const article = feedCard(
+      linkPost({ uri: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }),
+    )
+    const cards = article.querySelectorAll('[data-testid="link-card"]')
+
+    expect(article.querySelector('.iframe-container')).not.toBeNull()
+    expect(cards).toHaveLength(1)
+    expect(cards[0].getAttribute('href')).toBe(
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    )
+    expect(cards[0].querySelector('img:not([width="15"])')).toBeNull()
+    expect(cards[0].querySelector('.thumb')).toBeNull()
+  })
+
   it('renders a body longer than 1000 characters through to its end', () => {
     const body = 'Long paragraph. '.repeat(100) + 'END_OF_FULL_BODY'
     const preview = bodyInset(feedCard(linkPost({ body })))

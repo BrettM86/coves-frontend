@@ -17,7 +17,7 @@
   --color-slate-25: rgb(252 253 254);
   --color-zinc-925: rgb(28 28 32);
 
-  /* Mono's page and ink, so a first visit paints Mono before any theme
+  /* Coves' page and ink, so a first visit paints Coves before any theme
      variables reach <html>; a selected theme's inline variables override. */
   --color-slate-50: rgb(253 252 250);
   --color-slate-900: rgb(26 26 28);
@@ -31,8 +31,8 @@
   --color-bluesky-brand: #0a7aff;
   --color-bluesky-link: #1185fe;
 
-  /* Feed card palette for every theme but Mono. Light values; `.dark`
-     overrides, and html[data-grain] below swaps in Mono's own. The inset
+  /* Feed card palette for every theme but Coves. Light values; `.dark`
+     overrides, and html[data-grain] below swaps in Coves' own. The inset
      surface fills the body bubble and the link card. Meta, muted, hover and
      the image edge follow the theme's slate shades, so custom themes drive
      them. */
@@ -92,9 +92,9 @@ body {
   @apply bg-slate-50 text-slate-900 dark:bg-zinc-950 dark:text-zinc-100 accent-slate-950 dark:accent-zinc-50;
 }
 
-/* The Mono default's page surface: a pre-rendered noise tile over the page
+/* The Coves default's page surface: a pre-rendered noise tile over the page
    colour, scrolling with the page. hooks.server.ts and theme-boot.js keep
-   data-grain on <html> only while Mono is the selected theme. Opaque bands
+   data-grain on <html> only while Coves is the selected theme. Opaque bands
    that sit on the page (.page-band: the page header, the navbar) paint the
    same surface so they carry no seam against it. */
 html[data-grain] {
@@ -102,7 +102,7 @@ html[data-grain] {
   --page-grain: url('./lib/assets/grain.webp');
 }
 
-/* Mono's phone page is a step darker than its desktop zinc-950. */
+/* Coves' phone page is a step darker than its desktop zinc-950. */
 html.dark[data-grain] {
   --page-base: var(--color-zinc-950);
 
@@ -130,7 +130,7 @@ html[data-grain] :is(body, .page-band) {
   --color-image-edge: color-mix(in srgb, var(--color-zinc-50) 6%, transparent);
 }
 
-/* The Mono default's own feed card palette (App colors). */
+/* The Coves default's own feed card palette (App colors). */
 html[data-grain] {
   --color-community: #2f7d79;
   --color-inset-surface: #ffffff;

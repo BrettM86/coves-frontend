@@ -97,3 +97,124 @@ describe('PostImage fade-in', () => {
     expect(image.classList).not.toContain('opacity-0')
   })
 })
+
+/** Mounts a feed image whose first image carries `images`. */
+async function mountFeedImage(
+  images: readonly unknown[],
+): Promise<HTMLImageElement> {
+  vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false)
+  const PostImage = (await import('./PostImage.svelte')).default
+  const feedEmbed = {
+    $type: 'social.coves.embed.images#view',
+    images,
+  } as unknown as PostEmbed
+  mounted = client.mount(PostImage, {
+    target,
+    props: { embed: feedEmbed, feed: true },
+  })
+  client.flushSync()
+
+  const image = target.querySelector<HTMLImageElement>('picture img')
+  if (!image) throw new Error('PostImage rendered no image')
+  return image
+}
+
+function feedImage(
+  aspectRatio: unknown,
+  url = 'https://img.coves.test/img/content_full/plain/did:plc:a/b',
+): Record<string, unknown> {
+  return { thumb: url, fullsize: url, alt: 'A lake', aspectRatio }
+}
+
+describe('PostImage feed aspect ratio', () => {
+  it('reserves a valid ratio', async () => {
+    const image = await mountFeedImage([feedImage({ width: 4, height: 3 })])
+
+    expect(image.getAttribute('style')).toBe(
+      'aspect-ratio: 4 / 3; width: 746.67px;',
+    )
+    expect(image.getAttribute('width')).toBe('4')
+    expect(image.getAttribute('height')).toBe('3')
+  })
+
+  it.each([
+    ['zero width', { width: 0, height: 1 }],
+    ['zero height', { width: 1, height: 0 }],
+    ['negative width', { width: -4, height: 3 }],
+    ['NaN height', { width: 4, height: Number.NaN }],
+    ['infinite width', { width: Number.POSITIVE_INFINITY, height: 3 }],
+    ['string width', { width: '1; position:fixed; inset:0', height: 1 }],
+    ['string height', { width: 1, height: '1; position:fixed; inset:0' }],
+    ['non-object ratio', '16 / 9'],
+  ])('falls back to the natural size for a %s', async (_name, ratio) => {
+    const image = await mountFeedImage([feedImage(ratio)])
+
+    expect(image.getAttribute('style')).toBeNull()
+    expect(image.getAttribute('width')).toBe('512')
+    expect(image.getAttribute('height')).toBe('300')
+    expect(image.classList).toContain('w-auto')
+  })
+
+  it('renders an embed with no images without a reserved size', async () => {
+    const image = await mountFeedImage([])
+
+    expect(image.getAttribute('style')).toBeNull()
+    expect(image.getAttribute('width')).toBe('512')
+    expect(image.getAttribute('height')).toBe('300')
+  })
+})
+
+describe('PostImage feed load failure', () => {
+  it('collapses the reserved box when the image fails to load', async () => {
+    const image = await mountFeedImage([feedImage({ width: 4, height: 3 })])
+
+    image.dispatchEvent(new Event('error'))
+    client.flushSync()
+
+    expect(image.getAttribute('style')).toBeNull()
+    expect(image.getAttribute('width')).toBe('512')
+    expect(image.getAttribute('height')).toBe('300')
+    expect(image.classList).toContain('w-auto')
+  })
+
+  it('reserves again when the component moves to a new URL', async () => {
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(
+      false,
+    )
+    const { SvelteMap } = await import('svelte/reactivity')
+    const PostImage = (await import('./PostImage.svelte')).default
+    const embedFor = (url: string): PostEmbed =>
+      ({
+        $type: 'social.coves.embed.images#view',
+        images: [feedImage({ width: 4, height: 3 }, url)],
+      }) as unknown as PostEmbed
+    // A reactive prop source, so the mounted component sees the new embed.
+    const state = new SvelteMap<'embed', PostEmbed>([
+      ['embed', embedFor('https://img.coves.test/a')],
+    ])
+    const props = {
+      get embed(): PostEmbed {
+        const current = state.get('embed')
+        if (!current) throw new Error('no embed')
+        return current
+      },
+      feed: true,
+    }
+    mounted = client.mount(PostImage, { target, props })
+    client.flushSync()
+    const image = target.querySelector<HTMLImageElement>('picture img')
+    if (!image) throw new Error('PostImage rendered no image')
+
+    image.dispatchEvent(new Event('error'))
+    client.flushSync()
+    expect(image.getAttribute('style')).toBeNull()
+
+    state.set('embed', embedFor('https://img.coves.test/b'))
+    client.flushSync()
+
+    const next = target.querySelector<HTMLImageElement>('picture img')
+    expect(next?.getAttribute('style')).toBe(
+      'aspect-ratio: 4 / 3; width: 746.67px;',
+    )
+  })
+})

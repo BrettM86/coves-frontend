@@ -13,7 +13,7 @@ import { env as publicEnv } from '$env/dynamic/public'
 import { isBackendUnavailable } from '$lib/app/util/error'
 import { defaultFont, fontClass } from '$lib/app/util/font'
 import { installRequestEventAccessor } from '$lib/app/util/request-event'
-import { defaultThemeIsMono } from '$lib/app/state/theme/presets'
+import { defaultThemeIsCoves } from '$lib/app/state/theme/presets'
 import {
   addressHeaderConfigWarning,
   originConfigWarning,
@@ -459,7 +459,7 @@ export const handle: Handle = async ({ event, resolve }) => {
               colorSchemeClass(event.cookies.get('colorScheme')),
             )
             .replace('%coves.defaultcolorscheme%', defaultColorScheme())
-            .replace('%coves.grain%', defaultThemeIsMono ? 'data-grain' : '')
+            .replace('%coves.grain%', defaultThemeIsCoves ? 'data-grain' : '')
             .replace(
               '%coves.font%',
               fontClass(defaultFont(publicEnv.PUBLIC_FONT)),

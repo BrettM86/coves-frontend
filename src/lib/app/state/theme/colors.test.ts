@@ -143,7 +143,7 @@ describe('contrastRatio', () => {
   })
 })
 
-// Literal copy of KELP_DEFAULT from presets.ts.
+// Literal copy of MONO_COLORS from presets.ts.
 function kelpColors(): ThemeColors {
   return {
     slate: {
@@ -182,7 +182,7 @@ function kelpColors(): ThemeColors {
 type ColorChange = [category: string, shade: string, value: string]
 
 describe('themeContrastWarnings', () => {
-  it('reports nothing for the Kelp default', () => {
+  it('reports nothing for the Mono preset', () => {
     expect(themeContrastWarnings(kelpColors())).toEqual([])
   })
 

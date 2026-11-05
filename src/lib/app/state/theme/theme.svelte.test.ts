@@ -38,8 +38,8 @@ async function importThemeWith(
   }
 }
 
-/** Literal copy of KELP_DEFAULT in presets.ts — expected values, not computed. */
-function kelpColors() {
+/** Literal copy of COVES_COLORS in presets.ts — expected values, not computed. */
+function covesColors() {
   return {
     slate: {
       '25': '252 253 254',
@@ -80,6 +80,48 @@ function kelpColors() {
   }
 }
 
+/** Literal copy of MONO_COLORS in presets.ts — expected values, not computed. */
+function monoColors() {
+  return {
+    slate: {
+      '25': '252 253 254',
+      '50': '248 250 252',
+      '100': '241 245 249',
+      '200': '226 232 240',
+      '300': '203 213 225',
+      '400': '148 163 184',
+      '500': '100 116 139',
+      '600': '71 85 105',
+      '700': '51 65 85',
+      '800': '30 41 59',
+      '900': '15 23 42',
+      '950': '2 6 23',
+    },
+    zinc: {
+      '50': '252 252 254',
+      '100': '248 248 251',
+      '200': '235 235 240',
+      '300': '222 222 228',
+      '400': '175 175 185',
+      '500': '128 128 138',
+      '600': '98 98 108',
+      '700': '68 68 76',
+      '800': '47 47 54',
+      '900': '34 34 39',
+      '925': '28 28 32',
+      '950': '25 25 29',
+    },
+    primary: {
+      '100': '241 245 249',
+      '900': '15 23 42',
+    },
+    other: {
+      black: '0 0 0',
+      white: '255 255 255',
+    },
+  }
+}
+
 function storedThemes(
   themes: { id: number; name: string; colors: unknown }[],
   currentTheme: number,
@@ -88,7 +130,7 @@ function storedThemes(
 }
 
 function customTheme(id: number, name = `Custom ${id}`) {
-  return { id, name, colors: kelpColors() }
+  return { id, name, colors: covesColors() }
 }
 
 /**
@@ -225,7 +267,7 @@ describe('theme storage validation', () => {
   })
 
   it('normalizes a stored hex shade to an rgb triple', async () => {
-    const colors = kelpColors()
+    const colors = covesColors()
     colors.zinc['900'] = '#ff0000'
     const { theme } = await importThemeWith(
       storedThemes([{ id: 1, name: 'x', colors }], 1),
@@ -239,7 +281,7 @@ describe('theme storage validation', () => {
     )
     const defaults = theme.data.themes.filter((t) => t.id === 0)
     expect(defaults).toHaveLength(1)
-    expect(defaults[0].name).toBe('Mono')
+    expect(defaults[0].name).toBe('Coves')
     expect(theme.data.themes.filter((t) => t.id === -1)).toHaveLength(1)
   })
 
@@ -290,7 +332,7 @@ describe('theme.duplicateTheme', () => {
     expect(id).toBe(4)
     const copy = theme.data.themes.find((t) => t.id === 4)
     expect(copy?.name).toBe('Copy')
-    expect(copy?.colors).toEqual(kelpColors())
+    expect(copy?.colors).toEqual(covesColors())
     expect(theme.data.currentTheme).toBe(4)
   })
 
@@ -312,20 +354,20 @@ describe('theme.duplicateTheme', () => {
     if (!copy) throw new Error('copy missing')
     copy.colors.zinc['900'] = '1 2 3'
     const preset = theme.data.themes.find((t) => t.id === 0)
-    expect(preset?.colors).toEqual(kelpColors())
-    expect(getDefaultColors()).toEqual(kelpColors())
+    expect(preset?.colors).toEqual(covesColors())
+    expect(getDefaultColors()).toEqual(covesColors())
   })
 })
 
 describe('theme.resetCurrentColors', () => {
   it('restores an edited custom theme to the default colours', async () => {
-    const colors = kelpColors()
+    const colors = covesColors()
     colors.zinc['900'] = '1 2 3'
     const { theme } = await importThemeWith(
       storedThemes([{ id: 1, name: 'x', colors }], 1),
     )
     theme.resetCurrentColors()
-    expect(theme.current.colors).toEqual(kelpColors())
+    expect(theme.current.colors).toEqual(covesColors())
   })
 
   it('does not share colour objects with the defaults after reset', async () => {
@@ -334,14 +376,14 @@ describe('theme.resetCurrentColors', () => {
     )
     theme.resetCurrentColors()
     theme.current.colors.zinc['900'] = '1 2 3'
-    expect(getDefaultColors()).toEqual(kelpColors())
+    expect(getDefaultColors()).toEqual(covesColors())
   })
 
   it('leaves a preset unchanged', async () => {
     const { theme } = await importThemeWith(null)
     theme.resetCurrentColors()
     expect(theme.current.id).toBe(0)
-    expect(theme.current.colors).toEqual(kelpColors())
+    expect(theme.current.colors).toEqual(covesColors())
   })
 })
 
@@ -410,7 +452,7 @@ describe('theme.importIntoCurrent', () => {
   it('reports invalid JSON and leaves the colours alone', async () => {
     const { theme } = await importThemeWith(storedThemes([customTheme(1)], 1))
     expect(theme.importIntoCurrent('nope')).toBe('invalid-json')
-    expect(theme.current.colors).toEqual(kelpColors())
+    expect(theme.current.colors).toEqual(covesColors())
   })
 
   it('refuses to import into a preset', async () => {
@@ -418,11 +460,11 @@ describe('theme.importIntoCurrent', () => {
     expect(
       theme.importIntoCurrent(JSON.stringify({ zinc: { '900': '#ff0000' } })),
     ).toBe('preset-not-editable')
-    expect(theme.current.colors).toEqual(kelpColors())
+    expect(theme.current.colors).toEqual(covesColors())
   })
 })
 
-describe('default Mono palette without PUBLIC_THEME', () => {
+describe('default Coves palette without PUBLIC_THEME', () => {
   it.each([
     ['zinc', '950', '15 15 16'], // dark page base #0f0f10
     ['zinc', '100', '255 248 240'], // dark ink #fff8f0
@@ -431,7 +473,7 @@ describe('default Mono palette without PUBLIC_THEME', () => {
   ])('%s-%s is %s', async (category, shade, expected) => {
     const { theme, getDefaultColors } = await importThemeWith(null, {})
     expect(theme.current.id).toBe(0)
-    expect(theme.current.name).toBe('Mono')
+    expect(theme.current.name).toBe('Coves')
     expect(theme.current.colors[category]?.[shade]).toBe(expected)
     expect(getDefaultColors()[category]?.[shade]).toBe(expected)
   })
@@ -443,8 +485,63 @@ describe('default Mono palette without PUBLIC_THEME', () => {
   })
 })
 
+describe('preset list', () => {
+  it.each([
+    {
+      server: 'no PUBLIC_THEME',
+      publicEnv: {} as Record<string, string>,
+      presets: [
+        { id: 0, name: 'Coves' },
+        { id: -10, name: 'Mono' },
+        { id: -1, name: 'Classic' },
+        { id: -2, name: 'AMOLED' },
+        { id: -3, name: 'Catppuccin' },
+        { id: -4, name: 'Neutral' },
+      ],
+    },
+    {
+      server: 'a valid PUBLIC_THEME',
+      publicEnv: { PUBLIC_THEME: JSON.stringify({ zinc: { '900': '1 2 3' } }) },
+      presets: [
+        { id: 0, name: 'Instance Default' },
+        { id: -10, name: 'Mono' },
+        { id: -1, name: 'Classic' },
+        { id: -2, name: 'AMOLED' },
+        { id: -3, name: 'Catppuccin' },
+        { id: -4, name: 'Neutral' },
+      ],
+    },
+  ])('with $server lists $presets', async ({ publicEnv, presets }) => {
+    const { theme } = await importThemeWith(null, publicEnv)
+    expect(theme.data.themes.map(({ id, name }) => ({ id, name }))).toEqual(
+      presets,
+    )
+  })
+
+  it.each([
+    { server: 'no PUBLIC_THEME', publicEnv: {} as Record<string, string> },
+    {
+      server: 'a valid PUBLIC_THEME',
+      publicEnv: { PUBLIC_THEME: JSON.stringify({ zinc: { '900': '1 2 3' } }) },
+    },
+  ])(
+    'with $server, Mono (id -10) keeps the original Mono colours',
+    async ({ publicEnv }) => {
+      const { theme } = await importThemeWith(null, publicEnv)
+      const mono = theme.data.themes.find((t) => t.id === -10)
+      expect(mono?.colors).toEqual(monoColors())
+    },
+  )
+
+  it('selecting Mono shows the original Mono colours', async () => {
+    const { theme } = await importThemeWith(storedThemes([], -10))
+    expect(theme.current.name).toBe('Mono')
+    expect(theme.current.colors).toEqual(monoColors())
+  })
+})
+
 describe('PUBLIC_THEME instance default colours', () => {
-  it('accepts the named export format and fills missing colours from Kelp', async () => {
+  it('accepts the named export format and fills missing colours from Mono', async () => {
     const { getDefaultColors } = await importThemeWith(null, {
       PUBLIC_THEME: JSON.stringify({
         name: 'Instance',
@@ -454,6 +551,8 @@ describe('PUBLIC_THEME instance default colours', () => {
     const colors = getDefaultColors()
     expect(colors.zinc['900']).toBe('255 0 0')
     expect(colors.zinc['925']).toBe('28 28 32')
+    expect(colors.slate['50']).toBe('248 250 252')
+    expect(colors.zinc['950']).toBe('25 25 29')
     expect(colors.primary['900']).toBe('15 23 42')
   })
 
@@ -469,11 +568,11 @@ describe('PUBLIC_THEME instance default colours', () => {
   it.each([
     ['is not JSON', 'not json'],
     ['misspells colors', '{"colours":{"zinc":{"900":"#ff0000"}}}'],
-  ])('falls back to Kelp when PUBLIC_THEME %s', async (_case, publicTheme) => {
+  ])('falls back to Coves when PUBLIC_THEME %s', async (_case, publicTheme) => {
     const { getDefaultColors } = await importThemeWith(null, {
       PUBLIC_THEME: publicTheme,
     })
-    expect(getDefaultColors()).toEqual(kelpColors())
+    expect(getDefaultColors()).toEqual(covesColors())
   })
 })
 
@@ -515,10 +614,10 @@ describe('theme id safety', () => {
 })
 
 describe('calculateVars accent gradient', () => {
-  it("declares Kelp's derived primary-800 and primary-200 gradient stops", async () => {
+  it("declares Coves' derived primary-800 and primary-200 gradient stops", async () => {
     await importThemeWith(null)
     const { calculateVars } = await import('./theme.svelte')
-    const vars = calculateVars({ id: 1, name: 'Kelp', colors: kelpColors() })
+    const vars = calculateVars({ id: 1, name: 'Kelp', colors: covesColors() })
     expect(vars).toContain('--color-primary-800:rgb(48 58 79)')
     expect(vars).toContain('--color-primary-200:rgb(173 177 181)')
   })
@@ -526,31 +625,31 @@ describe('calculateVars accent gradient', () => {
 
 describe('theme.replaceColors', () => {
   function redAccentTheme() {
-    const colors = kelpColors()
+    const colors = covesColors()
     colors.primary['900'] = '220 38 38'
     return { id: 1, name: 'Red', colors }
   }
 
   it("replaces a custom theme's colours, normalised", async () => {
     const { theme } = await importThemeWith(storedThemes([redAccentTheme()], 1))
-    const colors = kelpColors()
+    const colors = covesColors()
     colors.slate['500'] = '#010203'
     colors.primary['900'] = 'not a colour'
 
     theme.replaceColors(colors)
 
-    const expected = kelpColors()
+    const expected = covesColors()
     expected.slate['500'] = '1 2 3'
     expect(theme.current.colors).toEqual(expected)
   })
 
   it('does not restore colours onto a preset', async () => {
     const { theme } = await importThemeWith(null)
-    const colors = kelpColors()
+    const colors = covesColors()
     colors.slate['500'] = '1 2 3'
 
     theme.replaceColors(colors)
 
-    expect(theme.current.colors).toEqual(kelpColors())
+    expect(theme.current.colors).toEqual(covesColors())
   })
 })

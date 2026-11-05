@@ -37,7 +37,7 @@ export function linkPost({
       avatar: 'https://cdn.example/cats.png',
     },
     stats: { upvotes: 40, downvotes: 4, score: 36, commentCount: 4 },
-    viewer: {},
+    viewer: { saved: false },
     record: {
       $type: 'social.coves.community.post',
       community: 'did:plc:cats',
@@ -54,7 +54,7 @@ export function linkPost({
         ...(thumb === null ? {} : { thumb }),
       },
     },
-  } as PostView
+  } satisfies PostView
 }
 
 export const IMAGE_THUMB = 'https://cdn.example.com/photo-thumb.jpg'

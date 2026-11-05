@@ -35,14 +35,42 @@
       /^(\s*--color-[a-z]+-[a-z0-9]+:rgb\(\d{1,3} \d{1,3} \d{1,3}\);)+\s*$/
     if (vars && varsShape.test(vars)) html.setAttribute('style', vars)
 
-    // The server stamps data-grain only for the built-in Mono default; drop
-    // it when the stored selection is another theme (id 0 is the default).
+    // The server stamps data-grain only for the built-in Coves default (id 0);
+    // drop it when hydration will show another theme. theme.svelte.ts shows
+    // the stored currentTheme when it is a safe integer naming a preset or a
+    // valid custom theme in the stored list, and falls back to id 0 otherwise.
+    // The stored list holds only custom themes (id > 0). PRESET_IDS are the
+    // non-default presets in presets.ts without PUBLIC_THEME, the only case in
+    // which the server stamps data-grain.
     if (html.hasAttribute('data-grain')) {
+      var PRESET_IDS = [-10, -1, -2, -3, -4]
       var data = JSON.parse(localStorage.getItem('theme.data') || 'null')
-      if (data && data.currentTheme !== undefined && data.currentTheme !== 0)
-        html.removeAttribute('data-grain')
+      var id = data && data.currentTheme
+      var themes = data && data.themes
+      var showsOther = false
+      if (
+        Object.prototype.toString.call(themes) === '[object Array]' &&
+        typeof id === 'number' &&
+        Math.floor(id) === id &&
+        Math.abs(id) <= 9007199254740991
+      ) {
+        if (id < 0) showsOther = PRESET_IDS.indexOf(id) !== -1
+        for (var i = 0; id > 0 && !showsOther && i < themes.length; i++) {
+          var t = themes[i]
+          showsOther =
+            !!t &&
+            typeof t === 'object' &&
+            t.id === id &&
+            typeof t.name === 'string' &&
+            !!t.colors &&
+            typeof t.colors === 'object'
+        }
+      }
+      if (showsOther) html.removeAttribute('data-grain')
     }
   } catch (_error) {
-    // Storage blocked or matchMedia missing: the page still renders.
+    // Storage blocked, matchMedia missing or theme.data unparseable: the page
+    // still renders. Hydration discards unparseable theme.data and shows the
+    // default theme, so a server-stamped grain marker is right to stay.
   }
 })()

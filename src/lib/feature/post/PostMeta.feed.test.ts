@@ -24,6 +24,7 @@ function renderFeedHeader(
   overrides: {
     showCommunity?: boolean
     user?: typeof author & { avatar?: string }
+    edited?: string
   } = {},
 ): HTMLElement {
   const html = render(PostMeta, {
@@ -108,5 +109,29 @@ describe('PostMeta feed header', () => {
       'img[src="https://cdn.example/mayalin.png"]',
     )
     expect(authorAvatar).not.toBeNull()
+  })
+
+  it('shows the edited marker before the time only when the post was edited', () => {
+    vi.useFakeTimers({ now: new Date('2026-10-03T00:00:00Z') })
+    try {
+      const edited = renderFeedHeader({ edited: '2026-10-02T00:00:00Z' })
+      const marker = edited.querySelector('button[title^="Last edited"]')
+      const time = edited.querySelector('time')
+
+      expect(marker?.getAttribute('title')).toBe('Last edited 1 day ago')
+      expect(time).not.toBeNull()
+      if (!marker || !time) return
+      expect(
+        Boolean(
+          marker.compareDocumentPosition(time) & 4, // DOCUMENT_POSITION_FOLLOWING
+        ),
+      ).toBe(true)
+
+      expect(
+        renderFeedHeader().querySelector('button[title^="Last edited"]'),
+      ).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

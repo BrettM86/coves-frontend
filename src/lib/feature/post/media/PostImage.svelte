@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PostEmbed } from '$lib/api/coves/types'
+  import type { EmbedImageAspectRatio, PostEmbed } from '$lib/api/coves/types'
   import { settings } from '$lib/app/state/settings.svelte'
   import { showImage } from '$lib/ui/generic/ExpandableImage.svelte'
   import { Button, modal } from '$lib/ui/kit'
@@ -32,13 +32,29 @@
   let altText = $derived(extractEmbedAlt(embed))
   let previewUrl = $derived(bestImageURL(embed, false, 'thumb'))
   let fullImageUrl = $derived(bestImageURL(embed, false, 'fullsize'))
-  // A feed image reserves its own ratio before it loads; elsewhere, and when
-  // the embed has none, the box hint stays 512x300.
-  let aspectRatio = $derived(
-    feed && embed.$type === 'social.coves.embed.images#view'
-      ? embed.images[0].aspectRatio
-      : undefined,
-  )
+  // The URL whose load failed: its reserved box would stay empty, so it
+  // collapses. Keyed by URL, a new image reserves again.
+  let failedUrl = $state<string>()
+  let loadFailed = $derived(!blur && failedUrl === fullImageUrl)
+  // A feed image reserves its own ratio before it loads; elsewhere, when the
+  // embed has none, or when it failed to load, the box hint stays 512x300.
+  // The ratio is untrusted record data and is written into the inline style,
+  // so only two finite positive numbers are accepted.
+  let aspectRatio = $derived.by((): EmbedImageAspectRatio | undefined => {
+    if (!feed || loadFailed || embed.$type !== 'social.coves.embed.images#view')
+      return undefined
+    const raw: unknown = embed.images[0]?.aspectRatio
+    if (typeof raw !== 'object' || raw === null) return undefined
+    const { width, height } = raw as Record<string, unknown>
+    return typeof width === 'number' &&
+      Number.isFinite(width) &&
+      width > 0 &&
+      typeof height === 'number' &&
+      Number.isFinite(height) &&
+      height > 0
+      ? { width, height }
+      : undefined
+  })
   // Before it loads, the feed image holds the box it will fill: its ratio at
   // the width 560px of height allows. aspectRatio is a ratio, not pixels, so
   // the reservation is not clamped to it; a definite px width keeps the box
@@ -132,7 +148,10 @@
       style={reservedStyle}
       alt={altText ?? ''}
       onload={onImageLoad}
-      onerror={() => (imageLoaded = true)}
+      onerror={() => {
+        imageLoaded = true
+        if (!blur) failedUrl = fullImageUrl
+      }}
     />
   </picture>
   <!-- svelte-ignore a11y_click_events_have_key_events -->

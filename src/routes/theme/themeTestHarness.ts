@@ -65,8 +65,8 @@ export const svelteClientEntry = async (subpath: string): Promise<unknown> => {
   )
 }
 
-/** Literal copy of KELP_DEFAULT in presets.ts — expected values, not computed. */
-export function kelpColors() {
+/** Literal copy of COVES_COLORS in presets.ts — expected values, not computed. */
+export function covesColors() {
   return {
     slate: {
       '25': '252 253 254',
@@ -156,7 +156,7 @@ export interface ThemeHarness {
  * Registers beforeEach/afterEach for a theme component test: stubs
  * ResizeObserver and matchMedia, clears storage and open modals, and seeds
  * the real theme state with the presets plus custom themes 1 and 2 (2 is
- * current), both with Kelp colours. Tests reseed `themeState.data` as needed.
+ * current), both with Coves colours. Tests reseed `themeState.data` as needed.
  */
 export function useThemeHarness(): ThemeHarness {
   let target: HTMLDivElement | undefined
@@ -201,8 +201,8 @@ export function useThemeHarness(): ThemeHarness {
       scheme: 'system',
       themes: [
         ...presets,
-        { id: 1, name: 'Custom 1', colors: kelpColors() },
-        { id: 2, name: 'Custom 2', colors: kelpColors() },
+        { id: 1, name: 'Custom 1', colors: covesColors() },
+        { id: 2, name: 'Custom 2', colors: covesColors() },
       ],
       currentTheme: 2,
     }

@@ -15,9 +15,10 @@
   let { uri, title, thumbnail, fixedHeight = false }: Props = $props()
 
   // The URI is untrusted post content. Only an absolute http(s) link becomes
-  // an href, a favicon lookup or a thumbnail; anything else renders as an
-  // inert card labelled with the raw text, so a stored javascript:/data: URI
-  // cannot become a navigation.
+  // an href or a favicon lookup; anything else renders as an inert card
+  // labelled with the raw text, so a stored javascript:/data: URI cannot
+  // become a navigation. `thumbnail` is not checked here: Post passes it from
+  // extractEmbedThumbnail, which keeps only absolute http(s) URLs.
   let url = $derived(parseWebUrl(uri.trim()))
   // Keyed by host and URL: a reused feed row showing another link retries.
   let failedFaviconHost = $state<string>()
@@ -38,6 +39,8 @@
         alt=""
         width="15"
         height="15"
+        loading="lazy"
+        referrerpolicy="no-referrer"
         class="shrink-0 rounded-[3px]"
         onerror={() => (failedFaviconHost = url?.hostname)}
       />

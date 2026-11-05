@@ -105,7 +105,7 @@
     }
   }
 
-  /* Under Mono the navbar is the page surface, opaque so content scrolls
+  /* Under Coves the navbar is the page surface, opaque so content scrolls
      under it unseen, and the dock's corners take the same base colour.
      .page-band is in the selector only to outrank the dark rules above. */
   :global(html[data-grain]) .shell-navbar-holder {
@@ -212,7 +212,7 @@
     }
   }
 
-  /* Under Mono the body's base colour and grain are the page surface: the
+  /* Under Coves the body's base colour and grain are the page surface: the
      panels let it through and keep their borders. */
   :global(html[data-grain])
     .shell-content

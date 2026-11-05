@@ -176,6 +176,25 @@ describe('ThemePreset', () => {
   })
 
   it.each([
+    { scheme: 'light' as const, background: '248 250 252', text: '15 23 42' },
+    { scheme: 'dark' as const, background: '25 25 29', text: '248 248 251' },
+  ])(
+    'previews the Mono preset (id -10) in its original $scheme colours',
+    async ({ scheme, background, text }) => {
+      harness.themeState.colorScheme = scheme
+      harness.client.flushSync()
+      await mountCard(-10)
+
+      const preview = harness.target.querySelector<HTMLElement>(
+        '[data-testid="theme-preview"]',
+      )
+      expect(themeById(-10).name).toBe('Mono')
+      expect(inlineRgb(preview, 'background-color')).toBe(background)
+      expect(inlineRgb(preview, 'color')).toBe(text)
+    },
+  )
+
+  it.each([
     {
       scheme: 'light' as const,
       systemDark: false,

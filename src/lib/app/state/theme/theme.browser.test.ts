@@ -17,8 +17,8 @@ const svelteClientEntry = async (subpath: string): Promise<unknown> => {
 }
 vi.mock('svelte', () => svelteClientEntry('src/index-client.js'))
 
-/** Literal copy of KELP_DEFAULT in presets.ts — expected values, not computed. */
-function kelpColors() {
+/** Literal copy of COVES_COLORS in presets.ts — expected values, not computed. */
+function covesColors() {
   return {
     slate: {
       '25': '252 253 254',
@@ -66,7 +66,7 @@ function seedCustomTheme() {
     JSON.stringify({
       scheme: 'system',
       currentTheme: 1,
-      themes: [{ id: 1, name: 'Custom 1', colors: kelpColors() }],
+      themes: [{ id: 1, name: 'Custom 1', colors: covesColors() }],
     }),
   )
 }
@@ -161,7 +161,7 @@ describe('theme reactive persistence', () => {
 })
 
 /**
- * Grain is on only for the built-in Mono default (theme id 0 with no
+ * Grain is on only for the built-in Coves default (theme id 0 with no
  * PUBLIC_THEME). The server stamps data-grain on <html>; the theme state keeps
  * it in step with the selected theme.
  */
@@ -179,7 +179,9 @@ describe('theme grain marker on <html>', () => {
   it.each([
     { selected: -1, name: 'Classic', grain: false },
     { selected: -2, name: 'AMOLED', grain: false },
-    { selected: 0, name: 'Mono', grain: true },
+    { selected: -10, name: 'Mono', grain: false },
+    { selected: 0, name: 'Coves', grain: true },
+    { selected: -99, name: 'a preset id that does not exist', grain: true },
   ])(
     'selecting $name (id $selected) leaves grain $grain',
     async ({ selected, grain }) => {
@@ -202,7 +204,7 @@ describe('theme grain marker on <html>', () => {
 
   // These start without the marker so they fail unless the state adds it back,
   // not just leaves the server's marker alone.
-  it('restores grain when switching back to Mono', async () => {
+  it('restores grain when switching back to Coves', async () => {
     document.documentElement.removeAttribute('data-grain')
     const { theme, flushSync } = await importTheme()
     theme.data.currentTheme = -1
@@ -214,7 +216,7 @@ describe('theme grain marker on <html>', () => {
     expect(hasGrain()).toBe(true)
   })
 
-  it('restores grain when switching from a custom theme back to Mono', async () => {
+  it('restores grain when switching from a custom theme back to Coves', async () => {
     // theme-boot.js already removed it for the stored custom selection.
     document.documentElement.removeAttribute('data-grain')
     seedCustomTheme()
@@ -227,14 +229,14 @@ describe('theme grain marker on <html>', () => {
     expect(hasGrain()).toBe(true)
   })
 
-  it('sets grain when the selected custom id no longer exists and Mono shows', async () => {
+  it('sets grain when the selected custom id no longer exists and Coves shows', async () => {
     document.documentElement.removeAttribute('data-grain')
     const { theme, flushSync } = await importTheme()
 
     theme.data.currentTheme = 99
     await flushSync()
 
-    expect(theme.current.name).toBe('Mono')
+    expect(theme.current.name).toBe('Coves')
     expect(hasGrain()).toBe(true)
   })
 
@@ -288,7 +290,7 @@ describe('theme cross-tab sync', () => {
     expect(incoming?.colors.primary['900']).toBe('15 23 42')
     expect(theme.data.themes.some((t) => t.id === 1)).toBe(false)
     const defaultPreset = theme.data.themes.find((t) => t.id === 0)
-    expect(defaultPreset?.name).toBe('Mono')
+    expect(defaultPreset?.name).toBe('Coves')
   })
 
   it('follows a colour scheme changed in another tab', async () => {
@@ -340,7 +342,7 @@ describe('theme cross-tab sync', () => {
         newValue: JSON.stringify({
           scheme: 'system',
           currentTheme: 2,
-          themes: [{ id: 2, name: 'Older', colors: kelpColors() }],
+          themes: [{ id: 2, name: 'Older', colors: covesColors() }],
         }),
       }),
     )
@@ -356,7 +358,7 @@ describe('theme cross-tab write-back', () => {
     const newValue = JSON.stringify({
       scheme: 'system',
       currentTheme: 2,
-      themes: [{ id: 2, name: 'Other tab', colors: kelpColors() }],
+      themes: [{ id: 2, name: 'Other tab', colors: covesColors() }],
     })
     // The browser has already stored the other tab's value when the event fires.
     localStorage.setItem('theme.data', newValue)

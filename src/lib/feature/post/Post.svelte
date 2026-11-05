@@ -293,7 +293,7 @@
             collapsible={false}
             body={post.record.content}
             facets={post.record.facets}
-            class="feed-body-preview line-clamp-5 text-[15px] leading-[1.45] [&_p]:whitespace-pre-line"
+            class="feed-body-preview line-clamp-5 max-h-[5lh]! text-[15px] leading-[1.45] text-slate-900! dark:text-zinc-100! [&_p]:whitespace-pre-line"
           />
         </div>
       {:else if post.record?.content && view != 'compact'}
@@ -324,7 +324,10 @@
 <style>
   /* Feed-card body preview. Markdown's paragraph leading and block gaps are
      sized for reading a full post; the preview reads like plain text, where
-     the blank line between paragraphs takes one line. */
+     the blank line between paragraphs takes one line. line-clamp-5 counts
+     line boxes, not those margins, so max-h-[5lh] caps the box at five
+     lines; it is important to beat PostBody's max-h-full. The ink colour is
+     important to beat PostBody's muted text colour. */
   :global(.feed-body-preview p) {
     line-height: 1.45;
   }

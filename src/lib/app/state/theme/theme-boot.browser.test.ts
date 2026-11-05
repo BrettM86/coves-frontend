@@ -4,6 +4,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+// The grain cases read the preset list as the server builds it without
+// PUBLIC_THEME, the only case in which it stamps data-grain.
+vi.mock('$env/dynamic/public', () => ({ env: {} }))
+
 /**
  * static/theme-boot.js runs before first paint, outside the bundle, so the test
  * executes the shipped file text against jsdom's window/document/localStorage.
@@ -135,26 +139,55 @@ describe('theme-boot.js with storage access denied', () => {
 
 /**
  * The server stamps data-grain on <html> only without PUBLIC_THEME; grain is
- * for the built-in Mono default (id 0). theme.svelte.ts persists the selected
- * theme id as currentTheme in 'theme.data'.
+ * for the built-in Coves default (id 0). theme.svelte.ts persists the selected
+ * theme id as currentTheme in 'theme.data', with only the custom themes (id >
+ * 0) in its themes list, and shows Coves for a selected id that names no
+ * listed theme. Boot must drop the marker exactly when hydration would.
  */
 describe('theme-boot.js grain marker', () => {
-  const themeData = (currentTheme: number) =>
-    JSON.stringify({
-      scheme: 'system',
-      currentTheme,
-      themes:
-        currentTheme > 0
-          ? [{ id: currentTheme, name: 'Custom 1', colors: {} }]
-          : [],
-    })
+  const customOne = { id: 1, name: 'Custom 1', colors: {} }
+  const themeData = (currentTheme: unknown, themes: unknown = []) =>
+    JSON.stringify({ scheme: 'system', currentTheme, themes })
 
   it.each([
     { selection: 'nothing stored', stored: null, grain: true },
-    { selection: 'Mono (id 0)', stored: themeData(0), grain: true },
+    { selection: 'Coves (id 0)', stored: themeData(0), grain: true },
+    { selection: 'Mono (id -10)', stored: themeData(-10), grain: false },
     { selection: 'Classic (id -1)', stored: themeData(-1), grain: false },
     { selection: 'AMOLED (id -2)', stored: themeData(-2), grain: false },
-    { selection: 'a custom theme (id 1)', stored: themeData(1), grain: false },
+    { selection: 'Catppuccin (id -3)', stored: themeData(-3), grain: false },
+    { selection: 'Neutral (id -4)', stored: themeData(-4), grain: false },
+    {
+      selection: 'a preset id that does not exist (id -99)',
+      stored: themeData(-99),
+      grain: true,
+    },
+    {
+      selection: 'a custom theme (id 1)',
+      stored: themeData(1, [customOne]),
+      grain: false,
+    },
+    {
+      selection: 'a stale custom id (id 2) missing from the themes list',
+      stored: themeData(2, [customOne]),
+      grain: true,
+    },
+    {
+      selection: 'a custom id whose entry has no name',
+      stored: themeData(1, [{ id: 1, colors: {} }]),
+      grain: true,
+    },
+    {
+      selection: 'a currentTheme that is not an integer',
+      stored: themeData('1', [customOne]),
+      grain: true,
+    },
+    {
+      selection: 'theme.data without a themes list',
+      stored: JSON.stringify({ scheme: 'system', currentTheme: -1 }),
+      grain: true,
+    },
+    { selection: 'unparseable theme.data', stored: '{', grain: true },
   ])(
     'server stamped grain, stored $selection → grain $grain',
     ({ stored, grain }) => {
@@ -166,6 +199,18 @@ describe('theme-boot.js grain marker', () => {
       expect(html().hasAttribute('data-grain')).toBe(grain)
     },
   )
+
+  it('drops grain for every preset other than the default', async () => {
+    const { presets } = await import('./presets')
+    for (const preset of presets.filter((p) => p.id !== 0)) {
+      html().setAttribute('data-grain', '')
+      localStorage.setItem('theme.data', themeData(preset.id))
+
+      runBootScript()
+
+      expect(html().hasAttribute('data-grain'), preset.name).toBe(false)
+    }
+  })
 
   it.each([
     { selection: 'nothing stored', stored: null },

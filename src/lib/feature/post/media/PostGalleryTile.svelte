@@ -58,9 +58,9 @@
   let sizes = $derived.by(() => {
     if (columns === 2)
       return '(max-width: 767px) calc((100vw - 26px) / 2), (max-width: 1023px) calc((100vw - 306px) / 2), min(420px, calc((55.6vw - 50px) / 2))'
-    if (feedWidth === undefined)
+    if (reservedWidth === undefined)
       return '(max-width: 767px) calc(100vw - 26px), (max-width: 1023px) calc(100vw - 306px), min(840px, calc(55.6vw - 50px))'
-    const cap = `${feedWidth}px`
+    const cap = `${reservedWidth}px`
     return `(max-width: 767px) min(calc(100vw - 26px), ${cap}), (max-width: 1023px) min(calc(100vw - 306px), ${cap}), min(840px, calc(55.6vw - 50px), ${cap})`
   })
   let ratio = $derived(imageAspectRatio(image))
@@ -77,18 +77,45 @@
       ? Math.round(((560 * ratio.width) / ratio.height) * 100) / 100
       : undefined,
   )
-  /** Once loaded, a smaller image shows at its natural width, never upscaled. */
-  let loadedWidth = $state<number>()
-  let feedWidth = $derived(
-    reservedWidth === undefined
-      ? undefined
-      : Math.min(reservedWidth, loadedWidth ?? reservedWidth),
+  /**
+   * The loaded file's own pixels. naturalWidth can't be used: with srcset
+   * width descriptors it is the slot width scaled by the file's real width
+   * over its descriptor, so a file narrower than its descriptor reads small.
+   */
+  let loadedSize = $state<{ width: number; height: number }>()
+  // Once loaded, a smaller image shows at its natural width, never upscaled,
+  // and an image with no ratio fits 560px of height at its file's shape.
+  let feedWidth = $derived.by(() => {
+    if (!loadedSize) return reservedWidth
+    const { width, height } = loadedSize
+    return Math.min(reservedWidth ?? width, width, (560 * width) / height)
+  })
+  let feedShape = $derived(
+    ratio
+      ? aspectRatio
+      : loadedSize && `${loadedSize.width} / ${loadedSize.height}`,
   )
 
   function onImageLoad(event: Event): void {
     imageLoaded = true
-    const { naturalWidth } = event.currentTarget as HTMLImageElement
-    if (naturalWidth > 0) loadedWidth = naturalWidth
+    void measure(event.currentTarget as HTMLImageElement)
+  }
+
+  async function measure(loaded: HTMLImageElement): Promise<void> {
+    if (!feed) return
+    const shown = fullImageUrl
+    // An image without srcset has a density of 1, so its natural size is the
+    // file's. The file is cached, so this does not fetch it again.
+    const probe = new Image()
+    probe.src = loaded.currentSrc || loaded.src
+    try {
+      await probe.decode()
+    } catch {
+      return
+    }
+    if (shown !== fullImageUrl) return
+    if (probe.naturalWidth > 0 && probe.naturalHeight > 0)
+      loadedSize = { width: probe.naturalWidth, height: probe.naturalHeight }
   }
 
   let img = $state<HTMLImageElement>()
@@ -98,12 +125,14 @@
     // is then already spent: hiding it until one arrives would hide it for
     // good.
     imageLoaded = img?.complete ?? false
+    if (img?.complete) void measure(img)
   })
 
   $effect.pre(() => {
-    // A reused feed row showing another image reserves again.
-    void image
-    loadedWidth = undefined
+    // A reused feed row showing another image reserves again. Keyed by URL:
+    // the image object is rebuilt whenever the post refreshes.
+    void fullImageUrl
+    loadedSize = undefined
   })
 
   /** The image whose load failed; a new image gets a fresh attempt. */
@@ -172,14 +201,14 @@
             class={[
               'block h-auto max-w-full max-h-[560px] rounded-[12px] outline-1 -outline-offset-1 outline-image-edge',
               'transition-opacity duration-200 ease-cubic',
-              !ratio && 'w-auto',
+              !feedShape && 'w-auto',
               imageLoaded === false ? 'opacity-0' : 'opacity-100',
               blur && 'blur-3xl',
             ]}
             width={ratio?.width ?? 512}
             height={ratio?.height ?? 300}
-            style={ratio && feedWidth !== undefined
-              ? `aspect-ratio: ${aspectRatio}; width: ${feedWidth}px`
+            style={feedShape && feedWidth !== undefined
+              ? `aspect-ratio: ${feedShape}; width: ${Math.round(feedWidth * 100) / 100}px`
               : undefined}
             alt={image.alt ?? ''}
             onload={onImageLoad}

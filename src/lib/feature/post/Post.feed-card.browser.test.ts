@@ -39,6 +39,7 @@ afterEach(async () => {
   target?.remove()
   target = undefined
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 it('never shows the Expand control on a feed card with an overflowing body', () => {
@@ -93,8 +94,10 @@ it('removes the thumbnail when it fails to load and keeps the link card', () => 
   expect(kept?.textContent).toContain('www.thegamer.com')
 })
 
-// Once a feed image loads, its reserved width shrinks to the natural width
+// Once a feed image loads, its reserved width shrinks to the file's width
 // when that is smaller, and never grows past the reserved width (no upscale).
+// The file is measured through a plain Image: with srcset width descriptors
+// the shown image's naturalWidth is scaled and does not give the file's pixels.
 it.each([
   {
     ratio: { width: 3, height: 1 },
@@ -106,25 +109,35 @@ it.each([
     natural: { width: 2000, height: 2000 },
     width: '560px',
   },
-])('sets a loaded feed image to width $width', ({ ratio, natural, width }) => {
-  target = document.createElement('div')
-  document.body.appendChild(target)
-  mounted = client.mount(Post, {
-    target,
-    props: { post: imagePost(ratio), view: 'cozy', actions: false },
-    intro: false,
-  })
-  client.flushSync()
+])(
+  'sets a loaded feed image to width $width',
+  async ({ ratio, natural, width }) => {
+    vi.stubGlobal(
+      'Image',
+      class {
+        src = ''
+        naturalWidth = natural.width
+        naturalHeight = natural.height
+        decode(): Promise<void> {
+          return Promise.resolve()
+        }
+      },
+    )
+    target = document.createElement('div')
+    document.body.appendChild(target)
+    mounted = client.mount(Post, {
+      target,
+      props: { post: imagePost(ratio), view: 'cozy', actions: false },
+      intro: false,
+    })
+    client.flushSync()
 
-  const image = [...target.querySelectorAll('img')].find((element) =>
-    (element.getAttribute('src') ?? '').includes(IMAGE_FULL),
-  )
-  expect(image).toBeDefined()
-  if (!image) return
-  Object.defineProperty(image, 'naturalWidth', { value: natural.width })
-  Object.defineProperty(image, 'naturalHeight', { value: natural.height })
-  image.dispatchEvent(new Event('load'))
-  client.flushSync()
-
-  expect(image.style.width).toBe(width)
-})
+    const image = [...target.querySelectorAll('img')].find((element) =>
+      (element.getAttribute('src') ?? '').includes(IMAGE_FULL),
+    )
+    expect(image).toBeDefined()
+    if (!image) return
+    image.dispatchEvent(new Event('load'))
+    await vi.waitFor(() => expect(image.style.width).toBe(width))
+  },
+)

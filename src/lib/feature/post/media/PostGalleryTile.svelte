@@ -54,15 +54,35 @@
   // The post column's width, measured on the shell's layouts: full width
   // below 768px, beside the left sidebar to 1023px, then about 5/9 of the
   // viewport with both sidebars, stopping at 840px of image on wide screens.
-  // A feed image is also capped at the width it reserves.
+  // With the width limit off (settings.newWidth) the column is 60% of the
+  // viewport from 1024px, with no cap. A feed image is also capped at the
+  // width it reserves.
   let sizes = $derived.by(() => {
+    const wide = settings.newWidth ? '55.6vw - 50px' : '60vw - 50px'
+    const wideCap = settings.newWidth ? 840 : undefined
     if (columns === 2)
-      return '(max-width: 767px) calc((100vw - 26px) / 2), (max-width: 1023px) calc((100vw - 306px) / 2), min(420px, calc((55.6vw - 50px) / 2))'
-    if (reservedWidth === undefined)
-      return '(max-width: 767px) calc(100vw - 26px), (max-width: 1023px) calc(100vw - 306px), min(840px, calc(55.6vw - 50px))'
-    const cap = `${reservedWidth}px`
-    return `(max-width: 767px) min(calc(100vw - 26px), ${cap}), (max-width: 1023px) min(calc(100vw - 306px), ${cap}), min(840px, calc(55.6vw - 50px), ${cap})`
+      return slotSizes(
+        ['calc((100vw - 26px) / 2)'],
+        ['calc((100vw - 306px) / 2)'],
+        [`calc((${wide}) / 2)`, wideCap && wideCap / 2],
+      )
+    return slotSizes(
+      ['calc(100vw - 26px)', reservedWidth],
+      ['calc(100vw - 306px)', reservedWidth],
+      [`calc(${wide})`, wideCap, reservedWidth],
+    )
   })
+
+  /** Phone, tablet and desktop slots, each a width and optional px caps. */
+  function slotSizes(...slots: [string, ...(number | undefined)[]][]): string {
+    const [phone, tablet, desktop] = slots.map(([width, ...caps]) => {
+      const bounds = caps.filter((cap) => cap !== undefined)
+      return bounds.length > 0
+        ? `min(${[width, ...bounds.map((cap) => `${cap}px`)].join(', ')})`
+        : width
+    })
+    return `(max-width: 767px) ${phone}, (max-width: 1023px) ${tablet}, ${desktop}`
+  }
   let ratio = $derived(imageAspectRatio(image))
   let aspectRatio = $derived(
     ratio ? `${ratio.width} / ${ratio.height}` : '4 / 3',
@@ -90,10 +110,12 @@
     const { width, height } = loadedSize
     return Math.min(reservedWidth ?? width, width, (560 * width) / height)
   })
+  // The file's own shape wins once it is known: the record's ratio is only
+  // a reservation and may disagree with the file.
   let feedShape = $derived(
-    ratio
-      ? aspectRatio
-      : loadedSize && `${loadedSize.width} / ${loadedSize.height}`,
+    loadedSize
+      ? `${loadedSize.width} / ${loadedSize.height}`
+      : ratio && aspectRatio,
   )
 
   function onImageLoad(event: Event): void {
@@ -103,17 +125,20 @@
 
   async function measure(loaded: HTMLImageElement): Promise<void> {
     if (!feed) return
-    const shown = fullImageUrl
+    const url = loaded.currentSrc || loaded.src
     // An image without srcset has a density of 1, so its natural size is the
-    // file's. The file is cached, so this does not fetch it again.
+    // file's. The file is cached, so this does not fetch it again, and its
+    // size is known on load without decoding the pixels.
     const probe = new Image()
-    probe.src = loaded.currentSrc || loaded.src
-    try {
-      await probe.decode()
-    } catch {
-      return
-    }
-    if (shown !== fullImageUrl) return
+    const measured = new Promise<boolean>((resolve) => {
+      probe.onload = () => resolve(true)
+      probe.onerror = () => resolve(false)
+    })
+    probe.src = url
+    if (!(await measured)) return
+    // A later file (another image, or the full size after unblurring) has
+    // replaced this one: its own load measures it.
+    if (url !== (img?.currentSrc || img?.src)) return
     if (probe.naturalWidth > 0 && probe.naturalHeight > 0)
       loadedSize = { width: probe.naturalWidth, height: probe.naturalHeight }
   }

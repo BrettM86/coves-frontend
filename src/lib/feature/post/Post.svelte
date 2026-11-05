@@ -289,8 +289,8 @@
           style="grid-area:embed;"
           class={{
             contents: view === 'cozy' && !nativeImage,
-            '[&>*]:block [&>*]:w-full':
-              view === 'cozy' && nativeImage && !feedCard,
+            // No display override: it would turn the gallery grid to block.
+            '[&>*]:w-full': view === 'cozy' && nativeImage && !feedCard,
           }}
         >
           {#if !feedLink}
@@ -347,9 +347,7 @@
         <LinkCard
           uri={externalUri}
           title={embedTitle !== post.record?.title ? embedTitle : undefined}
-          thumbnail={feedLink && !nativeImage
-            ? extractEmbedThumbnail(post.embed)
-            : undefined}
+          thumbnail={feedLink ? extractEmbedThumbnail(mediaEmbed) : undefined}
           fixedHeight={!!post.record?.content}
         />
       {/if}

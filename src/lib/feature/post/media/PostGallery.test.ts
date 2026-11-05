@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render } from 'svelte/server'
 import { JSDOM } from 'jsdom'
 import type { EmbedImage } from '$lib/api/coves/types'
+import { settings } from '$lib/app/state/settings.svelte'
 import PostGallery from './PostGallery.svelte'
 
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
@@ -78,7 +79,7 @@ describe('PostGallery with one image', () => {
     const source = image.closest('picture')?.querySelector('source')
 
     expect(source?.getAttribute('sizes')).toBe(
-      '(max-width: 767px) calc(100vw - 26px), (max-width: 1023px) calc(100vw - 306px), min(840px, calc(55.6vw - 50px))',
+      '(max-width: 767px) calc(100vw - 26px), (max-width: 1023px) calc(100vw - 306px), min(calc(55.6vw - 50px), 840px)',
     )
   })
 
@@ -114,8 +115,25 @@ describe('PostGallery tile size', () => {
     )
 
     expect(source?.getAttribute('sizes')).toBe(
-      '(max-width: 767px) calc((100vw - 26px) / 2), (max-width: 1023px) calc((100vw - 306px) / 2), min(420px, calc((55.6vw - 50px) / 2))',
+      '(max-width: 767px) calc((100vw - 26px) / 2), (max-width: 1023px) calc((100vw - 306px) / 2), min(calc((55.6vw - 50px) / 2), 420px)',
     )
+  })
+
+  it('describes the uncapped 60% column when the width limit is off', () => {
+    settings.newWidth = false
+    try {
+      const document = new JSDOM(body([lake])).window.document
+      const grid = new JSDOM(body([lake, lake])).window.document
+
+      expect(document.querySelector('source')?.getAttribute('sizes')).toBe(
+        '(max-width: 767px) calc(100vw - 26px), (max-width: 1023px) calc(100vw - 306px), calc(60vw - 50px)',
+      )
+      expect(grid.querySelector('source')?.getAttribute('sizes')).toBe(
+        '(max-width: 767px) calc((100vw - 26px) / 2), (max-width: 1023px) calc((100vw - 306px) / 2), calc((60vw - 50px) / 2)',
+      )
+    } finally {
+      settings.newWidth = true
+    }
   })
 
   it('keeps grid tiles at column width', () => {
@@ -148,7 +166,7 @@ describe('PostGallery in a feed card', () => {
     const source = feedDocument([square]).querySelector('source')
 
     expect(source?.getAttribute('sizes')).toBe(
-      '(max-width: 767px) min(calc(100vw - 26px), 560px), (max-width: 1023px) min(calc(100vw - 306px), 560px), min(840px, calc(55.6vw - 50px), 560px)',
+      '(max-width: 767px) min(calc(100vw - 26px), 560px), (max-width: 1023px) min(calc(100vw - 306px), 560px), min(calc(55.6vw - 50px), 840px, 560px)',
     )
   })
 

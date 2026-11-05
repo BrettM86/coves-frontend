@@ -269,6 +269,12 @@ describe('Post feed card images', () => {
     expect(classesUpTo(image, article)).toContain('max-h-[60vh]')
     expect(image.classList.contains('max-h-[560px]')).toBe(false)
     expect(classesUpTo(image, article)).toContain('[&>*]:w-full')
+    // A display override on the wrapper would turn a gallery grid to block.
+    expect(
+      classesUpTo(image, article).filter((token) =>
+        /^\[&>\*\]:(block|flex|grid|inline)/.test(token),
+      ),
+    ).toEqual([])
   })
 })
 

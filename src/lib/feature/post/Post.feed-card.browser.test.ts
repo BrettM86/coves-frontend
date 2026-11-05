@@ -115,11 +115,11 @@ it.each([
     vi.stubGlobal(
       'Image',
       class {
-        src = ''
         naturalWidth = natural.width
         naturalHeight = natural.height
-        decode(): Promise<void> {
-          return Promise.resolve()
+        onload: (() => void) | null = null
+        set src(_url: string) {
+          queueMicrotask(() => this.onload?.())
         }
       },
     )

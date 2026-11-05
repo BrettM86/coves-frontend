@@ -59,6 +59,25 @@ const iframeAttribute = (html: string, name: string): string | undefined => {
 const countIframes = (html: string): number =>
   [...html.matchAll(/<iframe(?=[\s/>])/gi)].length
 
+/** The accessible name of each `<button>`: its aria-label, else its text. */
+const buttonNames = (html: string): string[] =>
+  [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/gi)].map(
+    ([, attributes = '', content = '']) =>
+      /\baria-label\s*=\s*"([^"]*)"/i.exec(attributes)?.[1] ??
+      content
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
+  )
+
+/** Every non-blank text node, trimmed. */
+const textNodes = (html: string): string[] =>
+  [...html.matchAll(/>([^<]+)</g)]
+    .map(([, text = '']) => text.trim())
+    .filter(Boolean)
+
+const BLOBS_VIEWBOX = 'viewBox="0 -100 1171 241"'
+
 const VIDEO_ID = 'dQw4w9WgXcQ'
 const WATCH_URL = `https://www.youtube.com/watch?v=${VIDEO_ID}`
 
@@ -238,6 +257,72 @@ describe('PostIframe - unopened preview', () => {
       renderIframe('youtu.be/aaaaaaaaaaa', { opened: false }),
     ).not.toThrow()
   })
+
+  // B3: a scheme-less URL has no hostname to show, so the tag falls back to
+  // the type label — and only the tag, since the preview carries no title.
+  it('falls back to the type label as the tag of an unparseable URL', () => {
+    const html = renderIframe('youtu.be/aaaaaaaaaaa', { opened: false })
+
+    expect(textNodes(html).filter((text) => text === 'YouTube Video')).toEqual([
+      'YouTube Video',
+    ])
+    expect(buttonNames(html)).toContain('Play video')
+  })
+
+  // B1: a usable thumbnail becomes the poster, a "Play video" button opens the
+  // player, and a tag names the link's host without its leading `www.`.
+  const POSTER_THUMBNAIL =
+    'https://img.coves.test/img/content_full/plain/did:plc:a/b'
+  const PREVIEW_CASES: readonly (readonly [IframeType, string, string])[] = [
+    ['streamable', 'https://www.streamable.com/abc123', 'streamable.com'],
+    ['youtube', `https://youtu.be/${VIDEO_ID}`, 'youtu.be'],
+    ['video', 'https://cdn.test/clip.mp4', 'cdn.test'],
+  ]
+
+  it.each(PREVIEW_CASES)(
+    'shows a poster, a Play video button and a host tag for %s %j',
+    (type, url, host) => {
+      const html = renderIframe(url, {
+        type,
+        opened: false,
+        thumbnail: POSTER_THUMBNAIL,
+      })
+
+      expect(buttonNames(html)).toContain('Play video')
+      const images = imageTags(html)
+      expect(images).toHaveLength(1)
+      expect(images[0]).toContain(
+        'src="https://img.coves.test/img/embed_thumbnail/plain/did:plc:a/b"',
+      )
+      expect(textNodes(html)).toContain(host)
+    },
+  )
+
+  // B2: without a usable thumbnail there is no poster and no generated
+  // backdrop, but the preview still offers the Play video button.
+  const NO_POSTER_CASES: readonly (readonly [
+    IframeType,
+    string,
+    string | undefined,
+  ])[] = [
+    ['streamable', 'https://streamable.com/abc123', undefined],
+    ['youtube', WATCH_URL, undefined],
+    ['video', 'https://cdn.test/clip.mp4', undefined],
+    ['streamable', 'https://streamable.com/abc123', 'javascript:alert(1)'],
+    ['youtube', WATCH_URL, 'javascript:alert(1)'],
+    ['video', 'https://cdn.test/clip.mp4', 'javascript:alert(1)'],
+  ]
+
+  it.each(NO_POSTER_CASES)(
+    'shows no poster or backdrop for %s %j with thumbnail %j',
+    (type, url, thumbnail) => {
+      const html = renderIframe(url, { type, opened: false, thumbnail })
+
+      expect(html).not.toContain(BLOBS_VIEWBOX)
+      expect(imageTags(html)).toEqual([])
+      expect(buttonNames(html)).toContain('Play video')
+    },
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -307,7 +392,7 @@ describe('PostIframe - streamable', () => {
 // embed record's `thumbnail` / `external.thumb`, and the closed player paints
 // it as a background `<img>`. A prop is not a gate — the component cannot
 // assume its caller ran the URL through the helpers — so a non-http(s) value
-// falls back to the generated Blobs backdrop rather than reaching an img src.
+// falls back to the plain no-poster preview rather than reaching an img src.
 // ---------------------------------------------------------------------------
 
 describe('PostIframe - preview thumbnail', () => {

@@ -24,6 +24,23 @@
 
     return null
   }
+
+  // Where a YouTube link with no thumbnail of its own borrows a poster from,
+  // following the reader's frontend choice. Piped has no stable thumbnail
+  // host, so it gets none.
+  const YOUTUBE_POSTER_HOSTS: Record<YouTubeFrontend, string | null> = {
+    youtube: 'i.ytimg.com',
+    invidious: 'yewtu.be',
+    piped: null,
+  }
+
+  function youtubePoster(url: string, place: YouTubeFrontend): string | null {
+    const host = YOUTUBE_POSTER_HOSTS[place]
+    const videoID = youtubeVideoID(url)
+    return host && videoID
+      ? `https://${host}/vi/${videoID}/hqdefault.jpg`
+      : null
+  }
 </script>
 
 <script lang="ts">
@@ -119,9 +136,14 @@
   let embedUrl = $derived(urlToEmbed(url))
   // `thumbnail` is a second untrusted sink alongside `url`, and its caller is
   // not guaranteed to have gated it. Anything that is not an absolute http(s)
-  // address falls through to the plain no-poster fill instead of an img src.
+  // address falls through to the plain no-poster fill instead of an img src,
+  // unless it is a YouTube link, which can borrow the video's own poster.
   let previewThumbnail = $derived(
-    thumbnail && isWebUrl(thumbnail) ? thumbnail : undefined,
+    thumbnail && isWebUrl(thumbnail)
+      ? thumbnail
+      : type == 'youtube'
+        ? (youtubePoster(url, settings.embeds.youtube) ?? undefined)
+        : undefined,
   )
 </script>
 

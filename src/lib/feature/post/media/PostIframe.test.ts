@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import { render } from 'svelte/server'
 import {
   EMBED_FRAME_ORIGINS,
   YOUTUBE_EMBED_HOSTS,
+  type YouTubeFrontend,
 } from '$lib/app/util/embed-hosts'
+import { settings } from '$lib/app/state/settings.svelte'
 import PostIframe from './PostIframe.svelte'
 import type { IframeType } from '../helpers'
 
@@ -80,6 +82,7 @@ const BLOBS_VIEWBOX = 'viewBox="0 -100 1171 241"'
 
 const VIDEO_ID = 'dQw4w9WgXcQ'
 const WATCH_URL = `https://www.youtube.com/watch?v=${VIDEO_ID}`
+const STREAMABLE_URL = 'https://streamable.com/abc123'
 
 // ---------------------------------------------------------------------------
 // 1. Frame origin
@@ -299,17 +302,16 @@ describe('PostIframe - unopened preview', () => {
   )
 
   // B2: without a usable thumbnail there is no poster and no generated
-  // backdrop, but the preview still offers the Play video button.
+  // backdrop, but the preview still offers the Play video button. (YouTube
+  // has its own fallback poster; see "YouTube poster fallback" below.)
   const NO_POSTER_CASES: readonly (readonly [
     IframeType,
     string,
     string | undefined,
   ])[] = [
     ['streamable', 'https://streamable.com/abc123', undefined],
-    ['youtube', WATCH_URL, undefined],
     ['video', 'https://cdn.test/clip.mp4', undefined],
     ['streamable', 'https://streamable.com/abc123', 'javascript:alert(1)'],
-    ['youtube', WATCH_URL, 'javascript:alert(1)'],
     ['video', 'https://cdn.test/clip.mp4', 'javascript:alert(1)'],
   ]
 
@@ -412,21 +414,33 @@ describe('PostIframe - preview thumbnail', () => {
   ]
 
   it.each(UNSAFE_THUMBNAILS)('emits no preview image for %j', (thumbnail) => {
-    const html = renderIframe(WATCH_URL, { opened: false, thumbnail })
+    const html = renderIframe(STREAMABLE_URL, {
+      type: 'streamable',
+      opened: false,
+      thumbnail,
+    })
     expect(imageTags(html)).toEqual([])
     expect(html).toContain('<button')
   })
 
   it.each(SAFE_THUMBNAILS)('renders %j unchanged', (thumbnail) => {
     const images = imageTags(
-      renderIframe(WATCH_URL, { opened: false, thumbnail }),
+      renderIframe(STREAMABLE_URL, {
+        type: 'streamable',
+        opened: false,
+        thumbnail,
+      }),
     )
     expect(images).toHaveLength(1)
     expect(images[0]).toContain(`src="${thumbnail}"`)
   })
 
   it('emits no image when no thumbnail is supplied', () => {
-    expect(imageTags(renderIframe(WATCH_URL, { opened: false }))).toEqual([])
+    expect(
+      imageTags(
+        renderIframe(STREAMABLE_URL, { type: 'streamable', opened: false }),
+      ),
+    ).toEqual([])
   })
 
   it('emits no image once the embed is opened', () => {
@@ -436,6 +450,63 @@ describe('PostIframe - preview thumbnail', () => {
           opened: true,
           thumbnail: 'https://cdn.example.com/x.png',
         }),
+      ),
+    ).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// YouTube poster fallback
+// ---------------------------------------------------------------------------
+
+// A YouTube link with no usable thumbnail (bridged posts often arrive without
+// one) borrows the video's own poster from the frontend the reader picked.
+// Piped has no stable thumbnail host, so it keeps the plain fill.
+describe('PostIframe - YouTube poster fallback', () => {
+  afterEach(() => {
+    settings.embeds.youtube = 'youtube'
+  })
+
+  const FALLBACKS: readonly (readonly [YouTubeFrontend, string | undefined])[] =
+    [
+      ['youtube', `https://i.ytimg.com/vi/${VIDEO_ID}/hqdefault.jpg`],
+      ['invidious', `https://yewtu.be/vi/${VIDEO_ID}/hqdefault.jpg`],
+      ['piped', undefined],
+    ]
+
+  it.each(FALLBACKS)(
+    'with the %s frontend and no thumbnail, the poster is %j',
+    (frontend, poster) => {
+      settings.embeds.youtube = frontend
+      for (const thumbnail of [undefined, 'javascript:alert(1)']) {
+        const images = imageTags(
+          renderIframe(`https://youtu.be/${VIDEO_ID}`, {
+            opened: false,
+            thumbnail,
+          }),
+        )
+        expect(images).toEqual(
+          poster ? [expect.stringContaining(`src="${poster}"`)] : [],
+        )
+      }
+    },
+  )
+
+  it('prefers the post thumbnail over the fallback', () => {
+    const images = imageTags(
+      renderIframe(WATCH_URL, {
+        opened: false,
+        thumbnail: 'https://cdn.example.com/x.png',
+      }),
+    )
+    expect(images).toHaveLength(1)
+    expect(images[0]).toContain('src="https://cdn.example.com/x.png"')
+  })
+
+  it('has no fallback for a link without a video ID', () => {
+    expect(
+      imageTags(
+        renderIframe('https://www.youtube.com/@somechannel', { opened: false }),
       ),
     ).toEqual([])
   })

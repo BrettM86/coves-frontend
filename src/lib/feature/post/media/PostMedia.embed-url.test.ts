@@ -84,11 +84,11 @@ describe('PostMedia - external embed thumbnail', () => {
 
 describe('PostMedia - video embed thumbnail', () => {
   it.each(HOSTILE_URLS)(
-    'emits no preview image for a %j thumbnail',
+    'never puts a %j thumbnail in an image src',
     (thumbnail) => {
-      expect(
-        imageTags(markup(videoEmbed(thumbnail), { opened: false })),
-      ).toEqual([])
+      // A YouTube link may still show the video's own poster instead.
+      const images = imageTags(markup(videoEmbed(thumbnail), { opened: false }))
+      expect(images.filter((image) => image.includes(thumbnail))).toEqual([])
     },
   )
 

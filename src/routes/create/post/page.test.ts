@@ -8,10 +8,23 @@ vi.mock('$lib/app/state/auth.svelte', () => ({ profile: mockProfile }))
 import { load } from './+page'
 import type { PageLoadEvent } from './$types'
 
-// These loads only read URL and the separately controlled authentication state.
+/** The root layout's data the guard reads through `parent()`. */
+interface LayoutSession {
+  session: { authenticated: boolean } | null
+  sessionExpired: boolean
+}
+
+// These loads only read the URL, the root layout's session and the separately
+// controlled stored profile; the rest of the event is unused.
 const loadPage = load as (
-  event: Pick<PageLoadEvent, 'url'>,
-) => ReturnType<typeof load>
+  event: Pick<PageLoadEvent, 'url'> & {
+    parent: () => Promise<LayoutSession>
+  },
+) => Promise<void>
+
+function withLayout(layout: LayoutSession): () => Promise<LayoutSession> {
+  return async () => layout
+}
 
 /**
  * SvelteKit's tracked URL throws on `url.hash` during load. Mirror that guard so
@@ -33,35 +46,74 @@ describe('create post authentication redirect', () => {
     mockProfile.sessionExpired = false
   })
 
-  it('preserves the requested create page path and query for a guest', () => {
-    const url = loadUrl(
-      'https://web.example.invalid/create/post?community=orchids#editor',
-    )
-    try {
-      loadPage({ url })
-      expect.fail('Expected authentication redirect')
-    } catch (error) {
-      const redirect = error as { status: number; location: string }
+  it('allows composing when the layout session is authenticated, before the stored profile has synced', async () => {
+    expect(
+      await loadPage({
+        url: loadUrl(
+          'https://web.example.invalid/create/post?community=orchids',
+        ),
+        parent: withLayout({
+          session: { authenticated: true },
+          sessionExpired: false,
+        }),
+      }),
+    ).toBeUndefined()
+  })
+
+  it.each([
+    { storedJwt: undefined, profileState: 'a guest stored profile' },
+    {
+      storedJwt: 'fixture-session',
+      profileState: 'a stale stored profile',
+    },
+  ])(
+    'redirects to login with the requested path and query, given no layout session and $profileState',
+    async ({ storedJwt }) => {
+      mockProfile.current.jwt = storedJwt
+      const url = loadUrl(
+        'https://web.example.invalid/create/post?community=orchids#editor',
+      )
+      let thrown: unknown
+      try {
+        await loadPage({
+          url,
+          parent: withLayout({ session: null, sessionExpired: false }),
+        })
+      } catch (error) {
+        thrown = error
+      }
+      expect(thrown, 'Expected authentication redirect').toBeDefined()
+      const redirect = thrown as { status: number; location: string }
       expect(redirect.status).toBe(302)
       const target = new URL(redirect.location, url.origin)
       expect(target.pathname).toBe('/login')
       expect(target.searchParams.get('redirect')).toBe(
         '/create/post?community=orchids',
       )
-    }
-  })
+    },
+  )
 
-  it('allows an authenticated browser to compose a post', () => {
-    mockProfile.current.jwt = 'fixture-session'
-    expect(() =>
-      loadPage({ url: loadUrl('https://web.example.invalid/create/post') }),
-    ).not.toThrow()
-  })
-
-  it('keeps the page (and its draft) while the session is expired', () => {
-    mockProfile.sessionExpired = true
-    expect(() =>
-      loadPage({ url: loadUrl('https://web.example.invalid/create/post') }),
-    ).not.toThrow()
-  })
+  it.each([
+    {
+      expiredBy: 'the layout',
+      layoutExpired: true,
+      profileExpired: false,
+    },
+    {
+      expiredBy: 'the stored profile',
+      layoutExpired: false,
+      profileExpired: true,
+    },
+  ])(
+    'keeps the page (and its draft) while $expiredBy reports the session expired',
+    async ({ layoutExpired, profileExpired }) => {
+      mockProfile.sessionExpired = profileExpired
+      expect(
+        await loadPage({
+          url: loadUrl('https://web.example.invalid/create/post'),
+          parent: withLayout({ session: null, sessionExpired: layoutExpired }),
+        }),
+      ).toBeUndefined()
+    },
+  )
 })

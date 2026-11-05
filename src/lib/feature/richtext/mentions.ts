@@ -131,8 +131,9 @@ export async function resolveMentions(
 export async function composeRichText(
   source: string,
   resolver: MentionResolver,
+  options?: { imageCount?: number },
 ): Promise<ComposedRichText> {
-  const parsed = parseMarkup(source)
+  const parsed = parseMarkup(source, options)
   const mentionFacets = await resolveMentions(parsed, resolver)
   const facets = [...parsed.facets, ...mentionFacets]
     .sort((a, b) => a.index.byteStart - b.index.byteStart)

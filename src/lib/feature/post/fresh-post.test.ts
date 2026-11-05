@@ -81,3 +81,69 @@ describe('buildFreshPostView', () => {
     expect(view?.record?.facets).toEqual(facets)
   })
 })
+
+describe('buildFreshPostView attached images', () => {
+  // The composer's preview URLs and the upload's aspect ratios, as the post
+  // form hands them over after a successful submit.
+  const images = [
+    {
+      previewUrl: 'blob:http://localhost/first',
+      alt: 'a cat',
+      aspectRatio: { width: 300, height: 200 },
+    },
+    {
+      previewUrl: 'blob:http://localhost/second',
+      aspectRatio: { width: 1000, height: 1500 },
+    },
+  ]
+
+  const EXPECTED_IMAGE_VIEWS = [
+    {
+      thumb: 'blob:http://localhost/first',
+      fullsize: 'blob:http://localhost/first',
+      alt: 'a cat',
+      aspectRatio: { width: 300, height: 200 },
+    },
+    {
+      thumb: 'blob:http://localhost/second',
+      fullsize: 'blob:http://localhost/second',
+      aspectRatio: { width: 1000, height: 1500 },
+    },
+  ]
+
+  it('renders 2 images and a URL as an imagesWithAttachment view of the preview URLs with a flattened external attachment', () => {
+    const view = buildFreshPostView({
+      output,
+      community,
+      title: 'a post',
+      url: 'https://example.com/story',
+      images,
+    })
+
+    expect(view?.embed).toEqual({
+      $type: 'social.coves.embed.imagesWithAttachment#view',
+      images: {
+        $type: 'social.coves.embed.images#view',
+        images: EXPECTED_IMAGE_VIEWS,
+      },
+      attachment: {
+        $type: 'social.coves.embed.external#viewExternal',
+        uri: 'https://example.com/story',
+      },
+    })
+  })
+
+  it('renders 2 images without a URL as an images view of the preview URLs', () => {
+    const view = buildFreshPostView({
+      output,
+      community,
+      title: 'a post',
+      images,
+    })
+
+    expect(view?.embed).toEqual({
+      $type: 'social.coves.embed.images#view',
+      images: EXPECTED_IMAGE_VIEWS,
+    })
+  })
+})

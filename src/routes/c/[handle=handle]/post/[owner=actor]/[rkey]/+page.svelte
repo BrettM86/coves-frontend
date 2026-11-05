@@ -10,6 +10,9 @@
   import CommentProvider from '$lib/feature/comment/CommentProvider.svelte'
   import { Post } from '$lib/feature/post'
   import { postLink, postTextFallback } from '$lib/feature/post/helpers'
+  import { freshPostImageUrls } from '$lib/feature/post/fresh-post'
+  import { revokeLocalImageUrl } from '$lib/feature/image-upload/local-image-urls'
+  import { removePlacedText } from '$lib/feature/richtext/image-layout'
   import {
     isThreadRootGoneError,
     logThreadRootGone,
@@ -22,7 +25,7 @@
   import { Header, Pageination } from '$lib/ui/layout'
   import { Button, Material, Spinner, toast } from '$lib/ui/kit'
   import { Icon, ArrowLeft, MessageSquare } from '$lib/ui/kit/icon'
-  import { tick } from 'svelte'
+  import { onDestroy, tick } from 'svelte'
   import { SvelteURL } from 'svelte/reactivity'
   import type { PageData } from './$types'
 
@@ -62,6 +65,21 @@
     return () => {
       current = false
     }
+  })
+
+  // A just-created post renders from the composer's object URLs. Once the
+  // page shows something else (the server copy, or another post), or closes,
+  // those URLs are revoked.
+  let shownLocalImageUrls: string[] = []
+  $effect(() => {
+    const urls = freshPostImageUrls(data.data.value?.post)
+    for (const url of shownLocalImageUrls) {
+      if (!urls.includes(url)) revokeLocalImageUrl(url)
+    }
+    shownLocalImageUrls = urls
+  })
+  onDestroy(() => {
+    for (const url of shownLocalImageUrls) revokeLocalImageUrl(url)
   })
 
   function handleBack(event: MouseEvent): void {
@@ -264,7 +282,15 @@
     {@const headPost = data.data.value.post}
     {@const headTitle =
       headPost.record?.title ??
-      postTextFallback(headPost.record?.content, 80) ??
+      postTextFallback(
+        headPost.record?.content &&
+          removePlacedText(
+            headPost.embed,
+            headPost.record.content,
+            headPost.record.facets,
+          ),
+        80,
+      ) ??
       `Post by @${headPost.author.handle}`}
     <title>
       {headTitle}

@@ -49,7 +49,6 @@ describe('PostMediaCompact generic source selection', () => {
       $type: 'social.coves.embed.images#view',
       images: [
         {
-          image: 'https://media.example/native-full.jpg',
           thumb: 'https://media.example/native-thumb.jpg',
           fullsize: 'https://media.example/native-full.jpg',
           alt: 'Native image',

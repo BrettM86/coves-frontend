@@ -71,7 +71,6 @@ export function imagePost(aspectRatio?: {
       $type: 'social.coves.embed.images#view',
       images: [
         {
-          image: IMAGE_FULL,
           thumb: IMAGE_THUMB,
           fullsize: IMAGE_FULL,
           alt: 'A cat',

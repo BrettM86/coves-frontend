@@ -22,6 +22,7 @@
  *   record must not be able to stall rendering.
  */
 
+import type { EmbedImage } from '$lib/api/coves/types'
 import { parseWebUrl } from '$lib/app/util/url'
 import { isValidDID } from '$lib/types/atproto'
 
@@ -43,6 +44,7 @@ export const FEATURE_TYPE = {
   heading: `${FACET_NS}#heading`,
   code: `${FACET_NS}#code`,
   codeBlock: `${FACET_NS}#codeBlock`,
+  image: `${FACET_NS}#image`,
 } as const
 
 // ---------------------------------------------------------------------------
@@ -107,6 +109,62 @@ export interface BlockquoteBlock {
 
 export type Block = ParagraphBlock | HeadingBlock | CodeBlock | BlockquoteBlock
 
+// ---------------------------------------------------------------------------
+// Image-aware render tree (buildRichTextWithPlacements)
+// ---------------------------------------------------------------------------
+
+/** A spoiler piece; pieces cut from one spoiler share a `group` and reveal
+ * together. */
+export interface PlacedSpoilerSpan {
+  readonly type: 'spoiler'
+  readonly reason?: string
+  readonly group: number
+  readonly children: readonly (TextSegment | LinkSpan)[]
+}
+
+export type PlacedInline = TextSegment | LinkSpan | PlacedSpoilerSpan
+
+export interface PlacedParagraphBlock {
+  readonly type: 'paragraph'
+  readonly children: readonly PlacedInline[]
+}
+
+export interface PlacedHeadingBlock {
+  readonly type: 'heading'
+  readonly level: FacetLevel
+  readonly children: readonly PlacedInline[]
+}
+
+/** A placed image, drawn as a block where its facet's text was. `Image` is
+ * whatever the caller placed: the reader's view image, or anything else a
+ * caller that needs only the facet position passes. */
+export interface PlacedImageBlock<Image = EmbedImage> {
+  readonly type: 'image'
+  /** Position of the placing facet in the facets array. */
+  readonly facet: number
+  readonly image: Image
+  /** Set when the placement lies in a spoiler: the image reveals with it. */
+  readonly spoiler?: { readonly group: number; readonly reason?: string }
+}
+
+export interface PlacedBlockquoteBlock<Image = EmbedImage> {
+  readonly type: 'blockquote'
+  readonly level: FacetLevel
+  readonly children: readonly (
+    | PlacedParagraphBlock
+    | PlacedHeadingBlock
+    | CodeBlock
+    | PlacedImageBlock<Image>
+  )[]
+}
+
+export type PlacedBlock<Image = EmbedImage> =
+  | PlacedParagraphBlock
+  | PlacedHeadingBlock
+  | CodeBlock
+  | PlacedBlockquoteBlock<Image>
+  | PlacedImageBlock<Image>
+
 /** True when a record's facets field holds at least one entry. */
 export function hasFacets(facets: unknown): facets is unknown[] {
   return Array.isArray(facets) && facets.length > 0
@@ -116,7 +174,7 @@ export function hasFacets(facets: unknown): facets is unknown[] {
 // Facet parsing (untrusted input → normalized annotations)
 // ---------------------------------------------------------------------------
 
-interface Range {
+export interface Range {
   start: number
   end: number
 }
@@ -211,6 +269,15 @@ function extendToLineBounds(bytes: Uint8Array, range: Range): Range | null {
   while (start > 0 && bytes[start - 1] !== 0x0a) start--
   while (end < bytes.length && bytes[end] !== 0x0a) end++
   return { start, end }
+}
+
+/** A facet's raw byte range, or null when its index is malformed. Not
+ * clamped or snapped: callers that need exact ranges check them. */
+export function facetByteRange(facet: unknown): Range | null {
+  if (!isRecord(facet) || !isRecord(facet.index)) return null
+  const start = asByteOffset(facet.index.byteStart)
+  const end = asByteOffset(facet.index.byteEnd)
+  return start === null || end === null ? null : { start, end }
 }
 
 function parseAnnotations(
@@ -470,39 +537,62 @@ function linkSpans(
   return out
 }
 
-function inlines(ctx: InlineContext, start: number, end: number): Inline[] {
+function inlinesWith<Spoiler>(
+  ctx: InlineContext,
+  start: number,
+  end: number,
+  spoilerNode: (
+    spoiler: SpoilerRange,
+    children: (TextSegment | LinkSpan)[],
+  ) => Spoiler,
+): (TextSegment | LinkSpan | Spoiler)[] {
   const spoilers = clipRanges(ctx.spoilers, start, end)
-  const out: Inline[] = []
+  const out: (TextSegment | LinkSpan | Spoiler)[] = []
   let cursor = start
   for (const spoiler of spoilers) {
     out.push(...linkSpans(ctx, cursor, spoiler.start))
     const children = linkSpans(ctx, spoiler.start, spoiler.end)
-    if (children.length > 0) {
-      out.push({ type: 'spoiler', reason: spoiler.reason, children })
-    }
+    if (children.length > 0) out.push(spoilerNode(spoiler, children))
     cursor = spoiler.end
   }
   out.push(...linkSpans(ctx, cursor, end))
   return out
 }
 
+function inlines(ctx: InlineContext, start: number, end: number): Inline[] {
+  return inlinesWith(ctx, start, end, (spoiler, children): SpoilerSpan => ({
+    type: 'spoiler',
+    reason: spoiler.reason,
+    children,
+  }))
+}
+
 // ---------------------------------------------------------------------------
 // Tree assembly
 // ---------------------------------------------------------------------------
+
+/** Trim the newline separators left over at block boundaries; interior
+ * newlines are preserved (rendered with pre-wrap). */
+function trimNewlines(
+  ctx: InlineContext,
+  start: number,
+  end: number,
+): Range | null {
+  let s = start
+  let e = end
+  while (s < e && ctx.bytes[s] === 0x0a) s++
+  while (e > s && ctx.bytes[e - 1] === 0x0a) e--
+  return s < e ? { start: s, end: e } : null
+}
 
 function paragraphsForGap(
   ctx: InlineContext,
   start: number,
   end: number,
 ): ParagraphBlock[] {
-  // Trim the newline separators left over at block boundaries; interior
-  // newlines are preserved (rendered with pre-wrap).
-  let s = start
-  let e = end
-  while (s < e && ctx.bytes[s] === 0x0a) s++
-  while (e > s && ctx.bytes[e - 1] === 0x0a) e--
-  if (s >= e) return []
-  const children = inlines(ctx, s, e)
+  const range = trimNewlines(ctx, start, end)
+  if (!range) return []
+  const children = inlines(ctx, range.start, range.end)
   return children.length > 0 ? [{ type: 'paragraph', children }] : []
 }
 
@@ -573,4 +663,206 @@ export function buildRichText(
     spoilers: mergeSpoilers(annotations.spoilers),
   }
   return blocksForRange(ctx, 0, bytes.length, arrangeBlocks(annotations.blocks))
+}
+
+// ---------------------------------------------------------------------------
+// Image-aware tree assembly
+// ---------------------------------------------------------------------------
+
+interface Placement<Image> extends Range {
+  facet: number
+  image: Image
+}
+
+type Piece<Image> =
+  | { kind: 'text'; range: Range }
+  | { kind: 'image'; placement: Placement<Image> }
+
+/** Cut `[start, end)` around the placements overlapping it: the uncovered
+ * text pieces in order, each placement starting inside the range after the
+ * text before it. Covered text appears in no piece. */
+function cutAround<Image>(
+  start: number,
+  end: number,
+  placements: readonly Placement<Image>[],
+): Piece<Image>[] {
+  const pieces: Piece<Image>[] = []
+  let cursor = start
+  for (const placement of placements) {
+    if (placement.end <= start || placement.start >= end) continue
+    if (placement.start > cursor) {
+      pieces.push({
+        kind: 'text',
+        range: { start: cursor, end: placement.start },
+      })
+    }
+    if (placement.start >= start) pieces.push({ kind: 'image', placement })
+    cursor = Math.max(cursor, Math.min(placement.end, end))
+  }
+  if (cursor < end) pieces.push({ kind: 'text', range: { start: cursor, end } })
+  return pieces
+}
+
+function placedInlines(
+  ctx: InlineContext,
+  start: number,
+  end: number,
+): PlacedInline[] {
+  return inlinesWith(
+    ctx,
+    start,
+    end,
+    (spoiler, children): PlacedSpoilerSpan => ({
+      type: 'spoiler',
+      reason: spoiler.reason,
+      group: spoilerGroup(ctx, spoiler),
+      children,
+    }),
+  )
+}
+
+/** Index of the merged spoiler a range lies in or overlaps, or -1. Merged
+ * spoilers are disjoint, so the index identifies one spoiler. */
+function spoilerGroup(ctx: InlineContext, range: Range): number {
+  return ctx.spoilers.findIndex(
+    (spoiler) => spoiler.start < range.end && spoiler.end > range.start,
+  )
+}
+
+function imageBlock<Image>(
+  ctx: InlineContext,
+  placement: Placement<Image>,
+): PlacedImageBlock<Image> {
+  const group = spoilerGroup(ctx, placement)
+  const block = {
+    type: 'image',
+    facet: placement.facet,
+    image: placement.image,
+  } as const
+  return group < 0
+    ? block
+    : { ...block, spoiler: { group, reason: ctx.spoilers[group].reason } }
+}
+
+function placedGap<Image>(
+  ctx: InlineContext,
+  start: number,
+  end: number,
+  placements: readonly Placement<Image>[],
+): (PlacedParagraphBlock | PlacedImageBlock<Image>)[] {
+  const out: (PlacedParagraphBlock | PlacedImageBlock<Image>)[] = []
+  for (const piece of cutAround(start, end, placements)) {
+    if (piece.kind === 'image') {
+      out.push(imageBlock(ctx, piece.placement))
+      continue
+    }
+    const range = trimNewlines(ctx, piece.range.start, piece.range.end)
+    if (!range) continue
+    const children = placedInlines(ctx, range.start, range.end)
+    if (children.length > 0) out.push({ type: 'paragraph', children })
+  }
+  return out
+}
+
+function placedBlocksForRange<Image>(
+  ctx: InlineContext,
+  start: number,
+  end: number,
+  blockRanges: BlockRange[],
+  placements: readonly Placement<Image>[],
+): PlacedBlock<Image>[] {
+  const out: PlacedBlock<Image>[] = []
+  let cursor = start
+  for (const block of blockRanges) {
+    out.push(...placedGap(ctx, cursor, block.start, placements))
+    const pieces = cutAround(block.start, block.end, placements)
+    const textRanges = pieces.flatMap((piece) =>
+      piece.kind === 'text' ? [piece.range] : [],
+    )
+    // A placement in a heading or code block follows it.
+    const images = pieces.flatMap((piece) =>
+      piece.kind === 'image' ? [imageBlock(ctx, piece.placement)] : [],
+    )
+    switch (block.kind) {
+      case 'heading':
+        out.push(
+          {
+            type: 'heading',
+            level: block.level,
+            children: textRanges.flatMap((range) =>
+              placedInlines(ctx, range.start, range.end),
+            ),
+          },
+          ...images,
+        )
+        break
+      case 'codeBlock':
+        out.push(
+          {
+            type: 'codeBlock',
+            language: block.language,
+            code: textRanges
+              .map((range) =>
+                ctx.decoder.decode(ctx.bytes.subarray(range.start, range.end)),
+              )
+              .join(''),
+          },
+          ...images,
+        )
+        break
+      case 'blockquote': {
+        const children = placedBlocksForRange(
+          ctx,
+          block.start,
+          block.end,
+          block.children,
+          placements,
+        ).filter(
+          (child): child is PlacedBlockquoteBlock<Image>['children'][number] =>
+            child.type !== 'blockquote',
+        )
+        out.push({ type: 'blockquote', level: block.level, children })
+        break
+      }
+    }
+    cursor = block.end
+  }
+  out.push(...placedGap(ctx, cursor, end, placements))
+  return out
+}
+
+/**
+ * Build the render tree for `content` with each accepted placement in
+ * `placed` (facet position → image, as `imageLayout` returns it) drawn as an
+ * image block in place of its covered text. `placed` must hold only accepted
+ * placements; `buildRichText` is the tree without them.
+ */
+export function buildRichTextWithPlacements<Image = EmbedImage>(
+  content: string,
+  facets: unknown[],
+  placed: ReadonlyMap<number, Image>,
+): readonly PlacedBlock<Image>[] {
+  const bytes = new TextEncoder().encode(content)
+  const decoder = new TextDecoder()
+  const annotations = parseAnnotations(bytes, decoder, facets)
+  const ctx: InlineContext = {
+    bytes,
+    decoder,
+    marks: annotations.marks,
+    links: annotations.links,
+    spoilers: mergeSpoilers(annotations.spoilers),
+  }
+  const placements = [...placed]
+    .flatMap(([facet, image]): Placement<Image>[] => {
+      const range = facetByteRange(facets[facet])
+      return range ? [{ ...range, facet, image }] : []
+    })
+    .sort((a, b) => a.start - b.start)
+  return placedBlocksForRange(
+    ctx,
+    0,
+    bytes.length,
+    arrangeBlocks(annotations.blocks),
+    placements,
+  )
 }

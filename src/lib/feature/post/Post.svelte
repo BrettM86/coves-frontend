@@ -13,12 +13,18 @@
   import LinkCard from './LinkCard.svelte'
   import {
     bestImageURL,
+    embedImages,
     extractEmbedThumbnail,
     extractEmbedTitle,
     extractEmbedUrl,
+    galleryEmbed,
     mediaType,
     postTextFallback,
   } from './helpers'
+  import {
+    imageLayout,
+    removePlacedText,
+  } from '$lib/feature/richtext/image-layout'
   import { titleDuplicatesBlueskyEmbed } from './media/bluesky-card'
   import { type MetaTag, parseTags } from './tags'
   import { isSensitivePost } from './content-labels'
@@ -63,11 +69,17 @@
   // Home and community feeds; the detail page passes expandBody and keeps
   // the full layout.
   let feedCard = $derived(view === 'cozy' && !expandBody)
-  let type = $derived(mediaType(post.embed))
-  let sensitive = $derived(isSensitivePost(post))
-  let nativeImage = $derived(
-    post.embed?.$type === 'social.coves.embed.images#view',
+  let layout = $derived(
+    imageLayout(post.embed, post.record?.content ?? '', post.record?.facets),
   )
+  /** The embed minus the images placed in the body. */
+  let mediaEmbed = $derived(galleryEmbed(post.embed, layout.gallery))
+  let placedImages = $derived([...layout.placed.values()])
+  /** On the post page the gallery follows a body that places images. */
+  let galleryAfterBody = $derived(expandBody && layout.placed.size > 0)
+  let type = $derived(mediaType(mediaEmbed))
+  let sensitive = $derived(isSensitivePost(post))
+  let nativeImage = $derived(embedImages(post.embed).length > 0)
   let previewImage = $derived(
     nativeImage ? bestImageURL(post.embed, false, 'thumb') : '',
   )
@@ -87,12 +99,22 @@
   let embedTitle = $derived(extractEmbedTitle(post.embed))
   // The feed card shows every external link as a link card, including URIs
   // mediaType rejects ('none'): the card renders those inert.
-  let externalUri = $derived(
-    post.embed?.$type === 'social.coves.embed.external' ||
-      post.embed?.$type === 'social.coves.embed.external#view'
-      ? post.embed.external.uri?.trim() || undefined
-      : undefined,
-  )
+  let externalUri = $derived.by(() => {
+    const embed = post.embed
+    switch (embed?.$type) {
+      case 'social.coves.embed.external':
+      case 'social.coves.embed.external#view':
+        return embed.external.uri?.trim() || undefined
+      // The images show above; the attached link takes the link card.
+      case 'social.coves.embed.imagesWithAttachment#view':
+        return embed.attachment.$type ===
+          'social.coves.embed.external#viewExternal'
+          ? embed.attachment.uri.trim() || undefined
+          : undefined
+      default:
+        return undefined
+    }
+  })
   // A plain link (not an image or a player) replaces PostLink's card on the
   // feed with the link card below the body, thumbnail included.
   let feedLink = $derived(feedCard && !!externalUri && type === 'embed')
@@ -116,7 +138,14 @@
   // slot simply stays empty.
   let compactExcerpt = $derived(
     view == 'compact' && !concealed
-      ? postTextFallback(post.record?.content)
+      ? postTextFallback(
+          post.record?.content &&
+            removePlacedText(
+              post.embed,
+              post.record.content,
+              post.record.facets,
+            ),
+        )
       : undefined,
   )
 
@@ -255,7 +284,7 @@
         </span>
       </Button>
     {:else if !concealed}
-      {#key embedUrl}
+      {#snippet media()}
         <div
           style="grid-area:embed;"
           class={{
@@ -266,17 +295,21 @@
         >
           {#if !feedLink}
             <PostMedia
-              embed={post.embed}
+              embed={mediaEmbed}
               {view}
               {type}
               {priority}
+              {placedImages}
               feed={feedCard}
             />
           {/if}
         </div>
+      {/snippet}
+      {#key embedUrl}
+        {#if !galleryAfterBody}{@render media()}{/if}
         {#if view == 'compact'}
           <PostMediaCompact
-            embed={post.embed}
+            embed={mediaEmbed}
             {type}
             class="{settings.leftAlign ? 'mr-3' : 'ml-3'} shrink no-list-margin"
             style="grid-area: media;"
@@ -293,6 +326,8 @@
             collapsible={false}
             body={post.record.content}
             facets={post.record.facets}
+            embed={post.embed}
+            inlineImages={false}
             class="feed-body-preview line-clamp-5 max-h-[5lh]! text-[15px] leading-[1.45] text-slate-900! dark:text-zinc-100! [&_p]:whitespace-pre-line"
           />
         </div>
@@ -302,6 +337,8 @@
           collapsible={!expandBody}
           body={post.record.content}
           facets={post.record.facets}
+          embed={post.embed}
+          inlineImages={expandBody}
           style="grid-area: body"
           class="relative"
         />
@@ -310,9 +347,14 @@
         <LinkCard
           uri={externalUri}
           title={embedTitle !== post.record?.title ? embedTitle : undefined}
-          thumbnail={feedLink ? extractEmbedThumbnail(post.embed) : undefined}
+          thumbnail={feedLink && !nativeImage
+            ? extractEmbedThumbnail(post.embed)
+            : undefined}
           fixedHeight={!!post.record?.content}
         />
+      {/if}
+      {#if galleryAfterBody}
+        {#key embedUrl}{@render media()}{/key}
       {/if}
     {/if}
   </div>

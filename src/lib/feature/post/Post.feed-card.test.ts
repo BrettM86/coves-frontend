@@ -265,7 +265,8 @@ describe('Post feed card images', () => {
 
     expect(image).toBeDefined()
     if (!image) return
-    expect(image.classList.contains('max-h-[60vh]')).toBe(true)
+    // The gallery tile around the image holds the 60vh cap.
+    expect(classesUpTo(image, article)).toContain('max-h-[60vh]')
     expect(image.classList.contains('max-h-[560px]')).toBe(false)
     expect(classesUpTo(image, article)).toContain('[&>*]:w-full')
   })

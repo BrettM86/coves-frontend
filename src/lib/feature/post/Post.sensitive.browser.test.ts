@@ -76,7 +76,6 @@ const fixture = (key: string): PostView =>
       $type: 'social.coves.embed.images#view',
       images: [
         {
-          image: 'https://media.example/sensitive-image.jpg',
           thumb: 'https://media.example/sensitive-thumbnail.jpg',
           fullsize: 'https://media.example/sensitive-image.jpg',
           alt: 'Sensitive image',
@@ -334,3 +333,68 @@ it.each([false, true])(
     }
   },
 )
+
+it('conceals an NSFW imagesWithAttachment feed card behind the blurred preview tile until revealed', async () => {
+  const props = mountPost('cozy')
+  const post: PostView = {
+    ...fixture('with-attachment'),
+    embed: {
+      $type: 'social.coves.embed.imagesWithAttachment#view',
+      images: {
+        $type: 'social.coves.embed.images#view',
+        images: [
+          {
+            thumb: 'https://img.coves.test/attached-one-thumb.jpg',
+            fullsize: 'https://img.coves.test/attached-one-full.jpg',
+            alt: 'Attached first image',
+          },
+          {
+            thumb: 'https://img.coves.test/attached-two-thumb.jpg',
+            fullsize: 'https://img.coves.test/attached-two-full.jpg',
+            alt: 'Attached second image',
+          },
+        ],
+      },
+      attachment: {
+        $type: 'social.coves.embed.external#viewExternal',
+        uri: 'https://news.example.test/harbour-story',
+        title: 'Harbour story',
+      },
+    },
+  }
+  if (!post.record) throw new Error('Missing post record')
+  post.record.content = 'Sensitive attachment body'
+  props.post = post
+  client.flushSync()
+
+  const preview = previewToggle().querySelector('img')
+  expect(preview?.getAttribute('src')).toBe(
+    'https://img.coves.test/attached-one-thumb.jpg',
+  )
+  expect(target.textContent).not.toContain('Sensitive attachment body')
+  expect(target.querySelector('img[alt="Attached first image"]')).toBeNull()
+  expect(target.querySelector('img[alt="Attached second image"]')).toBeNull()
+  expect(
+    target.querySelector('a[href="https://news.example.test/harbour-story"]'),
+  ).toBeNull()
+  expect(target.textContent).not.toContain('Harbour story')
+
+  toggle('Show sensitive content').click()
+  client.flushSync()
+
+  expect(target.textContent).toContain('Sensitive attachment body')
+  expect(
+    target
+      .querySelector('img[alt="Attached first image"]')
+      ?.getAttribute('src'),
+  ).toBe('https://img.coves.test/attached-one-full.jpg')
+  expect(
+    target
+      .querySelector('img[alt="Attached second image"]')
+      ?.getAttribute('src'),
+  ).toBe('https://img.coves.test/attached-two-full.jpg')
+  const card = target.querySelector(
+    'a[href="https://news.example.test/harbour-story"]',
+  )
+  expect(card?.textContent).toContain('Harbour story')
+})

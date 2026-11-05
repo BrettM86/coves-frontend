@@ -21,6 +21,7 @@ import {
   parseNotificationRows,
   placeholderCopyKey,
   repliedToComment,
+  replyRecordText,
   upvoteNames,
   upvoteSentence,
   upvoteSubjectText,
@@ -1774,20 +1775,6 @@ describe('notificationLinkName', () => {
 
   it.each<[string, NotificationRow, string]>([
     [
-      'a reply without an excerpt',
-      catsReplyRow('ln8a', {
-        record: { uri: commentUri('ln8a'), cid: cid('recordln8a') },
-      }),
-      'Alice replied to your post in !cats@coves.social. 3 hours ago',
-    ],
-    [
-      'a reply with an empty excerpt',
-      catsReplyRow('ln8b', {
-        record: { ...replyRecord('ln8b'), excerpt: '' },
-      }),
-      'Alice replied to your post in !cats@coves.social. 3 hours ago',
-    ],
-    [
       'an upvote without a preview',
       catsUpvoteGroup('ln8c', { uri: postUri('ln8c'), cid: cid('rootln8c') }),
       'Alice and Bob liked your post. 3 hours ago',
@@ -1844,6 +1831,38 @@ describe('notificationLinkName', () => {
     })
 
     expect(name).toBe(expected)
+  })
+
+  it('names a comment reply without an excerpt "Image", as the backend omits an empty excerpt', () => {
+    const row = catsReplyRow('ln8a', {
+      record: { uri: commentUri('ln8a'), cid: cid('recordln8a') },
+    })
+
+    const name = notificationLinkName(row, {
+      time: linkTime,
+      concealed: false,
+    })
+
+    expect(name).toBe(
+      'Alice replied to your post in !cats@coves.social: Image. 3 hours ago',
+    )
+  })
+
+  it('names an image-only comment reply "Image" instead of dropping its text', () => {
+    // An image-only comment has an empty excerpt; the link name still says
+    // what the reply is.
+    const row = catsReplyRow('ln8b', {
+      record: { ...replyRecord('ln8b'), excerpt: '' },
+    })
+
+    const name = notificationLinkName(row, {
+      time: linkTime,
+      concealed: false,
+    })
+
+    expect(name).toBe(
+      'Alice replied to your post in !cats@coves.social: Image. 3 hours ago',
+    )
   })
 
   it('contrast: keeps the excerpt of a comment mention that equals the root title', () => {
@@ -2092,11 +2111,6 @@ describe('repliedToComment', () => {
       'a post subject',
       { uri: postUri('rtc1'), cid: cid('rootrtc1'), preview: 'Thread' },
     ],
-    ['no preview or status', { uri: viewerComment, cid: cid('mine1') }],
-    [
-      'a blank preview',
-      { uri: viewerComment, cid: cid('mine1'), preview: '  ' },
-    ],
     [
       'a non-string preview',
       { uri: viewerComment, cid: cid('mine1'), preview: 7 },
@@ -2124,5 +2138,224 @@ describe('upvoteNames', () => {
       'voterun1.local.coves.dev and 3 others',
     )
     expect(upvoteSentence(row).slice(0, -1)).toEqual(names)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Image-only comments: an empty excerpt or preview on a comment reads "Image"
+// ---------------------------------------------------------------------------
+
+describe('image-only comment text', () => {
+  const viewerComment =
+    `at://${viewer}/social.coves.community.comment/3kimage1` as AtUri
+
+  it.each<[string, ReplyNotificationRow, string | undefined]>([
+    [
+      'a comment reply whose excerpt key is omitted',
+      catsReplyRow('img0', {
+        record: { uri: commentUri('img0'), cid: cid('recordimg0') },
+      }),
+      'Image',
+    ],
+    [
+      'a comment mention whose excerpt key is omitted',
+      catsReplyRow('img0m', {
+        reason: 'mention',
+        record: { uri: commentUri('img0m'), cid: cid('recordimg0m') },
+      }),
+      'Image',
+    ],
+    [
+      'a deleted comment reply whose excerpt key is omitted',
+      catsReplyRow('img0d', {
+        record: {
+          uri: commentUri('img0d'),
+          cid: cid('recordimg0d'),
+          status: 'deleted',
+        },
+      }),
+      '[Deleted by user]',
+    ],
+    [
+      'a post mention whose excerpt key is omitted',
+      catsReplyRow('img0p', {
+        reason: 'mention',
+        record: {
+          uri: 'at://did:plc:alice4x7k/social.coves.community.post/3kpostimg0p' as AtUri,
+          cid: cid('recordimg0p'),
+        },
+      }),
+      undefined,
+    ],
+    [
+      'a comment reply with an empty excerpt',
+      catsReplyRow('img1', { record: { ...replyRecord('img1'), excerpt: '' } }),
+      'Image',
+    ],
+    [
+      'a comment reply with a whitespace-only excerpt',
+      catsReplyRow('img2', {
+        record: { ...replyRecord('img2'), excerpt: '  \n ' },
+      }),
+      'Image',
+    ],
+    [
+      'a comment mention with an empty excerpt',
+      catsReplyRow('img3', {
+        reason: 'mention',
+        record: { ...replyRecord('img3'), excerpt: '' },
+      }),
+      'Image',
+    ],
+    [
+      'a comment mention with a whitespace-only excerpt',
+      catsReplyRow('img4', {
+        reason: 'mention',
+        record: { ...replyRecord('img4'), excerpt: '  \n ' },
+      }),
+      'Image',
+    ],
+    [
+      'a deleted comment reply with an empty excerpt',
+      catsReplyRow('img5', {
+        record: { ...replyRecord('img5'), excerpt: '', status: 'deleted' },
+      }),
+      '[Deleted by user]',
+    ],
+    [
+      'a moderator-removed comment reply with an empty excerpt',
+      catsReplyRow('img6', {
+        record: {
+          ...replyRecord('img6'),
+          excerpt: '',
+          status: 'removedByModerator',
+        },
+      }),
+      '[Removed by community moderator]',
+    ],
+    [
+      'a post mention with an empty excerpt',
+      catsReplyRow('img7', {
+        reason: 'mention',
+        record: {
+          uri: 'at://did:plc:alice4x7k/social.coves.community.post/3kpostimg7' as AtUri,
+          cid: cid('recordimg7'),
+          excerpt: '',
+        },
+      }),
+      '',
+    ],
+  ])('replyRecordText for %s', (_title, row, expected) => {
+    expect(replyRecordText(row)).toBe(expected)
+  })
+
+  it.each<[string, unknown, { text: string; placeholder: boolean }]>([
+    [
+      'an omitted preview key and no status',
+      { uri: viewerComment, cid: cid('image1') },
+      { text: 'Image', placeholder: false },
+    ],
+    [
+      'a deleted comment with an omitted preview key',
+      { uri: viewerComment, cid: cid('image1'), status: 'deleted' },
+      { text: '[Deleted by user]', placeholder: true },
+    ],
+    [
+      'an empty preview',
+      { uri: viewerComment, cid: cid('image1'), preview: '' },
+      { text: 'Image', placeholder: false },
+    ],
+    [
+      'a whitespace-only preview',
+      { uri: viewerComment, cid: cid('image1'), preview: '  \n ' },
+      { text: 'Image', placeholder: false },
+    ],
+    [
+      'a blank two-space preview',
+      { uri: viewerComment, cid: cid('image1'), preview: '  ' },
+      { text: 'Image', placeholder: false },
+    ],
+    [
+      'a deleted comment with an empty preview',
+      {
+        uri: viewerComment,
+        cid: cid('image1'),
+        preview: '',
+        status: 'deleted',
+      },
+      { text: '[Deleted by user]', placeholder: true },
+    ],
+    [
+      'a server-admin-removed comment with an empty preview',
+      {
+        uri: viewerComment,
+        cid: cid('image1'),
+        preview: '',
+        status: 'removedByServerAdmin',
+      },
+      { text: '[Removed by server admin]', placeholder: true },
+    ],
+  ])('repliedToComment for %s', (_title, subject, expected) => {
+    const row = {
+      ...replyRow('img8', { reason: 'commentReply' }),
+      subject,
+    } as ReplyNotificationRow
+
+    expect(repliedToComment(row)).toEqual(expected)
+  })
+
+  it.each<[string, NotificationSubject, string | undefined]>([
+    [
+      'a comment subject whose preview key is omitted',
+      { uri: commentUri('img9'), cid: cid('img9') },
+      'Image',
+    ],
+    [
+      'a deleted comment subject whose preview key is omitted',
+      { uri: commentUri('img9'), cid: cid('img9'), status: 'deleted' },
+      '[Deleted by user]',
+    ],
+    [
+      'a post subject whose preview key is omitted',
+      { uri: postUri('img9'), cid: cid('rootimg9') },
+      undefined,
+    ],
+    [
+      'a comment subject with an empty preview',
+      { uri: commentUri('img9'), cid: cid('img9'), preview: '' },
+      'Image',
+    ],
+    [
+      'a comment subject with a whitespace-only preview',
+      { uri: commentUri('img9'), cid: cid('img9'), preview: '  \n ' },
+      'Image',
+    ],
+    [
+      'a deleted comment subject with an empty preview',
+      {
+        uri: commentUri('img9'),
+        cid: cid('img9'),
+        preview: '',
+        status: 'deleted',
+      },
+      '[Deleted by user]',
+    ],
+    [
+      'a moderator-removed comment subject with an empty preview',
+      {
+        uri: commentUri('img9'),
+        cid: cid('img9'),
+        preview: '',
+        status: 'removedByModerator',
+      },
+      '[Removed by community moderator]',
+    ],
+    [
+      'a post subject with an empty preview',
+      { uri: postUri('img9'), cid: cid('rootimg9'), preview: '' },
+      '',
+    ],
+  ])('upvoteSubjectText for %s', (_title, subject, expected) => {
+    expect(upvoteSubjectText(catsUpvoteGroup('img9', subject))).toBe(expected)
   })
 })

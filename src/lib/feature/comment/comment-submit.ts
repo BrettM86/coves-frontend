@@ -11,10 +11,13 @@ import type {
   AtUri,
   CommentRecord,
   CreateCommentInput,
+  ImagesEmbedRecord,
   StrongRef,
   UpdateCommentInput,
 } from '$lib/api/coves/types'
+import { t } from '$lib/app/state/i18n'
 import { parseMarkup, trimRichText } from '$lib/feature/richtext/compose'
+import { placedImageIndexes } from '$lib/feature/richtext/image-layout'
 import {
   composeRichText,
   type MentionResolver,
@@ -30,36 +33,102 @@ import { serializeMarkup } from '$lib/feature/richtext/serialize'
  * delete the characters. Where the markup cannot reproduce the content — a
  * facet that has no markup form — the escaped content is used instead, because
  * the annotation may be lost but the author's characters may not.
+ *
+ * Placements of the comment's `imageCount` images come back as tokens.
+ * `droppedPlacements` counts the ones the source could not keep, so the editor
+ * can say so.
  */
-export function editorSourceFor(record: {
-  content: string
-  facets?: unknown[]
-}): string {
-  const markup = serializeMarkup(record.content, record.facets ?? [])
-  if (parseMarkup(markup).content === record.content) return markup
-  return serializeMarkup(record.content, [])
+export function editorSourceFor(
+  record: {
+    content: string
+    facets?: unknown[]
+  },
+  imageCount: number,
+): { source: string; droppedPlacements: number } {
+  let droppedPlacements = 0
+  const markup = serializeMarkup(record.content, record.facets ?? [], {
+    imageCount,
+    onDroppedPlacement: () => {
+      droppedPlacements += 1
+    },
+  })
+  if (parseMarkup(markup, { imageCount }).content === record.content)
+    return { source: markup, droppedPlacements }
+  // The escaped content keeps no annotation, so every placement is lost.
+  return {
+    source: serializeMarkup(record.content, []),
+    droppedPlacements: placedImageIndexes(
+      imageCount,
+      record.content,
+      record.facets,
+    ).size,
+  }
 }
 
-/** Wire input for a new comment, compiled from the editor source. */
+/** How many images a comment embed carries: the numbers its placement tokens
+ * may name. A quoted post alone carries none. The embed is the record as the
+ * AppView indexed it, so it is narrowed field by field: a malformed or
+ * unknown-typed embed carries no images. */
+export function commentImageCount(embed: unknown): number {
+  if (typeof embed !== 'object' || embed === null || !('$type' in embed))
+    return 0
+  switch (embed.$type) {
+    case 'social.coves.embed.images':
+      return 'images' in embed && Array.isArray(embed.images)
+        ? embed.images.length
+        : 0
+    case 'social.coves.embed.imagesWithAttachment':
+      return 'images' in embed &&
+        typeof embed.images === 'object' &&
+        embed.images !== null &&
+        'images' in embed.images &&
+        Array.isArray(embed.images.images)
+        ? embed.images.images.length
+        : 0
+    default:
+      return 0
+  }
+}
+
+/** A comment with no text and no images, which the backend refuses. */
+export class CommentContentEmptyError extends Error {
+  readonly code = 'ContentEmpty'
+
+  constructor() {
+    super(t.get('comment.contentEmpty'))
+    this.name = 'CommentContentEmptyError'
+  }
+}
+
+/**
+ * Wire input for a new comment, compiled from the editor source. Empty content
+ * is allowed only when the comment carries at least one image.
+ */
 export async function buildCommentCreate(args: {
   source: string
   postRef: StrongRef
   parentRef?: StrongRef
   resolver: MentionResolver
+  embed?: ImagesEmbedRecord
 }): Promise<CreateCommentInput> {
   // Trimmed twice, for two different reasons: the source, so leading blank
   // lines cannot defeat a block construct on the first line, and then the
   // compiled content, which is what the backend trims and measures facets
   // against.
+  const embed = args.embed?.images.length ? args.embed : undefined
   const { content, facets } = trimRichText(
-    await composeRichText(args.source.trim(), args.resolver),
+    await composeRichText(args.source.trim(), args.resolver, {
+      imageCount: commentImageCount(embed),
+    }),
   )
+  if (content === '' && !embed) throw new CommentContentEmptyError()
   const input: CreateCommentInput = {
     // A top-level comment replies to the post itself.
     reply: { root: args.postRef, parent: args.parentRef ?? args.postRef },
     content,
   }
   if (facets) input.facets = facets
+  if (embed) input.embed = embed
   return input
 }
 
@@ -76,7 +145,9 @@ export async function buildCommentUpdate(args: {
   resolver: MentionResolver
 }): Promise<UpdateCommentInput> {
   const { content, facets } = trimRichText(
-    await composeRichText(args.source.trim(), args.resolver),
+    await composeRichText(args.source.trim(), args.resolver, {
+      imageCount: commentImageCount(args.record.embed),
+    }),
   )
   const input: UpdateCommentInput = { uri: args.uri, content }
   if (facets) input.facets = facets

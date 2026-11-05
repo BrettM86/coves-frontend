@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { getContext } from 'svelte'
+  import { getContext, untrack } from 'svelte'
+  import { browser } from '$app/environment'
   import { page } from '$app/state'
+  import { storedCommentDraftParent } from '$lib/feature/image-upload/draft-restore'
   import { coves } from '$lib/api/client.svelte'
   import type { StrongRef } from '$lib/api/coves/types'
   import { parseAtUri } from '$lib/api/coves/types'
@@ -14,7 +16,9 @@
   import RichText from '$lib/feature/richtext/RichText.svelte'
   import { hasFacets } from '$lib/feature/richtext/facets'
   import { settings } from '$lib/app/state/settings.svelte'
-  import type { PostLinkRef } from '$lib/feature/post'
+  import { type PostLinkRef } from '$lib/feature/post'
+  import { imageLayout } from '$lib/feature/richtext/image-layout'
+  import PostGallery from '$lib/feature/post/media/PostGallery.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
   import { Button, Modal, toast } from '$lib/ui/kit'
   import RelativeDate from '$lib/ui/util/RelativeDate.svelte'
@@ -25,7 +29,11 @@
   import UserLink from '../user/UserLink.svelte'
   import CommentActions from './CommentActions.svelte'
   import CommentForm from './CommentForm.svelte'
-  import { buildCommentUpdate, editorSourceFor } from './comment-submit'
+  import {
+    buildCommentUpdate,
+    commentImageCount,
+    editorSourceFor,
+  } from './comment-submit'
   import {
     type CommentNodeI,
     type NormalizedCommentView,
@@ -88,10 +96,32 @@
   // re-parsed every comment in the thread for an editor almost never opened.
   let newComment = $state('')
   let editingLoad = $state(false)
+  /** Placements the editor source could not express when editing started. */
+  let droppedPlacements = $state(0)
+
+  // A reply draft saved before signing in reopens this comment's composer.
+  if (
+    browser &&
+    untrack(
+      () => storedCommentDraftParent(page.url.pathname) === node.comment.uri,
+    )
+  )
+    replying = true
 
   // Stable anchor id (`comment-<rkey>`) so permalinks can deep-link to this
   // comment via a `#comment-<rkey>` URL fragment.
   const domId = $derived(`comment-${parseAtUri(node.comment.uri).rkey}`)
+
+  const commentEmbed = $derived(
+    node.comment.isDeleted ? undefined : node.comment.embed,
+  )
+  const commentLayout = $derived(
+    imageLayout(
+      commentEmbed,
+      node.comment.record.content,
+      node.comment.record.facets,
+    ),
+  )
 
   // Shared by the RichText and Markdown body branches.
   const bodyClass = $derived([
@@ -100,6 +130,31 @@
       'material-info px-3 py-1.5 rounded-xl max-w-max',
   ])
 
+  /**
+   * Whether a stored record embed (unchecked wire data) carries images, also
+   * inside `imagesWithAttachment`, matching the backend's empty-content rule.
+   */
+  function hasImages(embed: unknown): boolean {
+    if (
+      typeof embed === 'object' &&
+      embed !== null &&
+      '$type' in embed &&
+      embed.$type === 'social.coves.embed.imagesWithAttachment' &&
+      'images' in embed
+    ) {
+      return hasImages(embed.images)
+    }
+    return (
+      typeof embed === 'object' &&
+      embed !== null &&
+      '$type' in embed &&
+      embed.$type === 'social.coves.embed.images' &&
+      'images' in embed &&
+      Array.isArray(embed.images) &&
+      embed.images.length > 0
+    )
+  }
+
   async function save() {
     if (node.comment.isDeleted) return
     if (!profile.current?.jwt) {
@@ -107,7 +162,7 @@
         toast({ content: $t('toast.sessionExpired'), type: 'warning' })
       return
     }
-    if (newComment.trim() === '') {
+    if (newComment.trim() === '' && !hasImages(node.comment.record.embed)) {
       toast({ content: 'Comment cannot be empty.', type: 'warning' })
       return
     }
@@ -151,8 +206,14 @@
       <div>{$t('form.edit')}</div>
     {/snippet}
     <div class="contents">
+      {#if droppedPlacements > 0}
+        <p role="status" class="text-sm text-slate-600 dark:text-zinc-400">
+          {$t('comment.droppedPlacements')}
+        </p>
+      {/if}
       <CommentForm
         bind:value={newComment}
+        savedEmbed={commentEmbed}
         {postRef}
         actions={false}
         preview={true}
@@ -277,6 +338,7 @@
           <RichText
             content={node.comment.record.content}
             facets={node.comment.record.facets}
+            embed={commentEmbed}
             noStyle
             class={bodyClass}
           />
@@ -287,6 +349,14 @@
             class={bodyClass}
           />
         {/if}
+        {#if commentLayout.gallery.length > 0}
+          <!-- Comment images get no NSFW blur; that is separate comment moderation work. -->
+          <PostGallery
+            images={commentLayout.gallery}
+            placedImages={[...commentLayout.placed.values()]}
+            fitHeight
+          />
+        {/if}
         {#if actions}
           <!-- TODO(coves-migration): Re-enable ban/lock checking when API provides banned_from_community and post.locked fields -->
           <CommentActions
@@ -294,7 +364,12 @@
             {post}
             bind:replying
             onedit={() => {
-              newComment = editorSourceFor(node.comment.record)
+              const opened = editorSourceFor(
+                node.comment.record,
+                commentImageCount(node.comment.record.embed),
+              )
+              newComment = opened.source
+              droppedPlacements = opened.droppedPlacements
               editing = true
             }}
             disabled={false}

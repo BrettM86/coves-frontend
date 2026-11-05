@@ -6,6 +6,7 @@ import type {
   CommentRef,
   CommentStats,
   CommentView,
+  ImagesEmbedRecord,
   AuthorView,
   ModerationSourceView,
   ModerationView,
@@ -490,7 +491,13 @@ describe('buildCommentsTree', () => {
       ...makeCommentRecord(''),
       facets: [{ index: { byteStart: 0, byteEnd: 4 } }],
       langs: ['en'],
-      embed: { $type: 'social.coves.embed.external' },
+      embed: {
+        $type: 'social.coves.embed.post',
+        post: {
+          uri: 'at://did:plc:author/social.coves.community.post/quoted' as AtUri,
+          cid: 'bafyquoted' as CID,
+        },
+      },
       labels: { $type: 'com.atproto.label.defs#selfLabels', values: [] },
     }
     const cv = makeCommentView({
@@ -1094,5 +1101,76 @@ describe('createOptimisticCommentView', () => {
 
     expect(view.record.content).toBe('hi there')
     expect(view.record.facets).toEqual(facets)
+  })
+
+  it('shows the composer previews as an images view and keeps the record embed', () => {
+    // The comment renders from the local blob: previews until the indexer
+    // catches up, and the record keeps the uploaded embed so an edit before
+    // then does not drop the images.
+    const embed: ImagesEmbedRecord = {
+      $type: 'social.coves.embed.images',
+      images: [
+        {
+          image: {
+            $type: 'blob',
+            ref: { $link: 'bafy-a.png' },
+            mimeType: 'image/png',
+            size: 1024,
+          },
+          alt: 'A red kite',
+          aspectRatio: { width: 300, height: 200 },
+        },
+        {
+          image: {
+            $type: 'blob',
+            ref: { $link: 'bafy-b.png' },
+            mimeType: 'image/png',
+            size: 2048,
+          },
+          aspectRatio: { width: 300, height: 200 },
+        },
+      ],
+    }
+
+    const view = createOptimisticCommentView(
+      output,
+      '',
+      postRef,
+      postRef,
+      author,
+      undefined,
+      {
+        embed,
+        previews: [
+          {
+            previewUrl: 'blob:http://localhost/a.png',
+            alt: 'A red kite',
+            aspectRatio: { width: 300, height: 200 },
+          },
+          {
+            previewUrl: 'blob:http://localhost/b.png',
+            aspectRatio: { width: 300, height: 200 },
+          },
+        ],
+      },
+    )
+
+    expect(view.embed).toEqual({
+      $type: 'social.coves.embed.images#view',
+      images: [
+        {
+          thumb: 'blob:http://localhost/a.png',
+          fullsize: 'blob:http://localhost/a.png',
+          alt: 'A red kite',
+          aspectRatio: { width: 300, height: 200 },
+        },
+        {
+          thumb: 'blob:http://localhost/b.png',
+          fullsize: 'blob:http://localhost/b.png',
+          aspectRatio: { width: 300, height: 200 },
+        },
+      ],
+    })
+    expect(view.record.embed).toEqual(embed)
   })
 })

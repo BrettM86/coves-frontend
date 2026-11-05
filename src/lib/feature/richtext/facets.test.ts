@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildRichText,
+  buildRichTextWithPlacements,
   hasFacets,
   MAX_FACETS,
   MAX_FEATURES_PER_FACET,
@@ -13,6 +14,7 @@ import {
   type SpoilerSpan,
   type TextSegment,
 } from './facets'
+import { facetOver } from './test-helpers'
 
 const NS = 'social.coves.richtext.facet'
 
@@ -539,5 +541,124 @@ describe('buildRichText — bridged-content shape', () => {
       'paragraph',
     ])
     expect(plainText(blocks)).toBe(content)
+  })
+})
+
+describe('buildRichText — #image placements', () => {
+  it('ignores an #image facet and keeps its covered text as plain text', () => {
+    const content = 'Before\n\n[image] after'
+    const facets = [
+      facetOver(content, 'Before', bold),
+      facetOver(content, '[image]', { $type: `${NS}#image`, index: 0 }),
+    ]
+
+    expect(buildRichText(content, facets)).toEqual([
+      {
+        type: 'paragraph',
+        children: [
+          { type: 'text', text: 'Before', bold: true },
+          { type: 'text', text: '\n\n[image] after' },
+        ],
+      },
+    ])
+  })
+})
+
+describe('buildRichTextWithPlacements — no placements', () => {
+  /** Drop the spoiler `group` field, which only the placed tree carries. */
+  const withoutSpoilerGroups = (tree: unknown): unknown =>
+    JSON.parse(
+      JSON.stringify(tree, (key, value: unknown) =>
+        key === 'group' ? undefined : value,
+      ),
+    )
+
+  it.each([
+    ['plain text', 'hello world', []],
+    ['empty content', '', []],
+    ['interior newlines', 'line one\n\nline two', []],
+    ['malformed facets', 'hello world', ['junk', facet(5, 2, bold)]],
+    [
+      'facet garbage',
+      'a\nb\nc — テスト 🎉',
+      [
+        facet(0, 4, blockquote(3), heading(2)),
+        facet(2, 9, codeBlock('go')),
+        facet(1, 3, bold, { $type: `${NS}#wat` }),
+        'junk',
+        null,
+        facet(7, 100, spoiler('x')),
+      ],
+    ],
+    [
+      'overlapping marks',
+      'aaaabbcccc',
+      [facet(0, 6, bold), facet(4, 10, italic)],
+    ],
+    ['mid-codepoint mark', '🎉 party', [facet(2, 10, bold)]],
+    [
+      'mark across a heading',
+      'abc\nHead\ntail',
+      [facet(4, 8, heading(2)), facet(0, 8, bold)],
+    ],
+    [
+      'link and mention',
+      'see example.com cc @mari.coves.dev',
+      [
+        facet(4, 15, link('https://example.com')),
+        facet(19, 34, mention('did:plc:abc123')),
+      ],
+    ],
+    [
+      'merged spoilers',
+      'abcdef',
+      [facet(0, 3, spoiler()), facet(2, 6, spoiler('later'))],
+    ],
+    [
+      'link inside a spoiler',
+      'go here',
+      [facet(0, 7, spoiler()), facet(3, 7, link('https://x.test'))],
+    ],
+    [
+      'heading between paragraphs',
+      'intro\nBig Title\nbody text',
+      [facet(6, 15, heading(2))],
+    ],
+    [
+      'quote between paragraphs',
+      'said:\nquoted line\nreply',
+      [facet(6, 17, blockquote())],
+    ],
+    [
+      'code block inside a quote',
+      'they said:\nfmt.Println("hi")\nend quote',
+      [facet(0, 38, blockquote(1)), facet(11, 28, codeBlock('go'))],
+    ],
+    [
+      'code block between paragraphs',
+      'before\nconst x = 1 // **not bold**\nafter',
+      [facet(7, 34, codeBlock('ts')), facet(19, 27, bold)],
+    ],
+    [
+      'bridged-Lemmy structure',
+      'Release notes\nsomeone wrote this\nsomeone quoted that\nmy reply\nx = 1\ndone',
+      [
+        facet(0, 13, heading(2)),
+        facet(14, 32, blockquote(1)),
+        facet(33, 52, blockquote(2)),
+        facet(62, 67, codeBlock('python')),
+      ],
+    ],
+    [
+      'unplaced #image facet',
+      'Before\n\n[image] after',
+      [facet(8, 15, { $type: `${NS}#image`, index: 0 })],
+    ],
+  ])('matches buildRichText: %s', (_name, content, facets) => {
+    expect(
+      withoutSpoilerGroups(
+        buildRichTextWithPlacements(content, facets as unknown[], new Map()),
+      ),
+    ).toEqual(withoutSpoilerGroups(buildRichText(content, facets as unknown[])))
   })
 })

@@ -5,6 +5,8 @@ import type {
   CID,
   CommentRecord,
   CommentView,
+  EmbedImage,
+  ImagesWithAttachmentView,
   PostEmbed,
   PostRecord,
   PostView,
@@ -116,6 +118,56 @@ const external = (fields: {
   external: fields,
 })
 
+// ---------------------------------------------------------------------------
+// Images placed in the body by `#image` facets
+// ---------------------------------------------------------------------------
+
+const KITE: EmbedImage = {
+  thumb: 'https://cdn.example/img/content_preview/plain/did:plc:alice/kite',
+  fullsize: 'https://cdn.example/img/content_full/plain/did:plc:alice/kite',
+  alt: 'Kite "over" <dunes> & sea',
+}
+const HERON: EmbedImage = {
+  fullsize: 'https://cdn.example/img/content_full/plain/did:plc:alice/heron',
+  alt: 'Heron',
+}
+const WREN: EmbedImage = {
+  fullsize: 'https://cdn.example/img/content_full/plain/did:plc:alice/wren',
+  alt: 'Wren',
+}
+const imageFeature = (index: number) => ({ $type: FEATURE_TYPE.image, index })
+const imagesView = (images: [EmbedImage, ...EmbedImage[]]): PostEmbed => ({
+  $type: 'social.coves.embed.images#view',
+  images,
+})
+const withAttachment = (
+  images: EmbedImage[],
+  attachment: ImagesWithAttachmentView['attachment'],
+): PostEmbed => ({
+  $type: 'social.coves.embed.imagesWithAttachment#view',
+  images: { $type: 'social.coves.embed.images#view', images },
+  attachment,
+})
+const STORY_ATTACHMENT: ImagesWithAttachmentView['attachment'] = {
+  $type: 'social.coves.embed.external#viewExternal',
+  uri: 'https://news.example/story',
+  title: 'Story',
+}
+
+/**
+ * The top-level blocks of `html` in order: an image block as `img <src>`, a
+ * link paragraph as `link <href> <label>`, anything else as `<tag> <text>`.
+ */
+function outline(html: string): string[] {
+  return Array.from(parse(html).children, (el) => {
+    const img = el.querySelector('img')
+    if (img) return `img ${img.getAttribute('src')}`
+    const a = el.querySelector('a')
+    if (a) return `link ${a.getAttribute('href')} ${a.textContent}`
+    return `${el.tagName.toLowerCase()} ${el.textContent}`
+  })
+}
+
 describe('postToRssItem', () => {
   it('maps the post to an item with absolute link, AT-URI guid, date and author', () => {
     const item = postToRssItem(fixtures.post(), ORIGIN)
@@ -173,7 +225,7 @@ describe('postToRssItem', () => {
             $type: 'social.coves.embed.images#view',
             images: [
               {
-                image:
+                fullsize:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgone',
                 alt: 'A cat',
               },
@@ -244,7 +296,7 @@ describe('postToRssItem', () => {
             $type: 'social.coves.embed.images#view',
             images: [
               {
-                image:
+                fullsize:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgone',
                 alt: 'A cat',
               },
@@ -370,8 +422,6 @@ describe('postToRssItem', () => {
             $type: 'social.coves.embed.images#view',
             images: [
               {
-                image:
-                  'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgone',
                 thumb:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgone',
                 fullsize:
@@ -379,7 +429,7 @@ describe('postToRssItem', () => {
                 alt: 'A cat',
               },
               {
-                image:
+                fullsize:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgtwo',
               },
             ],
@@ -439,9 +489,9 @@ describe('postToRssItem', () => {
           embed: {
             $type: 'social.coves.embed.images#view',
             images: [
-              { image: dataUrl, fullsize: dataUrl, alt: 'pixel' },
+              { fullsize: dataUrl, alt: 'pixel' },
               {
-                image:
+                fullsize:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgtwo',
               },
             ],
@@ -467,9 +517,9 @@ describe('postToRssItem', () => {
           embed: {
             $type: 'social.coves.embed.images#view',
             images: [
-              { image: '', alt: 'missing' },
+              { fullsize: '', alt: 'missing' },
               {
-                image:
+                fullsize:
                   'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgtwo',
               },
             ],
@@ -515,6 +565,53 @@ describe('postToRssItem', () => {
     expect(parse(item.html).querySelectorAll('img')).toHaveLength(0)
   })
 
+  it('links an unhydrated record-shape imagesWithAttachment embed as "View images", then the external link', () => {
+    // The backend serves the record shape when it cannot project the view.
+    const recordShapeEmbed = {
+      $type: 'social.coves.embed.imagesWithAttachment',
+      images: {
+        $type: 'social.coves.embed.images',
+        images: [
+          {
+            image: {
+              $type: 'blob',
+              ref: { $link: 'bafyimgone' },
+              mimeType: 'image/jpeg',
+              size: 1234,
+            },
+            alt: 'A cat',
+          },
+        ],
+      },
+      attachment: {
+        $type: 'social.coves.embed.external',
+        external: {
+          uri: 'https://news.example/story',
+          title: HOSTILE,
+          description: 'About the story',
+        },
+      },
+    } as unknown as PostEmbed
+    const item = postToRssItem(
+      fixtures.post({}, { embed: recordShapeEmbed }),
+      ORIGIN,
+    )
+    const fragment = parse(item.html)
+
+    expect(
+      Array.from(fragment.querySelectorAll('a'), (a) => [
+        a.getAttribute('href'),
+        a.textContent,
+      ]),
+    ).toEqual([
+      [POST_LINK, 'View images'],
+      ['https://news.example/story', HOSTILE],
+    ])
+    expect(fragment.querySelector('script')).toBeNull()
+    expect(fragment.textContent).toContain('About the story')
+    expect(fragment.querySelectorAll('img')).toHaveLength(0)
+  })
+
   it.each([
     {
       label: 'external title and description',
@@ -530,7 +627,7 @@ describe('postToRssItem', () => {
         $type: 'social.coves.embed.images#view',
         images: [
           {
-            image:
+            fullsize:
               'https://cdn.example/img/content_preview/plain/did:plc:alice/bafyimgone',
             alt: HOSTILE,
           },
@@ -556,6 +653,156 @@ describe('postToRssItem', () => {
       }
     },
   )
+  it('appends the images of an imagesWithAttachment view in order, then the external link', () => {
+    const item = postToRssItem(
+      fixtures.post(
+        {},
+        { embed: withAttachment([KITE, HERON], STORY_ATTACHMENT) },
+      ),
+      ORIGIN,
+    )
+
+    expect(outline(item.html)).toEqual([
+      'p Hello world',
+      'img https://cdn.example/img/content_full/plain/did:plc:alice/kite',
+      'img https://cdn.example/img/content_full/plain/did:plc:alice/heron',
+      'link https://news.example/story Story',
+    ])
+    expect(item.html).toContain(
+      'alt="Kite &quot;over&quot; &lt;dunes&gt; &amp; sea"',
+    )
+  })
+
+  it('appends the images of an imagesWithAttachment view with a post attachment and nothing for the attachment', () => {
+    const item = postToRssItem(
+      fixtures.post(
+        {},
+        {
+          embed: withAttachment([KITE, HERON], {
+            $type: 'social.coves.embed.post#view',
+            post: {
+              uri: 'at://did:plc:dave/social.coves.community.post/3kq' as AtUri,
+              cid: 'bafyquotedaaaa' as CID,
+            },
+          }),
+        },
+      ),
+      ORIGIN,
+    )
+
+    expect(outline(item.html)).toEqual([
+      'p Hello world',
+      'img https://cdn.example/img/content_full/plain/did:plc:alice/kite',
+      'img https://cdn.example/img/content_full/plain/did:plc:alice/heron',
+    ])
+    expect(hrefs(item.html)).toEqual([])
+  })
+
+  it.each([
+    {
+      label: 'an images view',
+      embed: imagesView([KITE, HERON, WREN]),
+      after: [],
+    },
+    {
+      label: 'an imagesWithAttachment view, the external link last',
+      embed: withAttachment([KITE, HERON, WREN], STORY_ATTACHMENT),
+      after: ['link https://news.example/story Story'],
+    },
+  ])(
+    'places image 1 mid-body and appends only images 0 and 2 for $label',
+    ({ embed, after }) => {
+      const content = 'Before text\n[heron]\nAfter text'
+      const item = postToRssItem(
+        fixtures.post(
+          {
+            content,
+            facets: [facetOver(content, '[heron]', imageFeature(1))],
+          },
+          { embed },
+        ),
+        ORIGIN,
+      )
+
+      expect(outline(item.html)).toEqual([
+        'p Before text',
+        'img https://cdn.example/img/content_full/plain/did:plc:alice/heron',
+        'p After text',
+        'img https://cdn.example/img/content_full/plain/did:plc:alice/kite',
+        'img https://cdn.example/img/content_full/plain/did:plc:alice/wren',
+        ...after,
+      ])
+    },
+  )
+
+  it('keeps a placement overlapping a code facet as text and its image in the gallery', () => {
+    // [wren] is a valid control placement; [heron] overlaps the code facet.
+    const content = 'See [heron] here\n[wren]\nAfter'
+    const item = postToRssItem(
+      fixtures.post(
+        {
+          content,
+          facets: [
+            facetOver(content, 'heron', { $type: FEATURE_TYPE.code }),
+            facetOver(content, '[heron]', imageFeature(1)),
+            facetOver(content, '[wren]', imageFeature(2)),
+          ],
+        },
+        { embed: imagesView([KITE, HERON, WREN]) },
+      ),
+      ORIGIN,
+    )
+
+    expect(outline(item.html)).toEqual([
+      'p See [heron] here',
+      'img https://cdn.example/img/content_full/plain/did:plc:alice/wren',
+      'p After',
+      'img https://cdn.example/img/content_full/plain/did:plc:alice/kite',
+      'img https://cdn.example/img/content_full/plain/did:plc:alice/heron',
+    ])
+    expect(parse(item.html).querySelector('code')?.textContent).toBe('heron')
+  })
+
+  it('withholds an NSFW-labelled post with a placed image behind the link-only paragraph', () => {
+    const content = '[kite]\n\nSecret body'
+    const item = postToRssItem(
+      fixtures.post(
+        {
+          title: undefined,
+          content,
+          facets: [facetOver(content, '[kite]', imageFeature(0))],
+          labels: {
+            $type: 'com.atproto.label.defs#selfLabels',
+            values: [{ val: 'nsfw' }],
+          },
+        },
+        { embed: imagesView([KITE]) },
+      ),
+      ORIGIN,
+    )
+
+    expect(item.html).toBe(
+      `<p><a href="${POST_LINK}">This post is marked NSFW. View it on the site.</a></p>`,
+    )
+    expect(item.title).toBe('Post by @alice.coves.test')
+  })
+
+  it('titles an untitled post from the text after a leading placed image', () => {
+    const content = '[kite]\n\nSecond paragraph'
+    const item = postToRssItem(
+      fixtures.post(
+        {
+          title: undefined,
+          content,
+          facets: [facetOver(content, '[kite]', imageFeature(0))],
+        },
+        { embed: imagesView([KITE]) },
+      ),
+      ORIGIN,
+    )
+
+    expect(item.title).toBe('Second paragraph')
+  })
 })
 
 describe('commentsToRssItems', () => {
@@ -675,7 +922,7 @@ describe('commentsToRssItems', () => {
               $type: 'social.coves.embed.images#view',
               images: [
                 {
-                  image:
+                  fullsize:
                     'https://cdn.example/img/content_preview/plain/did:plc:bob/bafycommentimg',
                 },
               ],
@@ -710,6 +957,30 @@ describe('commentsToRssItems', () => {
     expect(externalFragment.querySelector('em')?.textContent).toBe('one')
     expect(hrefs(withExternal?.html ?? '')).toEqual([
       'https://news.example/story',
+    ])
+  })
+
+  it('places an image in a comment body and appends only the unplaced ones', () => {
+    const content = 'Look\n[kite]\nthere'
+    const [item] = commentsToRssItems(
+      [
+        fixtures.comment(
+          {
+            content,
+            facets: [facetOver(content, '[kite]', imageFeature(0))],
+          },
+          { embed: imagesView([KITE, HERON]) },
+        ),
+      ],
+      [fixtures.post()],
+      ORIGIN,
+    )
+
+    expect(outline(item?.html ?? '')).toEqual([
+      'p Look',
+      'img https://cdn.example/img/content_full/plain/did:plc:alice/kite',
+      'p there',
+      'img https://cdn.example/img/content_full/plain/did:plc:alice/heron',
     ])
   })
 

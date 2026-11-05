@@ -45,11 +45,14 @@ import type {
   UpdateProfileOutput,
   UpdateCommentInput,
   UpdateCommentOutput,
+  UploadImageOutput,
   NotificationPreferences,
   PutNotificationPreferencesInput,
   UnreadNotificationCount,
   ListNotificationsResponse,
 } from './types'
+
+const UPLOAD_IMAGE_TIMEOUT_MS = 120_000
 
 export const NSID = {
   getDiscover: 'social.coves.feed.getDiscover',
@@ -79,6 +82,7 @@ export const NSID = {
   unblockCommunity: 'social.coves.community.unblockCommunity',
   getBlockedCommunities: 'social.coves.community.getBlockedCommunities',
   createPost: 'social.coves.community.post.create',
+  uploadImage: 'social.coves.media.uploadImage',
   deletePost: 'social.coves.community.post.delete',
   getPost: 'social.coves.community.post.get',
   submitReport: 'social.coves.admin.submitReport',
@@ -221,6 +225,19 @@ export class CovesClient {
   // Posts
   createPost(input: CreatePostInput): Promise<CreatePostOutput> {
     return this.xrpc.procedure(NSID.createPost, input)
+  }
+
+  // Media
+  /** Uploads raw image bytes; gives up after 120 s or when `signal` aborts. */
+  uploadImage(
+    file: Blob,
+    contentType: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<UploadImageOutput> {
+    return this.xrpc.procedureRaw(NSID.uploadImage, file, contentType, {
+      signal: options?.signal,
+      timeoutMs: UPLOAD_IMAGE_TIMEOUT_MS,
+    })
   }
 
   deletePost(input: { uri: AtUri }): Promise<void> {

@@ -1,3 +1,4 @@
+import { NSID } from '$lib/api/coves/client'
 import { t } from '$lib/app/state/i18n'
 import { log } from '$lib/app/util/log'
 
@@ -13,6 +14,53 @@ const xrpcMessages: Record<string, string> = {
   InvalidToken: 'authentication_required',
   ExpiredToken: 'authentication_required',
   Forbidden: 'permission_denied',
+  InvalidEmbed: 'invalid_embed',
+  TooManyImages: 'too_many_images',
+  InvalidImageFacet: 'invalid_image_facet',
+  ContentEmpty: 'content_empty',
+}
+
+/**
+ * Comment-worded messages, applied only to createComment and updateComment
+ * failures in place of the post-worded xrpcMessages entries.
+ */
+const commentMessages: Record<string, string> = {
+  TooManyImages: 'too_many_comment_images',
+  InvalidEmbed: 'invalid_comment_embed',
+  ContentEmpty: 'comment_content_empty',
+}
+
+/**
+ * Upload-worded messages, applied only to uploadImage failures: several of
+ * these names are global backend sentinels that any call can return.
+ */
+const uploadMessages: Record<string, string> = {
+  RequestTimeout: 'request_timeout',
+  ImageTooLarge: 'image_too_large',
+  UnsupportedImageFormat: 'unsupported_image_format',
+  ImageDimensionsTooLarge: 'image_dimensions_too_large',
+  InvalidImage: 'invalid_image',
+  UploadRateLimited: 'upload_rate_limited',
+  PDSUploadFailed: 'pds_upload_failed',
+  PayloadTooLarge: 'payload_too_large',
+  SessionBusy: 'session_busy',
+  ServiceUnavailable: 'service_unavailable',
+  NoAuthorCredentials: 'no_author_credentials',
+  Timeout: 'timeout',
+  RequestCanceled: 'request_canceled',
+}
+
+/** Upload refusals that a fresh sign-in, granting the blob scope, resolves. */
+const uploadSignInErrors = new Set(['MissingBlobScope', 'PermissionDenied'])
+
+/** True for an uploadImage refusal that signing in again resolves. */
+export function isUploadSignInError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+  const { nsid, errorName, error: name } = error as Record<string, unknown>
+  return (
+    nsid === NSID.uploadImage &&
+    uploadSignInErrors.has(String(errorName ?? name))
+  )
 }
 
 /** Fetch failures and temporary upstream outages, not arbitrary TypeErrors. */
@@ -46,12 +94,29 @@ export function errorMessage(error: any, instance?: string): string {
       }
     }
 
-    // Preserve structured XRPC metadata before unwrapping its message.
-    if (error?.status === 429) return t.get('error.rate_limit_error')
+    // Preserve structured XRPC metadata before unwrapping its message. A
+    // known error name wins over the generic 429 and 5xx messages.
     const code = error?.errorName ?? error?.error
+    if (error?.nsid === NSID.uploadImage) {
+      if (isUploadSignInError(error)) {
+        return t.get('error.upload_sign_in_again')
+      }
+      if (typeof code === 'string' && Object.hasOwn(uploadMessages, code)) {
+        return t.get(`error.${uploadMessages[code]}`)
+      }
+    }
+    if (
+      (error?.nsid === NSID.createComment ||
+        error?.nsid === NSID.updateComment) &&
+      typeof code === 'string' &&
+      Object.hasOwn(commentMessages, code)
+    ) {
+      return t.get(`error.${commentMessages[code]}`)
+    }
     if (typeof code === 'string' && Object.hasOwn(xrpcMessages, code)) {
       return t.get(`error.${xrpcMessages[code]}`)
     }
+    if (error?.status === 429) return t.get('error.rate_limit_error')
     if (error?.status >= 500) return t.get('error.server_error')
     if (isBackendUnavailable(error)) return t.get('error.backend_unreachable')
 

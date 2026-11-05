@@ -59,6 +59,60 @@ export function tryAsCID(value: string): CID | null {
   return isValidCID(value) ? value : null
 }
 
+/** An atProto blob reference as returned by social.coves.media.uploadImage. */
+export interface BlobRef {
+  $type: 'blob'
+  ref: { $link: string }
+  mimeType: string
+  size: number
+}
+
+export interface UploadImageOutput {
+  blob: BlobRef
+  mimeType: string
+  size: number
+  aspectRatio: { width: number; height: number }
+}
+
+/** One image of a `social.coves.embed.images` record. */
+export interface ImagesEmbedRecordImage {
+  image: BlobRef
+  alt?: string
+  aspectRatio?: { width: number; height: number }
+}
+
+/** The `social.coves.embed.images` embed of a post record. */
+export interface ImagesEmbedRecord {
+  $type: 'social.coves.embed.images'
+  images: ImagesEmbedRecordImage[]
+}
+
+/** The `social.coves.embed.external` embed of a post record. */
+export interface ExternalEmbedRecord {
+  $type: 'social.coves.embed.external'
+  external: { uri: string }
+}
+
+/** The `social.coves.embed.post` embed: a quoted post. */
+export interface QuotedPostEmbedRecord {
+  $type: 'social.coves.embed.post'
+  post: StrongRef
+}
+
+/** The `social.coves.embed.imagesWithAttachment` embed of a record. */
+export interface ImagesWithAttachmentRecord {
+  $type: 'social.coves.embed.imagesWithAttachment'
+  images: {
+    $type?: 'social.coves.embed.images'
+    images: ImagesEmbedRecordImage[]
+  }
+  attachment: ExternalEmbedRecord | QuotedPostEmbedRecord
+}
+
+/** The embeds a `social.coves.community.comment` record admits. */
+export type CommentEmbedRecord =
+  ImagesEmbedRecord | ImagesWithAttachmentRecord | QuotedPostEmbedRecord
+
 // ---------------------------------------------------------------------------
 // Record types — the actual atProto records stored in repositories
 // ---------------------------------------------------------------------------
@@ -85,7 +139,7 @@ export interface CommentRecord {
   createdAt: string
   facets?: unknown[]
   langs?: string[]
-  embed?: unknown
+  embed?: CommentEmbedRecord
   labels?: unknown
 }
 
@@ -504,11 +558,17 @@ export interface EmbedImageAspectRatio {
 }
 
 export interface EmbedImage {
-  image: string
   thumb?: string
   fullsize?: string
   alt?: string
   aspectRatio?: EmbedImageAspectRatio
+}
+
+/** A rich-text facet feature placing image `index` of the main image list at
+ * the facet's byte range. It must be the facet's only feature. */
+export interface ImageFacetFeature {
+  $type: 'social.coves.richtext.facet#image'
+  index: number
 }
 
 export interface ImageEmbed {
@@ -559,7 +619,29 @@ export interface RecordEmbed {
   resolved?: unknown
 }
 
-export type PostEmbed = ImageEmbed | ExternalEmbed | VideoEmbed | RecordEmbed
+/** The flattened `social.coves.embed.external#viewExternal` attachment. */
+export interface ExternalViewExternalAttachment {
+  $type: 'social.coves.embed.external#viewExternal'
+  uri: string
+  title?: string
+  description?: string
+  thumb?: string
+  domain?: string
+}
+
+export interface ImagesWithAttachmentView {
+  $type: 'social.coves.embed.imagesWithAttachment#view'
+  /** The image list is empty once galleryEmbed has removed every placed image. */
+  images: Omit<ImageEmbed, 'images'> & { images: EmbedImage[] }
+  attachment: ExternalViewExternalAttachment | RecordEmbed
+}
+
+export type PostEmbed =
+  | ImageEmbed
+  | ExternalEmbed
+  | VideoEmbed
+  | RecordEmbed
+  | ImagesWithAttachmentView
 
 // ---------------------------------------------------------------------------
 // Request / response types — feeds
@@ -738,7 +820,7 @@ export interface CreatePostInput {
   community: DID
   title?: string
   content?: string
-  embed?: unknown
+  embed?: ExternalEmbedRecord | ImagesEmbedRecord | ImagesWithAttachmentRecord
   labels?: unknown
   facets?: unknown[]
 }
@@ -768,7 +850,8 @@ export interface CreateCommentInput {
   }
   content: string
   facets?: unknown[]
-  embed?: unknown
+  /** Comments only ever carry images, never a link. */
+  embed?: ImagesEmbedRecord
   langs?: string[]
   labels?: unknown
 }
@@ -798,7 +881,7 @@ export interface UpdateCommentInput {
   uri: AtUri
   content: string
   facets?: unknown[]
-  embed?: unknown
+  embed?: CommentEmbedRecord
   langs?: string[]
   labels?: unknown
 }

@@ -76,6 +76,23 @@ interface Draft {
   /** Output lines emitted so far, which is what the newline separators are
    * counted from. Source lines consumed as markup are not output lines. */
   lines: number
+  /** Source index where each line starts, so a placement token's source
+   * range can be recorded from inside a sliced text run. */
+  lineStarts: number[]
+  /** How many images are attached; a token naming none of them is literal. */
+  imageCount: number
+  /** Image numbers already placed: only the first token for each compiles. */
+  placedImages: Set<number>
+  placements: PlacementTokenRange[]
+}
+
+/** Where a recognised `![covered text](image:N)` token sits in the source. */
+export interface PlacementTokenRange {
+  /** The 1-based image number the token names. */
+  number: number
+  /** Source indices of the whole token, `start` inclusive, `end` exclusive. */
+  start: number
+  end: number
 }
 
 /**
@@ -129,6 +146,9 @@ const MENTION_BODY = /[A-Za-z0-9.\-@]+/y
 /** Letters, digits and the underscore: what counts as being inside a word,
  * for the flanking rules and for where a URL or a sigil may start. */
 const WORD_CHARACTER = /[\p{L}\p{N}_]/u
+
+/** Sticky: the `(image:N)` target of a placement token, N from 1. */
+const PLACEMENT_TARGET = /\(image:([1-9][0-9]*)\)/y
 
 /** Line-level constructs, each matched against a whole line. */
 const FENCE = /^```(.*)$/
@@ -242,17 +262,31 @@ function flanksEmphasis(marker: string, neighbor: string): boolean {
  * closing the italic on the first of them would swallow the markers.
  */
 function findClosingRun(
+  draft: Draft,
   text: string,
   from: number,
   marker: string,
   width: number,
+  scope: InlineScope,
 ): number {
+  // A placement's covered text is plain, so an emphasis marker inside it can
+  // never close a run opened outside it. The numbers claimed here are a copy:
+  // nothing is placed until the inner text is actually compiled.
+  const claimed = new Set(draft.placedImages)
   let index = from
   while (index < text.length) {
     const skipped = skipLiteral(text, index)
     if (skipped !== null) {
       index = skipped
       continue
+    }
+    if (scope.linkable && text[index] === '!') {
+      const token = matchPlacementToken(text, index)
+      if (token && acceptsPlacement(draft.imageCount, claimed, token.number)) {
+        claimed.add(token.number)
+        index = token.end
+        continue
+      }
     }
     if (text[index] === marker) {
       const length = runLength(text, index, marker)
@@ -283,6 +317,57 @@ function findUnescaped(text: string, from: number, target: string): number {
     index++
   }
   return -1
+}
+
+/**
+ * A token-shaped `![covered text](image:N)` at `index`, or null. The bracket
+ * text may hold balanced brackets (`[image]`); a backslash escape inside it
+ * resolves to the escaped character and nothing else in it is markup.
+ */
+function matchPlacementToken(
+  text: string,
+  index: number,
+): { covered: string; number: number; end: number } | null {
+  if (!text.startsWith('![', index)) return null
+  let covered = ''
+  let depth = 0
+  let cursor = index + 2
+  while (cursor < text.length) {
+    const char = text[cursor]
+    const escaped = text.slice(cursor + 1, cursor + 2)
+    if (char === '\\' && ESCAPABLE.has(escaped)) {
+      covered += escaped
+      cursor += 2
+      continue
+    }
+    if (char === ']') {
+      if (depth === 0) break
+      depth -= 1
+    } else if (char === '[') {
+      depth += 1
+    }
+    covered += char
+    cursor += 1
+  }
+  if (cursor >= text.length || covered.length === 0) return null
+  PLACEMENT_TARGET.lastIndex = cursor + 1
+  const target = PLACEMENT_TARGET.exec(text)
+  if (!target) return null
+  return {
+    covered,
+    number: Number(target[1]),
+    end: PLACEMENT_TARGET.lastIndex,
+  }
+}
+
+/** Whether a token for image `number` compiles: it names an attached image
+ * and no earlier token placed that image. */
+function acceptsPlacement(
+  imageCount: number,
+  placed: ReadonlySet<number>,
+  number: number,
+): boolean {
+  return number <= imageCount && !placed.has(number)
 }
 
 // ---------------------------------------------------------------------------
@@ -327,6 +412,7 @@ function appendEmphasis(
   index: number,
   marker: string,
   scope: InlineScope,
+  offset: number,
 ): number | null {
   if (!flanksEmphasis(marker, text.slice(Math.max(index - 1, 0), index))) {
     return null
@@ -337,10 +423,22 @@ function appendEmphasis(
   for (let width = widest; width >= narrowest; width--) {
     const features = emphasisFeatures(marker, width)
     if (!features) continue
-    const close = findClosingRun(text, index + width, marker, width)
+    const close = findClosingRun(
+      draft,
+      text,
+      index + width,
+      marker,
+      width,
+      scope,
+    )
     if (close === -1) continue
     const facet = openFacet(draft, features)
-    appendInline(draft, text.slice(index + width, close), scope)
+    appendInline(
+      draft,
+      text.slice(index + width, close),
+      scope,
+      offset + index + width,
+    )
     facet.end = draft.length
     return close + width
   }
@@ -389,13 +487,51 @@ function findLinkTargetEnd(text: string, open: number): number {
   return -1
 }
 
-/** `[text](url)`, or null when the markup is not a web link and stays literal. */
+/** Index of the ']' that balances the '[' just before `from`, or -1. */
+function findBalancedClose(text: string, from: number): number {
+  let depth = 0
+  let index = from
+  while (index < text.length) {
+    const skipped = skipLiteral(text, index)
+    if (skipped !== null) {
+      index = skipped
+      continue
+    }
+    if (text[index] === '[') depth += 1
+    else if (text[index] === ']' && --depth < 0) return index
+    index++
+  }
+  return -1
+}
+
+/**
+ * `[text](url)`, or null when the markup is not a web link and stays literal.
+ *
+ * The label normally ends at the first ']'. When that reads as no link, a
+ * label with balanced brackets is tried, so `[![x](image:1)](https://…)` is a
+ * link whose text holds the token, and the token stays literal link text.
+ */
 function appendTitledLink(
   draft: Draft,
   text: string,
   index: number,
+  offset: number,
 ): number | null {
-  const labelEnd = findUnescaped(text, index + 1, ']')
+  const first = findUnescaped(text, index + 1, ']')
+  const linked = appendLinkWithLabelEnd(draft, text, index, first, offset)
+  if (linked !== null) return linked
+  const balanced = findBalancedClose(text, index + 1)
+  if (balanced === first) return null
+  return appendLinkWithLabelEnd(draft, text, index, balanced, offset)
+}
+
+function appendLinkWithLabelEnd(
+  draft: Draft,
+  text: string,
+  index: number,
+  labelEnd: number,
+  offset: number,
+): number | null {
   if (labelEnd === -1) return null
   if (text.slice(labelEnd + 1, labelEnd + 2) !== '(') return null
   const targetEnd = findLinkTargetEnd(text, labelEnd + 1)
@@ -406,7 +542,7 @@ function appendTitledLink(
   // relative path) leaves the whole construct as literal text.
   if (label.length === 0 || !parseWebUrl(target)) return null
   const facet = openFacet(draft, [{ $type: FEATURE_TYPE.link, uri: target }])
-  appendInline(draft, label, { linkable: false })
+  appendInline(draft, label, { linkable: false }, offset + index + 1)
   facet.end = draft.length
   return targetEnd + 1
 }
@@ -489,11 +625,60 @@ function startsWord(text: string, index: number): boolean {
   return index === 0 || !WORD_CHARACTER.test(text[index - 1])
 }
 
-/** Scan one text run for inline constructs, appending its content and facets. */
-function appendInline(draft: Draft, text: string, scope: InlineScope): void {
+/**
+ * A placement token at `index`, or null when none compiles there and the text
+ * stays literal. The covered text goes in as plain text under one facet whose
+ * only feature is the `#image`.
+ */
+function appendPlacement(
+  draft: Draft,
+  text: string,
+  index: number,
+  offset: number,
+): number | null {
+  const token = matchPlacementToken(text, index)
+  if (
+    !token ||
+    !acceptsPlacement(draft.imageCount, draft.placedImages, token.number)
+  ) {
+    return null
+  }
+  draft.placedImages.add(token.number)
+  const facet = openFacet(draft, [
+    { $type: FEATURE_TYPE.image, index: token.number - 1 },
+  ])
+  appendText(draft, token.covered)
+  facet.end = draft.length
+  draft.placements.push({
+    number: token.number,
+    start: offset + index,
+    end: offset + token.end,
+  })
+  return token.end
+}
+
+/**
+ * Scan one text run for inline constructs, appending its content and facets.
+ * `offset` is the source index of the run's first character.
+ */
+function appendInline(
+  draft: Draft,
+  text: string,
+  scope: InlineScope,
+  offset: number,
+): void {
   let index = 0
   while (index < text.length) {
     const char = text[index]
+
+    // Link text is never a placement, the same way it is never a mention.
+    if (char === '!' && scope.linkable) {
+      const next = appendPlacement(draft, text, index, offset)
+      if (next !== null) {
+        index = next
+        continue
+      }
+    }
 
     if (char === '\\') {
       const escaped = text.slice(index + 1, index + 2)
@@ -513,7 +698,7 @@ function appendInline(draft: Draft, text: string, scope: InlineScope): void {
     }
 
     if (char === '[' && scope.linkable) {
-      const next = appendTitledLink(draft, text, index)
+      const next = appendTitledLink(draft, text, index, offset)
       if (next !== null) {
         index = next
         continue
@@ -541,7 +726,7 @@ function appendInline(draft: Draft, text: string, scope: InlineScope): void {
     }
 
     if (EMPHASIS_MARKERS.has(char)) {
-      const next = appendEmphasis(draft, text, index, char, scope)
+      const next = appendEmphasis(draft, text, index, char, scope, offset)
       if (next !== null) {
         index = next
         continue
@@ -574,9 +759,14 @@ function startLine(draft: Draft): void {
 }
 
 /** Heading content and facet on a line that has already been started. */
-function appendHeadingText(draft: Draft, level: number, text: string): void {
+function appendHeadingText(
+  draft: Draft,
+  level: number,
+  text: string,
+  offset: number,
+): void {
   const facet = openFacet(draft, [{ $type: FEATURE_TYPE.heading, level }])
-  appendInline(draft, text, LINKABLE)
+  appendInline(draft, text, LINKABLE, offset)
   facet.end = draft.length
 }
 
@@ -604,11 +794,16 @@ function appendBlockquote(
     if (!quote || quoteLevel(lines[cursor]) !== level) break
     startLine(draft)
     facet ??= openFacet(draft, [{ $type: FEATURE_TYPE.blockquote, level }])
+    // The quoted text runs to the end of the line, so it starts that far
+    // back from the line's end.
+    const quoted =
+      draft.lineStarts[cursor] + lines[cursor].length - quote[2].length
     const heading = HEADING.exec(quote[2])
     if (heading) {
-      appendHeadingText(draft, heading[1].length, heading[2])
+      const level = heading[1].length
+      appendHeadingText(draft, level, heading[2], quoted + level + 1)
     } else {
-      appendInline(draft, quote[2], LINKABLE)
+      appendInline(draft, quote[2], LINKABLE, quoted)
     }
     cursor += 1
   }
@@ -672,7 +867,7 @@ function appendSpoiler(
   for (let inner = index + 1; inner < close; inner++) {
     startLine(draft)
     facet ??= openFacet(draft, [feature])
-    appendInline(draft, lines[inner], LINKABLE)
+    appendInline(draft, lines[inner], LINKABLE, draft.lineStarts[inner])
   }
   if (facet) facet.end = draft.length
   return close + 1
@@ -696,12 +891,18 @@ function appendBlock(draft: Draft, lines: string[], index: number): number {
   const heading = HEADING.exec(line)
   if (heading) {
     startLine(draft)
-    appendHeadingText(draft, heading[1].length, heading[2])
+    const level = heading[1].length
+    appendHeadingText(
+      draft,
+      level,
+      heading[2],
+      draft.lineStarts[index] + level + 1,
+    )
     return index + 1
   }
 
   startLine(draft)
-  appendInline(draft, line, LINKABLE)
+  appendInline(draft, line, LINKABLE, draft.lineStarts[index])
   return index + 1
 }
 
@@ -713,6 +914,11 @@ function appendBlock(draft: Draft, lines: string[], index: number): number {
  */
 function appendBlocks(draft: Draft, source: string): void {
   const lines = source.split('\n')
+  let start = 0
+  for (const line of lines) {
+    draft.lineStarts.push(start)
+    start += line.length + 1
+  }
   let index = 0
   while (index < lines.length) {
     index = appendBlock(draft, lines, index)
@@ -781,6 +987,14 @@ function toFacets(draft: Draft, offsets: number[]): RichTextFacet[] {
   const byRange = new Map<string, RichTextFacet>()
   const merged: RichTextFacet[] = []
   for (const facet of ranged) {
+    // A placement keeps a facet of its own, whatever else covers its bytes:
+    // the `#image` feature is the facet's only feature.
+    if (
+      facet.features.some((feature) => feature.$type === FEATURE_TYPE.image)
+    ) {
+      merged.push(facet)
+      continue
+    }
     const existing = byRange.get(
       `${facet.index.byteStart}:${facet.index.byteEnd}`,
     )
@@ -835,19 +1049,47 @@ export function trimRichText(composed: {
   return facets.length > 0 ? { content: trimmed, facets } : { content: trimmed }
 }
 
-/** Compile editor markup into canonical plaintext, facets and pending mentions. */
-export function parseMarkup(source: string): ParsedMarkup {
-  // Offsets are measured over the content that ships, so line endings are
-  // normalized before anything else looks at the source.
-  const normalized = source.replace(/\r\n?/g, '\n')
+function compile(source: string, imageCount: number): Draft {
   const draft: Draft = {
     chunks: [],
     length: 0,
     facets: [],
     mentions: [],
     lines: 0,
+    lineStarts: [],
+    imageCount,
+    placedImages: new Set(),
+    placements: [],
   }
-  appendBlocks(draft, normalized)
+  appendBlocks(draft, source)
+  return draft
+}
+
+/**
+ * The placement tokens `parseMarkup` would compile in `source` given
+ * `imageCount` attached images, in source order. `source` must already use
+ * `\n` line endings (a textarea's value does), or the indices drift.
+ */
+export function findPlacementTokens(
+  source: string,
+  imageCount: number,
+): PlacementTokenRange[] {
+  return compile(source, imageCount).placements
+}
+
+/**
+ * Compile editor markup into canonical plaintext, facets and pending mentions.
+ * A `![covered text](image:N)` token compiles to a placement only when
+ * `imageCount` (0 when omitted) covers N.
+ */
+export function parseMarkup(
+  source: string,
+  options?: { imageCount?: number },
+): ParsedMarkup {
+  // Offsets are measured over the content that ships, so line endings are
+  // normalized before anything else looks at the source.
+  const normalized = source.replace(/\r\n?/g, '\n')
+  const draft = compile(normalized, options?.imageCount ?? 0)
   const content = draft.chunks.join('')
   const offsets = byteOffsets(content)
   return {

@@ -579,7 +579,7 @@ describe('stable-anchor restoration', () => {
     actualScrollY = 0
     maximumScrollY = 500
     anchorDocumentTops.set(`${POST_URL}#comments`, SHIFTED_ANCHOR_DOCUMENT_TOP)
-    page.state = { postFeedOrigin: origin, openImage: 'keep-open' }
+    page.state = { postFeedOrigin: origin, openModals: ['keep-open'] }
     await mountFeed(
       async () => (await import('./PostFeed.svelte')).default,
       {},
@@ -606,7 +606,7 @@ describe('stable-anchor restoration', () => {
     expect(link('comments').getBoundingClientRect().top).toBe(SAVED_ANCHOR_TOP)
     expect(navigation.replaceState).toHaveBeenCalledTimes(1)
     expect(page.state.postFeedOrigin).toBeUndefined()
-    expect(page.state.openImage).toBe('keep-open')
+    expect(page.state.openModals).toEqual(['keep-open'])
 
     runAnimationFrame()
     expect(navigation.replaceState).toHaveBeenCalledTimes(1)
@@ -810,7 +810,7 @@ describe('stable-anchor restoration', () => {
         page.url = new URL('https://coves.test/?sort=new')
         client.flushSync()
       } else {
-        page.state = { openImage: 'replacement' }
+        page.state = { openModals: ['replacement'] }
         client.flushSync()
       }
 

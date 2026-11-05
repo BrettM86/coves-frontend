@@ -181,7 +181,6 @@ describe('non-Bluesky Post media regression controls', () => {
       $type: 'social.coves.embed.images#view',
       images: [
         {
-          image: 'https://media.example/native.jpg',
           thumb: 'https://media.example/native-thumb.jpg',
           fullsize: 'https://media.example/native.jpg',
           alt: 'Generic native image',

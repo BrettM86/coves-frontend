@@ -1053,22 +1053,6 @@ describe('UpvoteRow row time placement', () => {
 
   it.each<[string, () => UpvoteNotificationRow, boolean, string]>([
     [
-      'an upvote on a comment with neither a preview nor a thumbnail',
-      () => commentUpvoteRow({ preview: undefined }),
-      false,
-      'Liked your comment',
-    ],
-    [
-      'an upvote on a comment with no preview and an unsafe thumbnail',
-      () =>
-        commentUpvoteRow({
-          preview: undefined,
-          thumbnail: 'javascript:alert(1)',
-        }),
-      false,
-      'Liked your comment',
-    ],
-    [
       'a concealed upvote on a sensitive comment',
       sensitiveSubjectRow,
       true,
@@ -1092,6 +1076,26 @@ describe('UpvoteRow row time placement', () => {
       expect(sentence()?.querySelector('time')).toBeNull()
       expect(target.querySelector('[data-part="post-card"]')).toBeNull()
       expect(previewQuote()).toBeNull()
+    },
+  )
+
+  it.each<[string, () => UpvoteNotificationRow]>([
+    ['no thumbnail', () => commentUpvoteRow({ preview: undefined })],
+    [
+      'an unsafe thumbnail',
+      () =>
+        commentUpvoteRow({
+          preview: undefined,
+          thumbnail: 'javascript:alert(1)',
+        }),
+    ],
+  ])(
+    'quotes an upvoted comment as "Image" when the backend omits its preview, with %s',
+    (_title, row) => {
+      mountRow(row())
+
+      expect(titleText()).toBe('Liked your comment')
+      expect(previewQuote()?.textContent?.trim()).toBe('Image')
     },
   )
 })

@@ -65,12 +65,12 @@ export const svelteClientEntry = async (subpath: string): Promise<unknown> => {
   )
 }
 
-/** Literal copy of KELP_DEFAULT in presets.ts — expected values, not computed. */
-export function kelpColors() {
+/** Literal copy of COVES_COLORS in presets.ts — expected values, not computed. */
+export function covesColors() {
   return {
     slate: {
       '25': '252 253 254',
-      '50': '248 250 252',
+      '50': '253 252 250',
       '100': '241 245 249',
       '200': '226 232 240',
       '300': '203 213 225',
@@ -79,12 +79,12 @@ export function kelpColors() {
       '600': '71 85 105',
       '700': '51 65 85',
       '800': '30 41 59',
-      '900': '15 23 42',
+      '900': '26 26 28',
       '950': '2 6 23',
     },
     zinc: {
       '50': '252 252 254',
-      '100': '248 248 251',
+      '100': '255 248 240',
       '200': '235 235 240',
       '300': '222 222 228',
       '400': '175 175 185',
@@ -94,7 +94,7 @@ export function kelpColors() {
       '800': '47 47 54',
       '900': '34 34 39',
       '925': '28 28 32',
-      '950': '25 25 29',
+      '950': '15 15 16',
     },
     primary: {
       '100': '241 245 249',
@@ -156,7 +156,7 @@ export interface ThemeHarness {
  * Registers beforeEach/afterEach for a theme component test: stubs
  * ResizeObserver and matchMedia, clears storage and open modals, and seeds
  * the real theme state with the presets plus custom themes 1 and 2 (2 is
- * current), both with Kelp colours. Tests reseed `themeState.data` as needed.
+ * current), both with Coves colours. Tests reseed `themeState.data` as needed.
  */
 export function useThemeHarness(): ThemeHarness {
   let target: HTMLDivElement | undefined
@@ -201,8 +201,8 @@ export function useThemeHarness(): ThemeHarness {
       scheme: 'system',
       themes: [
         ...presets,
-        { id: 1, name: 'Custom 1', colors: kelpColors() },
-        { id: 2, name: 'Custom 2', colors: kelpColors() },
+        { id: 1, name: 'Custom 1', colors: covesColors() },
+        { id: 2, name: 'Custom 2', colors: covesColors() },
       ],
       currentTheme: 2,
     }

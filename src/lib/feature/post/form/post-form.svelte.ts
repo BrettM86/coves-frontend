@@ -1,4 +1,5 @@
 import { coves } from '$lib/api/client.svelte'
+import { t } from '$lib/app/state/i18n'
 import { isWebUrl } from '$lib/app/util/url'
 import type {
   CommunityRef,
@@ -7,6 +8,8 @@ import type {
   CreatePostOutput,
   PostView,
 } from '$lib/api/coves/types'
+import { Attachments } from '$lib/feature/image-upload/attachments.svelte'
+import { checkAltText } from '$lib/feature/image-upload/image-file'
 import { buildFreshPostView } from '$lib/feature/post/fresh-post'
 import { composeRichText } from '$lib/feature/richtext/mentions'
 
@@ -45,6 +48,8 @@ export class PostFormState {
   body?: string
   url?: string
   nsfw: boolean
+  /** The images attached to the post, uploaded on submit. */
+  attachments: Attachments
 
   constructor(post?: PostFormInit) {
     this.community = $state(post?.community)
@@ -52,17 +57,30 @@ export class PostFormState {
     this.body = $state(post?.body)
     this.url = $state(post?.url)
     this.nsfw = $state(post?.nsfw ?? false)
+    this.attachments = new Attachments({ target: 'post' })
   }
 
   validate(): string | null {
     if (!this.community) return 'Community is required'
     if (this.url && !isWebUrl(this.url))
       return 'URL must start with http:// or https://'
+    const overLimit = this.attachments.items.findIndex(
+      (item) => !checkAltText(item.alt).ok,
+    )
+    if (overLimit >= 0)
+      return t.get('form.post.altTextTooLong', { number: overLimit + 1 })
 
     return null
   }
 
-  async submit(): Promise<PostSubmitResult> {
+  /**
+   * Creates the post. Aborting `signal` stops the image uploads and keeps the
+   * post from being created, unless the create request has already been sent.
+   */
+  async submit(signal?: AbortSignal): Promise<PostSubmitResult> {
+    // An image still being checked joins the strip before it is validated
+    // and uploaded.
+    await this.attachments.whenAdded()
     const error = this.validate()
     if (error) throw new Error(error)
 
@@ -76,19 +94,25 @@ export class PostFormState {
     // The body is lightweight markup; the record carries canonical plaintext
     // plus facets. Compiling here is what makes every client render the same
     // thing, and it is the step that resolves an @handle to a DID.
-    const { content, facets } = await composeRichText(this.body ?? '', coves())
+    const { content, facets } = await composeRichText(
+      this.body ?? '',
+      coves(),
+      {
+        imageCount: this.attachments.items.length,
+      },
+    )
+
+    // Images that already have a blob ref, from an earlier failed submit, are
+    // not uploaded again; any failed upload stops the post being created.
+    await this.attachments.uploadMissing(coves(), signal)
+    signal?.throwIfAborted()
+    const url = this.url || undefined
 
     const result = await coves().createPost({
       community: community.did,
       title: this.title || undefined,
       content: content || undefined,
-      // social.coves.embed.external requires the $type discriminator and an
-      // `external` wrapper. A bare { uri } matches neither the backend's
-      // validate/unfurl gate nor the frontend's $type switch, so it's silently
-      // dropped end-to-end (no link card, no title-opens-url).
-      embed: this.url
-        ? { $type: 'social.coves.embed.external', external: { uri: this.url } }
-        : undefined,
+      embed: this.attachments.embedFor(url),
       // Omit these keys when there is nothing to send, so the input object
       // matches the wire shape (JSON drops undefined values) and tests can
       // assert on it as is.
@@ -105,8 +129,13 @@ export class PostFormState {
         title: this.title || undefined,
         content: content || undefined,
         facets,
-        url: this.url || undefined,
+        url,
         labels,
+        images: this.attachments.items.map((item) => ({
+          previewUrl: item.previewUrl,
+          alt: item.alt.trim() || undefined,
+          aspectRatio: item.aspectRatio,
+        })),
       }),
     }
   }

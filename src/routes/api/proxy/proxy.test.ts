@@ -5,6 +5,7 @@ import {
   createMockCookies,
   createMockEvent,
 } from '$lib/test-utils/request-event'
+import { log } from '$lib/server/log'
 
 /**
  * Mutable env, so a test can describe a different deployment (an internal
@@ -736,6 +737,321 @@ describe('API Proxy', () => {
       )
 
       expect(response.status).toBe(200)
+    })
+  })
+
+  describe('request body size limits', () => {
+    const UPLOAD_PATH = 'xrpc/social.coves.media.uploadImage'
+    const UPDATE_PROFILE_PATH = 'xrpc/social.coves.actor.updateProfile'
+    const POST_CREATE_PATH = 'xrpc/social.coves.community.post.create'
+
+    /**
+     * Deterministic bytes that do not repeat at a glance, so a truncated,
+     * padded or re-encoded body cannot compare equal to the original.
+     */
+    function patternedBytes(length: number): Uint8Array<ArrayBuffer> {
+      const bytes = new Uint8Array(length)
+      for (let index = 0; index < length; index++) {
+        bytes[index] = (index * 31 + 7) % 251
+      }
+      return bytes
+    }
+
+    /**
+     * A same-origin, signed-in POST carrying a raw body. createEvent's `body`
+     * is JSON-serialized, so the request is replaced with one built here.
+     */
+    function createRawBodyEvent(
+      path: string,
+      request: Request | { body: BodyInit; headers: Record<string, string> },
+    ): ProxyEvent {
+      const event = createEvent({
+        path,
+        method: 'POST',
+        cookies: createMockCookies({ coves_session: 'token' }),
+      })
+      Object.assign(event, {
+        request:
+          request instanceof Request
+            ? request
+            : new Request(`${APP_ORIGIN}/api/proxy/${path}`, {
+                method: 'POST',
+                body: request.body,
+                headers: { Origin: APP_ORIGIN, ...request.headers },
+              }),
+      })
+      return event
+    }
+
+    /** The bytes the upstream fetch was given as its body. */
+    async function forwardedBytes(): Promise<Uint8Array> {
+      const [, init] = getLastFetchCall()
+      return new Uint8Array(await new Response(init.body).arrayBuffer())
+    }
+
+    function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
+      return Buffer.from(left).equals(Buffer.from(right))
+    }
+
+    describe('image upload cap', () => {
+      interface OversizedUploadCase {
+        name: string
+        bodyLength: number
+        headers: Record<string, string>
+      }
+
+      it.each<OversizedUploadCase>([
+        {
+          name: 'a declared Content-Length over the cap with a small body',
+          bodyLength: 16,
+          headers: { 'Content-Length': '10000001' },
+        },
+        {
+          name: 'an undeclared body over the cap',
+          bodyLength: 10_000_001,
+          headers: {},
+        },
+        {
+          name: 'a body over the cap with an understated Content-Length',
+          bodyLength: 10_000_001,
+          headers: { 'Content-Length': '1024' },
+        },
+      ])('rejects $name with 413 ImageTooLarge', async (testCase) => {
+        mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
+
+        const response = await POST(
+          createRawBodyEvent(UPLOAD_PATH, {
+            body: patternedBytes(testCase.bodyLength),
+            headers: { 'Content-Type': 'image/jpeg', ...testCase.headers },
+          }),
+        )
+
+        expect(response.status).toBe(413)
+        expect((await response.json()).error).toBe('ImageTooLarge')
+        expect(mockFetch).not.toHaveBeenCalled()
+      })
+
+      it('forwards an image of exactly 10,000,000 bytes unchanged', async () => {
+        mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
+        const image = patternedBytes(10_000_000)
+
+        const response = await POST(
+          createRawBodyEvent(UPLOAD_PATH, {
+            body: image,
+            headers: {
+              'Content-Type': 'image/jpeg',
+              'Content-Length': '10000000',
+            },
+          }),
+        )
+
+        expect(response.status).toBe(200)
+        expect(mockFetch).toHaveBeenCalledTimes(1)
+        const [, init] = getLastFetchCall()
+        expect(init.headers.get('content-type')).toBe('image/jpeg')
+        const forwarded = await forwardedBytes()
+        expect(forwarded.length).toBe(10_000_000)
+        expect(sameBytes(forwarded, image)).toBe(true)
+      })
+    })
+
+    describe('upstream timeouts', () => {
+      /** Distinct signals per duration, so the one fetch got names its budget. */
+      function stubTimeoutSignals(): Map<number, AbortSignal> {
+        const signals = new Map<number, AbortSignal>()
+        vi.spyOn(AbortSignal, 'timeout').mockImplementation((milliseconds) => {
+          const signal = new AbortController().signal
+          signals.set(milliseconds, signal)
+          return signal
+        })
+        return signals
+      }
+
+      it.each([
+        {
+          name: 'an image upload',
+          path: UPLOAD_PATH,
+          contentType: 'image/jpeg',
+          milliseconds: 120_000,
+        },
+        {
+          name: 'a post create',
+          path: POST_CREATE_PATH,
+          contentType: 'application/json',
+          milliseconds: 30_000,
+        },
+      ])('gives $name a $milliseconds ms upstream budget', async (testCase) => {
+        const signals = stubTimeoutSignals()
+        mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
+
+        await POST(
+          createRawBodyEvent(testCase.path, {
+            body: patternedBytes(64),
+            headers: { 'Content-Type': testCase.contentType },
+          }),
+        )
+
+        const [, init] = getLastFetchCall()
+        const expectedSignal = signals.get(testCase.milliseconds)
+        expect(expectedSignal).toBeInstanceOf(AbortSignal)
+        expect(init.signal).toBe(expectedSignal)
+      })
+
+      it('maps an upload that times out upstream to 504 Gateway Timeout', async () => {
+        mockFetch.mockRejectedValue(
+          new DOMException('The operation timed out.', 'TimeoutError'),
+        )
+
+        const response = await POST(
+          createRawBodyEvent(UPLOAD_PATH, {
+            body: patternedBytes(64),
+            headers: { 'Content-Type': 'image/jpeg' },
+          }),
+        )
+
+        expect(response.status).toBe(504)
+        expect((await response.json()).error).toBe('Gateway Timeout')
+      })
+    })
+
+    describe('routes without a proxy cap', () => {
+      it.each([
+        { name: '1.5 MB', bodyLength: 1_500_000 },
+        { name: '10,000,001 bytes', bodyLength: 10_000_001 },
+      ])('forwards a $name post create intact', async (testCase) => {
+        mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
+        const body = patternedBytes(testCase.bodyLength)
+
+        const response = await POST(
+          createRawBodyEvent(POST_CREATE_PATH, {
+            body,
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': String(testCase.bodyLength),
+            },
+          }),
+        )
+
+        expect(response.status).toBe(200)
+        expect(mockFetch).toHaveBeenCalledTimes(1)
+        const forwarded = await forwardedBytes()
+        expect(forwarded.length).toBe(testCase.bodyLength)
+        expect(sameBytes(forwarded, body)).toBe(true)
+      })
+    })
+
+    describe('body over the server body size limit', () => {
+      /**
+       * A request whose body read fails the way adapter-node's does past
+       * BODY_SIZE_LIMIT: with a SvelteKitError carrying status 413.
+       */
+      function oversizedBodyRequest(path: string, contentType: string) {
+        return failingBodyRequest(path, contentType, () =>
+          Object.assign(
+            new Error('request body size exceeded BODY_SIZE_LIMIT of 524288'),
+            { status: 413 },
+          ),
+        )
+      }
+
+      /** A request whose every body read rejects with `makeError()`. */
+      function failingBodyRequest(
+        path: string,
+        contentType: string,
+        makeError: () => Error,
+      ) {
+        const request = new Request(`${APP_ORIGIN}/api/proxy/${path}`, {
+          method: 'POST',
+          body: 'x',
+          headers: { Origin: APP_ORIGIN, 'Content-Type': contentType },
+        })
+        const rejectRead = () => Promise.reject(makeError())
+        for (const reader of ['blob', 'arrayBuffer', 'bytes', 'text']) {
+          Object.defineProperty(request, reader, { value: rejectRead })
+        }
+        return request
+      }
+
+      it.each([
+        {
+          name: 'an image upload',
+          path: UPLOAD_PATH,
+          contentType: 'image/jpeg',
+          error: 'ImageTooLarge',
+        },
+        {
+          name: 'a profile update',
+          path: UPDATE_PROFILE_PATH,
+          contentType: 'application/json',
+          error: 'PayloadTooLarge',
+        },
+      ])(
+        'answers $name with 413 $error and no upstream call',
+        async (testCase) => {
+          mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
+
+          const response = await POST(
+            createRawBodyEvent(
+              testCase.path,
+              oversizedBodyRequest(testCase.path, testCase.contentType),
+            ),
+          )
+
+          expect(response.status).toBe(413)
+          expect((await response.json()).error).toBe(testCase.error)
+          expect(mockFetch).not.toHaveBeenCalled()
+        },
+      )
+
+      it('logs a warning when the body exceeds BODY_SIZE_LIMIT', async () => {
+        const warn = vi.spyOn(log, 'warn').mockImplementation(() => {})
+        mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
+
+        const response = await POST(
+          createRawBodyEvent(
+            UPLOAD_PATH,
+            oversizedBodyRequest(UPLOAD_PATH, 'image/jpeg'),
+          ),
+        )
+
+        expect(response.status).toBe(413)
+        expect(warn).toHaveBeenCalledTimes(1)
+        expect(warn).toHaveBeenCalledWith(
+          '[proxy] request body over BODY_SIZE_LIMIT',
+          expect.objectContaining({
+            method: 'POST',
+            path: `/${UPLOAD_PATH}`,
+          }),
+          expect.objectContaining({ status: 413 }),
+        )
+      })
+
+      it.each([
+        {
+          name: 'a connection reset',
+          makeError: () =>
+            Object.assign(new Error('aborted'), { code: 'ECONNRESET' }),
+        },
+        {
+          name: 'an error with a non-413 status',
+          makeError: () =>
+            Object.assign(new Error('bad request body'), { status: 400 }),
+        },
+      ])('maps a body read failure from $name to 502', async (testCase) => {
+        const error = vi.spyOn(log, 'error').mockImplementation(() => {})
+        mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
+
+        const response = await POST(
+          createRawBodyEvent(
+            UPLOAD_PATH,
+            failingBodyRequest(UPLOAD_PATH, 'image/jpeg', testCase.makeError),
+          ),
+        )
+
+        expect(response.status).toBe(502)
+        expect(mockFetch).not.toHaveBeenCalled()
+        expect(error).toHaveBeenCalled()
+      })
     })
   })
 })

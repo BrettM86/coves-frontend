@@ -17,12 +17,37 @@
   --color-slate-25: rgb(252 253 254);
   --color-zinc-925: rgb(28 28 32);
 
+  /* Coves' page and ink, so a first visit paints Coves before any theme
+     variables reach <html>; a selected theme's inline variables override. */
+  --color-slate-50: rgb(253 252 250);
+  --color-slate-900: rgb(26 26 28);
+  --color-zinc-100: rgb(255 248 240);
+  --color-zinc-950: rgb(15 15 16);
+
   --color-bluesky-surface: #151d28;
   --color-bluesky-surface-hover: #1c2939;
   --color-bluesky-border: #2c3a4e;
   --color-bluesky-muted: #abb8c9;
   --color-bluesky-brand: #0a7aff;
   --color-bluesky-link: #1185fe;
+
+  /* Feed card palette for every theme but Coves. Light values; `.dark`
+     overrides, and html[data-grain] below swaps in Coves' own. The inset
+     surface fills the body bubble and the link card. Meta, muted, hover and
+     the image edge follow the theme's slate shades, so custom themes drive
+     them. */
+  --color-community: #4a9994;
+  --color-inset-surface: rgb(241 245 249);
+  --color-inset-border: rgb(226 232 240);
+  --color-inset-hover: color-mix(in srgb, var(--color-inset-surface), black 3%);
+  --color-card-border: rgb(231 229 228);
+  --color-meta: var(--color-slate-500);
+  --color-muted: var(--color-slate-600);
+  --color-image-edge: color-mix(
+    in srgb,
+    var(--color-slate-900) 6%,
+    transparent
+  );
 
   /* dark theme */
   --color-primary-100: rgb(241 245 249);
@@ -67,8 +92,82 @@ body {
   @apply bg-slate-50 text-slate-900 dark:bg-zinc-950 dark:text-zinc-100 accent-slate-950 dark:accent-zinc-50;
 }
 
+/* The Coves default's page surface: a pre-rendered noise tile over the page
+   colour. On the body it is fixed, so the side panels stay still; the feed
+   column (Shell.svelte) paints its own copy, which scrolls. hooks.server.ts
+   and theme-boot.js keep data-grain on <html> only while Coves is the
+   selected theme. Opaque bands that sit on the page (.page-band: the page
+   header, the navbar) paint the same surface so they carry no seam against
+   it. */
+html[data-grain] {
+  --page-base: var(--color-slate-50);
+  --page-grain: url('./lib/assets/grain.webp');
+}
+
+/* Coves' phone page is a step darker than its desktop zinc-950. */
+html.dark[data-grain] {
+  --page-base: var(--color-zinc-950);
+
+  @media (width < 40rem) {
+    --page-base: #0b0a0e;
+  }
+}
+
+/* A background on <html> keeps the body's from moving to the canvas, so the
+   body paints above app.html's z-index:-50 boot splash and hides it once the
+   app has content. */
+html[data-grain] {
+  background-color: var(--page-base);
+}
+
+html[data-grain] :is(body, .page-band) {
+  background-color: var(--page-base);
+  background-image: var(--page-grain);
+  background-repeat: repeat;
+}
+
+html[data-grain] body {
+  background-attachment: fixed;
+}
+
 .dark {
   color-scheme: dark;
+  --color-community: #63b5b1;
+  --color-inset-surface: #1a1f26;
+  --color-inset-border: #2a2f36;
+  --color-inset-hover: color-mix(in srgb, var(--color-inset-surface), white 4%);
+  --color-card-border: #2d2a28;
+  --color-meta: var(--color-zinc-400);
+  --color-muted: var(--color-zinc-300);
+  --color-image-edge: color-mix(in srgb, var(--color-zinc-50) 6%, transparent);
+}
+
+/* The Coves default's own feed card palette (App colors). */
+html[data-grain] {
+  --color-community: #2f7d79;
+  --color-inset-surface: #ffffff;
+  --color-inset-border: #d6d3ce;
+  --color-inset-hover: #f8f7f5;
+  --color-card-border: #e3e1dd;
+  --color-meta: #6b6b73;
+  --color-muted: #4f4f56;
+  --color-image-edge: rgb(0 0 0 / 0.06);
+}
+
+html.dark[data-grain] {
+  --color-community: #63b5b1;
+  --color-inset-surface: #232325;
+  --color-inset-border: rgb(66 66 70 / 0.6);
+  --color-inset-hover: #2a2a2c;
+  --color-card-border: #2b2a31;
+  --color-meta: #8b919c;
+  --color-muted: #b6c2d2;
+  --color-image-edge: rgb(255 255 255 / 0.06);
+
+  @media (width < 40rem) {
+    --color-inset-surface: #1b1b1d;
+    --color-inset-hover: #222224;
+  }
 }
 
 .wait * {

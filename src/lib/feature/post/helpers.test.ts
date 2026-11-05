@@ -3,6 +3,7 @@ import type {
   CommunityRef,
   ExternalEmbed,
   ImageEmbed,
+  ImagesWithAttachmentView,
   PostView,
   RecordEmbed,
   VideoEmbed,
@@ -22,6 +23,7 @@ import {
   extractEmbedThumbnail,
   extractEmbedTitle,
   extractEmbedUrl,
+  galleryEmbed,
   iframeType,
   isStreamableLink,
   isYoutubeLink,
@@ -44,7 +46,13 @@ vi.mock('$env/dynamic/public', () => ({
 
 const imageEmbed: ImageEmbed = {
   $type: 'social.coves.embed.images#view',
-  images: [{ image: 'https://cdn.example.com/pic.jpg', alt: 'A photo' }],
+  images: [
+    {
+      thumb: 'https://cdn.example.com/pic-thumb.jpg',
+      fullsize: 'https://cdn.example.com/pic-full.jpg',
+      alt: 'A photo',
+    },
+  ],
 }
 
 const externalEmbed: ExternalEmbed = {
@@ -205,9 +213,9 @@ describe('bestImageURL', () => {
     expect(bestImageURL(undefined)).toBe('')
   })
 
-  it('returns image URL for image embed', () => {
+  it('returns the thumb URL for image embed by default', () => {
     const result = bestImageURL(imageEmbed)
-    expect(result).toBe('https://cdn.example.com/pic.jpg')
+    expect(result).toBe('https://cdn.example.com/pic-thumb.jpg')
   })
 
   it('returns thumb by default when thumb field is present', () => {
@@ -215,7 +223,6 @@ describe('bestImageURL', () => {
       $type: 'social.coves.embed.images#view' as const,
       images: [
         {
-          image: 'https://cdn.example.com/pic.jpg',
           thumb: 'https://cdn.example.com/pic-thumb.jpg',
           alt: 'A photo',
         },
@@ -232,7 +239,6 @@ describe('bestImageURL', () => {
       $type: 'social.coves.embed.images#view',
       images: [
         {
-          image: 'https://cdn.example.com/pic.jpg',
           thumb: 'https://cdn.example.com/pic-thumb.jpg',
           alt: 'A photo',
         },
@@ -248,7 +254,6 @@ describe('bestImageURL', () => {
       $type: 'social.coves.embed.images#view',
       images: [
         {
-          image: 'https://cdn.example.com/pic.jpg',
           fullsize: 'https://cdn.example.com/pic-full.jpg',
           alt: 'A photo',
         },
@@ -294,7 +299,7 @@ describe('bestImageURL', () => {
     expect(bestImageURL(postViewEmbed)).toBe('')
   })
 
-  it('returns empty string for image embed with empty images (type-cast edge case)', () => {
+  it('returns undefined for image embed with empty images (type-cast edge case)', () => {
     const emptyImages = {
       $type: 'social.coves.embed.images#view' as const,
       images: [] as unknown as [
@@ -302,13 +307,64 @@ describe('bestImageURL', () => {
         ...import('$lib/api/coves/types').EmbedImage[],
       ],
     }
-    expect(bestImageURL(emptyImages)).toBe('')
+    expect(bestImageURL(emptyImages)).toBeUndefined()
   })
 
   it('returns external URI (not thumb) when thumbnail=false', () => {
     const result = bestImageURL(externalEmbed, false)
     expect(result).toBe('https://example.com/article')
   })
+
+  it.each<[string, Record<string, unknown>, 'thumb' | 'fullsize']>([
+    [
+      'javascript: fullsize',
+      {
+        thumb: 'https://cdn.example.com/pic-thumb.jpg',
+        fullsize: 'javascript:alert(1)',
+      },
+      'fullsize',
+    ],
+    [
+      'javascript: fullsize with a stray raw image',
+      {
+        image: 'https://cdn.example.com/pic.jpg',
+        thumb: 'https://cdn.example.com/pic-thumb.jpg',
+        fullsize: 'javascript:alert(1)',
+      },
+      'fullsize',
+    ],
+    [
+      'data: thumb with a stray raw image',
+      {
+        image: 'https://cdn.example.com/pic.jpg',
+        thumb: 'data:image/png;base64,AAAA',
+        fullsize: 'https://cdn.example.com/pic-full.jpg',
+      },
+      'thumb',
+    ],
+    [
+      'blob: fullsize',
+      {
+        thumb: 'https://cdn.example.com/pic-thumb.jpg',
+        fullsize: 'blob:https://coves.test/uuid',
+      },
+      'fullsize',
+    ],
+    [
+      'only a valid thumb, fullsize requested',
+      { thumb: 'https://cdn.example.com/pic-thumb.jpg' },
+      'fullsize',
+    ],
+  ])(
+    'returns undefined for an image embed with %s',
+    (_label, rawImage, variant) => {
+      const embed = {
+        $type: 'social.coves.embed.images#view',
+        images: [rawImage],
+      } as unknown as ImageEmbed
+      expect(bestImageURL(embed, false, variant)).toBeUndefined()
+    },
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -471,8 +527,22 @@ describe('extractEmbedUrl', () => {
     expect(extractEmbedUrl(undefined)).toBeUndefined()
   })
 
-  it('returns image URL for image embed', () => {
-    expect(extractEmbedUrl(imageEmbed)).toBe('https://cdn.example.com/pic.jpg')
+  it('returns undefined for image embed', () => {
+    expect(extractEmbedUrl(imageEmbed)).toBeUndefined()
+  })
+
+  it('returns undefined for image embed carrying a stray raw image', () => {
+    const embed = {
+      $type: 'social.coves.embed.images#view',
+      images: [
+        {
+          image: 'https://cdn.example.com/pic.jpg',
+          thumb: 'https://cdn.example.com/pic-thumb.jpg',
+          fullsize: 'https://cdn.example.com/pic-full.jpg',
+        },
+      ],
+    } as unknown as ImageEmbed
+    expect(extractEmbedUrl(embed)).toBeUndefined()
   })
 
   it('returns external URI for external embed', () => {
@@ -503,10 +573,31 @@ describe('extractEmbedThumbnail', () => {
     expect(extractEmbedThumbnail(undefined)).toBeUndefined()
   })
 
-  it('returns image URL for image embed (same as primary)', () => {
+  it('returns the thumb URL for image embed', () => {
     expect(extractEmbedThumbnail(imageEmbed)).toBe(
-      'https://cdn.example.com/pic.jpg',
+      'https://cdn.example.com/pic-thumb.jpg',
     )
+  })
+
+  it.each<[string, Record<string, unknown>]>([
+    ['data: thumb', { thumb: 'data:image/png;base64,AAAA' }],
+    [
+      'data: thumb with a stray raw image',
+      {
+        image: 'https://cdn.example.com/pic.jpg',
+        thumb: 'data:image/png;base64,AAAA',
+      },
+    ],
+    [
+      'missing thumb with a stray raw image',
+      { image: 'https://cdn.example.com/pic.jpg' },
+    ],
+  ])('returns undefined for image embed with %s', (_label, rawImage) => {
+    const embed = {
+      $type: 'social.coves.embed.images#view',
+      images: [rawImage],
+    } as unknown as ImageEmbed
+    expect(extractEmbedThumbnail(embed)).toBeUndefined()
   })
 
   it('returns thumb for external embed', () => {
@@ -1476,18 +1567,11 @@ describe.each(VIDEO_TYPES)('extractEmbedThumbnail - %s media URLs', ($type) => {
 })
 
 describe('extractEmbedThumbnail - images#view is unchanged', () => {
-  it('still returns the proxy-selected image URL', () => {
-    expect(extractEmbedThumbnail(imageEmbed)).toBe(
-      'https://cdn.example.com/pic.jpg',
-    )
-  })
-
   it('still prefers the thumb variant when one is present', () => {
     const withThumb: ImageEmbed = {
       $type: 'social.coves.embed.images#view',
       images: [
         {
-          image: 'https://cdn.example.com/pic.jpg',
           thumb: 'https://cdn.example.com/pic-thumb.jpg',
         },
       ],
@@ -1495,5 +1579,159 @@ describe('extractEmbedThumbnail - images#view is unchanged', () => {
     expect(extractEmbedThumbnail(withThumb)).toBe(
       'https://cdn.example.com/pic-thumb.jpg',
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// imagesWithAttachment#view: the images are the media, a flattened external
+// attachment supplies the link, a strongRef post attachment supplies nothing.
+// ---------------------------------------------------------------------------
+
+const galleryImages: ImageEmbed = {
+  $type: 'social.coves.embed.images#view',
+  images: [
+    {
+      thumb: 'https://img.coves.test/img/content_preview/plain/did:plc:a/one',
+      fullsize: 'https://img.coves.test/img/content_full/plain/did:plc:a/one',
+      alt: 'First image',
+    },
+    {
+      thumb: 'https://img.coves.test/img/content_preview/plain/did:plc:a/two',
+      fullsize: 'https://img.coves.test/img/content_full/plain/did:plc:a/two',
+      alt: 'Second image',
+    },
+  ],
+}
+
+const imagesWithExternal: ImagesWithAttachmentView = {
+  $type: 'social.coves.embed.imagesWithAttachment#view',
+  images: galleryImages,
+  attachment: {
+    $type: 'social.coves.embed.external#viewExternal',
+    uri: 'https://news.example.test/harbour-story',
+    title: 'Harbour story',
+    description: 'A story about the harbour',
+    thumb: 'https://img.coves.test/img/embed_thumbnail/plain/did:plc:a/link',
+    domain: 'news.example.test',
+  },
+}
+
+const imagesWithPost: ImagesWithAttachmentView = {
+  $type: 'social.coves.embed.imagesWithAttachment#view',
+  images: galleryImages,
+  attachment: {
+    $type: 'social.coves.embed.post#view',
+    post: {
+      uri: 'at://did:plc:quoted/social.coves.community.post/quoted1' as AtUri,
+      cid: 'bafyquoted' as CID,
+    },
+  },
+}
+
+describe('imagesWithAttachment with an external attachment', () => {
+  it('is an image post', () => {
+    expect(mediaType(imagesWithExternal)).toBe('image')
+  })
+
+  it('takes its image URL from the first image', () => {
+    expect(bestImageURL(imagesWithExternal)).toBe(
+      'https://img.coves.test/img/content_preview/plain/did:plc:a/one',
+    )
+    expect(bestImageURL(imagesWithExternal, false, 'fullsize')).toBe(
+      'https://img.coves.test/img/content_full/plain/did:plc:a/one',
+    )
+  })
+
+  it("takes the link URL and title from the attachment's top level", () => {
+    expect(extractEmbedUrl(imagesWithExternal)).toBe(
+      'https://news.example.test/harbour-story',
+    )
+    expect(extractEmbedTitle(imagesWithExternal)).toBe('Harbour story')
+  })
+})
+
+describe('imagesWithAttachment with a strongRef post attachment', () => {
+  it('is an image post whose image URL is the first image', () => {
+    expect(mediaType(imagesWithPost)).toBe('image')
+    expect(bestImageURL(imagesWithPost)).toBe(
+      'https://img.coves.test/img/content_preview/plain/did:plc:a/one',
+    )
+  })
+
+  it('produces no link or embedded-post URL and no title', () => {
+    expect(extractEmbedUrl(imagesWithPost)).toBeUndefined()
+    expect(extractEmbedTitle(imagesWithPost)).toBeUndefined()
+  })
+})
+
+describe('imagesWithAttachment whose first image has unsafe URLs', () => {
+  const unsafeFirst: ImagesWithAttachmentView = {
+    ...imagesWithExternal,
+    images: {
+      $type: 'social.coves.embed.images#view',
+      images: [
+        {
+          thumb: 'javascript:alert(1)',
+          fullsize: 'data:text/html,x.png',
+          alt: 'Unsafe image',
+        },
+        {
+          thumb: 'https://img.coves.test/img/content_preview/plain/did:plc:a/two',
+          fullsize:
+            'https://img.coves.test/img/content_full/plain/did:plc:a/two',
+        },
+      ],
+    },
+  }
+
+  it('yields no thumb URL rather than the unsafe one or a later image', () => {
+    expect(bestImageURL(unsafeFirst, true, 'thumb')).toBeUndefined()
+  })
+
+  it('yields no fullsize URL rather than the unsafe one or a later image', () => {
+    expect(bestImageURL(unsafeFirst, false, 'fullsize')).toBeUndefined()
+  })
+})
+
+describe('galleryEmbed with every image placed and an external attachment', () => {
+  const placedEmbed = (uri: string): ImagesWithAttachmentView => ({
+    $type: 'social.coves.embed.imagesWithAttachment#view',
+    images: {
+      $type: 'social.coves.embed.images#view',
+      images: [
+        {
+          thumb: 'https://img.coves.test/img/content_preview/plain/did:plc:a/one',
+          fullsize: 'https://img.coves.test/img/content_full/plain/did:plc:a/one',
+        },
+      ],
+    },
+    attachment: {
+      $type: 'social.coves.embed.external#viewExternal',
+      uri,
+      title: 'Attached link',
+      thumb: 'https://links.example.test/card.jpg',
+      domain: 'links.example.test',
+    },
+  })
+
+  it.each([
+    'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    'https://streamable.com/abc123',
+    'https://links.example.test/clip.mp4',
+    'https://links.example.test/photo.png',
+    'https://news.example.test/harbour-story',
+  ])('keeps %s classified as a link card', (uri) => {
+    const embed = galleryEmbed(placedEmbed(uri), [])
+    expect(mediaType(embed)).toBe('embed')
+    expect(extractEmbedUrl(embed)).toBe(uri)
+    expect(extractEmbedTitle(embed)).toBe('Attached link')
+    expect(extractEmbedThumbnail(embed)).toBe(
+      'https://links.example.test/card.jpg',
+    )
+  })
+
+  it('classifies an attachment URI that is not a web link as no media', () => {
+    const embed = galleryEmbed(placedEmbed('javascript:alert(1)'), [])
+    expect(mediaType(embed)).toBe('none')
   })
 })

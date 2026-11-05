@@ -37,6 +37,8 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 3000
+      # Global adapter-node body limit, sized for 10 MB image uploads; Caddy caps each route.
+      BODY_SIZE_LIMIT: 10500000
     # Deliberately NO `ports:`. With ADDRESS_HEADER set, adapter-node trusts
     # X-Real-IP from ANY peer that can reach port 3000 — the only peer allowed
     # to be that is Caddy, which overwrites the header unconditionally. Publishing

@@ -3,7 +3,7 @@
   import { locale, t } from '$lib/app/state/i18n'
   import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import { type View, settings } from '$lib/app/state/settings.svelte'
-  import { communityMention } from '$lib/app/util/community'
+  import { communityAddress, communityMention } from '$lib/app/util/community'
   import { parseWebUrl } from '$lib/app/util/url'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import { publishedToDate } from '$lib/ui/util/date'
@@ -39,6 +39,8 @@
     uri?: string
     edited?: string
     view?: View
+    /** Feed-card header: square community avatar, split mention, time on the right. */
+    feed?: boolean
     badges?: Record<BadgeType, boolean>
     tags?: readonly MetaTag[]
     style?: string
@@ -57,6 +59,7 @@
     uri,
     edited,
     view = 'cozy',
+    feed = false,
     badges = {
       saved: false,
       featured: false,
@@ -94,167 +97,253 @@
       },
     ],
   ])
+
+  // `name@origin` split at the first `@`, so the feed header can style the
+  // community name and its origin separately.
+  let communityParts = $derived.by(() => {
+    if (!community) return undefined
+    const address = communityAddress(community)
+    const at = address.indexOf('@')
+    return at < 0
+      ? { name: address, origin: '' }
+      : { name: address.slice(0, at), origin: address.slice(at) }
+  })
 </script>
 
 <!--
   @component
   This component will build two different things: a post's meta block and the title.
 -->
-<header
-  class={[
-    'grid w-full meta',
-    community ? 'grid-rows-2' : 'grid-rows-1 minimal',
-    'text-xs min-w-0 max-w-full text-slate-600 dark:text-zinc-400',
-  ]}
-  class:compact={view == 'compact'}
-  class:has-navigation={!!navigation}
-  {style}
->
-  {#if navigation}
-    <div class="self-center mr-2" style="grid-area: navigation;">
-      {@render navigation()}
-    </div>
-  {/if}
-  {#if showCommunity && community}
-    <Popover>
-      {#snippet target(attachment)}
-        <button
-          {@attach attachment}
-          class={[
-            'row-span-2 shrink-0 mr-2 self-center group/btn',
-            'bg-slate-200 dark:bg-zinc-800 rounded-lg cursor-pointer',
-          ]}
-        >
-          <Avatar
-            url={community?.avatar}
-            width={view == 'compact' ? 24 : 32}
-            alt={community?.name}
-            circle={false}
-            class="group-hover/btn:scale-90 group-active/btn:scale-[.85] transition-transform"
-          />
-        </button>
-      {/snippet}
-      {#snippet popover(open)}
-        {#if open && community}
-          <Material
-            color="uniform"
-            rounding="2xl"
-            elevation="high"
-            class="max-w-sm p-4"
-            data-autoclose="false"
-          >
-            <div class="flex items-center gap-3">
-              <Avatar
-                url={community.avatar}
-                width={48}
-                alt={community.name}
-                circle={false}
-              />
-              <div class="flex flex-col">
-                <span class="font-medium text-base">{community.name}</span>
-                <span class="text-xs text-slate-500 dark:text-zinc-400">
-                  {communityMention(community)}
-                </span>
-              </div>
-            </div>
-          </Material>
-        {/if}
-      {/snippet}
-    </Popover>
-  {/if}
-  {#if showCommunity && community}
-    <CommunityLink
-      {community}
-      style="grid-area: community;"
-      class="shrink no-list-margin justify-self-start"
-    />
-  {/if}
-  <div
-    class="flex flex-row gap-1.5 items-center
-     no-list-margin {view == 'compact' && showCommunity ? 'min-sm:mx-2' : ''}"
-    style="grid-area: stats;"
-  >
-    {#if user}
-      <address class="contents not-italic">
-        {#if view == 'compact' && showCommunity}
-          <Icon
-            src={Send}
-            size="12"
-            class="rotate-180 text-slate-400 dark:text-zinc-600 max-sm:hidden"
-          />
-        {/if}
-        <UserLink avatarSize={20} {user} avatar={!showCommunity} class="shrink"
-        ></UserLink>
-      </address>
-    {/if}
-    {#if published}
-      <RelativeDate date={published} class="shrink-0" />
-    {/if}
-    {#if edited}
+{#snippet communityAvatar(size: number, feedSize = false)}
+  <Popover>
+    {#snippet target(attachment)}
       <button
-        title={$t('post.meta.lastEdited', {
-          default: formatRelativeDate(
-            publishedToDate(edited),
-            {
-              style: 'long',
-            },
-            $locale,
-          ),
-        })}
-        onclick={() =>
-          modal({
-            title: $t('common.info'),
-            body: $t('post.meta.lastEdited', {
-              default: formatRelativeDate(
-                publishedToDate(edited),
-                {
-                  style: 'long',
-                },
-                $locale,
-              ),
-            }),
-          })}
+        {@attach attachment}
+        class={[
+          'row-span-2 shrink-0 self-center group/btn',
+          'bg-slate-200 dark:bg-zinc-800 cursor-pointer',
+          feedSize ? 'rounded-[8px] sm:rounded-[11px]' : 'rounded-lg mr-2',
+        ]}
       >
-        <Icon src={Pencil} size="14" />
+        <!-- The feed's avatar is 24px on phones and 36px from sm up; the
+             important classes beat Avatar's inline size. -->
+        <Avatar
+          url={community?.avatar}
+          width={size}
+          alt={community?.name}
+          circle={false}
+          class={[
+            'group-hover/btn:scale-90 group-active/btn:scale-[.85] transition-transform',
+            feedSize && 'size-6! sm:size-9! rounded-[8px]! sm:rounded-[11px]!',
+          ]}
+        />
       </button>
-    {/if}
-  </div>
-  <div
-    class="flex flex-row min-sm:justify-end items-center self-center flex-wrap gap-2 *:shrink-0 badges min-sm:ml-2"
-    style="grid-area: badges;"
-  >
-    {#each tags as tag}
-      <div
-        class="hover:brightness-110"
-        style="{tag.color ? `--tag-color: ${tag.color};` : ''} {tag.textColor
-          ? `--tag-text-color: ${tag.textColor}`
-          : ''}"
-      >
-        <Badge class={tag.color ? 'badge-tag-color' : ''}>
-          {#snippet icon()}
-            {#if tag.icon}
-              <Icon src={tag.icon} size="14" />
-            {/if}
-          {/snippet}
-          {tag.content}
-        </Badge>
-      </div>
-    {/each}
-    {#each Object.keys(badges)
-      // filter by ones that are true
-      .filter((i) => badges[i as BadgeType] == true)
-      // get from predetermined map
-      .map((i) => badgeToData.get(i as BadgeType))
-      // remove null
-      .filter((i) => i != undefined) as badge}
-      <Badge label={badge.label} color={badge.color} allowIconOnly>
+    {/snippet}
+    {#snippet popover(open)}
+      {#if open && community}
+        <Material
+          color="uniform"
+          rounding="2xl"
+          elevation="high"
+          class="max-w-sm p-4"
+          data-autoclose="false"
+        >
+          <div class="flex items-center gap-3">
+            <Avatar
+              url={community.avatar}
+              width={48}
+              alt={community.name}
+              circle={false}
+            />
+            <div class="flex flex-col">
+              <span class="font-medium text-base">{community.name}</span>
+              <span class="text-xs text-slate-500 dark:text-zinc-400">
+                {communityMention(community)}
+              </span>
+            </div>
+          </div>
+        </Material>
+      {/if}
+    {/snippet}
+  </Popover>
+{/snippet}
+
+{#snippet editedButton()}
+  {#if edited}
+    <button
+      title={$t('post.meta.lastEdited', {
+        default: formatRelativeDate(
+          publishedToDate(edited),
+          {
+            style: 'long',
+          },
+          $locale,
+        ),
+      })}
+      onclick={() =>
+        modal({
+          title: $t('common.info'),
+          body: $t('post.meta.lastEdited', {
+            default: formatRelativeDate(
+              publishedToDate(edited),
+              {
+                style: 'long',
+              },
+              $locale,
+            ),
+          }),
+        })}
+    >
+      <Icon src={Pencil} size="14" />
+    </button>
+  {/if}
+{/snippet}
+
+{#snippet badgeList()}
+  {#each tags as tag}
+    <div
+      class="hover:brightness-110"
+      style="{tag.color ? `--tag-color: ${tag.color};` : ''} {tag.textColor
+        ? `--tag-text-color: ${tag.textColor}`
+        : ''}"
+    >
+      <Badge class={tag.color ? 'badge-tag-color' : ''}>
         {#snippet icon()}
-          <Icon src={badge.icon} size="14" />{/snippet}{badge.label}
+          {#if tag.icon}
+            <Icon src={tag.icon} size="14" />
+          {/if}
+        {/snippet}
+        {tag.content}
       </Badge>
-    {/each}
-    {@render extraBadges?.()}
-  </div>
-</header>
+    </div>
+  {/each}
+  {#each Object.keys(badges)
+    // filter by ones that are true
+    .filter((i) => badges[i as BadgeType] == true)
+    // get from predetermined map
+    .map((i) => badgeToData.get(i as BadgeType))
+    // remove null
+    .filter((i) => i != undefined) as badge}
+    <Badge label={badge.label} color={badge.color} allowIconOnly>
+      {#snippet icon()}
+        <Icon src={badge.icon} size="14" />{/snippet}{badge.label}
+    </Badge>
+  {/each}
+  {@render extraBadges?.()}
+{/snippet}
+
+{#if feed}
+  <header
+    class="flex flex-row items-center gap-2 sm:gap-2.5 w-full min-w-0 max-w-full text-xs text-muted"
+    {style}
+  >
+    {#if navigation}
+      <div class="self-center">{@render navigation()}</div>
+    {/if}
+    {#if showCommunity && community}
+      {@render communityAvatar(36, true)}
+    {/if}
+    <div class="flex flex-col flex-1 min-w-0">
+      {#if showCommunity && community && communityParts}
+        <CommunityLink
+          {community}
+          class="gap-0! text-sm sm:text-[15px] no-list-margin justify-self-start"
+        >
+          <span
+            class="font-medium sm:font-bold text-community truncate shrink-0 max-w-full"
+          >
+            !{communityParts.name}
+          </span>
+          {#if communityParts.origin}
+            <span class="text-meta truncate min-w-0">
+              {communityParts.origin}
+            </span>
+          {/if}
+        </CommunityLink>
+      {/if}
+      {#if user}
+        <address class="contents not-italic">
+          <UserLink
+            {user}
+            avatar={!showCommunity}
+            avatarSize={24}
+            class="text-xs sm:text-[13px] text-muted self-start"
+          />
+        </address>
+      {/if}
+    </div>
+    <div class="flex flex-row items-center flex-wrap gap-2 *:shrink-0 badges">
+      {@render badgeList()}
+    </div>
+    {@render editedButton()}
+    {#if published}
+      <RelativeDate
+        date={published}
+        class="shrink-0 text-sm sm:text-[13px] text-meta tabular-nums"
+      />
+    {/if}
+  </header>
+{:else}
+  <header
+    class={[
+      'grid w-full meta',
+      community ? 'grid-rows-2' : 'grid-rows-1 minimal',
+      'text-xs min-w-0 max-w-full text-slate-600 dark:text-zinc-400',
+    ]}
+    class:compact={view == 'compact'}
+    class:has-navigation={!!navigation}
+    {style}
+  >
+    {#if navigation}
+      <div class="self-center mr-2" style="grid-area: navigation;">
+        {@render navigation()}
+      </div>
+    {/if}
+    {#if showCommunity && community}
+      {@render communityAvatar(view == 'compact' ? 24 : 32)}
+    {/if}
+    {#if showCommunity && community}
+      <CommunityLink
+        {community}
+        style="grid-area: community;"
+        class="shrink no-list-margin justify-self-start"
+      />
+    {/if}
+    <div
+      class="flex flex-row gap-1.5 items-center
+       no-list-margin {view == 'compact' && showCommunity ? 'min-sm:mx-2' : ''}"
+      style="grid-area: stats;"
+    >
+      {#if user}
+        <address class="contents not-italic">
+          {#if view == 'compact' && showCommunity}
+            <Icon
+              src={Send}
+              size="12"
+              class="rotate-180 text-slate-400 dark:text-zinc-600 max-sm:hidden"
+            />
+          {/if}
+          <UserLink
+            avatarSize={20}
+            {user}
+            avatar={!showCommunity}
+            class="shrink"
+          ></UserLink>
+        </address>
+      {/if}
+      {#if published}
+        <RelativeDate date={published} class="shrink-0" />
+      {/if}
+      {@render editedButton()}
+    </div>
+    <div
+      class="flex flex-row min-sm:justify-end items-center self-center flex-wrap gap-2 *:shrink-0 badges min-sm:ml-2"
+      style="grid-area: badges;"
+    >
+      {@render badgeList()}
+    </div>
+  </header>
+{/if}
 {#if title && uri}
   {@const attachedUrl =
     settings.posts.titleOpensUrl && postUrl ? parseWebUrl(postUrl) : null}
@@ -263,7 +352,7 @@
     class={[
       'font-medium max-sm:mt-0! font-display',
       titleClass,
-      view == 'compact' ? 'text-base' : 'text-lg',
+      feed ? 'feed-title' : view == 'compact' ? 'text-base' : 'text-lg',
     ]}
     style="grid-area: title;"
   >
@@ -291,6 +380,19 @@
 
 <style>
   @reference '../../../app.css';
+
+  .feed-title {
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+
+    @variant sm {
+      font-size: 18px;
+      line-height: 28px;
+      letter-spacing: normal;
+    }
+  }
 
   .meta {
     display: grid;

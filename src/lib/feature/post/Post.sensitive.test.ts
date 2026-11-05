@@ -13,7 +13,7 @@ const embeds: Record<string, PostEmbed> = {
   image: {
     $type: 'social.coves.embed.images#view',
     images: [
-      { image, thumb: thumbnail, fullsize: image, alt: 'Sensitive image' },
+      { thumb: thumbnail, fullsize: image, alt: 'Sensitive image' },
     ],
   },
   link: {

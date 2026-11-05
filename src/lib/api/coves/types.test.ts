@@ -10,7 +10,14 @@ import {
   isHydratedPost,
   isCommentView,
 } from './types'
-import type { AtUri, CID, CommentView, PostView, PostViewUnion } from './types'
+import type {
+  AtUri,
+  CID,
+  CommentView,
+  EmbedImage,
+  PostView,
+  PostViewUnion,
+} from './types'
 import type { DID } from '$lib/types/atproto'
 
 // ---------------------------------------------------------------------------
@@ -330,5 +337,20 @@ describe('isCommentView', () => {
       cid: 'bafyreib2rxk3rybsftg4qpz' as CID,
     } as PostView
     expect(isCommentView(post)).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// EmbedImage
+// ---------------------------------------------------------------------------
+
+describe('EmbedImage', () => {
+  it('has no image field: images are addressed only by thumb and fullsize', () => {
+    const embedImage: EmbedImage = {
+      // @ts-expect-error The server never sends `image`; EmbedImage must not declare it.
+      image: 'https://cdn.example.com/pic.jpg',
+      thumb: 'https://cdn.example.com/pic-thumb.jpg',
+    }
+    expect(embedImage.thumb).toBe('https://cdn.example.com/pic-thumb.jpg')
   })
 })

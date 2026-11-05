@@ -590,7 +590,7 @@
     {:else}
       <VirtualList
         id="feed"
-        class="divide-y -mx-3 sm:-mx-6 divide-slate-100 dark:divide-zinc-900"
+        class="-mx-3 sm:-mx-6"
         items={posts}
         {initialOffset}
         overscan={3}
@@ -602,23 +602,33 @@
           {@const feedPost = posts[row]}
           {@const isPinned =
             feedPost?.reason?.$type === 'social.coves.feed.defs#reasonPin'}
+          {@const rowView =
+            isPinned && settings.posts.compactFeatured
+              ? 'compact'
+              : settings.view}
           <li
             in:fly={row < 7 && !restoringFeed
               ? { duration: 800, easing: expoOut, y: 24, delay: row * 50 }
               : { opacity: 1, duration: 0 }}
             data-index={row}
             data-post-uri={feedPost.post.uri}
-            class={['relative post-container', row < 7 && '']}
+            class={[
+              'relative post-container',
+              // Each row draws the divider above it in its own view's style,
+              // so a compact pinned row in a cozy feed keeps its own.
+              row > 0 &&
+                (rowView == 'cozy'
+                  ? 'border-t-[0.5px] border-card-border'
+                  : 'border-t border-slate-100 dark:border-zinc-900'),
+            ]}
           >
             <Post
               bind:post={posts[row].post}
               priority={row === 0}
               pinned={isPinned}
               hideCommunity={community}
-              view={isPinned && settings.posts.compactFeatured
-                ? 'compact'
-                : settings.view}
-              class="px-3 sm:px-6 hover:bg-slate-100/30 hover:dark:bg-zinc-900/30 transition-colors"
+              view={rowView}
+              class="px-3 sm:px-6 md:[zoom:0.9] hover:bg-slate-100/30 hover:dark:bg-zinc-900/30 transition-colors"
             ></Post>
           </li>
         {/snippet}

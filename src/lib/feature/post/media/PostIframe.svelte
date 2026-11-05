@@ -1,7 +1,6 @@
 <script lang="ts" module>
   import { settings } from '$lib/app/state/settings.svelte'
-  import Blobs from '$lib/ui/generic/Blobs.svelte'
-  import { Icon, type IconSource, Play, Puzzle, Video } from '$lib/ui/kit/icon'
+  import { Globe, Icon } from '$lib/ui/kit/icon'
   import { type IframeType, streamableEmbedUrl } from '../helpers'
   import { withPreset } from '$lib/api/coves/image-proxy'
   import {
@@ -24,6 +23,23 @@
     }
 
     return null
+  }
+
+  // Where a YouTube link with no thumbnail of its own borrows a poster from,
+  // following the reader's frontend choice. Piped has no stable thumbnail
+  // host, so it gets none.
+  const YOUTUBE_POSTER_HOSTS: Record<YouTubeFrontend, string | null> = {
+    youtube: 'i.ytimg.com',
+    invidious: 'yewtu.be',
+    piped: null,
+  }
+
+  function youtubePoster(url: string, place: YouTubeFrontend): string | null {
+    const host = YOUTUBE_POSTER_HOSTS[place]
+    const videoID = youtubeVideoID(url)
+    return host && videoID
+      ? `https://${host}/vi/${videoID}/hqdefault.jpg`
+      : null
   }
 </script>
 
@@ -80,37 +96,16 @@
     return ''
   }
 
-  const typeData = (
-    type: IframeType,
-  ): {
-    icon: IconSource
-    text: string
-  } => {
+  const typeLabel = (type: IframeType): string => {
     switch (type) {
-      case 'youtube': {
-        return {
-          icon: Video,
-          text: 'YouTube Video',
-        }
-      }
-      case 'streamable': {
-        return {
-          icon: Video,
-          text: 'Streamable Video',
-        }
-      }
-      case 'video': {
-        return {
-          icon: Video,
-          text: 'Video',
-        }
-      }
-      default: {
-        return {
-          icon: Puzzle,
-          text: 'Embed',
-        }
-      }
+      case 'youtube':
+        return 'YouTube Video'
+      case 'streamable':
+        return 'Streamable Video'
+      case 'video':
+        return 'Video'
+      default:
+        return 'Embed'
     }
   }
 
@@ -120,7 +115,6 @@
     url: string
     opened?: boolean
     autoplay?: boolean
-    title?: string
     class?: string
   }
 
@@ -128,20 +122,30 @@
     type = 'none',
     thumbnail = undefined,
     url,
-    title,
     opened = $bindable(!settings.embeds.clickToView),
     autoplay = settings.embeds.clickToView,
     class: clazz,
   }: Props = $props()
 
   let thumbError = $state(false)
-  let data = $derived(typeData(type))
+  // The tag names the link's host; a URL with no parseable host (a
+  // scheme-less `youtu.be/...`) falls back to the type label.
+  let tag = $derived(
+    parseWebUrl(url)?.hostname.replace(/^www\./, '') || typeLabel(type),
+  )
   let embedUrl = $derived(urlToEmbed(url))
   // `thumbnail` is a second untrusted sink alongside `url`, and its caller is
   // not guaranteed to have gated it. Anything that is not an absolute http(s)
-  // address falls through to the generated backdrop instead of an img src.
+  // address falls through to the plain no-poster fill instead of an img src,
+  // unless it is a YouTube link, which can borrow the video's own poster. Only
+  // the record's own thumbnail can be an image-proxy URL; the borrowed poster
+  // is a third-party address that withPreset would only warn about.
   let previewThumbnail = $derived(
-    thumbnail && isWebUrl(thumbnail) ? thumbnail : undefined,
+    thumbnail && isWebUrl(thumbnail)
+      ? withPreset(thumbnail, 'embed_thumbnail')
+      : type == 'youtube'
+        ? (youtubePoster(url, settings.embeds.youtube) ?? undefined)
+        : undefined,
   )
 </script>
 
@@ -149,7 +153,7 @@
   @component
   Displays a video file or embedded video iframe.
 -->
-<div class={['iframe-container', clazz]}>
+<div class={['iframe-container', !opened && 'preview', clazz]}>
   {#if opened}
     <!--
       The `embedUrl` guard below is load-bearing: an empty one means urlToEmbed
@@ -188,34 +192,41 @@
       ></iframe>
     {/if}
   {:else}
-    <button onclick={() => (opened = true)} class="iframe-preview">
-      <div role="presentation" class="preview-start">
-        <div class="start-button">
-          <Icon src={Play} size="32" />
-        </div>
-      </div>
-      {#if previewThumbnail && !thumbError}
-        <img
-          src={withPreset(previewThumbnail, 'embed_thumbnail')}
-          onerror={() => (thumbError = true)}
-          class="absolute top-0 left-0 -z-10 w-full object-cover h-full mask-b-from-0 brightness-75"
-          alt=""
-        />
-      {:else}
-        <div class="absolute inset-0 w-full h-full scale-200 -z-10 opacity-50">
-          <Blobs seed={title ?? data.text} />
-        </div>
-      {/if}
-      <Icon src={data.icon} size="40" />
-      <h1
-        class="font-display text-xl md:text-2xl xl:text-3xl font-medium text-left overflow-hidden overflow-ellipsis line-clamp-2"
-      >
-        {title ?? data.text}
-      </h1>
-      <div class="text-slate-600 dark:text-zinc-400">
-        {URL.parse?.(url)?.hostname ?? data.text}
-      </div>
+    {#if previewThumbnail && !thumbError}
+      <!-- No referrer: a borrowed poster would otherwise tell YouTube or
+           Invidious which Coves page the reader is on before any click. -->
+      <img
+        src={previewThumbnail}
+        referrerpolicy="no-referrer"
+        loading="lazy"
+        decoding="async"
+        onerror={() => (thumbError = true)}
+        class="poster"
+        alt=""
+      />
+    {/if}
+    <button
+      type="button"
+      onclick={() => (opened = true)}
+      class="play"
+      aria-label="Play video"
+    >
+      <span class="play-chip">
+        <svg
+          viewBox="0 0 24 24"
+          width="26"
+          height="26"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M7 4.5v15l12-7.5z" />
+        </svg>
+      </span>
     </button>
+    <span class="tag">
+      <Icon src={Globe} size="15" class="shrink-0" />
+      {tag}
+    </span>
   {/if}
 </div>
 
@@ -239,60 +250,88 @@
       width: 100%;
       height: 100%;
     }
+  }
 
-    .iframe-preview {
-      width: 100%;
-      height: 100%;
-      z-index: 0;
-      overflow: hidden;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: start;
-      justify-content: end;
-      padding: calc(var(--spacing) * 6);
-      gap: calc(var(--spacing) * 1);
+  /* The unopened preview: a 2:1 poster with a play chip and a host tag. */
+  .iframe-container.preview {
+    aspect-ratio: 2 / 1;
+    height: auto;
+    border: none;
+    border-radius: 12px;
+    background-color: var(--color-slate-200);
+    box-shadow: inset 0 0 0 1px var(--color-image-edge);
+
+    @variant dark {
+      background-color: var(--color-zinc-800);
     }
 
-    .preview-start {
-      width: 100%;
+    .poster {
+      position: absolute;
+      inset: 0;
+      object-fit: cover;
+      outline: 1px solid var(--color-image-edge);
+      outline-offset: -1px;
+    }
+
+    .play {
       position: absolute;
       inset: 0;
       display: grid;
       place-items: center;
-    }
-
-    .start-button {
-      width: calc(var(--spacing) * 16);
-      height: calc(var(--spacing) * 16);
-      border-radius: 9999px;
-      background-color: --alpha(var(--color-slate-100) / 50%);
-      display: grid;
-      place-items: center;
-      backdrop-filter: blur(var(--blur-sm));
       cursor: pointer;
-      position: relative;
-      box-shadow:
-        0 1px 3px 0 rgb(0 0 0 / 0.1),
-        0 1px 2px -1px rgb(0 0 0 / 0.1);
-      transition:
-        background-color 300ms var(--ease-cubic),
-        transform 300ms var(--ease-cubic);
+      border-radius: inherit;
 
-      @variant hover {
-        background-color: --alpha(var(--color-slate-200) / 50%);
-      }
+      &:focus-visible {
+        outline: 2px solid var(--color-primary-900);
+        outline-offset: -2px;
 
-      @variant dark {
-        background-color: --alpha(var(--color-zinc-900) / 50%);
-        @variant hover {
-          background-color: --alpha(var(--color-zinc-800) / 50%);
+        @variant dark {
+          outline-color: var(--color-primary-100);
         }
       }
 
-      @variant active {
-        transform: scale(93%);
+      &:hover .play-chip,
+      &:focus-visible .play-chip {
+        transform: scale(1.08);
       }
+    }
+
+    .play-chip {
+      width: 60px;
+      height: 60px;
+      border-radius: 9999px;
+      display: grid;
+      place-items: center;
+      background-color: rgb(10 21 23 / 0.72);
+      color: white;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
+    }
+
+    .tag {
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      width: auto;
+      height: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: calc(100% - 24px);
+      padding: 4px 9px 4px 6px;
+      border-radius: 999px;
+      background-color: rgb(10 21 23 / 0.72);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
     }
   }
 </style>

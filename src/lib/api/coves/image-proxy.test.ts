@@ -88,55 +88,78 @@ describe('withPreset', () => {
 })
 
 describe('imageUrl', () => {
+  const THUMB = 'https://proxy.com/img/content_preview/plain/did:plc:a/baf1'
+  const FULLSIZE = 'https://proxy.com/img/content_full/plain/did:plc:a/baf1'
+
   it('returns thumb when available for thumb variant', () => {
-    const img: EmbedImage = {
-      image: 'https://original.com/pic.jpg',
-      thumb: 'https://proxy.com/img/content_preview/plain/did:plc:a/baf1',
-      fullsize: 'https://proxy.com/img/content_full/plain/did:plc:a/baf1',
-    }
-    expect(imageUrl(img, 'thumb')).toBe(img.thumb)
+    const img: EmbedImage = { thumb: THUMB, fullsize: FULLSIZE }
+    expect(imageUrl(img, 'thumb')).toBe(
+      'https://proxy.com/img/content_preview/plain/did:plc:a/baf1',
+    )
   })
 
   it('returns fullsize when available for fullsize variant', () => {
-    const img: EmbedImage = {
-      image: 'https://original.com/pic.jpg',
-      thumb: 'https://proxy.com/img/content_preview/plain/did:plc:a/baf1',
-      fullsize: 'https://proxy.com/img/content_full/plain/did:plc:a/baf1',
-    }
-    expect(imageUrl(img, 'fullsize')).toBe(img.fullsize)
-  })
-
-  it('falls back to image when thumb is undefined', () => {
-    const img: EmbedImage = { image: 'https://original.com/pic.jpg' }
-    expect(imageUrl(img, 'thumb')).toBe(img.image)
-  })
-
-  it('falls back to image when fullsize is undefined', () => {
-    const img: EmbedImage = { image: 'https://original.com/pic.jpg' }
-    expect(imageUrl(img, 'fullsize')).toBe(img.image)
+    const img: EmbedImage = { thumb: THUMB, fullsize: FULLSIZE }
+    expect(imageUrl(img, 'fullsize')).toBe(
+      'https://proxy.com/img/content_full/plain/did:plc:a/baf1',
+    )
   })
 
   it('defaults to thumb variant', () => {
-    const img: EmbedImage = {
-      image: 'https://original.com/pic.jpg',
-      thumb: 'https://proxy.com/thumb',
-    }
-    expect(imageUrl(img)).toBe(img.thumb)
+    const img: EmbedImage = { thumb: 'https://proxy.com/thumb' }
+    expect(imageUrl(img)).toBe('https://proxy.com/thumb')
   })
 
-  it('falls back to image when thumb is empty string', () => {
+  it('returns a local dev http://localhost proxy URL unchanged', () => {
     const img: EmbedImage = {
-      image: 'https://original.com/pic.jpg',
-      thumb: '',
+      thumb: 'http://localhost:8081/img/content_preview/plain/did:plc:a/baf1',
+      fullsize: 'http://localhost:8081/img/content_full/plain/did:plc:a/baf1',
     }
-    expect(imageUrl(img, 'thumb')).toBe(img.image)
+    expect(imageUrl(img, 'thumb')).toBe(
+      'http://localhost:8081/img/content_preview/plain/did:plc:a/baf1',
+    )
+    expect(imageUrl(img, 'fullsize')).toBe(
+      'http://localhost:8081/img/content_full/plain/did:plc:a/baf1',
+    )
   })
 
-  it('falls back to image when fullsize is empty string', () => {
-    const img: EmbedImage = {
-      image: 'https://original.com/pic.jpg',
-      fullsize: '',
-    }
-    expect(imageUrl(img, 'fullsize')).toBe(img.image)
+  it.each<[string, EmbedImage, 'thumb' | 'fullsize']>([
+    [
+      'javascript: fullsize',
+      { thumb: THUMB, fullsize: 'javascript:alert(1)' },
+      'fullsize',
+    ],
+    [
+      'data: thumb',
+      { thumb: 'data:image/png;base64,AAAA', fullsize: FULLSIZE },
+      'thumb',
+    ],
+    ['empty thumb', { thumb: '', fullsize: FULLSIZE }, 'thumb'],
+    ['empty fullsize', { thumb: THUMB, fullsize: '' }, 'fullsize'],
+    ['missing thumb', { fullsize: FULLSIZE }, 'thumb'],
+    ['missing fullsize (only a valid thumb)', { thumb: THUMB }, 'fullsize'],
+    [
+      'blob: fullsize in a server view',
+      { thumb: THUMB, fullsize: 'blob:https://coves.test/uuid' },
+      'fullsize',
+    ],
+    [
+      'blob: thumb in a server view',
+      { thumb: 'blob:https://coves.test/uuid', fullsize: FULLSIZE },
+      'thumb',
+    ],
+  ])('returns undefined for %s', (_label, img, variant) => {
+    expect(imageUrl(img, variant)).toBeUndefined()
   })
+
+  it.each<['thumb' | 'fullsize']>([['thumb'], ['fullsize']])(
+    'never returns a stray raw image property for the %s variant',
+    (variant) => {
+      // A server object carrying the removed `image` field must not leak it.
+      const img = {
+        image: 'https://original.com/pic.jpg',
+      } as unknown as EmbedImage
+      expect(imageUrl(img, variant)).toBeUndefined()
+    },
+  )
 })

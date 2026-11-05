@@ -64,8 +64,11 @@ function fixture(title: string, embed: PostEmbed, labels?: unknown): PostView {
   }
 }
 
-function rendered(post: PostView, view: View): HTMLElement {
-  const html = render(Post, { props: { post, view, actions: false } }).body
+// Cozy without expandBody is the feed card; expandBody is the post detail page.
+function rendered(post: PostView, view: View, expandBody = false): HTMLElement {
+  const html = render(Post, {
+    props: { post, view, expandBody, actions: false },
+  }).body
   const target = new JSDOM(
     `<main>${html}</main>`,
   ).window.document.querySelector('main')
@@ -145,11 +148,15 @@ describe('Bluesky post title deduplication', () => {
   })
 })
 
-describe('link card title deduplication', () => {
+// Feed cards keep the heading and drop the title from the link card instead
+// (Post.feed-card.test.ts); the detail page's PostLink card still shows the
+// link title, so the heading dedup is guarded there.
+describe('link card title deduplication on the detail page', () => {
   it('hides the title heading when the link title equals it exactly', () => {
     const target = rendered(
       fixture('Example Article', linkEmbed('Example Article')),
       'cozy',
+      true,
     )
     expect(heading(target)).toBeUndefined()
   })
@@ -158,6 +165,7 @@ describe('link card title deduplication', () => {
     const target = rendered(
       fixture('Example Article', linkEmbed('Example  Article ')),
       'cozy',
+      true,
     )
     expect(heading(target)).toBe('Example Article')
   })

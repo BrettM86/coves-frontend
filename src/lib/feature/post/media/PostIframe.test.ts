@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import { render } from 'svelte/server'
 import {
   EMBED_FRAME_ORIGINS,
   YOUTUBE_EMBED_HOSTS,
+  type YouTubeFrontend,
 } from '$lib/app/util/embed-hosts'
+import { settings } from '$lib/app/state/settings.svelte'
 import PostIframe from './PostIframe.svelte'
 import type { IframeType } from '../helpers'
 
@@ -59,8 +61,28 @@ const iframeAttribute = (html: string, name: string): string | undefined => {
 const countIframes = (html: string): number =>
   [...html.matchAll(/<iframe(?=[\s/>])/gi)].length
 
+/** The accessible name of each `<button>`: its aria-label, else its text. */
+const buttonNames = (html: string): string[] =>
+  [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/gi)].map(
+    ([, attributes = '', content = '']) =>
+      /\baria-label\s*=\s*"([^"]*)"/i.exec(attributes)?.[1] ??
+      content
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
+  )
+
+/** Every non-blank text node, trimmed. */
+const textNodes = (html: string): string[] =>
+  [...html.matchAll(/>([^<]+)</g)]
+    .map(([, text = '']) => text.trim())
+    .filter(Boolean)
+
+const BLOBS_VIEWBOX = 'viewBox="0 -100 1171 241"'
+
 const VIDEO_ID = 'dQw4w9WgXcQ'
 const WATCH_URL = `https://www.youtube.com/watch?v=${VIDEO_ID}`
+const STREAMABLE_URL = 'https://streamable.com/abc123'
 
 // ---------------------------------------------------------------------------
 // 1. Frame origin
@@ -238,6 +260,71 @@ describe('PostIframe - unopened preview', () => {
       renderIframe('youtu.be/aaaaaaaaaaa', { opened: false }),
     ).not.toThrow()
   })
+
+  // B3: a scheme-less URL has no hostname to show, so the tag falls back to
+  // the type label — and only the tag, since the preview carries no title.
+  it('falls back to the type label as the tag of an unparseable URL', () => {
+    const html = renderIframe('youtu.be/aaaaaaaaaaa', { opened: false })
+
+    expect(textNodes(html).filter((text) => text === 'YouTube Video')).toEqual([
+      'YouTube Video',
+    ])
+    expect(buttonNames(html)).toContain('Play video')
+  })
+
+  // B1: a usable thumbnail becomes the poster, a "Play video" button opens the
+  // player, and a tag names the link's host without its leading `www.`.
+  const POSTER_THUMBNAIL =
+    'https://img.coves.test/img/content_full/plain/did:plc:a/b'
+  const PREVIEW_CASES: readonly (readonly [IframeType, string, string])[] = [
+    ['streamable', 'https://www.streamable.com/abc123', 'streamable.com'],
+    ['youtube', `https://youtu.be/${VIDEO_ID}`, 'youtu.be'],
+    ['video', 'https://cdn.test/clip.mp4', 'cdn.test'],
+  ]
+
+  it.each(PREVIEW_CASES)(
+    'shows a poster, a Play video button and a host tag for %s %j',
+    (type, url, host) => {
+      const html = renderIframe(url, {
+        type,
+        opened: false,
+        thumbnail: POSTER_THUMBNAIL,
+      })
+
+      expect(buttonNames(html)).toContain('Play video')
+      const images = imageTags(html)
+      expect(images).toHaveLength(1)
+      expect(images[0]).toContain(
+        'src="https://img.coves.test/img/embed_thumbnail/plain/did:plc:a/b"',
+      )
+      expect(textNodes(html)).toContain(host)
+    },
+  )
+
+  // B2: without a usable thumbnail there is no poster and no generated
+  // backdrop, but the preview still offers the Play video button. (YouTube
+  // has its own fallback poster; see "YouTube poster fallback" below.)
+  const NO_POSTER_CASES: readonly (readonly [
+    IframeType,
+    string,
+    string | undefined,
+  ])[] = [
+    ['streamable', 'https://streamable.com/abc123', undefined],
+    ['video', 'https://cdn.test/clip.mp4', undefined],
+    ['streamable', 'https://streamable.com/abc123', 'javascript:alert(1)'],
+    ['video', 'https://cdn.test/clip.mp4', 'javascript:alert(1)'],
+  ]
+
+  it.each(NO_POSTER_CASES)(
+    'shows no poster or backdrop for %s %j with thumbnail %j',
+    (type, url, thumbnail) => {
+      const html = renderIframe(url, { type, opened: false, thumbnail })
+
+      expect(html).not.toContain(BLOBS_VIEWBOX)
+      expect(imageTags(html)).toEqual([])
+      expect(buttonNames(html)).toContain('Play video')
+    },
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -307,7 +394,7 @@ describe('PostIframe - streamable', () => {
 // embed record's `thumbnail` / `external.thumb`, and the closed player paints
 // it as a background `<img>`. A prop is not a gate — the component cannot
 // assume its caller ran the URL through the helpers — so a non-http(s) value
-// falls back to the generated Blobs backdrop rather than reaching an img src.
+// falls back to the plain no-poster preview rather than reaching an img src.
 // ---------------------------------------------------------------------------
 
 describe('PostIframe - preview thumbnail', () => {
@@ -327,21 +414,33 @@ describe('PostIframe - preview thumbnail', () => {
   ]
 
   it.each(UNSAFE_THUMBNAILS)('emits no preview image for %j', (thumbnail) => {
-    const html = renderIframe(WATCH_URL, { opened: false, thumbnail })
+    const html = renderIframe(STREAMABLE_URL, {
+      type: 'streamable',
+      opened: false,
+      thumbnail,
+    })
     expect(imageTags(html)).toEqual([])
     expect(html).toContain('<button')
   })
 
   it.each(SAFE_THUMBNAILS)('renders %j unchanged', (thumbnail) => {
     const images = imageTags(
-      renderIframe(WATCH_URL, { opened: false, thumbnail }),
+      renderIframe(STREAMABLE_URL, {
+        type: 'streamable',
+        opened: false,
+        thumbnail,
+      }),
     )
     expect(images).toHaveLength(1)
     expect(images[0]).toContain(`src="${thumbnail}"`)
   })
 
   it('emits no image when no thumbnail is supplied', () => {
-    expect(imageTags(renderIframe(WATCH_URL, { opened: false }))).toEqual([])
+    expect(
+      imageTags(
+        renderIframe(STREAMABLE_URL, { type: 'streamable', opened: false }),
+      ),
+    ).toEqual([])
   })
 
   it('emits no image once the embed is opened', () => {
@@ -351,6 +450,75 @@ describe('PostIframe - preview thumbnail', () => {
           opened: true,
           thumbnail: 'https://cdn.example.com/x.png',
         }),
+      ),
+    ).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// YouTube poster fallback
+// ---------------------------------------------------------------------------
+
+// A YouTube link with no usable thumbnail (bridged posts often arrive without
+// one) borrows the video's own poster from the frontend the reader picked.
+// Piped has no stable thumbnail host, so it keeps the plain fill.
+describe('PostIframe - YouTube poster fallback', () => {
+  afterEach(() => {
+    settings.embeds.youtube = 'youtube'
+  })
+
+  const FALLBACKS: readonly (readonly [YouTubeFrontend, string | undefined])[] =
+    [
+      ['youtube', `https://i.ytimg.com/vi/${VIDEO_ID}/hqdefault.jpg`],
+      ['invidious', `https://yewtu.be/vi/${VIDEO_ID}/hqdefault.jpg`],
+      ['piped', undefined],
+    ]
+
+  it.each(FALLBACKS)(
+    'with the %s frontend and no thumbnail, the poster is %j',
+    (frontend, poster) => {
+      settings.embeds.youtube = frontend
+      for (const thumbnail of [undefined, 'javascript:alert(1)']) {
+        const images = imageTags(
+          renderIframe(`https://youtu.be/${VIDEO_ID}`, {
+            opened: false,
+            thumbnail,
+          }),
+        )
+        expect(images).toEqual(
+          poster ? [expect.stringContaining(`src="${poster}"`)] : [],
+        )
+      }
+    },
+  )
+
+  // The borrowed poster loads before any click, so it must not tell the
+  // third-party host which Coves page the reader is on.
+  it('loads the borrowed poster lazily and without a referrer', () => {
+    const images = imageTags(
+      renderIframe(`https://youtu.be/${VIDEO_ID}`, { opened: false }),
+    )
+    expect(images).toHaveLength(1)
+    expect(images[0]).toContain('referrerpolicy="no-referrer"')
+    expect(images[0]).toContain('loading="lazy"')
+    expect(images[0]).toContain('decoding="async"')
+  })
+
+  it('prefers the post thumbnail over the fallback', () => {
+    const images = imageTags(
+      renderIframe(WATCH_URL, {
+        opened: false,
+        thumbnail: 'https://cdn.example.com/x.png',
+      }),
+    )
+    expect(images).toHaveLength(1)
+    expect(images[0]).toContain('src="https://cdn.example.com/x.png"')
+  })
+
+  it('has no fallback for a link without a video ID', () => {
+    expect(
+      imageTags(
+        renderIframe('https://www.youtube.com/@somechannel', { opened: false }),
       ),
     ).toEqual([])
   })

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CovesClient, NSID } from './client'
-import { XrpcClient } from './xrpc'
+import { XrpcClient, XrpcError } from './xrpc'
 import type { DID } from '$lib/types/atproto'
 import type {
   AtUri,
@@ -524,5 +524,152 @@ describe('Notification methods', () => {
     )
     expect([...url.searchParams.keys()]).toEqual([])
     expect(init?.method ?? 'GET').toBe('GET')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Media: uploadImage over the real XrpcClient transport with a fake fetch
+// ---------------------------------------------------------------------------
+
+describe('uploadImage', () => {
+  const uploadResponse = {
+    blob: {
+      $type: 'blob',
+      ref: { $link: 'bafkreiuploadedimage' },
+      mimeType: 'image/webp',
+      size: 48213,
+    },
+    mimeType: 'image/webp',
+    size: 48213,
+    aspectRatio: { width: 1200, height: 800 },
+  }
+
+  interface CapturedRequest {
+    url: string
+    init: RequestInit | undefined
+  }
+
+  /** A fetch that never answers on its own and rejects when its signal aborts. */
+  function pendingUntilAbortedFetch() {
+    const requests: CapturedRequest[] = []
+    const fetchFn = ((input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(init.signal?.reason),
+        )
+      })
+    }) as typeof fetch
+    return {
+      requests,
+      uploadClient: new CovesClient({
+        fetchFn,
+        baseUrl: 'https://api.coves.social',
+      }),
+    }
+  }
+
+  function answeringFetch(status: number, body: unknown) {
+    const requests: CapturedRequest[] = []
+    const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(JSON.stringify(body), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }) as typeof fetch
+    return {
+      requests,
+      uploadClient: new CovesClient({
+        fetchFn,
+        baseUrl: 'https://api.coves.social',
+      }),
+    }
+  }
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('POSTs the Blob unchanged with the given Content-Type and returns the output intact', async () => {
+    const { requests, uploadClient } = answeringFetch(200, uploadResponse)
+    const file = new Blob(['not really webp'], { type: 'text/plain' })
+
+    const output = await uploadClient.uploadImage(file, 'image/webp')
+
+    expect(output).toEqual({
+      blob: {
+        $type: 'blob',
+        ref: { $link: 'bafkreiuploadedimage' },
+        mimeType: 'image/webp',
+        size: 48213,
+      },
+      mimeType: 'image/webp',
+      size: 48213,
+      aspectRatio: { width: 1200, height: 800 },
+    })
+    expect(requests).toHaveLength(1)
+    const url = new URL(requests[0]?.url ?? 'about:blank')
+    expect(url.origin).toBe('https://api.coves.social')
+    expect(url.pathname).toBe('/xrpc/social.coves.media.uploadImage')
+    expect(requests[0]?.init?.method).toBe('POST')
+    expect(requests[0]?.init?.body).toBe(file)
+    expect(new Headers(requests[0]?.init?.headers).get('Content-Type')).toBe(
+      'image/webp',
+    )
+  })
+
+  it('aborts the request at 120,000 ms, not before, and rejects', async () => {
+    vi.useFakeTimers()
+    const { requests, uploadClient } = pendingUntilAbortedFetch()
+
+    const settled = uploadClient
+      .uploadImage(new Blob(['pixels']), 'image/png')
+      .then(
+        () => 'resolved',
+        () => 'rejected',
+      )
+
+    await vi.advanceTimersByTimeAsync(119_999)
+    expect(requests[0]?.init?.signal?.aborted).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(requests[0]?.init?.signal?.aborted).toBe(true)
+    expect(await settled).toBe('rejected')
+  })
+
+  it("aborts the request when the caller's signal aborts, and rejects", async () => {
+    const { requests, uploadClient } = pendingUntilAbortedFetch()
+    const controller = new AbortController()
+
+    const settled = uploadClient
+      .uploadImage(new Blob(['pixels']), 'image/png', {
+        signal: controller.signal,
+      })
+      .then(
+        () => 'resolved',
+        () => 'rejected',
+      )
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(requests[0]?.init?.signal?.aborted).toBe(false)
+
+    controller.abort()
+
+    expect(requests[0]?.init?.signal?.aborted).toBe(true)
+    expect(await settled).toBe('rejected')
+  })
+
+  it('rejects with the XRPC error name and status from a JSON error body', async () => {
+    const { uploadClient } = answeringFetch(429, { error: 'UploadRateLimited' })
+
+    const error = await uploadClient
+      .uploadImage(new Blob(['pixels']), 'image/png')
+      .then(
+        () => undefined,
+        (rejection: unknown) => rejection,
+      )
+
+    expect(error).toBeInstanceOf(XrpcError)
+    expect(error).toMatchObject({ errorName: 'UploadRateLimited', status: 429 })
   })
 })

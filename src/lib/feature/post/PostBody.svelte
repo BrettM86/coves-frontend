@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { PostEmbed } from '$lib/api/coves/types'
   import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import RichText from '$lib/feature/richtext/RichText.svelte'
   import { hasFacets } from '$lib/feature/richtext/facets'
@@ -22,6 +23,10 @@
     /** Rich text facets from the record; when present the body is rendered
      * as canonical plaintext with facet annotations instead of markdown. */
     facets?: unknown[]
+    /** The post's embed; its images back `#image` placements in the body. */
+    embed?: PostEmbed
+    /** False leaves placed images out of the body (feed cards). */
+    inlineImages?: boolean
     clickThrough?: boolean
     element?: string
     style?: string
@@ -32,13 +37,20 @@
     body,
     collapsible = true,
     facets = undefined,
+    embed = undefined,
+    inlineImages = true,
     clickThrough = false,
     element: htmlElement = 'div',
     style = '',
     class: clazz = '',
   }: Props = $props()
 
-  let overflows = $derived(element ? isOverflown(element) : false)
+  /** Bumped when a placed image loads: the body grew, so measure again. */
+  let imageLoads = $state(0)
+  let overflows = $derived.by(() => {
+    void imageLoads
+    return element ? isOverflown(element) : false
+  })
 
   let expanded = $state(false)
   let fullyExpanded = $derived(!collapsible || expanded)
@@ -67,7 +79,13 @@
          collapsed would misalign annotations (and could split multi-byte
          chars). The full body always renders; the collapsed max-height
          clamps it visually. -->
-    <RichText content={body} {facets} />
+    <RichText
+      content={body}
+      {facets}
+      {embed}
+      {inlineImages}
+      onimageload={() => imageLoads++}
+    />
   {:else}
     <Markdown source={fullyExpanded ? body : body.slice(0, 1000)} />
   {/if}

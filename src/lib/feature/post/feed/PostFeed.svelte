@@ -29,7 +29,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions (delegates native anchor clicks) -->
 <ul
   bind:this={listEl}
-  class="flex flex-col list-none divide-y divide-slate-200 dark:divide-zinc-800"
+  class="flex flex-col list-none"
   onclick={handlePostFeedClick}
 >
   {#if posts?.length == 0}
@@ -46,17 +46,28 @@
     </div>
   {:else}
     {#each posts as feedPost, index (feedPost.post.uri)}
-      <li class="relative post-container" data-post-uri={feedPost.post.uri}>
+      {@const isPinned =
+        feedPost.reason?.$type === 'social.coves.feed.defs#reasonPin'}
+      {@const rowView =
+        isPinned && settings.posts.compactFeatured ? 'compact' : settings.view}
+      <li
+        class={[
+          'relative post-container',
+          // Each row draws the divider above it in its own view's style.
+          index > 0 &&
+            (rowView == 'cozy'
+              ? 'border-t-[0.5px] border-card-border'
+              : 'border-t border-slate-200 dark:border-zinc-800'),
+        ]}
+        data-post-uri={feedPost.post.uri}
+      >
         <Post
           priority={index === 0}
           hideCommunity={community}
-          pinned={feedPost.reason?.$type === 'social.coves.feed.defs#reasonPin'}
-          view={feedPost.reason?.$type === 'social.coves.feed.defs#reasonPin' &&
-          settings.posts.compactFeatured
-            ? 'compact'
-            : settings.view}
+          pinned={isPinned}
+          view={rowView}
           bind:post={feedPost.post}
-          class="transition-all duration-250"
+          class="md:[zoom:0.9] transition-all duration-250"
         />
       </li>
     {/each}

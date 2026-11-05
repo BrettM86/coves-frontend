@@ -10,13 +10,22 @@
     PostMediaCompact,
     PostMeta,
   } from '.'
+  import { gifBlobCids } from './media/gif'
+  import LinkCard from './LinkCard.svelte'
   import {
     bestImageURL,
+    embedImages,
+    extractEmbedThumbnail,
     extractEmbedTitle,
     extractEmbedUrl,
+    galleryEmbed,
     mediaType,
     postTextFallback,
   } from './helpers'
+  import {
+    imageLayout,
+    removePlacedText,
+  } from '$lib/feature/richtext/image-layout'
   import { titleDuplicatesBlueskyEmbed } from './media/bluesky-card'
   import { type MetaTag, parseTags } from './tags'
   import { isSensitivePost } from './content-labels'
@@ -58,11 +67,20 @@
       ? parseTags(post.record?.title)
       : { tags: [] as readonly MetaTag[], title: post.record?.title },
   )
-  let type = $derived(mediaType(post.embed))
-  let sensitive = $derived(isSensitivePost(post))
-  let nativeImage = $derived(
-    post.embed?.$type === 'social.coves.embed.images#view',
+  // Home and community feeds; the detail page passes expandBody and keeps
+  // the full layout.
+  let feedCard = $derived(view === 'cozy' && !expandBody)
+  let layout = $derived(
+    imageLayout(post.embed, post.record?.content ?? '', post.record?.facets),
   )
+  /** The embed minus the images placed in the body. */
+  let mediaEmbed = $derived(galleryEmbed(post.embed, layout.gallery))
+  let placedImages = $derived([...layout.placed.values()])
+  /** On the post page the gallery follows a body that places images. */
+  let galleryAfterBody = $derived(expandBody && layout.placed.size > 0)
+  let type = $derived(mediaType(mediaEmbed))
+  let sensitive = $derived(isSensitivePost(post))
+  let nativeImage = $derived(embedImages(post.embed).length > 0)
   let previewImage = $derived(
     nativeImage ? bestImageURL(post.embed, false, 'thumb') : '',
   )
@@ -80,13 +98,36 @@
   })
   let embedUrl = $derived(extractEmbedUrl(post.embed))
   let embedTitle = $derived(extractEmbedTitle(post.embed))
+  // The feed card shows every external link as a link card, including URIs
+  // mediaType rejects ('none'): the card renders those inert.
+  let externalUri = $derived.by(() => {
+    const embed = post.embed
+    switch (embed?.$type) {
+      case 'social.coves.embed.external':
+      case 'social.coves.embed.external#view':
+        return embed.external.uri?.trim() || undefined
+      // The images show above; the attached link takes the link card.
+      case 'social.coves.embed.imagesWithAttachment#view':
+        return embed.attachment.$type ===
+          'social.coves.embed.external#viewExternal'
+          ? embed.attachment.uri.trim() || undefined
+          : undefined
+      default:
+        return undefined
+    }
+  })
+  // A plain link (not an image or a player) replaces PostLink's card on the
+  // feed with the link card below the body, thumbnail included.
+  let feedLink = $derived(feedCard && !!externalUri && type === 'embed')
   let hideTitle = $derived(
     !concealed &&
       settings.posts.deduplicateEmbed &&
       !!post.record?.title &&
       // Link titles are single-line strings and match exactly; Bluesky text
-      // is free-form, so its match ignores whitespace differences.
-      (embedTitle === post.record.title ||
+      // is free-form, so its match ignores whitespace differences. The feed
+      // card keeps a heading that repeats the link title and drops the title
+      // from its link card instead.
+      ((!feedCard && embedTitle === post.record.title) ||
         titleDuplicatesBlueskyEmbed(post.record.title, post.embed)) &&
       view !== 'compact' &&
       type !== 'iframe',
@@ -98,7 +139,14 @@
   // slot simply stays empty.
   let compactExcerpt = $derived(
     view == 'compact' && !concealed
-      ? postTextFallback(post.record?.content)
+      ? postTextFallback(
+          post.record?.content &&
+            removePlacedText(
+              post.embed,
+              post.record.content,
+              post.record.facets,
+            ),
+        )
       : undefined,
   )
 
@@ -118,7 +166,9 @@
     'relative group/post',
     settings.leftAlign && 'left-align',
     view == 'compact' && 'py-3 list-type compact',
-    view == 'cozy' && 'py-5 flex flex-col gap-2',
+    view == 'cozy' && 'py-5 flex flex-col',
+    // The link card sizes its thumbnail against the card's width.
+    view == 'cozy' && (feedCard ? '@container gap-2.5' : 'gap-2'),
     clazz,
   ]}
   id={post.uri}
@@ -126,6 +176,7 @@
 >
   <PostMeta
     {navigation}
+    feed={feedCard}
     community={post.community}
     showCommunity={!hideCommunity}
     user={post.author}
@@ -234,19 +285,33 @@
         </span>
       </Button>
     {:else if !concealed}
-      {#key embedUrl}
+      {#snippet media()}
         <div
           style="grid-area:embed;"
           class={{
             contents: view === 'cozy' && !nativeImage,
-            '[&>*]:block [&>*]:w-full': view === 'cozy' && nativeImage,
+            // No display override: it would turn the gallery grid to block.
+            '[&>*]:w-full': view === 'cozy' && nativeImage && !feedCard,
           }}
         >
-          <PostMedia embed={post.embed} {view} {type} {priority} />
+          {#if !feedLink}
+            <PostMedia
+              embed={mediaEmbed}
+              {view}
+              {type}
+              {priority}
+              {placedImages}
+              gifs={gifBlobCids(post.record?.embed)}
+              feed={feedCard}
+            />
+          {/if}
         </div>
+      {/snippet}
+      {#key embedUrl}
+        {#if !galleryAfterBody}{@render media()}{/if}
         {#if view == 'compact'}
           <PostMediaCompact
-            embed={post.embed}
+            embed={mediaEmbed}
             {type}
             class="{settings.leftAlign ? 'mr-3' : 'ml-3'} shrink no-list-margin"
             style="grid-area: media;"
@@ -254,24 +319,78 @@
           />
         {/if}
       {/key}
-      {#if post.record?.content && view != 'compact'}
+      {#if post.record?.content && feedCard}
+        <div
+          class="px-3 py-2.5 rounded-[12px] bg-inset-surface border-[0.5px] border-inset-border"
+        >
+          <PostBody
+            element="section"
+            collapsible={false}
+            body={post.record.content}
+            facets={post.record.facets}
+            embed={post.embed}
+            inlineImages={false}
+            class="feed-body-preview line-clamp-5 max-h-[5lh]! text-[15px] leading-[1.45] text-slate-900! dark:text-zinc-100! [&_p]:whitespace-pre-line"
+          />
+        </div>
+      {:else if post.record?.content && view != 'compact'}
         <PostBody
           element="section"
           collapsible={!expandBody}
           body={post.record.content}
           facets={post.record.facets}
+          embed={post.embed}
+          inlineImages={expandBody}
           style="grid-area: body"
           class="relative"
         />
       {/if}
+      {#if feedCard && externalUri}
+        <LinkCard
+          uri={externalUri}
+          title={embedTitle !== post.record?.title ? embedTitle : undefined}
+          thumbnail={feedLink ? extractEmbedThumbnail(mediaEmbed) : undefined}
+          fixedHeight={!!post.record?.content}
+        />
+      {/if}
+      {#if galleryAfterBody}
+        {#key embedUrl}{@render media()}{/key}
+      {/if}
     {/if}
   </div>
   {#if actions}
-    <PostActions bind:post style="grid-area: actions;" {view} />
+    <PostActions bind:post style="grid-area: actions;" {view} feed={feedCard} />
   {/if}
 </article>
 
 <style>
+  /* Feed-card body preview. Markdown's paragraph leading and block gaps are
+     sized for reading a full post; the preview reads like plain text, where
+     the blank line between paragraphs takes one line. line-clamp-5 counts
+     line boxes, not those margins, so max-h-[5lh] caps the box at five
+     lines; it is important to beat PostBody's max-h-full. The ink colour is
+     important to beat PostBody's muted text colour. */
+  /* Every block keeps the same line height and no vertical padding (a quote's
+     own 4px padding pushed later lines off the grid and the cap cut one in
+     half), and blocks inside a quote are spaced like top-level ones: the
+     quote's own gap-2 would add 8px on top of the 1lh margin. */
+  :global(.feed-body-preview *) {
+    line-height: 1.45;
+  }
+
+  :global(.feed-body-preview :is(blockquote, pre)) {
+    padding-block: 0;
+  }
+
+  :global(.feed-body-preview blockquote) {
+    gap: 0;
+  }
+
+  :global(.feed-body-preview > * > :not(:last-child)),
+  :global(.feed-body-preview blockquote > :not(:last-child)) {
+    margin-block-end: 1lh;
+  }
+
   .list-type {
     display: grid;
     grid-template-areas: 'meta media' 'title media' 'sensitive media' 'body media' 'embed embed' 'actions actions';

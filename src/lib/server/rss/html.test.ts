@@ -1,5 +1,6 @@
 import { JSDOM } from 'jsdom'
 import { describe, expect, it, vi } from 'vitest'
+import type { EmbedImage } from '$lib/api/coves/types'
 import { FEATURE_TYPE } from '$lib/feature/richtext/facets'
 import { facetOver } from '$lib/feature/richtext/test-helpers'
 import { markdownToRssHtml, richTextToRssHtml } from './html'
@@ -11,6 +12,7 @@ vi.mock('$env/dynamic/public', () => ({
 }))
 
 const ORIGIN = 'https://coves.test'
+const ITEM_LINK = 'https://coves.test/c/gaming/post/alice.coves.test/3kabc'
 
 /** Parses an HTML fragment the way a feed reader would. */
 function parse(html: string): DocumentFragment {
@@ -336,7 +338,7 @@ describe('richTextToRssHtml', () => {
     },
   ])('renders $label', ({ content, facets, selector, text, contains }) => {
     const element = parse(
-      richTextToRssHtml(content, facets, ORIGIN),
+      richTextToRssHtml(content, facets, ORIGIN, new Map(), ITEM_LINK),
     ).querySelector(selector)
 
     expect(element).not.toBeNull()
@@ -350,6 +352,8 @@ describe('richTextToRssHtml', () => {
       content,
       [facetOver(content, 'me', link('javascript:alert(1)'))],
       ORIGIN,
+      new Map(),
+      ITEM_LINK,
     )
 
     expect(anchors(html)).toHaveLength(0)
@@ -362,6 +366,8 @@ describe('richTextToRssHtml', () => {
       content,
       [facetOver(content, 'one', mark(FEATURE_TYPE.bold))],
       ORIGIN,
+      new Map(),
+      ITEM_LINK,
     )
     const fragment = parse(html)
 
@@ -377,6 +383,8 @@ describe('richTextToRssHtml', () => {
       content,
       [facetOver(content, 'link', link('https://example.com/?q="x"\'y\''))],
       ORIGIN,
+      new Map(),
+      ITEM_LINK,
     )
     const fragment = parse(html)
 
@@ -389,6 +397,145 @@ describe('richTextToRssHtml', () => {
     }
     expect(new URL(only.getAttribute('href') ?? '').host).toBe('example.com')
   })
+})
+
+describe('richTextToRssHtml with placed images', () => {
+  const KITE: EmbedImage = {
+    fullsize: 'https://cdn.example/img/content_full/plain/did:plc:a/kite',
+    alt: 'Kite & "sea"',
+  }
+  const HERON: EmbedImage = {
+    fullsize: 'https://cdn.example/img/content_full/plain/did:plc:a/heron',
+    alt: 'Heron',
+  }
+  const image = (index: number) => ({ $type: FEATURE_TYPE.image, index })
+
+  it('renders a top-level placed image as a paragraph with the absolute fullsize URL', () => {
+    const content = 'before\n[kite]\nafter'
+    const html = richTextToRssHtml(
+      content,
+      [facetOver(content, '[kite]', image(0))],
+      ORIGIN,
+      new Map([[0, KITE]]),
+      ITEM_LINK,
+    )
+
+    expect(html).toBe(
+      '<p>before</p>' +
+        '<p><img src="https://cdn.example/img/content_full/plain/did:plc:a/kite" alt="Kite &amp; &quot;sea&quot;"></p>' +
+        '<p>after</p>',
+    )
+  })
+
+  it('renders an image placed inside a blockquote inside the blockquote', () => {
+    const content = 'quoted [kite] line\nafter'
+    const html = richTextToRssHtml(
+      content,
+      [
+        facetOver(content, 'quoted [kite] line', {
+          $type: FEATURE_TYPE.blockquote,
+          level: 1,
+        }),
+        facetOver(content, '[kite]', image(0)),
+      ],
+      ORIGIN,
+      new Map([[1, KITE]]),
+      ITEM_LINK,
+    )
+    const quote = parse(html).querySelector('blockquote')
+
+    expect(quote?.querySelector('img')?.getAttribute('src')).toBe(
+      'https://cdn.example/img/content_full/plain/did:plc:a/kite',
+    )
+    expect(quote?.textContent).not.toContain('[kite]')
+  })
+
+  it('renders an image placed inside a spoiler inside a details with the spoiler reason', () => {
+    const content = 'the end: [kite] he lives'
+    const html = richTextToRssHtml(
+      content,
+      [
+        facetOver(content, '[kite] he lives', {
+          $type: FEATURE_TYPE.spoiler,
+          reason: 'ending',
+        }),
+        facetOver(content, '[kite]', image(0)),
+      ],
+      ORIGIN,
+      new Map([[1, KITE]]),
+      ITEM_LINK,
+    )
+    const img = parse(html).querySelector('details img')
+
+    expect(img?.getAttribute('src')).toBe(
+      'https://cdn.example/img/content_full/plain/did:plc:a/kite',
+    )
+    expect(img?.closest('details')?.querySelector('summary')?.textContent).toBe(
+      'ending',
+    )
+  })
+
+  it('renders a "View image" link to the item for a placed image whose fullsize is not an http(s) URL', () => {
+    const content = 'a\n[bad]\nb\n[heron]\nc'
+    const html = richTextToRssHtml(
+      content,
+      [
+        facetOver(content, '[bad]', image(0)),
+        facetOver(content, '[heron]', image(1)),
+      ],
+      ORIGIN,
+      new Map([
+        [0, { fullsize: 'javascript:alert(1)', alt: 'bad' }],
+        [1, HERON],
+      ]),
+      ITEM_LINK,
+    )
+    const fragment = parse(html)
+
+    expect(
+      Array.from(fragment.querySelectorAll('img'), (img) =>
+        img.getAttribute('src'),
+      ),
+    ).toEqual(['https://cdn.example/img/content_full/plain/did:plc:a/heron'])
+    expect(html).toBe(
+      '<p>a</p>' +
+        `<p><a href="${ITEM_LINK}">View image</a></p>` +
+        '<p>b</p>' +
+        '<p><img src="https://cdn.example/img/content_full/plain/did:plc:a/heron" alt="Heron"></p>' +
+        '<p>c</p>',
+    )
+    expect(html).not.toContain('javascript:')
+  })
+
+  it.each([
+    ['missing', {}],
+    ['blob:', { fullsize: 'blob:https://coves.test/0b1c' }],
+  ] satisfies [string, EmbedImage][])(
+    'keeps the "View image" link for a spoilered placed image with a %s fullsize inside the spoiler',
+    (_label, broken) => {
+      const content = 'the end: [kite] he lives'
+      const html = richTextToRssHtml(
+        content,
+        [
+          facetOver(content, '[kite] he lives', {
+            $type: FEATURE_TYPE.spoiler,
+            reason: 'ending',
+          }),
+          facetOver(content, '[kite]', image(0)),
+        ],
+        ORIGIN,
+        new Map([[1, broken]]),
+        ITEM_LINK,
+      )
+      const link = parse(html).querySelector('details a')
+
+      expect(link?.getAttribute('href')).toBe(ITEM_LINK)
+      expect(link?.textContent).toBe('View image')
+      expect(
+        link?.closest('details')?.querySelector('summary')?.textContent,
+      ).toBe('ending')
+    },
+  )
 })
 
 describe('escaping at every text and attribute sink', () => {
@@ -428,6 +575,8 @@ describe('escaping at every text and attribute sink', () => {
           richCode,
           [facetOver(richCode, payload, codeFacet)],
           ORIGIN,
+          new Map(),
+          ITEM_LINK,
         ),
     ],
     [
@@ -441,6 +590,8 @@ describe('escaping at every text and attribute sink', () => {
             }),
           ],
           ORIGIN,
+          new Map(),
+          ITEM_LINK,
         ),
     ],
     [
@@ -455,6 +606,8 @@ describe('escaping at every text and attribute sink', () => {
             }),
           ],
           ORIGIN,
+          new Map(),
+          ITEM_LINK,
         ),
     ],
   ])('shows an img tag in %s as text', (_label, render) => {

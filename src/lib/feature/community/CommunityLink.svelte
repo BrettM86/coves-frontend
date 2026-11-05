@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CommunityRef, CommunityView } from '$lib/api/coves/types'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
+  import type { Snippet } from 'svelte'
   import type { HTMLAnchorAttributes } from 'svelte/elements'
   import { communityIdentifier, communityMention } from './helpers'
 
@@ -10,6 +11,8 @@
     name?: boolean
     avatarSize?: number
     class?: string
+    /** Replaces the default `!name@origin` label. */
+    children?: Snippet
   }
 
   let {
@@ -18,6 +21,7 @@
     name = true,
     avatarSize = 24,
     class: clazz = '',
+    children,
     ...rest
   }: Props = $props()
 </script>
@@ -42,7 +46,9 @@
     <Avatar url={community.avatar} alt={community.name} width={avatarSize} />
   {/if}
 
-  {#if name}
+  {#if children}
+    {@render children()}
+  {:else if name}
     <span class="font-medium handle-text shrink min-w-0">
       {communityMention(community)}
     </span>

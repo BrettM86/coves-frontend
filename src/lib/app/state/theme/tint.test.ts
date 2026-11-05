@@ -9,7 +9,7 @@ import {
 } from './tint'
 import type { ThemeColors } from './theme.svelte'
 
-/** Literal copy of KELP_DEFAULT in presets.ts — expected values, not computed. */
+/** Literal copy of MONO_COLORS in presets.ts — expected values, not computed. */
 function kelpColors(): ThemeColors {
   return {
     slate: {

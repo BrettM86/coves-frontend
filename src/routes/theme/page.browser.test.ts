@@ -4,7 +4,7 @@ import { get } from 'svelte/store'
 import {
   accessibleName,
   buttonNamed as buttonNamedIn,
-  kelpColors,
+  covesColors,
   useThemeHarness,
 } from './themeTestHarness'
 import { tintNeutrals } from '$lib/app/state/theme/tint'
@@ -85,7 +85,7 @@ function openImportDialog(): HTMLElement {
 
 /** Mounts the page on custom theme 1 with a red primary-900. */
 async function mountRedAccentTheme() {
-  const colors = kelpColors()
+  const colors = covesColors()
   colors.primary['900'] = '220 38 38'
   harness.themeState.data.themes = [
     ...harness.themeState.data.themes.filter((theme) => theme.id !== 1),
@@ -222,7 +222,7 @@ describe('theme page', () => {
   })
 
   it('New copies the edited colours of the current custom theme', async () => {
-    const edited = kelpColors()
+    const edited = covesColors()
     edited.zinc['900'] = '255 0 0'
     harness.themeState.data.themes = [
       ...harness.themeState.data.themes.filter((theme) => theme.id !== 1),
@@ -251,7 +251,7 @@ describe('theme page', () => {
     click(buttonNamed('settings.import', dialog))
 
     expect(await toastContents()).toContain('routes.theme.import.invalidJson')
-    expect(harness.themeState.current.colors).toEqual(kelpColors())
+    expect(harness.themeState.current.colors).toEqual(covesColors())
     expect(document.querySelector('[role="dialog"]')).not.toBeNull()
   })
 
@@ -394,7 +394,7 @@ describe('theme page', () => {
 
     click(buttonNamed('routes.theme.tint.reset', section))
 
-    const defaults = kelpColors()
+    const defaults = covesColors()
     expect(harness.themeState.current.colors.slate).toEqual(defaults.slate)
     expect(harness.themeState.current.colors.zinc).toEqual(defaults.zinc)
     expect(harness.themeState.current.colors.primary).toEqual({

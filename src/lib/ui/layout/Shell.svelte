@@ -40,14 +40,14 @@
   <div class={['shell-navbar-holder', !dockVisible && 'max-md:-bottom-24!']}>
     <div class="md:hidden flex justify-between" dir="ltr">
       <InvertedCorner
-        class="w-8 h-8 text-slate-50 dark:text-zinc-950 rotate-270"
+        class="dock-corner w-8 h-8 text-slate-50 dark:text-zinc-950 rotate-270"
       />
       <InvertedCorner
-        class="w-8 h-8 text-slate-50 dark:text-zinc-950 rotate-180"
+        class="dock-corner w-8 h-8 text-slate-50 dark:text-zinc-950 rotate-180"
       />
     </div>
     {@render navbar?.({
-      class: ['shell-navbar'],
+      class: ['shell-navbar', 'page-band'],
     })}
   </div>
   <div class={['shell-content flex-1', settings.newWidth && 'limit-width']}>
@@ -105,6 +105,19 @@
     }
   }
 
+  /* Under Coves the navbar is the page surface, opaque so content scrolls
+     under it unseen, and the dock's corners take the same base colour.
+     .page-band is in the selector only to outrank the dark rules above. */
+  :global(html[data-grain]) .shell-navbar-holder {
+    :global(.shell-navbar.page-band) {
+      background-color: var(--page-base);
+    }
+
+    :global(.dock-corner) {
+      color: var(--page-base);
+    }
+  }
+
   .shell-content {
     width: 100%;
     display: grid;
@@ -131,14 +144,14 @@
 
   @media (min-width: 64rem) {
     .shell-content {
-      grid-template-columns: 20% 60% 20%;
+      grid-template-columns: 23% 54% 23%;
       justify-items: end center start;
       grid-template-areas: 'sidebar main suffix';
     }
 
     .shell-content.limit-width {
       width: 100%;
-      grid-template-columns: 2fr 5fr 2fr;
+      grid-template-columns: 2.25fr 4.5fr 2.25fr;
     }
   }
 
@@ -197,5 +210,18 @@
         }
       }
     }
+  }
+
+  /* Under Coves the side panels let the body's fixed grain through and keep
+     their borders; the feed column carries its own grain, which scrolls with
+     the posts. */
+  :global(html[data-grain]) .shell-content :global(.shell-aside) {
+    background-color: transparent;
+  }
+
+  :global(html[data-grain]) .shell-content :global(.shell-main) {
+    background-color: var(--page-base);
+    background-image: var(--page-grain);
+    background-repeat: repeat;
   }
 </style>

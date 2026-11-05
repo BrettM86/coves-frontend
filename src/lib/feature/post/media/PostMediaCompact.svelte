@@ -3,6 +3,7 @@
   import { t } from '$lib/app/state/i18n'
   import { settings, type View } from '$lib/app/state/settings.svelte'
   import { showImage } from '$lib/ui/generic/ExpandableImage.svelte'
+  import ImageUnavailable from '$lib/ui/generic/ImageUnavailable.svelte'
   import { Button, Modal, modal } from '$lib/ui/kit'
   import {
     Icon,
@@ -14,6 +15,7 @@
   } from '$lib/ui/kit/icon'
   import {
     bestImageURL,
+    embedImages,
     extractEmbedAlt,
     extractEmbedThumbnail,
     getBlueskyPostEmbed,
@@ -55,11 +57,20 @@
   )
   let altText = $derived(extractEmbedAlt(embed))
   let imageTile = $derived(type === 'image')
+  let imageCount = $derived(embedImages(embed).length)
   let hasThumbnail = $derived(!!genericThumbnailUrl || type === 'image')
+  /** The thumbnail URL that failed to load; a blurred thumbnail loads none. */
+  let failedSource = $state<string>()
+  let unavailable = $derived(
+    !blur && (!imageSource || failedSource === imageSource),
+  )
 
   function expandImage(): void {
     if (type === 'image' && embed)
-      showImage(bestImageURL(embed, false, 'fullsize'))
+      showImage(
+        [{ url: bestImageURL(embed, false, 'fullsize') ?? '', alt: altText }],
+        0,
+      )
   }
 </script>
 
@@ -110,17 +121,29 @@
           'border border-slate-200 dark:border-zinc-800 hover-scale-effect bg-slate-200 dark:bg-zinc-800',
         ]}
       >
-        {#if hasThumbnail}
+        {#if hasThumbnail && unavailable}
+          <ImageUnavailable class="rounded-xl" />
+        {:else if hasThumbnail}
           <img
             src={blur ? '' : imageSource}
             loading="lazy"
-            class={[
-              'object-cover relative overflow-hidden rounded-xl h-full',
-              size,
-            ]}
+            class="object-cover relative overflow-hidden rounded-xl h-full w-full"
             alt={altText ?? ' '}
             class:blur-xl={blur}
+            onerror={() => {
+              if (!blur) failedSource = imageSource
+            }}
           />
+          {#if imageTile && imageCount > 1}
+            <span
+              class="absolute top-1 right-1 rounded-lg bg-slate-900/75 px-1.5 text-xs font-medium text-white"
+            >
+              <span aria-hidden="true">{imageCount}</span>
+              <span class="sr-only">
+                {$t('aria.postDecor.imageCount', { count: imageCount })}
+              </span>
+            </span>
+          {/if}
           {#if !imageTile}
             <div
               class={[

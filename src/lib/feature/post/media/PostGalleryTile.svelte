@@ -8,7 +8,7 @@
     fittedImageWidth,
     imageAspectRatio,
   } from '$lib/feature/richtext/image-layout'
-  import { Button, modal } from '$lib/ui/kit'
+  import { modal } from '$lib/ui/kit'
   import { onMount } from 'svelte'
 
   interface Props {
@@ -180,16 +180,15 @@
 
 {#snippet altBadge()}
   {#if image.alt}
-    <Button
+    <!-- A dark chip over the image, the same in light and dark themes. -->
+    <button
+      type="button"
       onclick={() =>
         modal({ title: $t('post.image.altTitle'), body: image.alt ?? '' })}
-      color="tertiary"
-      size="md"
-      rounding="pill"
-      class="absolute bottom-2 right-2 border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+      class="absolute bottom-2 right-2 cursor-pointer rounded-[9px] bg-[#222]/90 px-2.5 py-1.5 text-[14px] font-bold leading-none tracking-wide text-white transition-colors hover:bg-[#222] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
     >
       {$t('post.image.altBadge')}
-    </Button>
+    </button>
   {/if}
 {/snippet}
 

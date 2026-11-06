@@ -102,7 +102,7 @@
         "feed": {
             "label": "Feed",
             "discover": "Discover",
-            "forYou": "For You"
+            "forYou": "Subscribed"
         },
         "view": {
             "label": "View",

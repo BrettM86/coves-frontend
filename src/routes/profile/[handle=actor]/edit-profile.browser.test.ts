@@ -300,8 +300,8 @@ describe('edit profile from the profile header', () => {
           data: {
             value: {
               profile: ownedProfile,
+              tab: 'posts',
               posts: { feed: [] },
-              comments: { comments: [] },
             },
           },
         } as unknown as PageData,
@@ -316,6 +316,10 @@ describe('edit profile from the profile header', () => {
     expect(banner.querySelector('button')?.textContent).toContain(
       'routes.profile.edit',
     )
+    // The block menu is for other people's profiles only.
+    expect(
+      banner.querySelector('[aria-label="post.actions.more.label"]'),
+    ).toBeNull()
   })
 
   it('shows the DID default avatar in the header of a profile with no avatar', async () => {
@@ -333,8 +337,8 @@ describe('edit profile from the profile header', () => {
           data: {
             value: {
               profile,
+              tab: 'posts',
               posts: { feed: [] },
-              comments: { comments: [] },
             },
           },
         } as unknown as PageData,

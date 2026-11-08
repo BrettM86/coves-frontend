@@ -30,36 +30,41 @@ beforeEach(() => {
 })
 
 describe('cursor pagination rendered navigation', () => {
-  it('gives profile posts and comments independent, encoded continuation links', () => {
-    const data = {
-      data: {
-        value: {
-          profile: {
-            did: 'did:plc:alice',
-            handle: 'alice.test',
-            createdAt: '2026-09-01T00:00:00Z',
+  it.each([
+    ['posts', { feed: [], cursor: 'posts+/=2' }, 'postsCursor', 'posts+/=2'],
+    [
+      'comments',
+      { comments: [], cursor: 'comments+/=2' },
+      'commentsCursor',
+      'comments+/=2',
+    ],
+  ] as const)(
+    'gives the profile %s tab an encoded continuation link that keeps the tab',
+    (tab, page, param, cursor) => {
+      const data = {
+        data: {
+          value: {
+            profile: {
+              did: 'did:plc:alice',
+              handle: 'alice.test',
+              createdAt: '2026-09-01T00:00:00Z',
+            },
+            tab,
+            [tab]: page,
+            commentPosts: [],
           },
-          posts: { feed: [], cursor: 'posts+/=2' },
-          comments: { comments: [], cursor: 'comments+/=2' },
         },
-      },
-    } as unknown as ComponentProps<typeof ProfilePage>['data']
-    const html = render(ProfilePage, {
-      props: { data },
-      context: context(
-        '/profile/alice.test?type=all&postsCursor=posts1&commentsCursor=comments1',
-      ),
-    }).body
-    const links = nextLinks(html)
-    expect(links).toHaveLength(2)
-    expect(links[0].searchParams.get('postsCursor')).toBe('posts+/=2')
-    expect(links[0].searchParams.get('commentsCursor')).toBe('comments1')
-    expect(links[1].searchParams.get('commentsCursor')).toBe('comments+/=2')
-    expect(links[1].searchParams.get('postsCursor')).toBe('posts1')
-    expect(links.every((link) => link.searchParams.get('type') === 'all')).toBe(
-      true,
-    )
-  })
+      } as unknown as ComponentProps<typeof ProfilePage>['data']
+      const html = render(ProfilePage, {
+        props: { data },
+        context: context(`/profile/alice.test?type=${tab}&${param}=first`),
+      }).body
+      const links = nextLinks(html)
+      expect(links).toHaveLength(1)
+      expect(links[0].searchParams.get(param)).toBe(cursor)
+      expect(links[0].searchParams.get('type')).toBe(tab)
+    },
+  )
 
   for (const kind of ['home', 'community'] as const) {
     it(`${kind} feed has no Next link after its last cursor`, () => {

@@ -13,6 +13,7 @@ const mockCovesMethods = vi.hoisted(() => ({
   getProfile: vi.fn(),
   getActorPosts: vi.fn(),
   getActorComments: vi.fn(),
+  getPosts: vi.fn(),
 }))
 
 // The factory itself is a spy so the loader's client construction is
@@ -79,6 +80,7 @@ describe('profile loader', () => {
     mockCovesMethods.getActorComments
       .mockReset()
       .mockResolvedValue(commentsFixture)
+    mockCovesMethods.getPosts.mockReset()
   })
 
   afterEach(() => {
@@ -87,17 +89,14 @@ describe('profile loader', () => {
 
   // Every other test here asserts a rejection, so a loader that threw
   // unconditionally would fail exactly one of them. This is the one.
-  it('returns the profile, posts and comments for a valid actor', async () => {
-    const args = makeArgs(
-      'alice.coves.social',
-      '?postsCursor=posts2&commentsCursor=comments2',
-    )
+  it('returns the profile and posts for the default posts tab', async () => {
+    const args = makeArgs('alice.coves.social', '?postsCursor=posts2')
     const result = await load(args)
 
     expect(result.data.value).toEqual({
       profile: profileFixture,
+      tab: 'posts',
       posts: postsFixture,
-      comments: commentsFixture,
     })
     // SvelteKit's per-request fetch must reach the client factory — it
     // carries SSR cookie/credential forwarding, and no other assertion
@@ -111,32 +110,102 @@ describe('profile loader', () => {
       limit: 20,
       cursor: 'posts2',
     })
+    expect(mockCovesMethods.getActorComments).not.toHaveBeenCalled()
+  })
+
+  // `all` is the retired mixed view; old links land on the posts tab.
+  it.each(['', '?type=posts', '?type=all', '?type=bogus'])(
+    'opens the posts tab for %j',
+    async (query) => {
+      const result = await load(makeArgs('alice.coves.social', query))
+      expect(result.data.value?.tab).toBe('posts')
+      expect(mockCovesMethods.getActorComments).not.toHaveBeenCalled()
+    },
+  )
+
+  it('loads comments with their hydrated parent posts for the comments tab', async () => {
+    const postA = {
+      uri: 'at://did:plc:alice/social.coves.community.post/a',
+      author: { did: 'did:plc:alice' },
+    }
+    const missing = {
+      uri: 'at://did:plc:bob/social.coves.community.post/b',
+      notFound: true,
+    }
+    const comments = {
+      comments: [
+        { uri: 'at://did:plc:alice/c/1', post: { uri: postA.uri } },
+        { uri: 'at://did:plc:alice/c/2', post: { uri: postA.uri } },
+        { uri: 'at://did:plc:alice/c/3', post: { uri: missing.uri } },
+      ],
+      cursor: 'next',
+    }
+    mockCovesMethods.getActorComments.mockResolvedValue(comments)
+    mockCovesMethods.getPosts.mockResolvedValue({ posts: [postA, missing] })
+
+    const result = await load(
+      makeArgs('alice.coves.social', '?type=comments&commentsCursor=c2'),
+    )
+
+    expect(result.data.value).toEqual({
+      profile: profileFixture,
+      tab: 'comments',
+      comments,
+      // Unhydrated parents are dropped; their comments render without context.
+      commentPosts: [postA],
+    })
     expect(mockCovesMethods.getActorComments).toHaveBeenCalledWith({
       actor: 'alice.coves.social',
       limit: 20,
-      cursor: 'comments2',
+      cursor: 'c2',
     })
+    // Deduplicated: two comments share one parent.
+    expect(mockCovesMethods.getPosts).toHaveBeenCalledWith({
+      uris: [postA.uri, missing.uri],
+    })
+    expect(mockCovesMethods.getActorPosts).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ['?postsCursor=posts2', 'posts2', undefined],
-    ['?commentsCursor=comments2', undefined, 'comments2'],
-  ])(
-    'keeps cursors independent for %s',
-    async (query, postsCursor, commentsCursor) => {
-      await load(makeArgs('alice.coves.social', query))
-      expect(mockCovesMethods.getActorPosts).toHaveBeenCalledWith({
-        actor: 'alice.coves.social',
-        limit: 20,
-        cursor: postsCursor,
-      })
-      expect(mockCovesMethods.getActorComments).toHaveBeenCalledWith({
-        actor: 'alice.coves.social',
-        limit: 20,
-        cursor: commentsCursor,
-      })
-    },
-  )
+  // Parent posts only add context, so a failed lookup still shows the
+  // comments, just without community, title or permalink.
+  it('still returns the comments when the parent-post lookup fails', async () => {
+    const comments = {
+      comments: [
+        {
+          uri: 'at://did:plc:alice/c/1',
+          post: { uri: 'at://did:plc:alice/social.coves.community.post/a' },
+        },
+      ],
+    }
+    mockCovesMethods.getActorComments.mockResolvedValue(comments)
+    mockCovesMethods.getPosts.mockRejectedValue(
+      new XrpcError(502, 'UpstreamFailure', 'boom'),
+    )
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const result = await load(makeArgs('alice.coves.social', '?type=comments'))
+
+    expect(result.data.value).toEqual({
+      profile: profileFixture,
+      tab: 'comments',
+      comments,
+      commentPosts: [],
+    })
+    warn.mockRestore()
+  })
+
+  // getPosts takes 1–25 URIs, so an empty comments page must skip it.
+  it('skips the parent-post lookup when there are no comments', async () => {
+    const result = await load(makeArgs('alice.coves.social', '?type=comments'))
+
+    expect(result.data.value).toEqual({
+      profile: profileFixture,
+      tab: 'comments',
+      comments: commentsFixture,
+      commentPosts: [],
+    })
+    expect(mockCovesMethods.getPosts).not.toHaveBeenCalled()
+  })
 
   // B1 — an upstream 404 must reach the router as a 404 whose message is the
   // i18n key `couldnt_find_person`. The key shape is load-bearing: `errorMessage`
@@ -218,17 +287,21 @@ describe('profile loader', () => {
     expect(mockCovesMethods.getProfile).not.toHaveBeenCalled()
   })
 
-  // B4 — the three upstream calls share one `Promise.all`, so any of them can
-  // be the rejecter, but only `getProfile` speaks to whether the account
+  // B4 — each tab's calls share one `Promise.all`, so any of them can be the
+  // rejecter, but only `getProfile` speaks to whether the account
   // exists. A stale AppView or a proxy misroute 404ing the posts or comments
   // call is an infrastructure fault; rendering "that user doesn't exist" for it
   // tells the viewer a deleted-account story about a service outage.
   it.each([
-    ['getActorPosts', mockCovesMethods.getActorPosts] as const,
-    ['getActorComments', mockCovesMethods.getActorComments] as const,
+    ['getActorPosts', mockCovesMethods.getActorPosts, ''] as const,
+    [
+      'getActorComments',
+      mockCovesMethods.getActorComments,
+      '?type=comments',
+    ] as const,
   ])(
     'propagates a 404 from %s rather than calling the actor missing',
-    async (_name, method) => {
+    async (_name, method, query) => {
       const upstream = new XrpcError(
         404,
         'UnknownError',
@@ -236,7 +309,9 @@ describe('profile loader', () => {
       )
       method.mockRejectedValue(upstream)
 
-      const thrown = await rejection(load(makeArgs('alice.coves.social')))
+      const thrown = await rejection(
+        load(makeArgs('alice.coves.social', query)),
+      )
 
       expect(thrown).toBe(upstream)
       expect(isHttpError(thrown)).toBe(false)

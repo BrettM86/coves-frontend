@@ -11,8 +11,9 @@
     reconcileUserBlockState,
     toggleUserBlock,
   } from '$lib/feature/user/blocking.svelte'
-  import { Button, Menu, MenuButton, Modal, toast } from '$lib/ui/kit'
-  import { Icon, Ban, Ellipsis, Mail, SquarePen } from '$lib/ui/kit/icon'
+  import { Menu, MenuButton, Modal, toast } from '$lib/ui/kit'
+  import { Icon, Ban, Ellipsis, Forward, Pencil } from '$lib/ui/kit/icon'
+  import { userLink } from '$lib/app/util/links'
   import ProfileEditor from '../ProfileEditor.svelte'
   interface Props {
     profile: ProfileViewDetailed
@@ -47,52 +48,64 @@
       type: 'success',
     })
   }
+
+  const bannerButton =
+    'inline-flex items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors hover:bg-black/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white cursor-pointer'
+
+  async function share(): Promise<void> {
+    try {
+      const url = new URL(userLink(userProfile), location.origin).toString()
+      if (navigator.share) {
+        await navigator.share({ url })
+      } else {
+        await navigator.clipboard.writeText(url)
+        toast({ content: $t('toast.copied'), type: 'success' })
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      toast({
+        content: err instanceof Error ? err.message : String(err),
+        type: 'error',
+      })
+    }
+  }
 </script>
 
-{#if authProfile.current?.did === userProfile.did}
-  <div class="flex w-full justify-end">
-    <Button
-      size="lg"
-      rounding="2xl"
-      icon={SquarePen}
+<!-- Sits on the banner, so the controls carry their own dark backing to stay
+     legible over any image. -->
+<div class="flex items-center gap-2">
+  {#if authProfile.current?.did === userProfile.did}
+    <button
+      type="button"
+      class={[bannerButton, 'h-9 px-3.5 gap-1.5 text-sm font-medium']}
       aria-haspopup="dialog"
       aria-expanded={editing}
       onclick={() => (editing = true)}
     >
+      <Icon src={Pencil} size="16" />
       {$t('routes.profile.edit')}
-    </Button>
-  </div>
-  <Modal bind:open={editing} title={$t('routes.profile.edit')}>
-    <ProfileEditor
-      profile={userProfile}
-      oncancel={() => (editing = false)}
-      onsaved={() => (editing = false)}
-    />
-  </Modal>
-{:else if authProfile.current?.jwt}
-  <div class="flex items-center gap-2 w-full flex-wrap">
-    <!-- TODO: Implement Coves messaging when available -->
-    <Button
-      size="lg"
-      color="primary"
-      icon={Mail}
-      onclick={() =>
-        toast({
-          content: 'Messaging is not yet available',
-          type: 'warning',
-        })}
-    >
-      {$t('content.message')}
-    </Button>
+    </button>
+  {/if}
+  <button
+    type="button"
+    class={[bannerButton, 'size-9']}
+    aria-label={$t('post.actions.more.share')}
+    title={$t('post.actions.more.share')}
+    onclick={share}
+  >
+    <Icon src={Forward} size="18" />
+  </button>
+  {#if authProfile.current?.did !== userProfile.did && authProfile.current?.jwt}
     <Menu placement="bottom-end">
       {#snippet target(attachment)}
-        <Button
+        <button
           {@attach attachment}
-          size="square-lg"
-          rounding="2xl"
-          icon={Ellipsis}
+          type="button"
+          class={[bannerButton, 'size-9']}
           aria-label={$t('post.actions.more.label')}
-        />
+        >
+          <Icon src={Ellipsis} size="18" />
+        </button>
       {/snippet}
       <MenuButton
         color="danger-subtle"
@@ -106,5 +119,14 @@
         {isBlocked ? $t('account.unblock') : $t('account.block')}
       </MenuButton>
     </Menu>
-  </div>
+  {/if}
+</div>
+{#if authProfile.current?.did === userProfile.did}
+  <Modal bind:open={editing} title={$t('routes.profile.edit')}>
+    <ProfileEditor
+      profile={userProfile}
+      oncancel={() => (editing = false)}
+      onsaved={() => (editing = false)}
+    />
+  </Modal>
 {/if}

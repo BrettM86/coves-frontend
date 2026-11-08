@@ -122,14 +122,23 @@ export interface FeedTypes {
     {
       actor: string
       limit?: number
-      postsCursor?: string
-      commentsCursor?: string
+      tab: 'posts' | 'comments'
+      cursor?: string
     },
-    {
-      profile: ProfileViewDetailed
-      posts: GetActorPostsResponse
-      comments: GetActorCommentsResponse
-    },
+    (
+      | {
+          profile: ProfileViewDetailed
+          tab: 'posts'
+          posts: GetActorPostsResponse
+        }
+      | {
+          profile: ProfileViewDetailed
+          tab: 'comments'
+          comments: GetActorCommentsResponse
+          /** The comments' hydrated parent posts, for context and permalinks. */
+          commentPosts: CovesPostView[]
+        }
+    ),
   ]
   '/c/[handle=handle]/post/[owner=actor]/[rkey]': [
     {

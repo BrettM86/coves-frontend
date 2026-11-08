@@ -264,6 +264,7 @@
             "noLegal": "This server does not have any legal information."
         },
         "profile": {
+            "didHint": "A DID is this account's permanent atproto identity. Handles can change, but the DID never does, and it follows the account across apps and servers.",
             "user": "User",
             "settings": "Settings",
             "blocks": {
@@ -1227,6 +1228,7 @@
             "title": "Sidebar"
         },
         "loading": "Loading",
+        "profileTabs": "Profile sections",
         "element": {
             "pageHeader": "Page header"
         },
@@ -1242,7 +1244,8 @@
     },
     "stats": {
         "joined": "Joined",
-        "created": "Created"
+        "created": "Created",
+        "memberships": "Memberships"
     },
     "placeholders": {
         "title": "Add a post title",

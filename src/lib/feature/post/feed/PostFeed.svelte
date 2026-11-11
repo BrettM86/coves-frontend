@@ -67,7 +67,11 @@
           pinned={isPinned}
           view={rowView}
           bind:post={feedPost.post}
-          class="md:[zoom:0.9] transition-all duration-250"
+          class={[
+            'transition-all duration-250',
+            // Cozy cards render at 90% from md; compact rows keep full size.
+            rowView == 'cozy' && 'md:[zoom:0.9]',
+          ]}
         />
       </li>
     {/each}

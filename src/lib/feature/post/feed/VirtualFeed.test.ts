@@ -1726,3 +1726,68 @@ describe('VirtualFeed load-more', () => {
     )
   })
 })
+
+describe('VirtualFeed row scale', () => {
+  const pinnedPost = (uri: string): FeedViewPost =>
+    ({
+      post: { uri },
+      reason: { $type: 'social.coves.feed.defs#reasonPin' },
+    }) as unknown as FeedViewPost
+
+  const rowZoomed = (uri: string): boolean =>
+    target
+      .querySelector(`span[data-post-uri="${uri}"]`)
+      ?.classList.contains('md:[zoom:0.9]') ?? false
+
+  let savedView: typeof settings.view
+  let savedCompactFeatured: boolean
+  let settings: typeof import('$lib/app/state/settings.svelte').settings
+
+  beforeEach(async () => {
+    settings = (await import('$lib/app/state/settings.svelte')).settings
+    savedView = settings.view
+    savedCompactFeatured = settings.posts.compactFeatured
+  })
+
+  afterEach(() => {
+    settings.view = savedView
+    settings.posts.compactFeatured = savedCompactFeatured
+  })
+
+  it('scales cozy rows to 90% from md', async () => {
+    settings.view = 'cozy'
+    await mountFeed([feedPost('at://post/1')], { limit: 20 }, async () => ({
+      feed: [],
+    }))
+
+    expect(rowZoomed('at://post/1')).toBe(true)
+  })
+
+  it('keeps compact rows at full size', async () => {
+    settings.view = 'compact'
+    await mountFeed([feedPost('at://post/1')], { limit: 20 }, async () => ({
+      feed: [],
+    }))
+
+    expect(
+      target.querySelector('span[data-post-uri="at://post/1"]'),
+    ).not.toBeNull()
+    expect(rowZoomed('at://post/1')).toBe(false)
+  })
+
+  it('keeps a compact pinned row in a cozy feed at full size', async () => {
+    settings.view = 'cozy'
+    settings.posts.compactFeatured = true
+    await mountFeed(
+      [pinnedPost('at://post/pinned'), feedPost('at://post/1')],
+      { limit: 20 },
+      async () => ({ feed: [] }),
+    )
+
+    expect(
+      target.querySelector('span[data-post-uri="at://post/pinned"]'),
+    ).not.toBeNull()
+    expect(rowZoomed('at://post/pinned')).toBe(false)
+    expect(rowZoomed('at://post/1')).toBe(true)
+  })
+})

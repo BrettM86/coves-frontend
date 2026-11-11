@@ -61,8 +61,8 @@
   let viewport: HTMLElement | undefined = $state()
   /**
    * The viewport's width in its own px and as displayed, read when a drag
-   * picks its axis and again on release. They differ under CSS `zoom` (feed posts sit
-   * in `zoom: 0.9`), where pointer offsets are in displayed px.
+   * picks its axis and again on release. They differ under CSS `zoom` (cozy
+   * feed posts sit in `zoom: 0.9`), where pointer offsets are in displayed px.
    */
   let localWidth = 0
   let displayedWidth = 0

@@ -628,7 +628,11 @@
               pinned={isPinned}
               hideCommunity={community}
               view={rowView}
-              class="px-3 sm:px-6 md:[zoom:0.9] hover:bg-slate-100/30 hover:dark:bg-zinc-900/30 transition-colors"
+              class={[
+                'px-3 sm:px-6 hover:bg-slate-100/30 hover:dark:bg-zinc-900/30 transition-colors',
+                // Cozy cards render at 90% from md; compact rows keep full size.
+                rowView == 'cozy' && 'md:[zoom:0.9]',
+              ]}
             ></Post>
           </li>
         {/snippet}

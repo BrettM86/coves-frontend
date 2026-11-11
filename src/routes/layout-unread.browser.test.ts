@@ -74,6 +74,11 @@ vi.mock('svelte/reactivity', () =>
 vi.mock('$lib/feature/shell/SessionRecovery.svelte', () => ({
   default: () => {},
 }))
+// The Bluesky import offer makes its own request for a signed-in viewer; it is
+// outside this wiring.
+vi.mock('$lib/feature/bluesky-import/BlueskyImportOffer.svelte', () => ({
+  default: () => {},
+}))
 // Observed, not exercised: log.test.ts owns what the helper writes.
 vi.mock('$lib/feature/notification/log', () => ({
   logNotificationFailure: vi.fn(),

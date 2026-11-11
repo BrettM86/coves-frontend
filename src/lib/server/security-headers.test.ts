@@ -152,6 +152,32 @@ describe('buildContentSecurityPolicy', () => {
     expect(policy['upgrade-insecure-requests']).toBeUndefined()
   })
 
+  it('lets dev images load over plain http, for previews served by the local PDS', () => {
+    const policy = directives(
+      buildContentSecurityPolicy('', {
+        dev: true,
+        secure: false,
+        instanceOrigin: 'http://localhost:8080',
+        videoOrigins: [],
+      }),
+    )
+    expect(policy['img-src'].split(' ')).toContain('http:')
+  })
+
+  it('keeps plain http out of img-src outside dev, even with an http instance origin', () => {
+    const policy = directives(
+      buildContentSecurityPolicy('', {
+        dev: false,
+        secure: false,
+        instanceOrigin: 'http://localhost:8080',
+        videoOrigins: [],
+      }),
+    )
+    const sources = policy['img-src'].split(' ')
+    expect(sources).toContain('http://localhost:8080')
+    expect(sources).not.toContain('http:')
+  })
+
   it('lets images load from self, inline data, any https host, and the instance origin', () => {
     const policy = directives(buildContentSecurityPolicy('', prod))
     expect(policy['img-src']).toBe(

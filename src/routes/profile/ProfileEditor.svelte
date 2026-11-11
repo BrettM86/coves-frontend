@@ -1,15 +1,23 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation'
   import { coves } from '$lib/api/client.svelte'
-  import type { ProfileViewDetailed } from '$lib/api/coves/types'
+  import type {
+    BlueskyProfileImportField,
+    BlueskyProfileImportFieldName,
+    ImportBlueskyProfileOutput,
+    ProfileViewDetailed,
+  } from '$lib/api/coves/types'
   import { profile as authProfile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
   import { errorMessage } from '$lib/app/util/error'
   import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
+  import BlueskyImportDialog from '$lib/feature/bluesky-import/BlueskyImportDialog.svelte'
+  import { warnImportFailure } from '$lib/feature/bluesky-import/failure-log'
+  import { settingsOutcome } from '$lib/feature/bluesky-import/settings-outcome'
   import { feeds } from '$lib/feature/feeds/feed.svelte'
   import { Button, Label, TextArea, TextInput, toast } from '$lib/ui/kit'
   import { Upload } from '$lib/ui/kit/icon'
-  import { onDestroy } from 'svelte'
+  import { onDestroy, untrack } from 'svelte'
   import AvatarCropper from './AvatarCropper.svelte'
   import {
     initialProfileValues,
@@ -20,11 +28,18 @@
 
   interface Props {
     profile: ProfileViewDetailed
+    /** Show the "Import from Bluesky" button (the settings page). */
+    blueskyImport?: boolean
     oncancel?: () => void
     onsaved?: () => void
   }
 
-  let { profile: userProfile, oncancel, onsaved }: Props = $props()
+  let {
+    profile: userProfile,
+    blueskyImport = false,
+    oncancel,
+    onsaved,
+  }: Props = $props()
 
   // Seed once so a refresh cannot erase an edit that is already in progress.
   // svelte-ignore state_referenced_locally
@@ -36,6 +51,92 @@
   let avatarPreviewUrl: string | undefined = $state()
   let displayedAvatar = $derived(avatarPreviewUrl ?? userProfile.avatar)
   let destroyed = false
+
+  let importChecking = $state(false)
+  let importOpen = $state(false)
+  let importFields = $state<BlueskyProfileImportField[]>()
+  // The profile shown when the import began, and whether the reloaded one
+  // is still to arrive; an import reseeds the form, other refreshes do not.
+  let profileBeforeImport: ProfileViewDetailed | undefined
+  let reseedOnNextProfile = false
+  /** The fields the import wrote; only these are reseeded. */
+  let importedFields: BlueskyProfileImportFieldName[] = []
+  // Saving between an import and the reseed would overwrite the import with
+  // the stale form, so Save stays unavailable until the form reseeds.
+  let importAwaitingReseed = $state(false)
+
+  $effect(() => {
+    const current = userProfile
+    untrack(() => {
+      if (reseedOnNextProfile && current !== profileBeforeImport) reseed()
+    })
+  })
+
+  /**
+   * Shows the imported fields from the reloaded profile. Unsaved edits to
+   * the other fields, including a chosen avatar file, are kept.
+   */
+  function reseed(): void {
+    reseedOnNextProfile = false
+    importAwaitingReseed = false
+    const reloaded = initialProfileValues(userProfile)
+    if (importedFields.includes('displayName'))
+      formData.displayName = reloaded.displayName
+    if (importedFields.includes('description')) formData.bio = reloaded.bio
+    if (importedFields.includes('avatar')) {
+      formData.avatarFile = undefined
+      pendingAvatarFile = undefined
+      if (avatarInput) avatarInput.value = ''
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
+      avatarPreviewUrl = undefined
+    }
+    importedFields = []
+  }
+
+  async function openBlueskyImport(): Promise<void> {
+    if (importChecking) return
+    importChecking = true
+    const outcome = await settingsOutcome(() =>
+      coves().getBlueskyProfileImport(),
+    )
+    importChecking = false
+    if (outcome.kind === 'message') {
+      toast({ content: $t(`form.profile.blueskyImport.${outcome.reason}`) })
+    } else if (outcome.kind === 'error') {
+      warnImportFailure('Bluesky import check failed', outcome.error)
+      if (isExpiredSessionError(outcome.error) && authProfile.sessionExpired)
+        return
+      toast({ content: errorMessage(outcome.error), type: 'error' })
+    } else {
+      profileBeforeImport = userProfile
+      importFields = outcome.fields
+      importOpen = true
+    }
+  }
+
+  function onBlueskyRefreshFailed(): void {
+    toast({
+      content: $t('form.profile.blueskyImport.refreshFailed'),
+      type: 'error',
+    })
+  }
+
+  /**
+   * The dialog stays open for a moment after the import, so the reloaded
+   * profile can arrive before it closes; reseed as soon as it does.
+   */
+  function onBlueskyImportSucceeded(result: ImportBlueskyProfileOutput): void {
+    importedFields = result.imported
+    importAwaitingReseed = true
+    reseedOnNextProfile = true
+  }
+
+  function onBlueskyImported(): void {
+    if (!importAwaitingReseed) return
+    // invalidateAll normally delivers the reloaded profile before this runs.
+    if (userProfile !== profileBeforeImport) reseed()
+    else reseedOnNextProfile = true
+  }
 
   onDestroy(() => {
     destroyed = true
@@ -55,7 +156,7 @@
   }
 
   async function save(): Promise<void> {
-    if (loading) return
+    if (loading || importAwaitingReseed) return
     loading = true
     const submittedValues = { ...formData }
     const submittedAvatarPreviewUrl = avatarPreviewUrl
@@ -178,12 +279,37 @@
       color="primary"
       class="flex-1"
       {loading}
-      disabled={loading}
+      disabled={loading || importAwaitingReseed}
     >
       {$t('common.save')}
     </Button>
   </div>
 </form>
+
+{#if blueskyImport}
+  <div class="flex">
+    <Button
+      size="lg"
+      loading={importChecking}
+      disabled={importChecking || loading}
+      onclick={openBlueskyImport}
+    >
+      {$t('form.profile.importFromBluesky')}
+    </Button>
+  </div>
+  {#if importFields}
+    {#key importFields}
+      <BlueskyImportDialog
+        bind:open={importOpen}
+        mode="settings"
+        fields={importFields}
+        onimportsucceeded={onBlueskyImportSucceeded}
+        onrefreshfailed={onBlueskyRefreshFailed}
+        onimported={onBlueskyImported}
+      />
+    {/key}
+  {/if}
+{/if}
 
 {#if pendingAvatarFile}
   <AvatarCropper

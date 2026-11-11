@@ -548,6 +548,48 @@ export interface UpdateProfileOutput {
   cid: CID
 }
 
+/** The fields the import lexicon lists as knownValues. */
+export type BlueskyProfileImportKnownField =
+  'displayName' | 'description' | 'avatar' | 'banner'
+
+/** A Bluesky profile field the import can copy. */
+export type BlueskyProfileImportFieldName =
+  BlueskyProfileImportKnownField | (string & {})
+
+/** getBlueskyProfileImport's status (lexicon knownValues). */
+export type BlueskyProfileImportStatus =
+  | 'noBlueskyProfile'
+  | 'nothingToImport'
+  | 'dismissed'
+  | 'complete'
+  | 'offer'
+  | (string & {})
+
+/** One importable field reported by getBlueskyProfileImport. */
+export interface BlueskyProfileImportField {
+  field: BlueskyProfileImportFieldName
+  /** Bluesky value of a text field; absent for image fields. */
+  bluesky?: string
+  /** Preview URL of the Bluesky avatar or banner; absent for text fields. */
+  blueskyImageUrl?: string
+  covesIsEmpty: boolean
+}
+
+export interface GetBlueskyProfileImportOutput {
+  status: BlueskyProfileImportStatus
+  fields: BlueskyProfileImportField[]
+}
+
+export interface ImportBlueskyProfileInput {
+  fields: BlueskyProfileImportFieldName[]
+}
+
+export interface ImportBlueskyProfileOutput {
+  uri: AtUri
+  cid: CID
+  imported: BlueskyProfileImportFieldName[]
+}
+
 // ---------------------------------------------------------------------------
 // Core view types — votes
 // ---------------------------------------------------------------------------

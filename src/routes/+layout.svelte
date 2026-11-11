@@ -17,6 +17,7 @@
   import CovesSidebar from '$lib/feature/instance/CovesSidebar.svelte'
   import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import ModerationModals from '$lib/feature/moderation/ModerationModals.svelte'
+  import BlueskyImportOffer from '$lib/feature/bluesky-import/BlueskyImportOffer.svelte'
   import { notificationListReturn } from '$lib/feature/notification/return.svelte'
   import { unreadNotifications } from '$lib/feature/notification/unread.svelte'
 
@@ -193,6 +194,7 @@
   <ExpandableImage />
   <ModalContainer closeLabel={$t('common.back')} formatError={errorMessage} />
   <ModerationModals />
+  <BlueskyImportOffer />
 
   {#snippet sidebar({ style: s, class: c })}
     <Sidebar class={[c, 'p-3 sm:p-6 w-full']} style={s} />

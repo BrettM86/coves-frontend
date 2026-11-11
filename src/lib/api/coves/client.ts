@@ -43,6 +43,9 @@ import type {
   SubscribeCommunityInput,
   UpdateProfileInput,
   UpdateProfileOutput,
+  GetBlueskyProfileImportOutput,
+  ImportBlueskyProfileInput,
+  ImportBlueskyProfileOutput,
   UpdateCommentInput,
   UpdateCommentOutput,
   UploadImageOutput,
@@ -66,6 +69,9 @@ export const NSID = {
   deleteVote: 'social.coves.feed.vote.delete',
   getProfile: 'social.coves.actor.getProfile',
   updateProfile: 'social.coves.actor.updateProfile',
+  getBlueskyProfileImport: 'social.coves.actor.getBlueskyProfileImport',
+  importBlueskyProfile: 'social.coves.actor.importBlueskyProfile',
+  dismissBlueskyProfileImport: 'social.coves.actor.dismissBlueskyProfileImport',
   getActorPosts: 'social.coves.actor.getPosts',
   getActorComments: 'social.coves.actor.getComments',
   blockUser: 'social.coves.actor.blockUser',
@@ -147,6 +153,16 @@ export class CovesClient {
   // Actor
   getProfile(params: GetProfileParams): Promise<ProfileViewDetailed> {
     return this.xrpc.query(NSID.getProfile, params)
+  }
+
+  getBlueskyProfileImport(): Promise<GetBlueskyProfileImportOutput> {
+    return this.xrpc.query(NSID.getBlueskyProfileImport)
+  }
+
+  importBlueskyProfile(
+    input: ImportBlueskyProfileInput,
+  ): Promise<ImportBlueskyProfileOutput> {
+    return this.xrpc.procedure(NSID.importBlueskyProfile, input)
   }
 
   updateProfile(input: UpdateProfileInput): Promise<UpdateProfileOutput> {

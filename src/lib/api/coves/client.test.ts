@@ -673,3 +673,34 @@ describe('uploadImage', () => {
     expect(error).toMatchObject({ errorName: 'UploadRateLimited', status: 429 })
   })
 })
+
+// ---------------------------------------------------------------------------
+// Bluesky profile import
+// ---------------------------------------------------------------------------
+
+describe('Bluesky profile import methods', () => {
+  it('getBlueskyProfileImport() queries social.coves.actor.getBlueskyProfileImport', async () => {
+    const response = {
+      status: 'offer',
+      fields: [{ field: 'displayName', bluesky: 'Alice', covesIsEmpty: true }],
+    }
+    querySpy.mockResolvedValue(response)
+
+    const result = await client.getBlueskyProfileImport()
+
+    expect(querySpy).toHaveBeenCalledTimes(1)
+    expect(querySpy.mock.calls[0][0]).toBe(
+      'social.coves.actor.getBlueskyProfileImport',
+    )
+    expect(result).toEqual(response)
+  })
+
+  it('importBlueskyProfile() posts social.coves.actor.importBlueskyProfile with the chosen fields', async () => {
+    await client.importBlueskyProfile({ fields: ['displayName', 'avatar'] })
+
+    expect(procedureSpy).toHaveBeenCalledWith(
+      'social.coves.actor.importBlueskyProfile',
+      { fields: ['displayName', 'avatar'] },
+    )
+  })
+})

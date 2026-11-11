@@ -144,7 +144,18 @@ export function buildContentSecurityPolicy(
   // scheme check, and the firehose does not validate them). An image cannot
   // execute script; the cost is the ordinary hotlink cost, already bounded by
   // Referrer-Policy.
-  set('img-src', unique(["'self'", 'data:', 'blob:', 'https:', instanceOrigin]))
+  // Dev also allows http: for image previews served by the local PDS.
+  set(
+    'img-src',
+    unique([
+      "'self'",
+      'data:',
+      'blob:',
+      'https:',
+      ...(dev ? ['http:'] : []),
+      instanceOrigin,
+    ]),
+  )
   set('media-src', unique(["'self'", 'blob:', instanceOrigin, ...videoOrigins]))
   set(
     'connect-src',

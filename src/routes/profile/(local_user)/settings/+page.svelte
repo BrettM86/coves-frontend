@@ -21,7 +21,7 @@
   {@render children?.()}
 
   {#if data.profile}
-    <ProfileEditor profile={data.profile} />
+    <ProfileEditor profile={data.profile} blueskyImport />
   {:else}
     <p class="text-sm text-slate-600 dark:text-zinc-400">
       {$t('toast.sessionExpired')}

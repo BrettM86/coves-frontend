@@ -25,6 +25,7 @@
     Languages,
     Maximize2,
     MessageSquareMore,
+    Server,
     Sparkles,
     Star,
     Table,
@@ -231,6 +232,12 @@
     bind:checked={settings.voteRatioBar}
     title={$t('settings.app.voteRatioBar.title')}
     description={$t('settings.app.voteRatioBar.description')}
+  />
+  <ToggleSetting
+    icon={Server}
+    bind:checked={settings.showSoftwareLogos}
+    title={$t('settings.app.softwareLogos.title')}
+    description={$t('settings.app.softwareLogos.description')}
   />
   <ToggleSetting
     icon={Dock}

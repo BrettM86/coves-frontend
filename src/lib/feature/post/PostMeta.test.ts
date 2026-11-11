@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'svelte/server'
+import { JSDOM } from 'jsdom'
 import type { AtUri, CommunityRef } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
 import PostMeta from './PostMeta.svelte'
@@ -55,5 +56,58 @@ describe('PostMeta title link', () => {
     expect(titleHref(html)).toBe(
       '/c/gardening.local.coves.dev/post/did%3Aplc%3Aauthor/3lrkey',
     )
+  })
+})
+
+describe('PostMeta community software logo', () => {
+  const layouts = [
+    { layout: 'feed header', feed: true },
+    { layout: 'default header', feed: false },
+  ]
+
+  function renderMeta(
+    feed: boolean,
+    originSoftware: string | undefined,
+  ): Document {
+    const html = render(PostMeta, {
+      props: {
+        feed,
+        uri: POST_URI,
+        title: 'Companion planting',
+        community: { ...community, originSoftware },
+        user: author,
+        published: new Date('2026-10-01T00:00:00Z'),
+      },
+    }).body
+    return new JSDOM(html).window.document
+  }
+
+  describe.each(layouts)('$layout', ({ feed }) => {
+    it.each([
+      { originSoftware: 'lemmy', alt: 'Lemmy' },
+      { originSoftware: 'piefed', alt: 'PieFed' },
+      { originSoftware: 'PieFed', alt: 'PieFed' },
+    ])(
+      'shows the $alt logo for originSoftware $originSoftware',
+      ({ originSoftware, alt }) => {
+        const logos = renderMeta(feed, originSoftware).querySelectorAll(
+          `img[alt="${alt}"]`,
+        )
+        expect(logos).toHaveLength(1)
+        expect(logos[0].hasAttribute('title')).toBe(false)
+      },
+    )
+
+    it.each([
+      { case: 'absent', originSoftware: undefined },
+      { case: 'empty', originSoftware: '' },
+      { case: 'unrelated software', originSoftware: 'mbin' },
+    ])('shows no software logo when originSoftware is $case', ({
+      originSoftware,
+    }) => {
+      const document = renderMeta(feed, originSoftware)
+      expect(document.querySelector('img[alt="Lemmy"]')).toBeNull()
+      expect(document.querySelector('img[alt="PieFed"]')).toBeNull()
+    })
   })
 })

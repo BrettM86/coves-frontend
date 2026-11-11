@@ -643,7 +643,8 @@
             "unblock": "Unblock",
             "blockInstance": "Block server",
             "activeDay": "Active Today",
-            "flair": "Set my flair"
+            "flair": "Set my flair",
+            "viewOn": "View on {{host}}"
         }
     },
     "admin": {
@@ -1081,6 +1082,10 @@
             "voteRatioBar": {
                 "title": "Vote ratio bar",
                 "description": "When the controversiality of a post reaches greater than 15%, a bar will be displayed in the vote buttons to help visualize sentiment."
+            },
+            "softwareLogos": {
+                "title": "Show software logos",
+                "description": "Show a Lemmy or PieFed logo next to communities from other servers."
             }
         },
         "embeds": {

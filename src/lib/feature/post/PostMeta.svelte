@@ -21,6 +21,9 @@
   } from '$lib/ui/kit/icon'
   import { SvelteMap } from 'svelte/reactivity'
   import CommunityLink from '../community/CommunityLink.svelte'
+  import CommunitySoftwareLogo, {
+    softwareLogo,
+  } from '../community/CommunitySoftwareLogo.svelte'
   import UserLink from '../user/UserLink.svelte'
   import { postLink } from './helpers'
 
@@ -250,7 +253,12 @@
           class="gap-0! text-sm sm:text-[15px] no-list-margin justify-self-start"
         >
           <span
-            class="font-medium sm:font-bold text-community truncate shrink-0 max-w-full"
+            class={[
+              'font-medium sm:font-bold text-community truncate shrink-0',
+              softwareLogo(community.originSoftware)
+                ? 'max-w-[calc(100%-1.33em-0.25rem)]'
+                : 'max-w-full',
+            ]}
           >
             !{communityParts.name}
           </span>
@@ -259,6 +267,10 @@
               {communityParts.origin}
             </span>
           {/if}
+          <CommunitySoftwareLogo
+            software={community.originSoftware}
+            class="ml-1"
+          />
         </CommunityLink>
       {/if}
       {#if user}
@@ -306,8 +318,13 @@
       <CommunityLink
         {community}
         style="grid-area: community;"
-        class="shrink no-list-margin justify-self-start"
-      />
+        class="shrink no-list-margin justify-self-start gap-1!"
+      >
+        <span class="font-medium truncate shrink min-w-0">
+          {communityMention(community)}
+        </span>
+        <CommunitySoftwareLogo software={community.originSoftware} />
+      </CommunityLink>
     {/if}
     <div
       class="flex flex-row gap-1.5 items-center

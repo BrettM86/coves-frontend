@@ -9,6 +9,8 @@
   import { purgeCommunity } from './CommunityCard.svelte'
   import CommunityBlockMenuItem from './CommunityBlockMenuItem.svelte'
   import SubscribeButton from './SubscribeButton.svelte'
+  import CommunityOriginLink from './CommunityOriginLink.svelte'
+  import CommunitySoftwareLogo from './CommunitySoftwareLogo.svelte'
   import {
     communityDisplayName,
     communityMention,
@@ -69,9 +71,10 @@
         navigator?.clipboard?.writeText?.(communityMention(community))
         toast({ content: $t('toast.copied') })
       }}
-      class="text-sm flex gap-0 items-center"
+      class="text-sm flex gap-1 items-center max-w-full"
     >
-      {communityMention(community)}
+      <span class="min-w-0 truncate">{communityMention(community)}</span>
+      <CommunitySoftwareLogo software={community.originSoftware} />
     </button>
   {/snippet}
   <div
@@ -135,4 +138,18 @@
       </Menu>
     {/if}
   </div>
+  {#if community.originUrl}
+    <!-- The sidebar card carries this link from lg up, where the Shell shows
+         the suffix column; below that the banner carries it. -->
+    <!-- A wrapper, because the button's own scoped display rule outranks a
+         lg:hidden class passed to it. -->
+    <div class="lg:hidden">
+      <CommunityOriginLink
+        origin={community.origin}
+        originUrl={community.originUrl}
+        software={community.originSoftware}
+        class="w-max"
+      />
+    </div>
+  {/if}
 </EntityHeader>

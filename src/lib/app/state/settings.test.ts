@@ -230,3 +230,15 @@ describe('resetSettings', () => {
     expect(defaultSettings.defaultSort.sort).toBe('hot')
   })
 })
+
+describe('showSoftwareLogos', () => {
+  it('defaults to true', () => {
+    expect(defaultSettings.showSoftwareLogos).toBe(true)
+  })
+
+  it('is true after a reset', () => {
+    settings.showSoftwareLogos = false
+    resetSettings()
+    expect(settings.showSoftwareLogos).toBe(true)
+  })
+})

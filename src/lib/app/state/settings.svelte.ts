@@ -59,6 +59,8 @@ interface Settings {
     accounts: boolean
   }
   nsfwBlur: boolean
+  /** When false, community software logos (Lemmy, PieFed) are hidden. */
+  showSoftwareLogos: boolean
   modlogCardView: boolean | undefined
   debugInfo: boolean
   expandImages: boolean
@@ -126,6 +128,7 @@ export const defaultSettings: Settings = {
     accounts: true,
   },
   nsfwBlur: toBool(env.PUBLIC_NSFW_BLUR) ?? true,
+  showSoftwareLogos: true,
   modlogCardView: toBool(env.PUBLIC_MODLOG_CARD_VIEW) ?? undefined,
   debugInfo: toBool(env.PUBLIC_DEBUG_INFO) ?? false,
   expandImages: toBool(env.PUBLIC_EXPAND_IMAGES) ?? true,

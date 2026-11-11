@@ -166,6 +166,11 @@ export interface CommunityRef {
    * without parsing the DNS handle. Optional until every appview ships it.
    */
   origin?: string
+  /**
+   * Software of the community's home instance, as its lowercase nodeinfo
+   * name (e.g. `lemmy`, `piefed`). Absent when the appview does not know it.
+   */
+  originSoftware?: string
   avatar?: string
 }
 
@@ -387,6 +392,10 @@ export interface CommunityView {
   name: string
   /** Home instance of the community; see {@link CommunityRef.origin}. */
   origin?: string
+  /** Home instance software; see {@link CommunityRef.originSoftware}. */
+  originSoftware?: string
+  /** Absolute URL of the community on its home instance; set only for bridged communities. */
+  originUrl?: string
   subscriberCount: number
   memberCount: number
   postCount: number

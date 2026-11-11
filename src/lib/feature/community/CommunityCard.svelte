@@ -38,6 +38,8 @@
   import EntityHeader from '$lib/feature/shell/EntityHeader.svelte'
   import CommunityBlockMenuItem from './CommunityBlockMenuItem.svelte'
   import SubscribeButton from './SubscribeButton.svelte'
+  import CommunityOriginLink from './CommunityOriginLink.svelte'
+  import CommunitySoftwareLogo from './CommunitySoftwareLogo.svelte'
   import {
     communityDisplayName,
     communityMention,
@@ -98,7 +100,10 @@
       avatarCircle={false}
     >
       {#snippet nameDetail()}
-        {communityMention(community)}
+        <span class="flex max-w-full items-center gap-1">
+          <span class="min-w-0 truncate">{communityMention(community)}</span>
+          <CommunitySoftwareLogo software={community.originSoftware} />
+        </span>
       {/snippet}
     </EntityHeader>
 
@@ -156,6 +161,13 @@
           </MenuButton>
         {/if}
       </Menu>
+    {/if}
+    {#if isHydratedCommunity(community) && community.originUrl}
+      <CommunityOriginLink
+        origin={community.origin}
+        originUrl={community.originUrl}
+        software={community.originSoftware}
+      />
     {/if}
     <!--
       Stats are only present on a hydrated community view. The post permalink

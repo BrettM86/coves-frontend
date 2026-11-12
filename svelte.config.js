@@ -22,6 +22,11 @@ const config = {
         : process.env.ADAPTER == 'node'
           ? node()
           : auto(),
+    // Lets an open tab notice a new deploy; the root layout then loads the
+    // next link click in full so the tab moves onto the new build.
+    version: {
+      pollInterval: 60_000,
+    },
     csp: {
       // Kit must own `script-src` to append its per-request nonce. The other
       // three are here only so an `ADAPTER=static` build (no server hooks)

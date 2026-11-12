@@ -2,9 +2,10 @@
   import { errorMessage } from '$lib/app/util/error'
   import { FONT_CLASSES, fontClass } from '$lib/app/util/font'
   import { markHydrated } from '$lib/app/util/ssr'
+  import { deployReloadTarget } from '$lib/app/util/deploy-reload'
   import { browser } from '$app/environment'
   import { afterNavigate, beforeNavigate } from '$app/navigation'
-  import { navigating, page } from '$app/state'
+  import { navigating, page, updated } from '$app/state'
   import { profile } from '$lib/app/state/auth.svelte'
   import { locale, t } from '$lib/app/state/i18n'
   import { settings } from '$lib/app/state/settings.svelte'
@@ -70,6 +71,14 @@
 
   // Tells a return from a followed notification's thread from other entries.
   beforeNavigate(notificationListReturn.noteNavigation)
+
+  // After a deploy, the next link click loads the new build in full.
+  beforeNavigate((navigation) => {
+    const target = deployReloadTarget(updated.current, navigation)
+    if (!target) return
+    navigation.cancel()
+    location.href = target
+  })
 
   afterNavigate((navigation) => {
     notificationListReturn.noteArrival(navigation)

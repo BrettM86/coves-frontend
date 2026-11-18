@@ -1,10 +1,10 @@
 # Coves Mini web PRD (frontend mini mode and the Lobsters/HN layout)
 
-Status: draft 2, revised after the second-opinion review (codex, code-reviewer, comment-analyzer). Awaiting Bretton's decisions. Repo: `coves-frontend`. Base: `main`.
+Status: approved by Bretton 2026-11-18. W4 decided as text only (no images or embeds); every other decision on its recommended option. Draft 2 was revised after the second-opinion review (codex, code-reviewer, comment-analyzer). Repo: `coves-frontend`. Base: `main`.
 
 Parent PRD: `coves/docs/PRD_MINI.md` on `prd/prd_mini`, §8 "Frontend mini mode" and §12 chunk 7. The parent's decisions stand unless a decision below says it amends one. Mini loop tasks 01 to 10 are done, 11 is superseded by main's admin-removal work and 12 was dropped; the launch gate (remove/restore and bans through the community moderators work) is met. The parent's §12 chunks 8 (published images) and 9 (operator kit) are separate and the kit is not started. The backend branch merges to main after `prd/prd_community_moderators`; this work ships after both.
 
-Design reference: the "Coves mini design language" canvas in the project. It holds the tokens (by name: `bg`, `raised`, `rule`, `guide`, `ink`, `ink-2`, `meta`, `accent`, in dark and light), type scale, parts, and the frontpage and thread on desktop and phone. Where the canvas and this document differ, this document wins.
+Design reference: the "Coves mini design language" canvas in the project. It holds the tokens (by name: `bg`, `raised`, `rule`, `guide`, `ink`, `ink-2`, `meta`, `accent`, in dark and light; `accent` is the Coves community teal, brightened on dark and deepened on light to pass 4.5:1, with cool-tinted neutrals to match), type scale, parts, and the frontpage and thread on desktop and phone. Where the canvas and this document differ, this document wins.
 
 ## Goal
 
@@ -56,9 +56,8 @@ Each has a recommendation. Pick, amend, or say "all recommended".
 - (a) **Recommended.** In mini mode the root element carries `data-mini`. The mini palette is a preset that is only offered in the theme picker in mini mode and is the default there; the default colour scheme in mini mode is dark, and the existing light/dark switch still works. Mini fonts and spacing tokens are scoped under `[data-mini]` in `src/app.css`, so the global `@theme` values are unchanged on normal instances.
 - (b) Same, but the mini preset is also offered on normal instances.
 
-**W4. Thumbnails in the story list.**
-- (a) **Recommended.** A 56 px (phone 52 px) thumbnail on the right only when the post has an image or a link thumbnail. No operator switch in v1 (see proposal P2).
-- (b) Never show thumbnails (pure HN).
+**W4. Images and embeds. Decided: text only.**
+Mini shows no thumbnails, inline images, galleries or embeds anywhere. See "Text only" under Behaviour.
 
 **W5. How the client learns uploads are off.**
 - (a) **Recommended.** Read `IMAGE_UPLOADS_ENABLED` server-side alongside `MINI_COMMUNITY` (unset means on) and pass `uploadsEnabled` in layout data. When false, these controls are not rendered: post images, comment images, profile avatar and banner, community avatar and banner in community settings, and the Bluesky import avatar step. A 403 `ImageUploadsDisabled` is still shown as a plain error.
@@ -109,8 +108,7 @@ Each has a recommendation. Pick, amend, or say "all recommended".
 These are not needed for v1. Each says what it prevents, the smaller alternative, and the added work.
 
 - **P1. Operator accent colour (`PUBLIC_MINI_ACCENT`).** Prevents every mini forum looking identical. Smaller alternative: forums differ by name and avatar only (v1 default). Work: one variable, a contrast check against both backgrounds with fallback to the default accent, one test.
-- **P2. Thumbnails off switch (`PUBLIC_MINI_THUMBNAILS=false`).** Prevents image-heavy rows on a forum that wants pure text. Smaller alternative: thumbnails show only when a post has an image (W4a). Work: one variable and one branch.
-- **P3. Caching the home community view.** Prevents one `community.get` per page render. Smaller alternative (v1): resolve the home DID once at boot and fetch the view per request. A cache, if added later, must fetch anonymously and hold only public fields, since `community.get` fills in `viewer` (subscribed, blocked, roles) for signed-in requests.
+- **P2. Caching the home community view.** Prevents one `community.get` per page render. Smaller alternative (v1): resolve the home DID once at boot and fetch the view per request. A cache, if added later, must fetch anonymously and hold only public fields, since `community.get` fills in `viewer` (subscribed, blocked, roles) for signed-in requests.
 
 ## Behaviour
 
@@ -134,6 +132,15 @@ Every `/c/[handle]` route resolves its parameter to a DID with the existing comm
 
 Every request that can return content from other communities passes `community=<home DID>`: `actor.getPosts` and `actor.getComments` on `/u/<h>`, `/profile/<h>` and the own-profile route, the two profile RSS endpoints, `listNotifications`, `getUnreadCount`, and `searchPosts`. The notification client methods gain the parameter. `updateSeen` keeps its single watermark; notifications from other communities are never shown on the mini site, so moving the watermark past them only affects the mini AppView's own state and is accepted.
 
+### Text only (W4)
+
+Mini renders no images or embeds. Content still arrives from coves.social users who post images into the forum, so:
+- **Story list:** no thumbnail column. An image or gallery post shows `(image)` or `(N images)` in place of the domain; it links to the thread.
+- **Thread:** a post's images are listed as mono links, `image 1`, `image 2` …, each opening the full image through the image proxy in a new tab. Link posts show the URL as a plain link, with no link card. Bluesky post embeds and video embeds become plain links.
+- **Markdown in bodies and comments:** image syntax renders as a link with its alt text (or "image"), never an `<img>`.
+- **Avatars:** none in lists, threads or comment headers. The forum avatar appears only in the header and favicon, as branding.
+- **Composer:** no image controls, regardless of `uploadsEnabled` (W5 still covers profile and community settings).
+
 ### Search
 
 A new `/search` page in mini mode: a query box and results as `StoryRow`s, from a new `searchPosts` client method with `community=<home DID>`.
@@ -144,13 +151,13 @@ A new `/search` page in mini mode: a query box and results as `StoryRow`s, from 
 
 ### Story list
 
-One `<article>` per post on a 1 px `rule`, no cards. Desktop grid: rank 28 px, vote 32 px, body, optional thumbnail. Phone: vote, body, optional thumbnail.
+One `<article>` per post on a 1 px `rule`, no cards. Desktop grid: rank 28 px, vote 32 px, body. Phone: vote, body.
 
 - **Title line:** title (17/500 desktop, 16/500 phone), then the domain in mono `meta`, e.g. `(nullroute.dev)`. For github.com, gitlab.com and codeberg.org the first path segment is kept, `(github.com/mira)`. Links per W12.
 - **Meta line (mono 12.5, phone 12):** author, age, comment count ("N comments", phone "Nc", "discuss" at zero). Authors whose handle ends in the forum host are shown by the part before it; others in full, `name@host`. One line with ellipsis.
 - **Votes:** `VoteControl` with the score between the arrows (W13). Your vote shows in `accent`.
 - **Paging:** W6.
-- **Removed and sensitive posts:** the existing placeholders and sensitive-content rules in the title position; no thumbnail.
+- **Removed and sensitive posts:** the existing placeholders and sensitive-content rules in the title position.
 
 ### Thread page
 
@@ -179,7 +186,7 @@ One `<article>` per post on a 1 px `rule`, no cards. Desktop grid: rank 28 px, v
 ## Testing
 
 - Unit (Vitest): mini config parsing and validation (including upper case and `c-`); route guards (every home alias redirects once, other communities 404, a foreign post under a home slug 404s); domain trimming; author formatting; rank numbering across appended pages; `VoteControl` with `allowDownvotes` false, including a stored downvote, for posts and comments; scoping parameters on every listed request; uploads-off control hiding.
-- Browser tests for `StoryRow`, `MiniComment` and `VoteControl` in both themes.
+- Browser tests for `StoryRow`, `MiniComment` and `VoteControl` in both themes, and for text-only rendering: an image post, a gallery, a link post, a Bluesky embed and Markdown image syntax produce links and no `<img>` apart from the header avatar.
 - Mini mode in unit and browser tests comes from mocked layout data. `pnpm run ci` (the merge gate) runs with `MINI_COMMUNITY` unset; its build and SSR tiers have no AppView.
 - Playwright (W15) against `appview2` (`MINI_COMMUNITY=mini`, `did:web:forum.pds2.test`, community `c-mini.forum.pds2.test`, pages from `tests/fixtures/mini_pages`): only the home community shows, home aliases redirect to `/`, another community 404s, posting has no picker, profile and search show only home activity, notifications are scoped, legal links resolve, and ▼ disappears after `appview2-bootstrap-downvotes-off` and returns after `-on`, on posts and comments.
 
@@ -191,7 +198,7 @@ Each chunk ends with `pnpm run ci` passing, run in a worktree, never the main ch
 2. **Routing and scoping.** DID-based route guards and redirects, link builders, hidden explore/blocks/voted/creation, `create/post` without a picker, `community` on every request in Scoping (needs 1).
 3. **Tokens and fonts.** `data-mini`, mini preset and dark default, scoped tokens, self-hosted fonts (W2, W3; needs 1).
 4. **Shell and branding.** Header, footer, titles, Coves branding removed, guidelines page (W10), legal and license (W14) (needs 1 and 3). W10(a) also needs the small backend config change.
-5. **Story list.** Render snippets on `VirtualFeed`, `StoryList`, `StoryRow`, `VoteControl`, thumbnails (W4), pager and ranks (W6), sorts (W11), title links (W12) (needs 2 and 3).
+5. **Story list.** Render snippets on `VirtualFeed`, `StoryList`, `StoryRow`, `VoteControl`, the text-only rendering rules (W4), pager and ranks (W6), sorts (W11), title links (W12) (needs 2 and 3).
 6. **Thread page.** Render snippets on `CommentProvider`, `MiniThread`, `MiniComment`, composer, collapse, more replies, depth (W7) (needs 5 for `VoteControl`).
 7. **Search.** `searchPosts` client method and `/search` (needs 5).
 8. **Phone shell.** Bottom bar and thread top bar (W8) (needs 5 and 6).

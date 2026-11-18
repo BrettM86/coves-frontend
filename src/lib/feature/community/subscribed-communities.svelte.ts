@@ -24,15 +24,24 @@ import type {
   ListCommunitiesParams,
   ListCommunitiesResponse,
 } from '$lib/api/coves/types'
-import type { DID, Handle } from '$lib/types/atproto'
+import type { DID } from '$lib/types/atproto'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
-import { isSubscribed } from './subscription.svelte'
+import {
+  isSubscribed,
+  isSubscriptionPending,
+  type SubscribableCommunity,
+} from './subscription.svelte'
 
 /** Page size for each social.coves.community.list request. */
 export const SUBSCRIBED_PAGE_LIMIT = 100
 
 /** Loop guard: never follow more pages than this, whatever the server says. */
 const MAX_PAGES = 50
+
+/** What the sidebar needs of a subscribed community; any community view qualifies. */
+export type ListedCommunity = CommunityRef & {
+  readonly viewer?: CommunityViewerState
+}
 
 export interface SubscribedListApi {
   listCommunities(
@@ -42,14 +51,6 @@ export interface SubscribedListApi {
 
 export interface FavoriteApi {
   subscribe(input: { community: DID; favorite: boolean }): Promise<void>
-}
-
-export interface SidebarCommunity {
-  readonly did: DID
-  readonly name: string
-  readonly origin?: string
-  readonly handle?: Handle
-  readonly viewer?: CommunityViewerState
 }
 
 /**
@@ -83,15 +84,27 @@ export async function fetchAllSubscribedCommunities(
     }
 
     const next = response.cursor
-    if (!next || cursors.has(next)) break
+    if (!next) return result
+    if (cursors.has(next)) {
+      log.warn('[subscribed-communities] server repeated a cursor', {
+        pages: page + 1,
+        count: result.length,
+      })
+      return result
+    }
     cursors.add(next)
     cursor = next
   }
 
+  log.warn('[subscribed-communities] stopped at the page limit', {
+    pages: MAX_PAGES,
+    count: result.length,
+  })
+
   return result
 }
 
-function compareByName(a: SidebarCommunity, b: SidebarCommunity): number {
+function compareByName(a: ListedCommunity, b: ListedCommunity): number {
   const byName = a.name.localeCompare(b.name, undefined, {
     sensitivity: 'base',
   })
@@ -106,7 +119,7 @@ function compareByName(a: SidebarCommunity, b: SidebarCommunity): number {
  * ignoring case. Ties break on address then DID, so the order never depends
  * on input order. The input array is left untouched.
  */
-export function orderSidebarCommunities<T extends SidebarCommunity>(
+export function orderSidebarCommunities<T extends ListedCommunity>(
   communities: readonly T[],
   isFavoriteCommunity: (community: T) => boolean,
 ): { favorites: T[]; others: T[] } {
@@ -131,28 +144,48 @@ interface FavoriteOverride {
   serverAtPress: boolean
 }
 
-interface FavoritableCommunity {
-  readonly did: DID
-  readonly viewer?: CommunityViewerState
-}
-
 const favoriteOverrides = new SvelteMap<DID, FavoriteOverride>()
 const favoritePending = new SvelteSet<DID>()
+/**
+ * Communities unsubscribed from in this session. Unsubscribing drops the
+ * favorite on the server, so a stale cached `favorite: true` must not star
+ * the row again after a resubscribe.
+ */
+const favoriteDropped = new SvelteSet<DID>()
+/** Bumped when favorite state is wiped, so an older request cannot write into it. */
+let favoriteEpoch = 0
 
-function serverFavorite(community: FavoritableCommunity): boolean {
+/** Forgets every in-session favorite change; called when the viewer changes. */
+function clearFavoriteState(): void {
+  favoriteEpoch += 1
+  favoriteOverrides.clear()
+  favoritePending.clear()
+  favoriteDropped.clear()
+}
+
+/** Records an unsubscribe, which drops the favorite server-side. */
+export function forgetFavorite(community: SubscribableCommunity): void {
+  favoriteOverrides.delete(community.did)
+  favoriteDropped.add(community.did)
+}
+
+function serverFavorite(community: SubscribableCommunity): boolean {
   return community.viewer?.favorite === true
 }
 
 /** Whether the viewer favorited this community, with any in-session change applied. */
-export function isFavorite(community: FavoritableCommunity): boolean {
+export function isFavorite(community: SubscribableCommunity): boolean {
   const server = serverFavorite(community)
   const override = favoriteOverrides.get(community.did)
-  if (override === undefined || override.serverAtPress !== server) return server
-  return override.favorite
+  if (override !== undefined && override.serverAtPress === server) {
+    return override.favorite
+  }
+  if (favoriteDropped.has(community.did)) return false
+  return server
 }
 
 /** Whether a favorite change is in flight for this community. */
-export function isFavoritePending(community: FavoritableCommunity): boolean {
+export function isFavoritePending(community: SubscribableCommunity): boolean {
   return favoritePending.has(community.did)
 }
 
@@ -164,18 +197,23 @@ export type ToggleFavoriteOutcome =
 /**
  * Flips the favorite optimistically, sends it through subscribe, and rolls
  * back on failure. A second press while one is in flight is ignored
- * (`pending`).
+ * (`pending`), and so is a press while a subscribe or unsubscribe for the same
+ * community is in flight: the favorite goes through subscribe too, and landing
+ * after an unsubscribe would quietly subscribe the viewer again.
  */
 export async function toggleFavorite(
-  community: FavoritableCommunity,
+  community: SubscribableCommunity,
   api: FavoriteApi,
 ): Promise<ToggleFavoriteOutcome> {
   const { did } = community
-  if (favoritePending.has(did)) return { kind: 'pending' }
+  if (favoritePending.has(did) || isSubscriptionPending(community)) {
+    return { kind: 'pending' }
+  }
 
   const was = isFavorite(community)
   const next = !was
   const previous = favoriteOverrides.get(did)
+  const epoch = favoriteEpoch
   favoritePending.add(did)
   favoriteOverrides.set(did, {
     favorite: next,
@@ -190,31 +228,37 @@ export async function toggleFavorite(
       did,
       was,
     })
-    if (previous === undefined) {
-      favoriteOverrides.delete(did)
-    } else {
-      favoriteOverrides.set(did, previous)
+    if (epoch === favoriteEpoch) {
+      if (previous === undefined) {
+        favoriteOverrides.delete(did)
+      } else {
+        favoriteOverrides.set(did, previous)
+      }
     }
     return { kind: 'error', error }
   } finally {
-    favoritePending.delete(did)
+    if (epoch === favoriteEpoch) favoritePending.delete(did)
   }
-}
-
-/** What the sidebar needs of a subscribed community; any community view qualifies. */
-export type ListedCommunity = CommunityRef & {
-  readonly viewer?: CommunityViewerState
 }
 
 export type SubscribedCommunitiesStatus =
   'idle' | 'loading' | 'loaded' | 'error'
 
 class SubscribedCommunitiesStore {
-  status = $state<SubscribedCommunitiesStatus>('idle')
-  owner = $state<DID | undefined>(undefined)
+  #status = $state<SubscribedCommunitiesStatus>('idle')
+  #owner = $state<DID | undefined>(undefined)
   #server = $state.raw<ListedCommunity[]>([])
   #remembered = new SvelteMap<DID, ListedCommunity>()
   #generation = 0
+
+  get status(): SubscribedCommunitiesStatus {
+    return this.#status
+  }
+
+  /** The viewer the list belongs to; changes only through `load` and `reset`. */
+  get owner(): DID | undefined {
+    return this.#owner
+  }
 
   /**
    * The server list plus communities subscribed to in this session, with
@@ -238,26 +282,31 @@ class SubscribedCommunitiesStore {
   async load(api: SubscribedListApi, owner: DID): Promise<void> {
     this.#generation += 1
     const generation = this.#generation
-    if (this.owner !== owner) {
+    if (this.#owner !== owner) {
       this.#server = []
-      this.#remembered.clear()
-      this.owner = owner
+      // Subscribes pressed before the first load belong to this viewer.
+      if (this.#owner !== undefined) this.#remembered.clear()
+      clearFavoriteState()
+      this.#owner = owner
     }
-    this.status = 'loading'
+    this.#status = 'loading'
 
     try {
       const communities = await fetchAllSubscribedCommunities(api)
       if (generation !== this.#generation) return
       this.#server = communities
-      this.status = 'loaded'
+      this.#status = 'loaded'
     } catch (error) {
       if (generation !== this.#generation) return
       log.error('[subscribed-communities] load failed', error, { owner })
-      this.status = 'error'
+      this.#status = 'error'
     }
   }
 
-  /** Keeps a community subscribed to in this session until the server lists it. */
+  /**
+   * Shows a community subscribed to in this session while the index catches
+   * up. It stays until the viewer changes; a server entry for the same DID wins.
+   */
   remember(community: ListedCommunity): void {
     this.#remembered.set(community.did, community)
   }
@@ -267,8 +316,9 @@ class SubscribedCommunitiesStore {
     this.#generation += 1
     this.#server = []
     this.#remembered.clear()
-    this.owner = undefined
-    this.status = 'idle'
+    clearFavoriteState()
+    this.#owner = undefined
+    this.#status = 'idle'
   }
 }
 
@@ -276,7 +326,5 @@ export const subscribedCommunities = new SubscribedCommunitiesStore()
 
 /** Test seam: forget favorite overrides, in-flight markers and the store. */
 export function resetSubscribedCommunitiesState(): void {
-  favoriteOverrides.clear()
-  favoritePending.clear()
   subscribedCommunities.reset()
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment'
+  import { tick } from 'svelte'
   import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/state/auth.svelte'
   import { t } from '$lib/app/state/i18n'
@@ -40,9 +41,29 @@
     orderSidebarCommunities(subscribedCommunities.communities, isFavorite),
   )
 
-  async function onStar(community: ListedCommunity): Promise<void> {
-    const outcome = await toggleFavorite(community, coves())
+  let list = $state<HTMLElement>()
+
+  /**
+   * Starring moves the row between groups, and a moved node loses focus;
+   * put keyboard focus back on the same star.
+   */
+  async function refocusStar(did: string): Promise<void> {
+    await tick()
+    list
+      ?.querySelector<HTMLButtonElement>(`[data-favorite-did="${did}"]`)
+      ?.focus()
+  }
+
+  async function onStar(
+    community: ListedCommunity,
+    event: MouseEvent,
+  ): Promise<void> {
+    const hadFocus = event.currentTarget === document.activeElement
+    const run = toggleFavorite(community, coves())
+    if (hadFocus) await refocusStar(community.did)
+    const outcome = await run
     if (outcome.kind !== 'error') return
+    if (hadFocus) await refocusStar(community.did)
     if (isExpiredSessionError(outcome.error) && profile.sessionExpired) return
     toast({ content: errorMessage(outcome.error), type: 'error' })
   }
@@ -58,6 +79,7 @@
   <li class="flex flex-row items-center gap-1">
     <SidebarButton
       href="/c/{communityIdentifier(community)}"
+      exact
       title={address}
       class="flex-1 min-w-0"
     >
@@ -75,21 +97,12 @@
           ? 'text-slate-700 dark:text-zinc-200'
           : 'text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-200',
       ]}
+      data-favorite-did={community.did}
       aria-pressed={favorite}
-      aria-label={$t(
-        favorite
-          ? 'nav.sidebarCommunities.unfavorite'
-          : 'nav.sidebarCommunities.favorite',
-        { default: address },
-      )}
-      title={$t(
-        favorite
-          ? 'nav.sidebarCommunities.unfavorite'
-          : 'nav.sidebarCommunities.favorite',
-        { default: address },
-      )}
-      disabled={isFavoritePending(community)}
-      onclick={() => onStar(community)}
+      aria-label={$t('nav.sidebarCommunities.favorite', { default: address })}
+      title={$t('nav.sidebarCommunities.favorite', { default: address })}
+      aria-disabled={isFavoritePending(community)}
+      onclick={(event) => onStar(community, event)}
     >
       <Icon src={Star} size="16" class={[favorite && 'fill-current']} />
     </button>
@@ -121,7 +134,7 @@
       />
     </button>
     {#if settings.expand.communities}
-      <ul id="sidebar-communities" class="flex flex-col gap-1">
+      <ul id="sidebar-communities" class="flex flex-col gap-1" bind:this={list}>
         <li>
           <SidebarButton
             href="/explore/communities"
@@ -130,10 +143,7 @@
             class="w-full"
           />
         </li>
-        {#each ordered.favorites as community (community.did)}
-          {@render row(community)}
-        {/each}
-        {#each ordered.others as community (community.did)}
+        {#each [...ordered.favorites, ...ordered.others] as community (community.did)}
           {@render row(community)}
         {/each}
         {#if subscribedCommunities.status === 'error'}

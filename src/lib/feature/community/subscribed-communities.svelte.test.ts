@@ -7,6 +7,7 @@ import type {
 import type { DID } from '$lib/types/atproto'
 import {
   fetchAllSubscribedCommunities,
+  forgetFavorite,
   isFavorite,
   isFavoritePending,
   orderSidebarCommunities,
@@ -20,7 +21,18 @@ import {
 import {
   resetSubscriptionState,
   toggleSubscription,
+  type SubscriptionApi,
 } from './subscription.svelte'
+
+function subscriptionApi(
+  overrides: Partial<SubscriptionApi> = {},
+): SubscriptionApi {
+  return {
+    subscribe: vi.fn(async () => undefined),
+    unsubscribe: vi.fn(async () => undefined),
+    ...overrides,
+  }
+}
 
 function did(n: string): DID {
   return `did:plc:${n.padEnd(24, 'x')}` as DID
@@ -71,6 +83,7 @@ beforeEach(() => {
   resetSubscribedCommunitiesState()
   resetSubscriptionState()
   vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
 describe('fetchAllSubscribedCommunities', () => {
@@ -290,6 +303,56 @@ describe('toggleFavorite', () => {
   })
 })
 
+describe('favorite and subscription together', () => {
+  it('refuses a star while a subscribe or unsubscribe is in flight', async () => {
+    const gate = deferred()
+    const c = community('a')
+    const unsubscribing = toggleSubscription(
+      c,
+      subscriptionApi({ unsubscribe: vi.fn(() => gate.promise) }),
+    )
+    const api = favoriteApi()
+    await expect(toggleFavorite(c, api)).resolves.toEqual({ kind: 'pending' })
+    expect(api.subscribe).not.toHaveBeenCalled()
+    gate.resolve()
+    await unsubscribing
+  })
+
+  it('shows a resubscribed community unstarred after an unsubscribe dropped its favorite', async () => {
+    const c = community('a', { subscribed: true, favorite: true })
+    forgetFavorite(c)
+    expect(isFavorite(c)).toBe(false)
+    await toggleFavorite(c, favoriteApi())
+    expect(isFavorite(c)).toBe(true)
+  })
+})
+
+describe('fetchAllSubscribedCommunities logging', () => {
+  it('warns when it stops on a repeated cursor', async () => {
+    await fetchAllSubscribedCommunities(
+      listApi([
+        { communities: [community('a')], cursor: 'same' },
+        { communities: [community('b')], cursor: 'same' },
+      ]),
+    )
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('stops at the page limit when the server never stops paging', async () => {
+    let n = 0
+    const api: SubscribedListApi = {
+      listCommunities: vi.fn(async () => {
+        n += 1
+        return { communities: [community('c' + n)], cursor: 'c' + n }
+      }),
+    }
+    const result = await fetchAllSubscribedCommunities(api)
+    expect(api.listCommunities).toHaveBeenCalledTimes(50)
+    expect(result).toHaveLength(50)
+    expect(console.warn).toHaveBeenCalled()
+  })
+})
+
 describe('subscribedCommunities store', () => {
   const OWNER = did('owner')
   const OTHER = did('other')
@@ -375,18 +438,96 @@ describe('subscribedCommunities store', () => {
     expect(subscribedCommunities.communities.map((c) => c.name)).toContain('a')
   })
 
-  it('does not list a remembered community twice once the server has it', async () => {
+  it('does not list a remembered community twice once the server has it, and the server copy wins', async () => {
+    await subscribedCommunities.load(listApi([{ communities: [] }]), OWNER)
     const fresh = community('a', { subscribed: false })
-    await toggleSubscription(fresh, {
-      subscribe: vi.fn(async () => undefined),
-      unsubscribe: vi.fn(async () => undefined),
-    })
+    await toggleSubscription(fresh, subscriptionApi())
     subscribedCommunities.remember(fresh)
+    const serverCopy = community('a', { subscribed: true, favorite: true })
+    await subscribedCommunities.load(
+      listApi([{ communities: [serverCopy] }]),
+      OWNER,
+    )
+    expect(subscribedCommunities.communities).toEqual([serverCopy])
+  })
+
+  it('keeps a community remembered before the first load', async () => {
+    const fresh = community('a', { subscribed: false })
+    await toggleSubscription(fresh, subscriptionApi())
+    subscribedCommunities.remember(fresh)
+    await subscribedCommunities.load(listApi([{ communities: [] }]), OWNER)
+    expect(subscribedCommunities.communities.map((c) => c.name)).toEqual(['a'])
+  })
+
+  it('never commits a load that was in flight when the store reset', async () => {
+    const slow = deferred<ListCommunitiesResponse>()
+    const run = subscribedCommunities.load(
+      { listCommunities: vi.fn(() => slow.promise) },
+      OWNER,
+    )
+    subscribedCommunities.reset()
+    slow.resolve({ communities: [community('stale')] })
+    await run
+    expect(subscribedCommunities.status).toBe('idle')
+    expect(subscribedCommunities.communities).toEqual([])
+  })
+
+  it('does not let a superseded load that fails mark a newer one as failed', async () => {
+    const slow = deferred<ListCommunitiesResponse>()
+    const first = subscribedCommunities.load(
+      { listCommunities: vi.fn(() => slow.promise) },
+      OWNER,
+    )
+    await subscribedCommunities.load(
+      listApi([{ communities: [community('fresh')] }]),
+      OWNER,
+    )
+    slow.reject(new Error('late'))
+    await first
+    expect(subscribedCommunities.status).toBe('loaded')
+    expect(subscribedCommunities.communities.map((c) => c.name)).toEqual([
+      'fresh',
+    ])
+  })
+
+  it('keeps the list on a failed reload for the same owner', async () => {
     await subscribedCommunities.load(
       listApi([{ communities: [community('a')] }]),
       OWNER,
     )
+    await subscribedCommunities.load(
+      { listCommunities: vi.fn(async () => Promise.reject(new Error('x'))) },
+      OWNER,
+    )
+    expect(subscribedCommunities.status).toBe('error')
     expect(subscribedCommunities.communities.map((c) => c.name)).toEqual(['a'])
+  })
+
+  it('drops favorite changes when the owner changes', async () => {
+    const x = community('x', { subscribed: true, favorite: false })
+    await subscribedCommunities.load(listApi([{ communities: [x] }]), OWNER)
+    await toggleFavorite(x, favoriteApi())
+    expect(isFavorite(x)).toBe(true)
+    await subscribedCommunities.load(listApi([{ communities: [x] }]), OTHER)
+    expect(isFavorite(x)).toBe(false)
+  })
+
+  it('does not let a favorite request from the previous owner roll back into the new one', async () => {
+    const x = community('x', { subscribed: true, favorite: false })
+    await subscribedCommunities.load(listApi([{ communities: [x] }]), OWNER)
+    const gate = deferred()
+    const run = toggleFavorite(
+      x,
+      favoriteApi({ subscribe: vi.fn(() => gate.promise) }),
+    )
+    subscribedCommunities.reset()
+    await subscribedCommunities.load(listApi([{ communities: [x] }]), OTHER)
+    await toggleFavorite(x, favoriteApi())
+    expect(isFavorite(x)).toBe(true)
+    gate.reject(new Error('late'))
+    await run
+    expect(isFavorite(x)).toBe(true)
+    expect(isFavoritePending(x)).toBe(false)
   })
 
   it('reset clears the list, owner and status', async () => {

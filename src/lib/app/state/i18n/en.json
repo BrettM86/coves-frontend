@@ -11,8 +11,7 @@
         "communities": "Communities",
         "sidebarCommunities": {
             "manage": "Manage communities",
-            "favorite": "Add {{default}} to favorites",
-            "unfavorite": "Remove {{default}} from favorites",
+            "favorite": "Favorite {{default}}",
             "empty": "No subscriptions yet",
             "error": "Couldn't load your communities",
             "retry": "Retry"

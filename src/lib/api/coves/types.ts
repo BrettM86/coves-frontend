@@ -969,6 +969,10 @@ export interface SubscribeCommunityInput {
   favorite?: boolean
 }
 
+export interface UnsubscribeCommunityInput {
+  community: DID | Handle
+}
+
 export interface BlockCommunityInput {
   community: DID | Handle
 }

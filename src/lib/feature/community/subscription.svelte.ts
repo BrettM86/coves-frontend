@@ -23,7 +23,7 @@ export interface SubscribableCommunity {
 }
 
 export interface SubscriptionApi {
-  subscribe(input: { community: DID }): Promise<void>
+  subscribe(input: { community: DID }): Promise<unknown>
   unsubscribe(input: { community: DID }): Promise<void>
 }
 

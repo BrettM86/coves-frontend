@@ -41,6 +41,7 @@ import type {
   SubmitReportInput,
   SubmitReportOutput,
   SubscribeCommunityInput,
+  SubscribeCommunityOutput,
   UnsubscribeCommunityInput,
   UpdateProfileInput,
   UpdateProfileOutput,
@@ -217,7 +218,7 @@ export class CovesClient {
     return this.xrpc.procedure(NSID.createCommunity, input)
   }
 
-  subscribe(input: SubscribeCommunityInput): Promise<void> {
+  subscribe(input: SubscribeCommunityInput): Promise<SubscribeCommunityOutput> {
     return this.xrpc.procedure(NSID.subscribe, input)
   }
 

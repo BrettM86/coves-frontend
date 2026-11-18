@@ -5,6 +5,7 @@ import type {
   ListCommunitiesResponse,
 } from '$lib/api/coves/types'
 import type { DID } from '$lib/types/atproto'
+import { XrpcError } from '$lib/api/coves/xrpc'
 import {
   fetchAllSubscribedCommunities,
   forgetFavorite,
@@ -300,6 +301,111 @@ describe('toggleFavorite', () => {
     expect(
       isFavorite({ ...c, viewer: { subscribed: true, favorite: false } }),
     ).toBe(true)
+  })
+})
+
+describe('toggleFavorite with the stored value in the response', () => {
+  it('keeps the requested value when the server confirms it', async () => {
+    const c = community('a')
+    const api = favoriteApi({
+      subscribe: vi.fn(async () => ({ favorite: true })),
+    })
+    await expect(toggleFavorite(c, api)).resolves.toEqual({
+      kind: 'ok',
+      favorite: true,
+    })
+    expect(isFavorite(c)).toBe(true)
+  })
+
+  it('shows the stored value when the server disagrees with the request', async () => {
+    const c = community('a')
+    const api = favoriteApi({
+      subscribe: vi.fn(async () => ({ favorite: false })),
+    })
+    await expect(toggleFavorite(c, api)).resolves.toEqual({
+      kind: 'ok',
+      favorite: false,
+    })
+    expect(isFavorite(c)).toBe(false)
+  })
+
+  it('trusts the request when the response has no favorite field', async () => {
+    const c = community('a', { subscribed: true, favorite: true })
+    const api = favoriteApi({
+      subscribe: vi.fn(async () => ({ uri: 'at://x', cid: 'c' })),
+    })
+    await expect(toggleFavorite(c, api)).resolves.toEqual({
+      kind: 'ok',
+      favorite: false,
+    })
+    expect(isFavorite(c)).toBe(false)
+  })
+
+  it('reports a SubscriptionConflict as a conflict and reverts the star', async () => {
+    const c = community('a')
+    const conflict = new XrpcError(
+      409,
+      'SubscriptionConflict',
+      'The subscription changed while it was being updated; try again',
+    )
+    const api = favoriteApi({
+      subscribe: vi.fn(async () => Promise.reject(conflict)),
+    })
+    await expect(toggleFavorite(c, api)).resolves.toEqual({
+      kind: 'conflict',
+    })
+    expect(isFavorite(c)).toBe(false)
+    expect(isFavoritePending(c)).toBe(false)
+  })
+
+  it('lets the refetched list win after a conflict that follows an earlier star', async () => {
+    const c = community('a', { subscribed: true, favorite: false })
+    await toggleFavorite(c, favoriteApi())
+    expect(isFavorite(c)).toBe(true)
+    // Another tab unstarred it; this press conflicts.
+    await toggleFavorite(
+      c,
+      favoriteApi({
+        subscribe: vi.fn(async () =>
+          Promise.reject(new XrpcError(409, 'SubscriptionConflict', 'x')),
+        ),
+      }),
+    )
+    expect(
+      isFavorite({ ...c, viewer: { subscribed: true, favorite: false } }),
+    ).toBe(false)
+  })
+
+  it('stops showing a session-subscribed community whose subscription went away elsewhere', async () => {
+    const owner = did('owner')
+    await subscribedCommunities.load(listApi([{ communities: [] }]), owner)
+    const fresh = community('a', { subscribed: false })
+    await toggleSubscription(fresh, subscriptionApi())
+    subscribedCommunities.remember(fresh)
+    expect(subscribedCommunities.communities.map((c) => c.name)).toEqual(['a'])
+
+    await toggleFavorite(
+      fresh,
+      favoriteApi({
+        subscribe: vi.fn(async () =>
+          Promise.reject(new XrpcError(409, 'SubscriptionConflict', 'x')),
+        ),
+      }),
+    )
+    await subscribedCommunities.load(listApi([{ communities: [] }]), owner)
+    expect(subscribedCommunities.communities).toEqual([])
+  })
+
+  it('keeps other 409s as errors', async () => {
+    const c = community('a')
+    const other = new XrpcError(409, 'SomethingElse', 'no')
+    const api = favoriteApi({
+      subscribe: vi.fn(async () => Promise.reject(other)),
+    })
+    await expect(toggleFavorite(c, api)).resolves.toEqual({
+      kind: 'error',
+      error: other,
+    })
   })
 })
 

@@ -12,6 +12,7 @@
         "sidebarCommunities": {
             "manage": "Manage communities",
             "favorite": "Favorite {{default}}",
+            "conflict": "That subscription changed elsewhere. Your list is refreshed.",
             "empty": "No subscriptions yet",
             "error": "Couldn't load your communities",
             "retry": "Retry"

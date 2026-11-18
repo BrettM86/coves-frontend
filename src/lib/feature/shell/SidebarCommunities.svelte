@@ -42,16 +42,20 @@
   )
 
   let list = $state<HTMLElement>()
+  let header = $state<HTMLButtonElement>()
 
   /**
    * Starring moves the row between groups, and a moved node loses focus;
    * put keyboard focus back on the same star.
    */
-  async function refocusStar(did: string): Promise<void> {
+  async function refocusStar(did: string, orHeader = false): Promise<void> {
     await tick()
-    list
-      ?.querySelector<HTMLButtonElement>(`[data-favorite-did="${did}"]`)
-      ?.focus()
+    const star = list?.querySelector<HTMLButtonElement>(
+      `[data-favorite-did="${did}"]`,
+    )
+    // A refetch can remove the row; keep focus inside the section.
+    if (star) star.focus()
+    else if (orHeader) header?.focus()
   }
 
   async function onStar(
@@ -62,14 +66,25 @@
     const run = toggleFavorite(community, coves())
     if (hadFocus) await refocusStar(community.did)
     const outcome = await run
+    if (outcome.kind === 'conflict') {
+      // Changed or removed from another tab or device: show what is stored now.
+      toast({ content: $t('nav.sidebarCommunities.conflict'), type: 'warning' })
+      await reload()
+      if (hadFocus) await refocusStar(community.did, true)
+      return
+    }
     if (outcome.kind !== 'error') return
     if (hadFocus) await refocusStar(community.did)
     if (isExpiredSessionError(outcome.error) && profile.sessionExpired) return
     toast({ content: errorMessage(outcome.error), type: 'error' })
   }
 
+  async function reload(): Promise<void> {
+    if (owner !== undefined) await subscribedCommunities.load(coves(), owner)
+  }
+
   function retry(): void {
-    if (owner !== undefined) void subscribedCommunities.load(coves(), owner)
+    void reload()
   }
 </script>
 
@@ -118,6 +133,7 @@
         'text-xs font-semibold uppercase tracking-wider',
         'text-slate-500 dark:text-zinc-400 hover:bg-slate-200/50 dark:hover:bg-zinc-800/50',
       ]}
+      bind:this={header}
       aria-expanded={settings.expand.communities}
       aria-controls="sidebar-communities"
       onclick={() =>

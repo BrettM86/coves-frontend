@@ -16,6 +16,7 @@
 // ---------------------------------------------------------------------------
 
 import { log } from '$lib/app/util/log'
+import { XrpcError } from '$lib/api/coves'
 import { communityAddress } from '$lib/app/util/community'
 import type {
   CommunityRef,
@@ -23,6 +24,7 @@ import type {
   CommunityViewerState,
   ListCommunitiesParams,
   ListCommunitiesResponse,
+  SubscribeCommunityOutput,
 } from '$lib/api/coves/types'
 import type { DID } from '$lib/types/atproto'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
@@ -50,7 +52,11 @@ export interface SubscribedListApi {
 }
 
 export interface FavoriteApi {
-  subscribe(input: { community: DID; favorite: boolean }): Promise<void>
+  /** Resolves to the stored subscription when the backend reports it. */
+  subscribe(input: {
+    community: DID
+    favorite: boolean
+  }): Promise<Partial<SubscribeCommunityOutput> | void>
 }
 
 /**
@@ -192,7 +198,17 @@ export function isFavoritePending(community: SubscribableCommunity): boolean {
 export type ToggleFavoriteOutcome =
   | { kind: 'ok'; favorite: boolean }
   | { kind: 'pending' }
+  /** Another write changed or removed the subscription; the star reverted. */
+  | { kind: 'conflict' }
   | { kind: 'error'; error: unknown }
+
+function isSubscriptionConflict(error: unknown): boolean {
+  return (
+    error instanceof XrpcError &&
+    error.status === 409 &&
+    error.errorName === 'SubscriptionConflict'
+  )
+}
 
 /**
  * Flips the favorite optimistically, sends it through subscribe, and rolls
@@ -221,21 +237,39 @@ export async function toggleFavorite(
   })
 
   try {
-    await api.subscribe({ community: did, favorite: next })
-    return { kind: 'ok', favorite: next }
+    const response = await api.subscribe({ community: did, favorite: next })
+    // The backend echoes the stored value; older ones send nothing to check.
+    const stored =
+      typeof response?.favorite === 'boolean' ? response.favorite : next
+    if (stored !== next && epoch === favoriteEpoch) {
+      favoriteOverrides.set(did, {
+        favorite: stored,
+        serverAtPress: serverFavorite(community),
+      })
+    }
+    return { kind: 'ok', favorite: stored }
   } catch (error) {
-    log.error('[subscribed-communities] favorite toggle failed', error, {
-      did,
-      was,
-    })
+    const conflict = isSubscriptionConflict(error)
+    if (!conflict) {
+      log.error('[subscribed-communities] favorite toggle failed', error, {
+        did,
+        was,
+      })
+    }
     if (epoch === favoriteEpoch) {
-      if (previous === undefined) {
+      if (conflict) {
+        // The stored subscription moved on without us: drop every in-session
+        // guess about it so the refetched list is shown as it is.
+        favoriteOverrides.delete(did)
+        favoriteDropped.delete(did)
+        subscribedCommunities.forget(did)
+      } else if (previous === undefined) {
         favoriteOverrides.delete(did)
       } else {
         favoriteOverrides.set(did, previous)
       }
     }
-    return { kind: 'error', error }
+    return conflict ? { kind: 'conflict' } : { kind: 'error', error }
   } finally {
     if (epoch === favoriteEpoch) favoritePending.delete(did)
   }
@@ -309,6 +343,11 @@ class SubscribedCommunitiesStore {
    */
   remember(community: ListedCommunity): void {
     this.#remembered.set(community.did, community)
+  }
+
+  /** Stops showing a remembered community; the server list decides again. */
+  forget(did: DID): void {
+    this.#remembered.delete(did)
   }
 
   /** Back to idle with no owner and an empty list. */

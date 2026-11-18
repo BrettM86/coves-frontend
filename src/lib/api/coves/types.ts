@@ -969,6 +969,16 @@ export interface SubscribeCommunityInput {
   favorite?: boolean
 }
 
+export interface SubscribeCommunityOutput {
+  uri: string
+  cid: string
+  existing?: boolean
+  /** The stored favorite after the write; absent on backends without favorites. */
+  favorite?: boolean
+  /** The stored content visibility (1-5) after the write; absent on older backends. */
+  contentVisibility?: number
+}
+
 export interface UnsubscribeCommunityInput {
   community: DID | Handle
 }

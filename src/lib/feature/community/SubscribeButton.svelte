@@ -7,6 +7,10 @@
   import { Button, toast } from '$lib/ui/kit'
   import { Check, Plus } from '$lib/ui/kit/icon'
   import {
+    subscribedCommunities,
+    type ListedCommunity,
+  } from './subscribed-communities.svelte'
+  import {
     isSubscribed,
     isSubscriptionPending,
     toggleSubscription,
@@ -14,7 +18,7 @@
   } from './subscription.svelte'
 
   interface Props {
-    community: SubscribableCommunity
+    community: SubscribableCommunity & ListedCommunity
     /**
      * Where the button sits; picks size and shape.
      * - `header`: community page header (large)
@@ -43,6 +47,8 @@
       if (isExpiredSessionError(outcome.error) && profile.sessionExpired) return
       toast({ content: errorMessage(outcome.error), type: 'error' })
     } else if (outcome.kind === 'ok') {
+      // The sidebar list reads the index, which lags the firehose.
+      if (outcome.subscribed) subscribedCommunities.remember(community)
       toast({
         content: outcome.subscribed
           ? $t('toast.subscribedCommunity')

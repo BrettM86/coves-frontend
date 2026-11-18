@@ -7,6 +7,13 @@ import { TIMEFRAME_OPTIONS } from '$lib/api/coves/sort'
 import { theme, type ThemeData } from '$lib/app/state/theme/theme.svelte'
 import type { ResumableItem } from '$lib/feature/legacy/item.svelte'
 import { logout } from '$lib/feature/user/logout'
+import { communityAddress } from '$lib/app/util/community'
+import { communityIdentifier } from '$lib/feature/community/helpers'
+import {
+  isFavorite,
+  orderSidebarCommunities,
+  subscribedCommunities,
+} from '$lib/feature/community/subscribed-communities.svelte'
 import {
   type IconSource,
   ChartColumn,
@@ -223,12 +230,25 @@ export function getGroups(
         },
       ],
     },
-    // TODO: Re-enable subscriptions list when Coves API provides it
     {
       name: t.get('profile.subscribed'),
-      actions: [],
+      actions: subscribedActions(),
     },
   ]
+}
+
+/** The viewer's subscriptions in sidebar order, once the sidebar has loaded them. */
+function subscribedActions(): Action[] {
+  const { favorites, others } = orderSidebarCommunities(
+    subscribedCommunities.communities,
+    isFavorite,
+  )
+  return [...favorites, ...others].map((community) => ({
+    name: community.name,
+    detail: communityAddress(community),
+    icon: community.avatar ?? Newspaper,
+    href: `/c/${communityIdentifier(community)}`,
+  }))
 }
 
 // this should really be rewritten, but a temporary change

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ToastContent from './ToastContent.svelte'
   import { errorMessage } from '$lib/app/util/error'
   import { FONT_CLASSES, fontClass } from '$lib/app/util/font'
   import { markHydrated } from '$lib/app/util/ssr'
@@ -16,7 +17,6 @@
     theme,
   } from '$lib/app/state/theme/theme.svelte'
   import CovesSidebar from '$lib/feature/instance/CovesSidebar.svelte'
-  import Markdown from '$lib/feature/markdown/Markdown.svelte'
   import ModerationModals from '$lib/feature/moderation/ModerationModals.svelte'
   import BlueskyImportOffer from '$lib/feature/bluesky-import/BlueskyImportOffer.svelte'
   import { notificationListReturn } from '$lib/feature/notification/return.svelte'
@@ -193,10 +193,7 @@
     class={page.route.id === '/login' ? 'max-md:pb-24' : undefined}
   >
     {#snippet content(toast)}
-      <Markdown
-        source={toast.content}
-        class="leading-snug [&_p]:leading-snug"
-      />
+      <ToastContent {toast} />
     {/snippet}
   </ToastContainer>
   <ExpandableImage />

@@ -16,7 +16,7 @@
     communityAddress,
     communityIdentifier,
   } from './helpers'
-  import { withPreset } from '$lib/api/coves/image-proxy'
+  import { isImageSourceUrl, withPreset } from '$lib/api/coves/image-proxy'
 
   interface Props {
     community: CommunityView
@@ -26,7 +26,8 @@
   let { community, children }: Props = $props()
 
   function getBanner(c: CommunityView): string | undefined {
-    return (c as CommunityViewDetailed).banner
+    const url = (c as CommunityViewDetailed).banner
+    return url && isImageSourceUrl(url) ? url : undefined
   }
 
   let banner = $derived(getBanner(community))

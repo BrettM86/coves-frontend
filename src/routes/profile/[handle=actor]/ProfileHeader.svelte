@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isImageSourceUrl } from '$lib/api/coves/image-proxy'
   import type { ProfileViewDetailed } from '$lib/api/coves/types'
   import { locale, t } from '$lib/app/state/i18n'
   import { userLink } from '$lib/app/util/links'
@@ -61,7 +62,7 @@
      join date and bio. The negative margins cancel <main>'s padding. -->
 <section class="-mx-3 -mt-3 sm:-mx-6 sm:-mt-6">
   <div data-profile-banner class="relative h-36 sm:h-52 overflow-hidden">
-    {#if profile.banner}
+    {#if profile.banner && isImageSourceUrl(profile.banner)}
       <img
         src={profile.banner}
         class="size-full object-cover"

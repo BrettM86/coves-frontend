@@ -6,6 +6,7 @@
   import TextProps from '$lib/ui/text/TextProps.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
   import Blobs from '$lib/ui/generic/Blobs.svelte'
+  import { isImageSourceUrl } from '$lib/api/coves/image-proxy'
 
   interface Props {
     avatar?: string
@@ -55,7 +56,7 @@
         data-profile-banner
         class="relative overflow-hidden rounded-t-[inherit] -m-6 mask-b-from-0 h-32 @lg:h-48"
       >
-        {#if banner}
+        {#if banner && isImageSourceUrl(banner)}
           <img
             src={banner}
             class="w-full object-cover h-full bg-white dark:bg-zinc-900"

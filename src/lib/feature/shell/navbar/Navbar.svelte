@@ -47,7 +47,7 @@
     icon={SquarePen}
     class="order-2 nav-btn-sm-primary"
   />
-  <NotificationBell count={unreadNotifications.count} class="order-3" />
+  <NotificationBell count={unreadNotifications.count} class="order-3 md:-mr-1" />
   <Menu placement="bottom">
     {#snippet target(attachment)}
       <button
@@ -118,12 +118,6 @@
 
     @variant md {
       gap: calc(var(--spacing) * 1);
-    }
-  }
-
-  .navbar button:last-of-type {
-    @variant md {
-      margin-left: calc(var(--spacing) * 2);
     }
   }
 </style>

@@ -158,3 +158,24 @@ it.each([
     }
   },
 )
+
+it('gives a link-only card the same compact frame as a card under a body', () => {
+  const cardClass = (post: PostView): string | undefined => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const instance = client.mount(Post, {
+      target: host,
+      props: { post, view: 'cozy', actions: false },
+      intro: false,
+    })
+    client.flushSync()
+    const className = host.querySelector('[data-testid="link-card"]')?.className
+    void client.unmount(instance, { outro: false })
+    host.remove()
+    return className
+  }
+
+  const withBody = cardClass(linkPost({ body: 'A short body.' }))
+  expect(withBody).toBeDefined()
+  expect(cardClass(linkPost({ body: '' }))).toBe(withBody)
+})

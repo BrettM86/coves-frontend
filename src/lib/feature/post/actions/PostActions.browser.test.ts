@@ -132,7 +132,7 @@ function groupOf(control: Element, others: Element[], root: Element): Element {
   return group
 }
 
-describe('PostActions feed mode', () => {
+describe('PostActions', () => {
   it.each([
     {
       who: 'guest',
@@ -181,7 +181,7 @@ describe('PostActions feed mode', () => {
       document.body.appendChild(target)
       mounted = client.mount(PostActions, {
         target,
-        props: { post: post(), view: 'cozy', feed: true },
+        props: { post: post() },
         intro: false,
       })
       client.flushSync()

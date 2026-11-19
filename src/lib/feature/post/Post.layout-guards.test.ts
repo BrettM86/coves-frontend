@@ -4,10 +4,11 @@ import { linkPost } from './Post.feed-card.fixture'
 
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
 
-// Guards: the detail page and compact rows keep their existing layout while
-// the cozy feed card changes.
+// Guards: the detail page and compact rows keep their own header, body and
+// link layout while the cozy feed card changes. All three share the cozy
+// feed's action bar.
 describe('Post layout guards', () => {
-  it('detail view keeps its header, action order, full body and link card', () => {
+  it('detail view keeps its header, full body and link card, with the feed action order', () => {
     const article = renderPost(linkPost(), { view: 'cozy', expandBody: true })
 
     const header = article.querySelector('header')
@@ -20,8 +21,8 @@ describe('Post layout guards', () => {
 
     expect(actionNames(article)).toEqual([
       'Upvote',
-      'Comments',
       'Downvote',
+      'Comments',
       'Share',
     ])
     expect(article.querySelector('.line-clamp-5')).toBeNull()
@@ -33,7 +34,7 @@ describe('Post layout guards', () => {
     )
   })
 
-  it('compact view keeps its link anchor and action order', () => {
+  it('compact view keeps its link anchor, with the feed action order', () => {
     const article = renderPost(linkPost(), { view: 'compact' })
 
     expect(
@@ -41,8 +42,8 @@ describe('Post layout guards', () => {
     ).toBe('https://www.thegamer.com/tim-sweeney/')
     expect(actionNames(article)).toEqual([
       'Upvote',
-      'Comments',
       'Downvote',
+      'Comments',
       'Share',
     ])
     expect(

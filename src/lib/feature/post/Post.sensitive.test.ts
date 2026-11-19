@@ -12,9 +12,7 @@ const thumbnail = 'https://media.example/sensitive-thumbnail.jpg'
 const embeds: Record<string, PostEmbed> = {
   image: {
     $type: 'social.coves.embed.images#view',
-    images: [
-      { thumb: thumbnail, fullsize: image, alt: 'Sensitive image' },
-    ],
+    images: [{ thumb: thumbnail, fullsize: image, alt: 'Sensitive image' }],
   },
   link: {
     $type: 'social.coves.embed.external#view',
@@ -256,7 +254,7 @@ describe('native preview dimensions', () => {
     expect(preview).not.toContain('aspect-square')
   })
 
-  it('uses the existing compact thumbnail sizes without forcing a square', () => {
+  it('uses the compact thumbnail square', () => {
     const html = markup(fixture({ values: [{ val: 'nsfw' }] }), 'compact')
     const button = [
       ...html.matchAll(
@@ -266,9 +264,7 @@ describe('native preview dimensions', () => {
       .map((match) => match[0])
       .find((button) => button.includes('<img'))
     expect(button).toBeDefined()
-    expect(button).toContain('w-22')
-    expect(button).toContain('h-22')
-    expect(button).toContain('sm:w-28')
-    expect(button).not.toContain('aspect-square')
+    expect(button).toContain('size-22')
+    expect(button).not.toContain('sm:w-28')
   })
 })

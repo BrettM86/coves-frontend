@@ -205,18 +205,21 @@
 {#snippet badgeList()}
   {#each tags as tag}
     <div
-      class="hover:brightness-110"
+      class="hover:brightness-110 max-w-48"
       style="{tag.color ? `--tag-color: ${tag.color};` : ''} {tag.textColor
         ? `--tag-text-color: ${tag.textColor}`
         : ''}"
     >
-      <Badge class={tag.color ? 'badge-tag-color' : ''}>
+      <Badge
+        label={tag.content}
+        class="max-w-full {tag.color ? 'badge-tag-color' : ''}"
+      >
         {#snippet icon()}
           {#if tag.icon}
             <Icon src={tag.icon} size="14" />
           {/if}
         {/snippet}
-        {tag.content}
+        <span class="truncate min-w-0">{tag.content}</span>
       </Badge>
     </div>
   {/each}
@@ -327,7 +330,7 @@
       </CommunityLink>
     {/if}
     <div
-      class="flex flex-row gap-1.5 items-center
+      class="flex flex-row gap-1.5 items-center min-w-0
        no-list-margin {view == 'compact' && showCommunity ? 'min-sm:mx-2' : ''}"
       style="grid-area: stats;"
     >

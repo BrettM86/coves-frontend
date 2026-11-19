@@ -8,11 +8,9 @@
     /** The linked page's title; omit it when it repeats the post title. */
     title?: string
     thumbnail?: string
-    /** A body bubble sits above: hold a three-line bubble's height. */
-    fixedHeight?: boolean
   }
 
-  let { uri, title, thumbnail, fixedHeight = false }: Props = $props()
+  let { uri, title, thumbnail }: Props = $props()
 
   // The URI is untrusted post content. Only an absolute http(s) link becomes
   // an href or a favicon lookup; anything else renders as an inert card
@@ -60,7 +58,7 @@
     href={url.href}
     target="_blank"
     rel="noopener noreferrer"
-    class={['link-card group/link', fixedHeight && 'fixed-height']}
+    class="link-card group/link"
   >
     <span class="text">
       {@render hostLine(url.hostname, true)}
@@ -163,17 +161,21 @@
     overflow: hidden;
   }
 
+  /* Stretched to the card's fixed height; 4:3 wide, at most a third. */
   .thumb {
+    position: relative;
     display: block;
     flex: none;
-    height: clamp(56px, 17.4cqi, 120px);
     aspect-ratio: 4 / 3;
-    margin: 12px 12px 12px 0;
+    max-width: 34%;
+    margin: 8px 8px 8px 0;
     border-radius: 10px;
     overflow: hidden;
   }
 
   .thumb img {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
@@ -181,28 +183,14 @@
     transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .fixed-height {
+  /* Every link card holds a three-line body bubble's height, so a link-only
+     post's card is no taller than one under a body. */
+  a.link-card {
     align-items: stretch;
     height: calc(3 * 15px * 1.45 + 21px);
   }
 
-  .fixed-height .thumb {
-    position: relative;
-    height: auto;
-    max-width: 34%;
-    margin: 8px 8px 8px 0;
-  }
-
-  .fixed-height .thumb img {
-    position: absolute;
-    inset: 0;
-  }
-
   @container (max-width: 520px) {
-    .thumb {
-      margin: 10px 10px 10px 0;
-    }
-
     .text {
       padding: 10px 12px;
     }
@@ -214,7 +202,7 @@
   }
 
   /* Host line plus two title lines fit the fixed height with 10px a side. */
-  .fixed-height .text {
+  a.link-card .text {
     padding-block: 10px;
   }
 

@@ -167,7 +167,7 @@
     settings.leftAlign && 'left-align',
     view == 'compact' && 'py-3 list-type compact',
     view == 'cozy' && 'py-5 flex flex-col',
-    // The link card sizes its thumbnail against the card's width.
+    // The link card tightens its padding against the card's width.
     view == 'cozy' && (feedCard ? '@container gap-2.5' : 'gap-2'),
     clazz,
   ]}
@@ -234,7 +234,7 @@
         class={[
           'relative isolate overflow-hidden border border-slate-200 dark:border-zinc-700 bg-slate-200 dark:bg-zinc-900',
           view === 'compact'
-            ? ['w-22 h-22 sm:w-28', settings.leftAlign ? 'me-3' : 'ms-3']
+            ? ['size-22', settings.leftAlign ? 'me-3' : 'ms-3']
             : 'w-full',
         ]}
         aria-label={$t('post.sensitive.show')}
@@ -350,7 +350,6 @@
           uri={externalUri}
           title={embedTitle !== post.record?.title ? embedTitle : undefined}
           thumbnail={feedLink ? extractEmbedThumbnail(mediaEmbed) : undefined}
-          fixedHeight={!!post.record?.content}
         />
       {/if}
       {#if galleryAfterBody}
@@ -359,7 +358,7 @@
     {/if}
   </div>
   {#if actions}
-    <PostActions bind:post style="grid-area: actions;" {view} feed={feedCard} />
+    <PostActions bind:post style="grid-area: actions;" />
   {/if}
 </article>
 

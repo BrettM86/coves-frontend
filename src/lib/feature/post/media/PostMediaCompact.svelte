@@ -25,7 +25,7 @@
   import BlueskyPostCard from './BlueskyPostCard.svelte'
 
   const thumbnailSize = (view: View) =>
-    view == 'compact' ? 'w-22 h-22 sm:w-28' : 'w-24 h-24 sm:w-32'
+    view == 'compact' ? 'size-22' : 'w-24 h-24 sm:w-32'
 
   interface Props {
     embed?: PostEmbed
@@ -113,7 +113,7 @@
       onclick={expandImage}
       role={imageTile ? 'button' : 'presentation'}
       tabindex={imageTile ? 0 : -1}
-      class="cursor-pointer h-full block"
+      class="cursor-pointer size-full block"
     >
       <div
         class={[

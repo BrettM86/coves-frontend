@@ -462,15 +462,16 @@ it('replaces a failed native thumbnail with the placeholder inside the same thum
     ],
   })
   const image = target.querySelector('img')
-  const box = image?.closest<HTMLElement>('.w-22')
+  const box = image?.closest<HTMLElement>('.size-22')
   if (!image || !box) throw new Error('Missing compact thumbnail box')
 
   image.dispatchEvent(new Event('error'))
   await settle()
 
   expect(box.isConnected).toBe(true)
-  expect(box.classList).toContain('w-22')
-  expect(box.classList).toContain('h-22')
+  expect(box.classList).toContain('size-22')
+  expect(box.classList).not.toContain('sm:w-28')
+  expect(box.querySelector('[role="button"]')?.classList).toContain('size-full')
   expect(box.textContent).toContain('Image unavailable')
   expect(box.querySelector('img')).toBeNull()
 })

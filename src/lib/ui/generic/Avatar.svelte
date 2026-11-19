@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { withPreset } from '$lib/api/coves/image-proxy'
+  import { isImageSourceUrl, withPreset } from '$lib/api/coves/image-proxy'
   import { defaultAvatar } from '$lib/app/util/default-avatar'
   import { createAvatar } from '@dicebear/core'
   import * as initials from '@dicebear/initials'
@@ -34,10 +34,19 @@
   // 20–48px avatars in feeds and threads used to download it on every 2x
   // display, roughly ten times the bytes for no visible difference.
   const LARGE_AVATAR_MIN_WIDTH = 121
-  let smallURL = $derived(withPreset(url ?? '', 'avatar_small'))
+  // A server-supplied URL the image gate refuses renders the fallback. A
+  // same-origin image proxy path (one leading `/`, so never `//host/...`) is
+  // also allowed.
+  const RELATIVE_PROXY_PATH = /^\/img\/[a-z_]+\/plain\/did:[^/\\%\s,]+\/[^/?#\\%\s,]+$/
+  let imageUrl = $derived(
+    url && (isImageSourceUrl(url) || RELATIVE_PROXY_PATH.test(url))
+      ? url
+      : undefined,
+  )
+  let smallURL = $derived(withPreset(imageUrl ?? '', 'avatar_small'))
   let srcset = $derived(
     width >= LARGE_AVATAR_MIN_WIDTH
-      ? `${smallURL} 1x, ${withPreset(url ?? '', 'avatar')} 2x`
+      ? `${smallURL} 1x, ${withPreset(imageUrl ?? '', 'avatar')} 2x`
       : undefined,
   )
 
@@ -60,7 +69,7 @@
   )
 </script>
 
-{#if url && !imgError}
+{#if imageUrl && !imgError}
   <img
     {...rest}
     loading="lazy"

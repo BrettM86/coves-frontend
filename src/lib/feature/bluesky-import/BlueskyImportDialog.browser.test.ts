@@ -1446,6 +1446,60 @@ describe('BlueskyImportDialog drag to import', () => {
     expect(mocks.dismiss).not.toHaveBeenCalled()
   })
 
+  it.each(['javascript:alert(1)', 'file:///x'])(
+    'an avatar and banner with blueskyImageUrl %s render no <img> with that src, in the rows or the revealed header',
+    async (badUrl) => {
+      mocks.api.importBlueskyProfile.mockImplementation(
+        () => new Promise(() => {}),
+      )
+      motion.reduced = true
+      await mountDialog('settings', [
+        { field: 'avatar', blueskyImageUrl: badUrl, covesIsEmpty: true },
+        { field: 'banner', blueskyImageUrl: badUrl, covesIsEmpty: true },
+      ])
+      const sources = (root: ParentNode) =>
+        [...root.querySelectorAll('img')]
+          .map((image) => image.getAttribute('src'))
+          .filter((src) => src === badUrl)
+      const rows = sources(sourceCard())
+      stubGeometry()
+      useFakeTimers()
+
+      button('form.profile.blueskyImport.importProfile').click()
+      await settle()
+      const header = sources(covesTarget())
+      const anywhere = sources(document)
+
+      expect({ rows, header, anywhere }).toEqual({
+        rows: [],
+        header: [],
+        anywhere: [],
+      })
+    },
+  )
+
+  it('an http(s) Bluesky avatar and banner render in the revealed header after Import profile', async () => {
+    mocks.api.importBlueskyProfile.mockImplementation(
+      () => new Promise(() => {}),
+    )
+    motion.reduced = true
+    await mountDialog('settings', [
+      { field: 'avatar', blueskyImageUrl: AVATAR_URL, covesIsEmpty: true },
+      { field: 'banner', blueskyImageUrl: BANNER_URL, covesIsEmpty: true },
+    ])
+    stubGeometry()
+    useFakeTimers()
+
+    button('form.profile.blueskyImport.importProfile').click()
+    await settle()
+
+    expect(
+      [...covesTarget().querySelectorAll('img')]
+        .map((image) => image.getAttribute('src'))
+        .sort(),
+    ).toEqual([AVATAR_URL, BANNER_URL].sort())
+  })
+
   it('with reduced motion the seated pause is short: the dialog closes within 1500 ms of Import profile', async () => {
     const seatedAtRequest: boolean[] = []
     mocks.api.importBlueskyProfile.mockImplementation(async () => {

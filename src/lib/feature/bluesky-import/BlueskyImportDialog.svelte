@@ -3,6 +3,7 @@
   import { page } from '$app/state'
   import { flushSync, tick } from 'svelte'
   import { coves } from '$lib/api/client.svelte'
+  import { isImageSourceUrl } from '$lib/api/coves/image-proxy'
   import type {
     BlueskyProfileImportField,
     BlueskyProfileImportFieldName,
@@ -108,6 +109,12 @@
   )
   let handle = $derived(account?.handle)
   let rowFor = $derived(new Map(rows.map((row) => [row.field, row])))
+
+  /** A row's Bluesky image URL, or undefined when the gate refuses it. */
+  function blueskyImage(row: { blueskyImageUrl?: string } | undefined) {
+    const url = row?.blueskyImageUrl
+    return url && isImageSourceUrl(url) ? url : undefined
+  }
 
   /** Any close by the user; in the automatic offer it records a dismissal. */
   function dismissed(): void {
@@ -674,9 +681,9 @@
             class="block h-full transition group-data-[selected=false]:opacity-40 group-data-[selected=false]:grayscale"
           >
             {#if row.field === 'banner'}
-              {#if row.blueskyImageUrl}
+              {#if blueskyImage(row)}
                 <img
-                  src={row.blueskyImageUrl}
+                  src={blueskyImage(row)}
                   alt=""
                   draggable="false"
                   class="size-full object-cover"
@@ -685,9 +692,9 @@
                 <span class="merge-placeholder block size-full"></span>
               {/if}
             {:else if row.field === 'avatar'}
-              {#if row.blueskyImageUrl}
+              {#if blueskyImage(row)}
                 <img
-                  src={row.blueskyImageUrl}
+                  src={blueskyImage(row)}
                   alt=""
                   draggable="false"
                   class="merge-ring block size-[56px] rounded-full border-3 md:size-[80px] object-cover"
@@ -787,9 +794,9 @@
             </span>
           {/if}
         </span>
-        {#if revealed.includes('banner') && rowFor.get('banner')?.blueskyImageUrl}
+        {#if revealed.includes('banner') && blueskyImage(rowFor.get('banner'))}
           <img
-            src={rowFor.get('banner')?.blueskyImageUrl}
+            src={blueskyImage(rowFor.get('banner'))}
             alt=""
             class="size-full object-cover [grid-area:banner]"
             style:animation={revealAnimation}
@@ -811,9 +818,9 @@
             seated && 'shadow-md',
           ]}
         >
-          {#if revealed.includes('avatar') && rowFor.get('avatar')?.blueskyImageUrl}
+          {#if revealed.includes('avatar') && blueskyImage(rowFor.get('avatar'))}
             <img
-              src={rowFor.get('avatar')?.blueskyImageUrl}
+              src={blueskyImage(rowFor.get('avatar'))}
               alt=""
               class="block size-[50px] rounded-full object-cover md:size-[74px]"
               style:animation={revealAnimation}

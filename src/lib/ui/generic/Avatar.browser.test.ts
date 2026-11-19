@@ -207,3 +207,74 @@ describe('Avatar after its URL changes', () => {
     )
   })
 })
+
+describe('Avatar with a server-supplied URL that is not an image source', () => {
+  it.each([
+    { url: 'javascript:alert(1)', expectedSrc: VECTOR_URL, fallback: true },
+    { url: 'file:///etc/passwd', expectedSrc: VECTOR_URL, fallback: true },
+    {
+      url: 'data:image/png;base64,AAAA',
+      expectedSrc: VECTOR_URL,
+      fallback: true,
+    },
+    { url: '/api/x.png', expectedSrc: VECTOR_URL, fallback: true },
+    {
+      url: '//evil.example/img/avatar/plain/did:plc:x/bafy',
+      expectedSrc: VECTOR_URL,
+      fallback: true,
+    },
+    {
+      url: '/img/avatar/plain/did:x\\..\\..\\..\\..\\api\\foo/bafy',
+      expectedSrc: VECTOR_URL,
+      fallback: true,
+    },
+    {
+      url: '/img/avatar/plain/did:plc:x/%2e%2e',
+      expectedSrc: VECTOR_URL,
+      fallback: true,
+    },
+    {
+      url: 'https://cdn.example.test/a.png',
+      expectedSrc: 'https://cdn.example.test/a.png',
+      fallback: false,
+    },
+  ])('$url renders src $expectedSrc', ({ url, expectedSrc, fallback }) => {
+    mountAvatar({ did: VECTOR_DID, url, width: 160 })
+    const images = [...target.querySelectorAll('img')]
+    if (fallback) {
+      expect(
+        images
+          .flatMap((image) => [
+            image.getAttribute('src') ?? '',
+            image.getAttribute('srcset') ?? '',
+          ])
+          .filter((value) => value.includes(url)),
+      ).toEqual([])
+      expect(root().tagName).toBe('DIV')
+      expect(backgroundColor(root())).toBe('#D5E6E3')
+    }
+    expect(images.map((image) => image.getAttribute('src'))).toEqual([
+      expectedSrc,
+    ])
+  })
+})
+
+describe('Avatar with a relative image proxy URL', () => {
+  it('renders the avatar_small preset with the avatar preset in the 2x srcset at width 160', () => {
+    mountAvatar({
+      did: VECTOR_DID,
+      url: '/img/avatar/plain/did:plc:x/bafyrelative',
+      width: 160,
+    })
+    const image = target.querySelector('img')
+
+    expect({
+      src: image?.getAttribute('src'),
+      srcset: image?.getAttribute('srcset'),
+    }).toEqual({
+      src: '/img/avatar_small/plain/did:plc:x/bafyrelative',
+      srcset:
+        '/img/avatar_small/plain/did:plc:x/bafyrelative 1x, /img/avatar/plain/did:plc:x/bafyrelative 2x',
+    })
+  })
+})

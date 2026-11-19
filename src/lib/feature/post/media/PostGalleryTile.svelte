@@ -194,6 +194,13 @@
   )
   // A frozen frame needs a playing GIF to stand in for.
   let frozen = $derived(gif && !blur && !unavailable && gifPaused)
+  // The backdrop usually shares the image's file, and coming first in the
+  // markup it sets the request's priority. A blurred backdrop outside a feed
+  // is the only file that loads. An unblurred GIF's backdrop is a separate
+  // still preview, which must not compete with the GIF itself.
+  let backdropPriority = $derived<'high' | 'auto'>(
+    priority && (blur || !gif) ? 'high' : 'auto',
+  )
 </script>
 
 <!--
@@ -302,6 +309,7 @@
         <img
           src={blur || gif ? previewUrl : fullImageUrl}
           loading={priority ? 'eager' : 'lazy'}
+          fetchpriority={backdropPriority}
           decoding="async"
           aria-hidden="true"
           alt=""
@@ -434,6 +442,7 @@
           {@render sources()}
           <img
             loading={priority ? 'eager' : 'lazy'}
+            fetchpriority={backdropPriority}
             decoding="async"
             src={previewUrl}
             alt=""

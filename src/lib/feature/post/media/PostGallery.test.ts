@@ -48,6 +48,41 @@ describe('PostGallery with one image', () => {
     expect(backdrop.getAttribute('loading')).toBe('eager')
     expect(image.getAttribute('loading')).toBe('eager')
     expect(image.getAttribute('fetchpriority')).toBe('high')
+    // The backdrop comes first in the markup and shares the image's file, so
+    // its priority is the one the request is issued at.
+    expect(backdrop.getAttribute('fetchpriority')).toBe('high')
+  })
+
+  it('keeps a GIF backdrop, a separate still file, out of the high-priority request', () => {
+    const { body } = render(PostGallery, {
+      props: { images: [lake], gifs: new Set(['bafy1']), priority: true },
+    })
+    const [backdrop, image] = [
+      ...new JSDOM(body).window.document.querySelectorAll('img'),
+    ]
+
+    expect(backdrop.getAttribute('fetchpriority')).toBe('auto')
+    expect(image.getAttribute('fetchpriority')).toBe('high')
+  })
+
+  it('requests a blurred GIF backdrop at high priority, as it is the only request', () => {
+    const { body } = render(PostGallery, {
+      props: {
+        images: [lake],
+        gifs: new Set(['bafy1']),
+        blur: true,
+        priority: true,
+      },
+    })
+    const backdrop = new JSDOM(body).window.document.querySelector('img')
+
+    expect(backdrop?.getAttribute('fetchpriority')).toBe('high')
+  })
+
+  it('leaves the priority of every other image to the browser', () => {
+    for (const img of images()) {
+      expect(img.getAttribute('fetchpriority')).toBe('auto')
+    }
   })
 
   it('offers the backdrop exactly what it offers the image, so one file serves both', () => {
@@ -195,6 +230,37 @@ describe('PostGallery in a feed card', () => {
     new JSDOM(render(PostGallery, { props: { images, feed: true, blur } }).body)
       .window.document
   const square = { ...lake, aspectRatio: { width: 1, height: 1 } }
+
+  it('keeps a feed GIF backdrop, a separate still file, out of the high-priority request', () => {
+    const { body } = render(PostGallery, {
+      props: {
+        images: [square],
+        gifs: new Set(['bafy1']),
+        feed: true,
+        priority: true,
+      },
+    })
+    const [backdrop, image] = [
+      ...new JSDOM(body).window.document.querySelectorAll('img'),
+    ]
+
+    expect(backdrop.getAttribute('fetchpriority')).toBe('auto')
+    expect(image.getAttribute('fetchpriority')).toBe('high')
+  })
+
+  it('requests the first feed image at high priority from its backdrop on', () => {
+    const { body } = render(PostGallery, {
+      props: { images: [square], feed: true, priority: true },
+    })
+    const rendered = [
+      ...new JSDOM(body).window.document.querySelectorAll('img'),
+    ]
+
+    expect(rendered).toHaveLength(2)
+    for (const img of rendered) {
+      expect(img.getAttribute('fetchpriority')).toBe('high')
+    }
+  })
 
   it('shows an image of unknown shape at its natural size until it loads', () => {
     const document = feedDocument([lake])

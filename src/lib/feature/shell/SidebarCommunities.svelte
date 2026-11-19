@@ -25,8 +25,9 @@
     toggleFavorite,
   } from '$lib/feature/community/subscribed-communities.svelte'
   import Avatar from '$lib/ui/generic/Avatar.svelte'
+  import AnimatedStar from '$lib/ui/icon/AnimatedStar.svelte'
   import { toast } from '$lib/ui/kit'
-  import { ChevronDown, GripVertical, Icon, Star } from '$lib/ui/kit/icon'
+  import { ChevronDown, GripVertical, Icon } from '$lib/ui/kit/icon'
   import SidebarButton from '$lib/ui/sidebar/SidebarButton.svelte'
   import type { DID } from '$lib/types/atproto'
 
@@ -331,7 +332,7 @@
       aria-disabled={isFavoritePending(community)}
       onclick={(event) => onStar(community, event)}
     >
-      <Icon src={Star} size="16" class={[favorite && 'fill-current']} />
+      <AnimatedStar starred={favorite} />
     </button>
   </li>
 {/snippet}

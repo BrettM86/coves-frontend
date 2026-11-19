@@ -92,7 +92,7 @@ export async function fetchAllSubscribedCommunities(
     const next = response.cursor
     if (!next) return result
     if (cursors.has(next)) {
-      log.warn('[subscribed-communities] server repeated a cursor', {
+      log.warn('[subscribed-communities] server repeated a cursor', undefined, {
         pages: page + 1,
         count: result.length,
       })
@@ -102,7 +102,7 @@ export async function fetchAllSubscribedCommunities(
     cursor = next
   }
 
-  log.warn('[subscribed-communities] stopped at the page limit', {
+  log.warn('[subscribed-communities] stopped at the page limit', undefined, {
     pages: MAX_PAGES,
     count: result.length,
   })

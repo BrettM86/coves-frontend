@@ -9,16 +9,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
 
 /**
- * static/theme-boot.js runs before first paint, outside the bundle, so the test
+ * theme-boot.js runs before first paint, outside the bundle, so the test
  * executes the shipped file text against jsdom's window/document/localStorage.
  * Vite rewrites `new URL(path, import.meta.url)` into an http asset URL, so the
  * path is resolved with node:path from this file's location instead.
  */
 const bootSource = readFileSync(
-  resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    '../../../../../static/theme-boot.js',
-  ),
+  resolve(dirname(fileURLToPath(import.meta.url)), 'theme-boot.js'),
   'utf8',
 )
 

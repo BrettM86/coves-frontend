@@ -255,9 +255,9 @@ function fileInput(): HTMLInputElement {
   return input as HTMLInputElement
 }
 
-/** The body editor's textarea: the one under the "Body" heading. */
+/** The body editor's textarea: the one under the "Body" label. */
 function bodyTextarea(): HTMLTextAreaElement {
-  const heading = [...target.querySelectorAll('h3, label')].find(
+  const heading = [...target.querySelectorAll('div, label')].find(
     (element) => element.textContent?.trim() === 'Body',
   )
   const textarea = heading?.parentElement?.querySelector('textarea')

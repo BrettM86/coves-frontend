@@ -127,6 +127,10 @@
     ...rest
   }: Props = $props()
 
+  // Ties the caption to the textarea; a caller's own id wins.
+  const generatedId = $props.id()
+  let textAreaId = $derived(rest.id ?? generatedId)
+
   $effect(() => {
     if (!previewing && value) adjustHeight()
   })
@@ -135,6 +139,7 @@
 <div>
   {#if label || customLabel}
     <Label
+      for={textAreaId}
       class={required
         ? "after:content-['*'] after:text-red-500 after:ml-1"
         : ''}
@@ -278,6 +283,7 @@
         {rows}
         {required}
         {...rest}
+        id={textAreaId}
       />
     {/if}
 

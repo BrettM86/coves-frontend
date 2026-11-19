@@ -23,7 +23,7 @@
 </script>
 
 <svelte:element
-  this={text || customText ? 'label' : 'h3'}
+  this={text || customText || forID ? 'label' : 'div'}
   {...rest}
   for={forID}
   class={['text-sm text-slate-800 dark:text-zinc-200 font-medium', clazz]}

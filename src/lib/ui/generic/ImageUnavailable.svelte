@@ -14,7 +14,7 @@
 <div
   class={[
     'flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center text-xs',
-    'bg-slate-100 text-slate-500 dark:bg-zinc-900 dark:text-zinc-400',
+    'bg-slate-100 text-slate-600 dark:bg-zinc-900 dark:text-zinc-400',
     clazz,
   ]}
 >

@@ -192,6 +192,13 @@
   let unavailable = $derived(
     failedImage === image || (!previewUrl && !fullImageUrl),
   )
+  // An unavailable tile shows "Image unavailable", so its name starts with
+  // that text (label in name), then the alt text when there is one.
+  let tileLabel = $derived(
+    unavailable
+      ? [$t('common.imageUnavailable'), image.alt].filter(Boolean).join(': ')
+      : image.alt || $t('post.image.label'),
+  )
   // A frozen frame needs a playing GIF to stand in for.
   let frozen = $derived(gif && !blur && !unavailable && gifPaused)
   // The backdrop usually shares the image's file, and coming first in the
@@ -272,14 +279,20 @@
 
 {#snippet altBadge()}
   {#if image.alt}
-    <!-- A dark chip over the image, the same in light and dark themes. -->
+    <!-- A dark chip over the image, the same in light and dark themes. The
+         button reaches 4px past the chip on every side so the tap target is
+         at least 24px tall (WCAG 2.5.8); the chip keeps its 8px inset. -->
     <button
       type="button"
       onclick={() =>
         modal({ title: $t('post.image.altTitle'), body: image.alt ?? '' })}
-      class="absolute bottom-2 right-2 cursor-pointer rounded-[7px] bg-[#222]/90 px-[7.5px] py-[4.5px] text-[10.5px] font-bold leading-none tracking-wide text-white transition-colors hover:bg-[#222] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      class="group/alt absolute bottom-1 right-1 cursor-pointer p-1 text-[10.5px] font-bold leading-none tracking-wide text-white focus-visible:outline-none"
     >
-      {$t('post.image.altBadge')}
+      <span
+        class="block rounded-[7px] bg-[#222]/90 px-[7.5px] py-[4.5px] transition-colors group-hover/alt:bg-[#222] group-focus-visible/alt:outline-2 group-focus-visible/alt:outline-offset-2 group-focus-visible/alt:outline-white"
+      >
+        {$t('post.image.altBadge')}
+      </span>
     </button>
   {/if}
 {/snippet}
@@ -295,7 +308,7 @@
         ? `aspect-ratio: ${frameShape.width} / ${frameShape.height}; max-height: 560px`
         : 'height: 560px'}
       data-sveltekit-preload-data="off"
-      aria-label={image.alt ?? $t('post.image.label')}
+      aria-label={tileLabel}
       onclick={onopen}
       role="button"
       tabindex="0"
@@ -366,7 +379,7 @@
       this={settings.expandImages ? 'button' : 'div'}
       class="block w-fit max-w-full cursor-pointer overflow-hidden rounded-[12px]"
       data-sveltekit-preload-data="off"
-      aria-label={image.alt ?? $t('post.image.label')}
+      aria-label={tileLabel}
       onclick={onopen}
       role="button"
       tabindex="0"
@@ -430,7 +443,7 @@
       this={settings.expandImages ? 'button' : 'div'}
       class="absolute inset-0 block h-full w-full cursor-pointer"
       data-sveltekit-preload-data="off"
-      aria-label={image.alt ?? $t('post.image.label')}
+      aria-label={tileLabel}
       onclick={onopen}
       role="button"
       tabindex="0"

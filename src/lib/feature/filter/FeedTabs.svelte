@@ -24,7 +24,7 @@
   }
 </script>
 
-<nav role="tablist" aria-label="Feed" class={['flex gap-0', className]}>
+<div role="tablist" aria-label="Feed" class={['flex gap-0', className]}>
   <button
     role="tab"
     aria-selected={selected === 'discover'}
@@ -68,4 +68,4 @@
       ></span>
     </button>
   {/if}
-</nav>
+</div>

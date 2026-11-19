@@ -56,7 +56,7 @@
     children,
   }: Props = $props()
 
-  let listEl = $state<HTMLUListElement>()
+  let listEl = $state<HTMLDivElement>()
   let listComp = $state<{
     scrollToIndex: (index: number, window?: boolean) => void
   }>()
@@ -563,12 +563,8 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events (delegates native anchor clicks) -->
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions (delegates native anchor clicks) -->
-<ul
-  class="flex flex-col list-none"
-  bind:this={listEl}
-  onclick={handlePostFeedClick}
->
+<!-- svelte-ignore a11y_no_static_element_interactions (delegates native anchor clicks) -->
+<div class="flex flex-col" bind:this={listEl} onclick={handlePostFeedClick}>
   {#key posts}
     {#if posts?.length == 0}
       <div class="h-full grid place-items-center my-8">
@@ -590,6 +586,8 @@
     {:else}
       <VirtualList
         id="feed"
+        role="list"
+        itemRole="listitem"
         class="-mx-3 sm:-mx-6"
         items={posts}
         {initialOffset}
@@ -606,7 +604,7 @@
             isPinned && settings.posts.compactFeatured
               ? 'compact'
               : settings.view}
-          <li
+          <div
             in:fly={row < 7 && !restoringFeed
               ? { duration: 800, easing: expoOut, y: 24, delay: row * 50 }
               : { opacity: 1, duration: 0 }}
@@ -634,7 +632,7 @@
                 rowView == 'cozy' && 'md:[zoom:0.9]',
               ]}
             ></Post>
-          </li>
+          </div>
         {/snippet}
       </VirtualList>
     {/if}
@@ -705,4 +703,4 @@
     {/if}
   {/if}
   {@render children?.()}
-</ul>
+</div>

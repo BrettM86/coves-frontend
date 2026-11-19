@@ -136,8 +136,10 @@
     class="text-inherit! h-full px-2 gap-1"
     rounding="lg"
     target={settings.openLinksInNewTab ? '_blank' : ''}
-    aria-label={$t('post.actions.comments')}
   >
+    <!-- Named by its text rather than aria-label, so the name includes the
+         visible count. -->
+    <span class="sr-only">{$t('post.actions.comments')}</span>
     <Icon src={MessageSquare} size="16" />
     <FormattedNumber
       number={post.stats?.commentCount ?? 0}

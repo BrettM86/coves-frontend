@@ -207,7 +207,12 @@
 
       {#snippet action()}
         <div class="gap-2 flex items-center">
-          <Select size="md" bind:value={selectedSort} onchange={changeSort}>
+          <Select
+            size="md"
+            aria-label={$t('filter.sort.label')}
+            bind:value={selectedSort}
+            onchange={changeSort}
+          >
             <Option icon={Flame} value="hot">{$t('filter.sort.hot')}</Option>
             <Option icon={Trophy} value="top">
               {$t('filter.sort.top.label')}
@@ -218,6 +223,7 @@
             size="custom"
             class="h-8.5 w-8.5"
             rounding="xl"
+            aria-label={$t('common.refresh')}
             onclick={onupdate}
             icon={RefreshCw}
           ></Button>
@@ -249,7 +255,12 @@
 
 {#if commenting || !(profile.sessionExpired || profile.current.jwt)}
   <div class="gap-2 flex items-center">
-    <Select size="md" bind:value={selectedSort} onchange={changeSort}>
+    <Select
+      size="md"
+      aria-label={$t('filter.sort.label')}
+      bind:value={selectedSort}
+      onchange={changeSort}
+    >
       <Option icon={Flame} value="hot">{$t('filter.sort.hot')}</Option>
       <Option icon={Trophy} value="top">
         {$t('filter.sort.top.label')}
@@ -260,6 +271,7 @@
       size="custom"
       class="h-8.5 w-8.5"
       rounding="xl"
+      aria-label={$t('common.refresh')}
       onclick={onupdate}
       icon={RefreshCw}
     ></Button>

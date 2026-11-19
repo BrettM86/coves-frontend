@@ -17,7 +17,7 @@
   <a
     href={localized ?? href}
     {title}
-    class="hover:underline text-blue-600 dark:text-blue-400"
+    class="underline underline-offset-2 text-blue-600 dark:text-blue-400"
   >
     {@render children?.()}
   </a>

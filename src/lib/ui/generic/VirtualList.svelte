@@ -19,6 +19,8 @@
     debounceResize?: number
     useWindow?: boolean
     height?: number
+    /** Set with `role="list"` on the list so each rendered row is its item. */
+    itemRole?: 'listitem'
   }
 
   let {
@@ -31,6 +33,7 @@
     debounceResize = 100,
     useWindow = true,
     height = 0,
+    itemRole,
     ...rest
   }: Props = $props()
 
@@ -288,10 +291,14 @@
   <div
     style="height: {cumulativeItemHeights[visibleItems?.[0]?.index - 1] ||
       0}px; border: 0 !important;"
+    role={itemRole && 'none'}
   ></div>
   {#each visibleItems as item (item.index)}
     <div
       data-index={item.index}
+      role={itemRole}
+      aria-setsize={itemRole && items.length}
+      aria-posinset={itemRole && item.index + 1}
       class="post-container fix-divide group/virtual"
       use:resizeObserver
     >

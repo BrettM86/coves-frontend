@@ -46,7 +46,7 @@
   size="custom"
   {href}
   title={label}
-  aria-selected={isSelected}
+  aria-current={isSelected ? 'page' : undefined}
 >
   {#snippet prefix()}
     <div class="prefix">

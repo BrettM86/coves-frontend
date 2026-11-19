@@ -7,18 +7,20 @@
 >
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+    <link rel="icon" href="%coves.favicon%" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Applies the stored colour scheme and theme colours before first paint. -->
-    <script src="/theme-boot.js"></script>
+    <!-- hooks.server.ts swaps the comment below for an inline script that
+         applies the stored colour scheme and theme colours before first
+         paint, so first paint waits on no request. -->
+    <!--%coves.themeboot%-->
     %sveltekit.head%
   </head>
   <body>
     <div
       style="z-index:-50;position:absolute;inset:0;display:grid;place-items:center; "
     >
-      <img src="/favicon.svg" width="50" height="50" alt="" />
+      <img src="%coves.favicon%" width="50" height="50" alt="" />
     </div>
     <div style="display: contents;" data-sveltekit-preload-code>
       %sveltekit.body%

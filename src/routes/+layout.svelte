@@ -174,7 +174,6 @@
         : (theme.current.colors.slate?.[25] ?? getDefaultColors().slate[25]),
     )}
   />
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <meta
     name="description"
     content="Coves — community forums on the atmosphere"

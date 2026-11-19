@@ -109,7 +109,7 @@
       this={!settings.expandImages || !imageTile ? 'div' : 'button'}
       aria-label={imageTile
         ? $t('aria.postDecor.openImage', { default: altText ?? 'Image' })
-        : $t('aria.postDecor.openPost', { default: 'Post' })}
+        : undefined}
       onclick={expandImage}
       role={imageTile ? 'button' : 'presentation'}
       tabindex={imageTile ? 0 : -1}
@@ -128,7 +128,7 @@
             src={blur ? '' : imageSource}
             loading="lazy"
             class="object-cover relative overflow-hidden rounded-xl h-full w-full"
-            alt={altText ?? ' '}
+            alt={altText ?? ''}
             class:blur-xl={blur}
             onerror={() => {
               if (!blur) failedSource = imageSource

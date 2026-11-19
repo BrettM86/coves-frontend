@@ -841,8 +841,7 @@
         "vote": {
             "group": "Oylama kontrolleri",
             "upvotes": "{{default}} olumlu oylar",
-            "downvotes": "{{default}} olumsuz oylar",
-            "score": "Gol: {{default}}"
+            "downvotes": "{{default}} olumsuz oylar"
         }
     },
     "stats": {

@@ -106,7 +106,7 @@ export function persistThemeData(data: ThemeData): void {
   }
 }
 
-/** static/theme-boot.js applies this before first paint on the next load. */
+/** theme-boot.js applies this before first paint on the next load. */
 export function persistThemeVars(vars: string): void {
   try {
     localStorage.setItem('theme.vars', vars)

@@ -3,6 +3,7 @@ import { render } from 'svelte/server'
 import { JSDOM } from 'jsdom'
 import type { AtUri, CommunityRef } from '$lib/api/coves/types'
 import type { DID, Handle } from '$lib/types/atproto'
+import { communityAddress } from '$lib/app/util/community'
 import PostMeta from './PostMeta.svelte'
 
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
@@ -23,7 +24,7 @@ const author = {
 
 /** The href of the anchor wrapping the post title. */
 function titleHref(html: string): string | undefined {
-  return /<h3\b[^>]*>[\s\S]*?<a\b[^>]*\bhref="([^"]*)"/.exec(html)?.[1]
+  return /<h2\b[^>]*>[\s\S]*?<a\b[^>]*\bhref="([^"]*)"/.exec(html)?.[1]
 }
 
 describe('PostMeta title link', () => {
@@ -83,6 +84,13 @@ describe('PostMeta community software logo', () => {
   }
 
   describe.each(layouts)('$layout', ({ feed }) => {
+    it('names the community avatar button by the community address', () => {
+      const button = renderMeta(feed, undefined).querySelector('button')
+      expect(button?.getAttribute('aria-label')).toBe(
+        communityAddress(community),
+      )
+    })
+
     it.each([
       { originSoftware: 'lemmy', alt: 'Lemmy' },
       { originSoftware: 'piefed', alt: 'PieFed' },
@@ -102,12 +110,13 @@ describe('PostMeta community software logo', () => {
       { case: 'absent', originSoftware: undefined },
       { case: 'empty', originSoftware: '' },
       { case: 'unrelated software', originSoftware: 'mbin' },
-    ])('shows no software logo when originSoftware is $case', ({
-      originSoftware,
-    }) => {
-      const document = renderMeta(feed, originSoftware)
-      expect(document.querySelector('img[alt="Lemmy"]')).toBeNull()
-      expect(document.querySelector('img[alt="PieFed"]')).toBeNull()
-    })
+    ])(
+      'shows no software logo when originSoftware is $case',
+      ({ originSoftware }) => {
+        const document = renderMeta(feed, originSoftware)
+        expect(document.querySelector('img[alt="Lemmy"]')).toBeNull()
+        expect(document.querySelector('img[alt="PieFed"]')).toBeNull()
+      },
+    )
   })
 })

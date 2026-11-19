@@ -919,8 +919,7 @@
         "vote": {
             "group": "Kontrolki głosowania",
             "upvotes": "Głosy w górę: {{default}}",
-            "downvotes": "Głosy w dół: {{default}}",
-            "score": "Ocena: {{default}}"
+            "downvotes": "Głosy w dół: {{default}}"
         }
     },
     "stats": {

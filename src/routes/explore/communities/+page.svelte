@@ -37,7 +37,7 @@
     {/each}
   </div>
 {:else}
-  <ul class="flex flex-col h-full">
+  <div class="flex flex-col h-full">
     {#if data.communities.length == 0}
       <Placeholder
         icon={CircleHelp}
@@ -47,7 +47,7 @@
     {/if}
 
     {#if showTop}
-      <EndPlaceholder size="lg" margin="md">
+      <EndPlaceholder size="lg" margin="md" element="h2">
         {$t('routes.search.top')}
       </EndPlaceholder>
       <div
@@ -72,7 +72,7 @@
     {/if}
 
     {#if data.communities.slice(showTop ? 3 : 0).length > 0}
-      <EndPlaceholder size="lg" margin="md">
+      <EndPlaceholder size="lg" margin="md" element="h2">
         {$t('routes.search.other')}
       </EndPlaceholder>
     {/if}
@@ -84,5 +84,5 @@
         {/snippet}
       </CommonList>
     {/if}
-  </ul>
+  </div>
 {/if}

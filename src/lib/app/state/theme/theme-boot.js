@@ -1,9 +1,8 @@
-// Loaded synchronously from app.html <head>, before first paint, so a reload
-// doesn't flash the wrong colour scheme or the default theme colours. Reads
-// the 'colorScheme' and 'theme.vars' keys written by
-// src/lib/app/state/theme/theme.svelte.ts, and the <html>
-// data-default-color-scheme attribute written by src/hooks.server.ts. Plain
-// ES5 on purpose: it runs outside the bundle. Any failure leaves the
+// Inlined into app.html <head> by src/hooks.server.ts and run before first
+// paint, so a reload doesn't flash the wrong colour scheme or the default
+// theme colours. Reads the 'colorScheme' and 'theme.vars' keys written by
+// theme.svelte.ts, and the <html> data-default-color-scheme attribute written
+// by src/hooks.server.ts. Plain ES5 on purpose: it runs outside the bundle. Any failure leaves the
 // server-rendered page as it is.
 ;(function () {
   try {

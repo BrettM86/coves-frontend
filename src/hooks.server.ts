@@ -14,6 +14,9 @@ import { isBackendUnavailable } from '$lib/app/util/error'
 import { defaultFont, fontClass } from '$lib/app/util/font'
 import { installRequestEventAccessor } from '$lib/app/util/request-event'
 import { defaultThemeIsCoves } from '$lib/app/state/theme/presets'
+import themeBoot from '$lib/app/state/theme/theme-boot.js?raw'
+// The mascot doubles as the favicon (same file).
+import favicon from '$lib/assets/lil_dude.svg'
 import {
   addressHeaderConfigWarning,
   originConfigWarning,
@@ -411,7 +414,7 @@ function defaultColorScheme(): ColorScheme {
  * The <html> class for the `colorScheme` cookie the theme state writes, or for
  * the configured default on a first visit. Only light renders light: dark and
  * system (whose real value only the browser knows) render dark, and
- * static/theme-boot.js corrects system before first paint.
+ * the inlined theme-boot.js corrects system before first paint.
  */
 function colorSchemeClass(cookie: string | undefined): string {
   const scheme = isColorScheme(cookie) ? cookie : defaultColorScheme()
@@ -453,17 +456,32 @@ export const handle: Handle = async ({ event, resolve }) => {
         transformPageChunk: async (input) => {
           kitPage = true
           const html = (await opts?.transformPageChunk?.(input)) ?? input.html
-          return html
-            .replace(
-              '%coves.colorscheme%',
-              colorSchemeClass(event.cookies.get('colorScheme')),
-            )
-            .replace('%coves.defaultcolorscheme%', defaultColorScheme())
-            .replace('%coves.grain%', defaultThemeIsCoves ? 'data-grain' : '')
-            .replace(
-              '%coves.font%',
-              fontClass(defaultFont(publicEnv.PUBLIC_FONT)),
-            )
+          return (
+            html
+              .replace(
+                '%coves.colorscheme%',
+                colorSchemeClass(event.cookies.get('colorScheme')),
+              )
+              .replace('%coves.defaultcolorscheme%', defaultColorScheme())
+              .replace('%coves.grain%', defaultThemeIsCoves ? 'data-grain' : '')
+              .replace(
+                '%coves.font%',
+                fontClass(defaultFont(publicEnv.PUBLIC_FONT)),
+              )
+              // Matched with their surrounding markup, which escaped page
+              // content cannot contain, so a title or streamed value that
+              // spells a placeholder is left alone. A function, so `$`
+              // sequences in the script are not read as replacement patterns.
+              .replace(
+                '<!--%coves.themeboot%-->',
+                () => `<script>${themeBoot}</script>`,
+              )
+              .replace(
+                '<link rel="icon" href="%coves.favicon%"',
+                `<link rel="icon" href="${favicon}"`,
+              )
+              .replace('<img src="%coves.favicon%"', `<img src="${favicon}"`)
+          )
         },
       }),
   })

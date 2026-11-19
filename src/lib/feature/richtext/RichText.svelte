@@ -92,7 +92,7 @@
 
   const linkAttrs = (node: LinkSpan) => ({
     href: node.href,
-    class: 'hover:underline text-blue-600 dark:text-blue-400',
+    class: 'underline underline-offset-2 text-blue-600 dark:text-blue-400',
     rel: node.external ? 'noopener noreferrer nofollow' : undefined,
     target: node.external && settings.openLinksInNewTab ? '_blank' : undefined,
   })

@@ -77,7 +77,8 @@ function rendered(post: PostView, view: View, expandBody = false): HTMLElement {
 }
 
 const heading = (target: HTMLElement): string | undefined =>
-  target.querySelector('h3')?.textContent?.trim()
+  // The detail page's title is its h1; feed titles are h2.
+  target.querySelector('h1, h2')?.textContent?.trim()
 
 const cardText = (target: HTMLElement): string | undefined =>
   target.querySelector('[aria-label="Bluesky post"]')?.textContent ?? undefined

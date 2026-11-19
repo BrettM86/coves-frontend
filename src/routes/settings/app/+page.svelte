@@ -74,7 +74,10 @@
       </p>
     {/snippet}
     <!--@ts-ignore-->
-    <Select bind:value={settings.language}>
+    <Select
+      bind:value={settings.language}
+      aria-label={$t('settings.app.lang.title')}
+    >
       <Option icon={Languages} value={null}>
         {$t('settings.app.lang.auto')}
       </Option>
@@ -259,7 +262,10 @@
     {#snippet description()}
       <span>{$t('settings.app.font.description')}</span>
     {/snippet}
-    <Select bind:value={settings.font}>
+    <Select
+      bind:value={settings.font}
+      aria-label={$t('settings.app.font.title')}
+    >
       <Option value="inter">Inter</Option>
       <Option value="system">System UI</Option>
       <Option value="browser">Browser</Option>

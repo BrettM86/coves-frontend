@@ -48,6 +48,8 @@
     tags?: readonly MetaTag[]
     style?: string
     titleClass?: string
+    /** 1 on the post's own page, where the title is the page heading. */
+    titleLevel?: 1 | 2
     extraBadges?: import('svelte').Snippet
     navigation?: import('svelte').Snippet
     postUrl?: string
@@ -71,6 +73,7 @@
     postUrl,
     style = '',
     titleClass = '',
+    titleLevel = 2,
     extraBadges,
     navigation,
   }: Props = $props()
@@ -122,6 +125,7 @@
     {#snippet target(attachment)}
       <button
         {@attach attachment}
+        aria-label={community && communityAddress(community)}
         class={[
           'row-span-2 shrink-0 self-center group/btn',
           'bg-slate-200 dark:bg-zinc-800 cursor-pointer',
@@ -249,7 +253,11 @@
     {#if showCommunity && community}
       {@render communityAvatar(36, true)}
     {/if}
-    <div class="flex flex-col flex-1 min-w-0">
+    <!-- gap-2 keeps the community and author links 24px apart centre to
+         centre (WCAG 2.5.8 target spacing), including under the cozy
+         card's 90% zoom from md. The author link's py-1/-my-1 grows its
+         hit area to 24px without moving it. -->
+    <div class="flex flex-col flex-1 min-w-0 gap-2">
       {#if showCommunity && community && communityParts}
         <CommunityLink
           {community}
@@ -282,7 +290,7 @@
             {user}
             avatar={!showCommunity}
             avatarSize={24}
-            class="text-xs sm:text-[13px] text-muted self-start"
+            class="text-xs sm:text-[13px] text-muted self-start py-1 -my-1"
           />
         </address>
       {/if}
@@ -329,9 +337,17 @@
         <CommunitySoftwareLogo software={community.originSoftware} />
       </CommunityLink>
     {/if}
+    <!-- The margin keeps the author link 24px from the community link above,
+         centre to centre (WCAG 2.5.8 target spacing). Desktop compact rows
+         put the two side by side. -->
     <div
-      class="flex flex-row gap-1.5 items-center min-w-0
-       no-list-margin {view == 'compact' && showCommunity ? 'min-sm:mx-2' : ''}"
+      class={[
+        'flex flex-row gap-1.5 items-center min-w-0 no-list-margin',
+        view == 'compact' && showCommunity && 'min-sm:mx-2',
+        showCommunity &&
+          community &&
+          (view == 'compact' ? 'max-sm:mt-2' : 'mt-2'),
+      ]}
       style="grid-area: stats;"
     >
       {#if user}
@@ -368,7 +384,8 @@
   {@const attachedUrl =
     settings.posts.titleOpensUrl && postUrl ? parseWebUrl(postUrl) : null}
   {@const useAttachedUrl = attachedUrl !== null}
-  <h3
+  <svelte:element
+    this={`h${titleLevel}`}
     class={[
       'font-medium max-sm:mt-0! font-display',
       titleClass,
@@ -393,7 +410,7 @@
         class={view != 'compact' ? '' : 'leading-[1.3]'}
       />
     </a>
-  </h3>
+  </svelte:element>
 {:else}
   <div style="grid-area: title; margin: 0;"></div>
 {/if}

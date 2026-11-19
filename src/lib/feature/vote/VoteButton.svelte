@@ -130,8 +130,10 @@
       upvoted ? 'text-[#FF0033]' : 'btn-tertiary',
     ]}
     aria-pressed={upvoted}
-    aria-label={$t('post.actions.vote.upvote')}
   >
+    <!-- Named by its text rather than aria-label, so the name includes the
+         visible score. -->
+    <span class="sr-only">{$t('post.actions.vote.upvote')}</span>
     <AnimatedHeart liked={upvoted} size={variant === 'post' ? 20 : 18} />
 
     {#if showCounts}
@@ -141,7 +143,6 @@
             style="grid-column: 1; grid-row: 1;"
             in:fly={{ duration: 400, y: -10, easing: backOut }}
             out:fly={{ duration: 400, y: 10, easing: backOut }}
-            aria-label={$t('aria.vote.score', { default: score })}
           >
             <FormattedNumber number={score} />
           </span>

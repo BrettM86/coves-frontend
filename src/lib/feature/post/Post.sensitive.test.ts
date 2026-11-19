@@ -157,7 +157,7 @@ describe('sensitive post server rendering', () => {
       if (!post.record) throw new Error('Missing post record')
       post.record.title = 'Article'
       const html = markup(post)
-      expect(html).toMatch(/<h3\b[^>]*>[\s\S]*?Article[\s\S]*?<\/h3>/)
+      expect(html).toMatch(/<h2\b[^>]*>[\s\S]*?Article[\s\S]*?<\/h2>/)
       expect(html).not.toContain('sensitive-thumbnail.jpg')
     } finally {
       settings.posts.deduplicateEmbed = previous

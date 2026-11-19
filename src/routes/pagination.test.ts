@@ -131,7 +131,7 @@ describe('mobile navigation', () => {
       )
       expect(anchor).toBeDefined()
       expect(anchor).toContain('title="Home"')
-      expect(anchor).toContain(`aria-selected="${path === '/'}"`)
+      expect(anchor?.includes('aria-current="page"')).toBe(path === '/')
     },
   )
 })

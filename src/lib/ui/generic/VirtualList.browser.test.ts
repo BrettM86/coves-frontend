@@ -91,12 +91,13 @@ afterEach(async () => {
 async function mountList(
   items: number[],
   restore?: { itemHeights: (number | null)[] },
+  asList = false,
 ): Promise<HTMLElement> {
   const Subject = (await import('./VirtualListHeight.test.svelte')).default
   mounted = client.mount(Subject, {
     target,
     intro: false,
-    props: { items, estimatedHeight: 100, restore },
+    props: { items, estimatedHeight: 100, restore, list: asList },
   })
   client.flushSync()
   const list = target.querySelector<HTMLElement>('#feed')
@@ -182,5 +183,30 @@ describe('VirtualList container height', () => {
     client.flushSync()
 
     expect(list.style.height).toBe('380px')
+  })
+})
+
+describe('VirtualList list semantics', () => {
+  it('makes every rendered row a listitem when the list has role=list', async () => {
+    const list = await mountList([0, 1, 2], undefined, true)
+
+    expect(list.getAttribute('role')).toBe('list')
+    const children = [...list.children]
+    expect(
+      children.filter((child) => child.getAttribute('role') === 'listitem'),
+    ).toHaveLength(3)
+    // Only rows and the presentational spacer sit directly in the list.
+    expect(
+      children.every((child) =>
+        ['listitem', 'none'].includes(child.getAttribute('role') ?? ''),
+      ),
+    ).toBe(true)
+  })
+
+  it('adds no roles to a plain list', async () => {
+    const list = await mountList([0, 1])
+
+    expect(list.hasAttribute('role')).toBe(false)
+    expect(list.querySelector('[role]')).toBeNull()
   })
 })

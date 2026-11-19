@@ -2,6 +2,16 @@ import auto from '@sveltejs/adapter-auto'
 import node from '@sveltejs/adapter-node'
 import staticAdapter from '@sveltejs/adapter-static'
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte'
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+
+// src/hooks.server.ts inlines this file into <head> as a bare <script>; its
+// hash in `script-src` admits it next to Kit's per-request nonce, and in an
+// `ADAPTER=static` build, where a nonce placeholder would fail prerendering.
+/** @type {`sha256-${string}`} */
+const themeBootHash = `sha256-${createHash('sha256')
+  .update(readFileSync('src/lib/app/state/theme/theme-boot.js'))
+  .digest('base64')}`
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -33,7 +43,7 @@ const config = {
       // keeps them; `$lib/server/security-headers` re-emits identical values
       // and owns every remaining directive at runtime.
       directives: {
-        'script-src': ['self'],
+        'script-src': ['self', themeBootHash],
         // Handler attributes only. `unsafe-hashes` + sha256 admit one inline
         // handler body: Svelte's SSR event-replay stub `this.__e=event`,
         // stamped on every element with an onload/onerror handler. Nonces

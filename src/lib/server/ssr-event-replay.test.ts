@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { render } from 'svelte/server'
 import svelteConfig from '../../../svelte.config.js'
 import Avatar from '$lib/ui/generic/Avatar.svelte'
@@ -40,6 +41,16 @@ describe('SSR event replay under the nonce CSP', () => {
   })
 
   it('keeps the hash exception out of script-src', () => {
-    expect(directives['script-src']).toEqual(['self'])
+    // script-src holds only 'self' and the inlined theme-boot.js hash.
+    const themeBoot = readFileSync(
+      new URL('../app/state/theme/theme-boot.js', import.meta.url),
+    )
+    const themeBootDigest = createHash('sha256')
+      .update(themeBoot)
+      .digest('base64')
+    expect(directives['script-src']).toEqual([
+      'self',
+      `sha256-${themeBootDigest}`,
+    ])
   })
 })

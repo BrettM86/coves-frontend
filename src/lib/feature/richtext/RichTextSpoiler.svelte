@@ -60,6 +60,8 @@
     aria-label={label}
     onclick={() => (revealed = true)}
   >
-    <span inert class="blur-xs select-none">{@render children()}</span>
+    <span inert aria-hidden="true" class="blur-xs select-none">
+      {@render children()}
+    </span>
   </button>
 {/if}

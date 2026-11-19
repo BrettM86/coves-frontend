@@ -114,8 +114,13 @@ const isVisible = (element: Element): boolean => {
   )
 }
 
+// The count buttons are named by sr-only text, not aria-label, so their name
+// also carries the visible count.
 const accessibleName = (element: Element): string =>
-  element.getAttribute('aria-label') ?? element.getAttribute('title') ?? ''
+  element.getAttribute('aria-label') ??
+  element.getAttribute('title') ??
+  element.querySelector('.sr-only')?.textContent ??
+  ''
 
 /**
  * The outermost ancestor of `control` (inside `root`) that holds none of
@@ -201,7 +206,11 @@ describe('PostActions', () => {
       expect(voteGroup.contains(downvote)).toBe(true)
       expect(voteGroup.contains(comments)).toBe(false)
       expect(voteGroup.textContent).toContain('36')
-      expect(comments.textContent?.trim()).toBe('4')
+      // Named by its text, so the name carries the visible count.
+      expect(comments.hasAttribute('aria-label')).toBe(false)
+      expect(
+        comments.textContent?.replace(accessibleName(comments), '').trim(),
+      ).toBe('4')
     },
   )
 })

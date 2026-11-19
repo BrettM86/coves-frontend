@@ -929,8 +929,7 @@
         "vote": {
             "group": "Äänestyspainikkeet",
             "upvotes": "{{default}} ylä-ääntä",
-            "downvotes": "{{default}} alaääntä",
-            "score": "Pisteet: {{default}}"
+            "downvotes": "{{default}} alaääntä"
         },
         "pagination": {
             "nav": "Sivutus",
@@ -945,8 +944,7 @@
         },
         "postDecor": {
             "openImage": "Avaa kuva: {{default}}",
-            "openLink": "Avaa linkki: {{default}}",
-            "openPost": "Avaa julkaisu: {{default}}"
+            "openLink": "Avaa linkki: {{default}}"
         }
     },
     "stats": {

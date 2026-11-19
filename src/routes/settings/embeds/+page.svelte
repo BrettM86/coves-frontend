@@ -24,7 +24,7 @@
         {$t('settings.embeds.youtube.description')}
       </span>
     {/snippet}
-    <Select bind:value={settings.embeds.youtube}>
+    <Select bind:value={settings.embeds.youtube} aria-label="YouTube">
       <Option value="youtube">YouTube</Option>
       <Option value="invidious">Invidious</Option>
       <Option value="piped">Piped</Option>

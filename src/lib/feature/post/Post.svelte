@@ -177,6 +177,7 @@
   <PostMeta
     {navigation}
     feed={feedCard}
+    titleLevel={expandBody ? 1 : 2}
     community={post.community}
     showCommunity={!hideCommunity}
     user={post.author}

@@ -55,7 +55,7 @@ describe('Post feed card link card', () => {
     expect(card).not.toBeNull()
     if (!card) return
     expect(card.textContent).not.toContain('nap time')
-    const headings = [...article.querySelectorAll('h3')]
+    const headings = [...article.querySelectorAll('h2')]
     expect(headings).toHaveLength(1)
     expect(leafWithText(article, 'nap time')).toHaveLength(1)
   })
@@ -277,7 +277,7 @@ describe('Post feed card acceptance', () => {
   it('orders header, title, body bubble, one link card, then the action footer', () => {
     const article = feedCard()
     const header = article.querySelector('header')
-    const title = article.querySelector('h3')
+    const title = article.querySelector('h2')
     const body = bodyInset(article)
     const card = linkCard(article)
     const footer = article.querySelector('footer')

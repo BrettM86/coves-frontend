@@ -268,6 +268,9 @@ describe('RichText placed image', () => {
       (button) => button.getAttribute('aria-label') === 'Show spoiler',
     )
     if (!reveal) throw new Error('The spoiler has no reveal button')
+    // Concealed content stays out of the button's name.
+    for (const img of reveal.querySelectorAll('img'))
+      expect(img.closest('[aria-hidden="true"]')).not.toBeNull()
     reveal.click()
     await settle()
 

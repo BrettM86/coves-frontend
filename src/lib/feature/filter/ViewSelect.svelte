@@ -27,6 +27,7 @@
 </script>
 
 <Select
+  aria-label={showLabel ? undefined : $t('filter.view.label')}
   {...rest}
   bind:value={settings.view}
   icon={viewIcon}

@@ -1243,8 +1243,7 @@
         "vote": {
             "group": "Voting controls",
             "upvotes": "{{default}} upvotes",
-            "downvotes": "{{default}} downvotes",
-            "score": "Score: {{default}}"
+            "downvotes": "{{default}} downvotes"
         },
         "sidebar": {
             "title": "Sidebar"
@@ -1257,8 +1256,7 @@
         "postDecor": {
             "openImage": "Open image: {{default}}",
             "imageCount": "{{count}} images",
-            "openLink": "Open link: {{default}}",
-            "openPost": "Open post: {{default}}"
+            "openLink": "Open link: {{default}}"
         },
         "comments": {
             "children": "{{childCount}} children"

@@ -25,26 +25,26 @@
   )
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events (delegates native anchor clicks) -->
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions (delegates native anchor clicks) -->
-<ul
-  bind:this={listEl}
-  class="flex flex-col list-none"
-  onclick={handlePostFeedClick}
->
-  {#if posts?.length == 0}
-    <div class="h-full grid place-items-center">
-      <Placeholder
-        icon={Archive}
-        title="No posts"
-        description="There are no posts that match this filter."
-      >
-        <Button href="/communities" icon={Plus}>
-          <span>Follow some communities</span>
-        </Button>
-      </Placeholder>
-    </div>
-  {:else}
+{#if posts?.length == 0}
+  <div class="h-full grid place-items-center">
+    <Placeholder
+      icon={Archive}
+      title="No posts"
+      description="There are no posts that match this filter."
+    >
+      <Button href="/communities" icon={Plus}>
+        <span>Follow some communities</span>
+      </Button>
+    </Placeholder>
+  </div>
+{:else}
+  <!-- svelte-ignore a11y_click_events_have_key_events (delegates native anchor clicks) -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions (delegates native anchor clicks) -->
+  <ul
+    bind:this={listEl}
+    class="flex flex-col list-none"
+    onclick={handlePostFeedClick}
+  >
     {#each posts as feedPost, index (feedPost.post.uri)}
       {@const isPinned =
         feedPost.reason?.$type === 'social.coves.feed.defs#reasonPin'}
@@ -75,6 +75,6 @@
         />
       </li>
     {/each}
-  {/if}
-  {@render children?.()}
-</ul>
+    {@render children?.()}
+  </ul>
+{/if}

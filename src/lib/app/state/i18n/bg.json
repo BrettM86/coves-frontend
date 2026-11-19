@@ -873,7 +873,6 @@
             "nav": "Номерация на страници"
         },
         "vote": {
-            "score": "Точки: {{default}}",
             "upvotes": "{{default}} гласа нагоре",
             "downvotes": "{{default}} гласа надолу",
             "group": "Контроли за гласуване"
@@ -887,8 +886,7 @@
         },
         "postDecor": {
             "openImage": "Отваряне на изображение: {{default}}",
-            "openLink": "Отваряне на връзка: {{default}}",
-            "openPost": "Отваряне на публикация: {{default}}"
+            "openLink": "Отваряне на връзка: {{default}}"
         }
     },
     "admin": {

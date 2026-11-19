@@ -156,7 +156,9 @@ describe('VoteButton', () => {
     expect(controls).toHaveLength(2)
 
     const [upvote, downvote] = controls
-    expect(upvote.getAttribute('aria-label')).toBe(
+    // Named by sr-only text, so the name also carries the visible score.
+    expect(upvote.hasAttribute('aria-label')).toBe(false)
+    expect(upvote.querySelector('.sr-only')?.textContent).toBe(
       t.get('post.actions.vote.upvote'),
     )
     expect(upvote.getAttribute('aria-pressed')).toBe('false')
@@ -259,7 +261,9 @@ describe('VoteButton', () => {
     expect(controls).toHaveLength(2)
     const [upvote, downvote] = controls
 
-    expect(upvote.getAttribute('aria-label')).toBe(
+    // Named by sr-only text, so the name also carries the visible score.
+    expect(upvote.hasAttribute('aria-label')).toBe(false)
+    expect(upvote.querySelector('.sr-only')?.textContent).toBe(
       t.get('post.actions.vote.upvote'),
     )
     expect(upvote.getAttribute('aria-pressed')).toBe('false')

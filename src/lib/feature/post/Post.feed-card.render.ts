@@ -15,7 +15,12 @@ export function renderPost(
 }
 
 export const accessibleName = (element: Element): string =>
-  element.getAttribute('aria-label') ?? element.getAttribute('title') ?? ''
+  element.getAttribute('aria-label') ??
+  element.getAttribute('title') ??
+  // The count buttons are named by sr-only text, so the name also carries
+  // the visible count.
+  element.querySelector('.sr-only')?.textContent ??
+  ''
 
 /** Accessible names of the action bar's controls, in DOM order. */
 export function actionNames(article: Element): string[] {

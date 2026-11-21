@@ -79,6 +79,11 @@ vi.mock('$lib/feature/shell/SessionRecovery.svelte', () => ({
 vi.mock('$lib/feature/bluesky-import/BlueskyImportOffer.svelte', () => ({
   default: () => {},
 }))
+// The sidebar's subscribed-communities list loads for a signed-in viewer; it
+// is outside this wiring.
+vi.mock('$lib/feature/shell/SidebarCommunities.svelte', () => ({
+  default: () => {},
+}))
 // Observed, not exercised: log.test.ts owns what the helper writes.
 vi.mock('$lib/feature/notification/log', () => ({
   logNotificationFailure: vi.fn(),

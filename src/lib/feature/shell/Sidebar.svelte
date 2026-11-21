@@ -23,6 +23,7 @@
   import type { ClassValue } from 'svelte/elements'
   import EndPlaceholder from '$lib/ui/layout/EndPlaceholder.svelte'
   import SidebarButton from '$lib/ui/sidebar/SidebarButton.svelte'
+  import SidebarCommunities from './SidebarCommunities.svelte'
 
   interface Props {
     style?: string
@@ -114,7 +115,7 @@
   </Select>
   <SidebarButton href="/theme" label={$t('nav.menu.theme')} icon={SwatchBook} />
   <SidebarButton href="/legal" label="Legal &amp; source" icon={Info} />
-  <!-- TODO: Re-enable communities/moderates lists when Coves API provides user data -->
+  <SidebarCommunities />
 
   <div class="flex-1 h-full mt-auto"></div>
 </nav>

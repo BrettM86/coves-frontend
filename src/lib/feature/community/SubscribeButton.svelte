@@ -7,14 +7,19 @@
   import { Button, toast } from '$lib/ui/kit'
   import { Check, Plus } from '$lib/ui/kit/icon'
   import {
+    forgetFavorite,
+    isFavoritePending,
+    subscribedCommunities,
+    type ListedCommunity,
+  } from './subscribed-communities.svelte'
+  import {
     isSubscribed,
     isSubscriptionPending,
     toggleSubscription,
-    type SubscribableCommunity,
   } from './subscription.svelte'
 
   interface Props {
-    community: SubscribableCommunity
+    community: ListedCommunity
     /**
      * Where the button sits; picks size and shape.
      * - `header`: community page header (large)
@@ -30,7 +35,11 @@
   let { community, variant, view = 'compact' }: Props = $props()
 
   let subscribed = $derived(isSubscribed(community))
-  let pending = $derived(isSubscriptionPending(community))
+  // A favorite change is a subscribe call too; letting an unsubscribe race it
+  // could leave the viewer subscribed.
+  let pending = $derived(
+    isSubscriptionPending(community) || isFavoritePending(community),
+  )
   let label = $derived(
     subscribed
       ? $t('cards.community.subscribed')
@@ -38,11 +47,20 @@
   )
 
   async function onPress(): Promise<void> {
+    // The viewer the sidebar list belongs to when pressed; a late response
+    // must not land in the next viewer's list.
+    const owner = subscribedCommunities.owner
     const outcome = await toggleSubscription(community, coves())
     if (outcome.kind === 'error') {
       if (isExpiredSessionError(outcome.error) && profile.sessionExpired) return
       toast({ content: errorMessage(outcome.error), type: 'error' })
     } else if (outcome.kind === 'ok') {
+      // The sidebar list reads the index, which lags the firehose.
+      if (outcome.subscribed) {
+        subscribedCommunities.remember(community, owner)
+      } else if (subscribedCommunities.owner === owner) {
+        forgetFavorite(community)
+      }
       toast({
         content: outcome.subscribed
           ? $t('toast.subscribedCommunity')

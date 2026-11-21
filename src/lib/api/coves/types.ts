@@ -385,6 +385,8 @@ export interface CommunityViewerState {
   member?: boolean
   /** Whether the viewer hides this community from aggregate feeds. */
   blocked?: boolean
+  /** Whether the viewer pinned this subscription as a favorite; only sent when subscribed. */
+  favorite?: boolean
 }
 
 export interface CommunityView {
@@ -962,6 +964,22 @@ export interface CreateCommunityResponse {
 }
 
 export interface SubscribeCommunityInput {
+  community: DID | Handle
+  /** Sets or clears the favorite flag; on an existing subscription it updates in place. */
+  favorite?: boolean
+}
+
+export interface SubscribeCommunityOutput {
+  uri: string
+  cid: string
+  existing?: boolean
+  /** The stored favorite after the write; absent on backends without favorites. */
+  favorite?: boolean
+  /** The stored content visibility (1-5) after the write; absent on older backends. */
+  contentVisibility?: number
+}
+
+export interface UnsubscribeCommunityInput {
   community: DID | Handle
 }
 

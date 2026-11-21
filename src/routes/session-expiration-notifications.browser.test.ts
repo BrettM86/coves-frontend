@@ -223,7 +223,11 @@ describe('session expiration notifications from actual controls', () => {
       const Component = (
         await import('$lib/feature/community/SubscribeButton.svelte')
       ).default
-      const community = { did: 'did:plc:community' as DID, viewer: {} }
+      const community = {
+        did: 'did:plc:community' as DID,
+        name: 'community',
+        viewer: {},
+      }
       const { isSubscribed, isSubscriptionPending } =
         await import('$lib/feature/community/subscription.svelte')
       mounted = client.mount(Component, {

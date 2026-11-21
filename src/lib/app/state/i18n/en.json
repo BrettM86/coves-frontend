@@ -9,6 +9,15 @@
         "admin": "Admin",
         "moderation": "Moderation",
         "communities": "Communities",
+        "sidebarCommunities": {
+            "favorite": "Favorite {{default}}",
+            "reorder": "Reorder {{default}}: drag, or use the up and down arrow keys",
+            "moved": "{{default}} moved to position {{position}} of {{count}}",
+            "conflict": "That subscription changed elsewhere. Your list is refreshed.",
+            "empty": "No subscriptions yet",
+            "error": "Couldn't load your communities",
+            "retry": "Retry"
+        },
         "search": "Search",
         "create": {
             "label": "Create",

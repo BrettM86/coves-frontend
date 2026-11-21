@@ -14,7 +14,23 @@
     clearErrorScope,
   } from '$lib/ui/info/ErrorContainer.svelte'
   import { Header } from '$lib/ui/layout'
-  import { Button, Spinner, TextInput, toast } from '$lib/ui/kit'
+  import { Button, toast } from '$lib/ui/kit'
+  import { AtSign, Icon, Server } from '$lib/ui/kit/icon'
+
+  // The handle field is a single underline rather than a box. The underline
+  // keeps at least 3:1 contrast against the page (WCAG 1.4.11), focus turns
+  // it into a 2px line in the accent colour, and the input is 48px tall so
+  // it stays a comfortable tap target.
+  const labelClass = 'text-sm font-medium text-slate-600 dark:text-zinc-400'
+  const lineClass = `group flex items-center gap-2 border-b border-slate-500
+    dark:border-zinc-500 transition-[border-color,box-shadow]
+    focus-within:border-primary-900 dark:focus-within:border-primary-100
+    focus-within:shadow-[0_1px_0_0_var(--color-primary-900)]
+    dark:focus-within:shadow-[0_1px_0_0_var(--color-primary-100)]`
+  const inputClass = `min-h-12 min-w-0 flex-1 bg-transparent py-2 text-base
+    outline-hidden placeholder:text-slate-500 dark:placeholder:text-zinc-400`
+  const iconClass = `shrink-0 text-slate-500 dark:text-zinc-400 transition-colors
+    group-focus-within:text-primary-900 dark:group-focus-within:text-primary-100`
 
   /**
    * Maps OAuth error codes from URL params to user-friendly i18n keys.
@@ -133,17 +149,20 @@
   <title>{$t('account.login')}</title>
 </svelte:head>
 
-<div class="max-w-xl w-full mx-auto h-max my-auto">
+<div class="max-w-sm w-full mx-auto h-max mt-6 sm:mt-10">
   <form
     onsubmit={(e) => {
       e.preventDefault()
       startOAuthLogin()
     }}
-    class="flex flex-col gap-5"
+    class="flex flex-col gap-6"
   >
-    <div class="flex flex-col">
+    <div class="flex flex-col gap-2">
       {@render children?.()}
-      <Header>{$t('account.login')}</Header>
+      <Header size="sm" class="font-semibold">{$t('account.login')}</Header>
+      <p id="login-info" class="text-sm text-muted dark:text-zinc-400">
+        {$t('oauth.loginInfo')}
+      </p>
       <ErrorContainer
         class="pt-2"
         scope={page.route.id}
@@ -151,51 +170,64 @@
       />
     </div>
 
-    <div class="flex flex-row w-full items-center gap-2">
-      <TextInput
-        id="handle"
-        bind:value={form.handle}
-        label={$t('form.handle')}
-        placeholder="user.bsky.social"
-        class="flex-1 placeholder:text-slate-500 dark:placeholder:text-zinc-400 [&>label]:after:content-none"
-        required
-        autocorrect="off"
-        autocapitalize="off"
-      />
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-col gap-1">
+        <label for="handle" class={labelClass}>{$t('form.handle')}</label>
+        <div class={lineClass}>
+          <Icon src={AtSign} size="20" class={iconClass} />
+          <input
+            id="handle"
+            type="text"
+            bind:value={form.handle}
+            placeholder="user.bsky.social"
+            required
+            autocomplete="username"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            aria-describedby="login-info"
+            class={inputClass}
+          />
+        </div>
+      </div>
       {#if !LINKED_INSTANCE_URL}
-        <TextInput
-          id="instance_url"
-          placeholder={DEFAULT_INSTANCE_URL}
-          bind:value={form.instance}
-          class="flex-1 overflow-hidden"
-          required
-          pattern={DOMAIN_REGEX_FORMS}
-          autocorrect="off"
-          autocapitalize="off"
-        >
-          {#snippet customLabel()}
+        <div class="flex flex-col gap-1">
+          <label for="instance_url" class={labelClass}>
             {$t('form.instance')}
-          {/snippet}
-        </TextInput>
+          </label>
+          <div class={lineClass}>
+            <Icon src={Server} size="20" class={iconClass} />
+            <input
+              id="instance_url"
+              type="text"
+              bind:value={form.instance}
+              placeholder={DEFAULT_INSTANCE_URL}
+              required
+              pattern={DOMAIN_REGEX_FORMS}
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              class={inputClass}
+            />
+          </div>
+        </div>
       {/if}
     </div>
 
     <Button
       loading={form.loading}
+      loaderWidth={20}
       disabled={form.loading}
       color="primary"
       size="lg"
+      class="w-full"
       submit
     >
       {#if form.loading}
-        <Spinner width={20} />
         {$t('oauth.redirecting')}
       {:else}
         {$t('oauth.continueLogin')}
       {/if}
     </Button>
-    <p class="text-center text-sm text-slate-600 dark:text-zinc-400">
-      {$t('oauth.loginInfo')}
-    </p>
   </form>
 </div>

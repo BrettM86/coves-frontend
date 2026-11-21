@@ -1068,7 +1068,7 @@
             },
             "duplicateTitles": {
                 "title": "Hide duplicate embed content",
-                "description": "Hides the post title and body if they are identical to the embed."
+                "description": "Hides the post title when it repeats an embedded Bluesky post."
             },
             "thumbnailSide": {
                 "title": "Thumbnail alignment",

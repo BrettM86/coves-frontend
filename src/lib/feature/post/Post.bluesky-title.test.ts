@@ -149,17 +149,19 @@ describe('Bluesky post title deduplication', () => {
   })
 })
 
-// Feed cards keep the heading and drop the title from the link card instead
-// (Post.feed-card.test.ts); the detail page's PostLink card still shows the
-// link title, so the heading dedup is guarded there.
+// The detail page's link card, like the feed's, keeps the heading and drops
+// the duplicate title from the card instead.
 describe('link card title deduplication on the detail page', () => {
-  it('hides the title heading when the link title equals it exactly', () => {
+  it('keeps the title heading and drops the duplicate from the link card', () => {
     const target = rendered(
       fixture('Example Article', linkEmbed('Example Article')),
       'cozy',
       true,
     )
-    expect(heading(target)).toBeUndefined()
+    expect(heading(target)).toBe('Example Article')
+    const card = target.querySelector('[data-testid="link-card"]')
+    expect(card).not.toBeNull()
+    expect(card?.textContent).not.toContain('Example Article')
   })
 
   it('shows the title heading when the link title differs only in whitespace', () => {

@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, expect, it, vi } from 'vitest'
 import type { PostView } from '$lib/api/coves/types'
-import { IMAGE_FULL, imagePost, linkPost } from './Post.feed-card.fixture'
+import {
+  IMAGE_FULL,
+  IMAGE_THUMB,
+  imagePost,
+  linkPost,
+} from './Post.feed-card.fixture'
 
 vi.mock('$app/environment', () => ({
   browser: true,
@@ -178,4 +183,49 @@ it('gives a link-only card the same compact frame as a card under a body', () =>
   const withBody = cardClass(linkPost({ body: 'A short body.' }))
   expect(withBody).toBeDefined()
   expect(cardClass(linkPost({ body: '' }))).toBe(withBody)
+})
+
+it('shows an image post attachment as one link card on the post page', () => {
+  const post = linkPost()
+  target = document.createElement('div')
+  document.body.appendChild(target)
+  mounted = client.mount(Post, {
+    target,
+    props: {
+      post: {
+        ...post,
+        embed: {
+          $type: 'social.coves.embed.imagesWithAttachment#view',
+          images: {
+            $type: 'social.coves.embed.images#view',
+            images: [
+              { thumb: IMAGE_THUMB, fullsize: IMAGE_FULL, alt: 'A cat' },
+            ],
+          },
+          attachment: {
+            $type: 'social.coves.embed.external#viewExternal',
+            uri: 'https://example.com/story',
+            title: 'The story',
+          },
+        },
+      },
+      view: 'cozy',
+      expandBody: true,
+      actions: false,
+    },
+    intro: false,
+  })
+  client.flushSync()
+
+  expect(target.querySelector('a.post-link')).toBeNull()
+  const cards = target.querySelectorAll('[data-testid="link-card"]')
+  expect(cards).toHaveLength(1)
+  expect(cards[0]?.getAttribute('href')).toBe('https://example.com/story')
+  expect(cards[0]?.textContent).toContain('The story')
+  const image = target.querySelector('img[alt="A cat"]')
+  expect(image).not.toBeNull()
+  if (!image || !cards[0]) return
+  expect(
+    image.compareDocumentPosition(cards[0]) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy()
 })

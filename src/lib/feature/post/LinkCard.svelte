@@ -25,7 +25,7 @@
 
 <!--
   @component
-  The feed card's link: favicon, host and an external-link marker, the linked
+  A cozy post's link: favicon, host and an external-link marker, the linked
   page's title when it adds something, and a small thumbnail on the right.
   The whole card opens the link in a new tab.
 -->

@@ -12,9 +12,6 @@ import { galleryEmbed, mediaType } from '../helpers'
 
 vi.mock('$env/dynamic/public', () => ({ env: {} }))
 
-/** Node.DOCUMENT_POSITION_FOLLOWING; the node test environment has no Node global. */
-const DOCUMENT_POSITION_FOLLOWING = 4
-
 const images: ImageEmbed = {
   $type: 'social.coves.embed.images#view',
   images: [
@@ -74,26 +71,15 @@ describe('PostMedia cozy: imagesWithAttachment with an external attachment', () 
     )
   })
 
-  it("renders the link card with the attachment's URL, title and thumbnail below the gallery", () => {
+  // Post renders the attachment as its link card (Post.feed-card.browser.test.ts).
+  it('leaves the attachment link to the post link card', () => {
     const document = renderCozy(withExternal)
 
-    const card = document.querySelector(
-      'a[href="https://news.example.test/harbour-story"]',
-    )
-    expect(card).not.toBeNull()
-    expect(card?.textContent).toContain('Harbour story')
-    expect(card?.querySelector('img')?.getAttribute('src')).toBe(
-      'https://news.example.test/media/harbour-card.jpg',
-    )
-
-    const lastGalleryImage = document.querySelector('img[alt="Second image"]')
-    expect(lastGalleryImage).not.toBeNull()
-    if (!card || !lastGalleryImage) return
     expect(
-      lastGalleryImage.compareDocumentPosition(card) &
-        DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
-    expect(card.contains(lastGalleryImage)).toBe(false)
+      document.querySelector(
+        'a[href="https://news.example.test/harbour-story"]',
+      ),
+    ).toBeNull()
   })
 })
 

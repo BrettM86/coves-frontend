@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { COMPACT_THUMBNAIL_SIZE } from '$lib/feature/post/media/thumbnail'
 import {
   afterEach,
   beforeAll,
@@ -644,6 +645,16 @@ describe('ReplyCard root post card', () => {
     )
     expect(image?.getAttribute('alt')).toBe('A grey cat on a windowsill')
     expect(cardPart('post-media-text')).toBeNull()
+
+    // The compact feed's square tile (COMPACT_THUMBNAIL_SIZE) and the post
+    // action bar's order: heart, downvote, comments (PostActions).
+    expect(cardPart('post-media')?.classList).toContain(COMPACT_THUMBNAIL_SIZE)
+    expect(cardPart('post-media')?.classList).not.toContain('sm:w-28')
+    expect(
+      [...(stats?.querySelectorAll('[data-part]') ?? [])].map((part) =>
+        part.getAttribute('data-part'),
+      ),
+    ).toEqual(['post-score', 'post-downvote', 'post-comments'])
   })
 
   it('adds no link or button inside the row link', () => {

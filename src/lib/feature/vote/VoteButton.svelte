@@ -2,7 +2,7 @@
   lang="ts"
   generics="TStats extends VoteCounts, TViewer extends VoteViewer"
 >
-  import { untrack, type Snippet } from 'svelte'
+  import { untrack } from 'svelte'
   import type { AtUri, CID } from '$lib/api/coves/types'
   import { coves } from '$lib/api/client.svelte'
   import { profile } from '$lib/app/state/auth.svelte'
@@ -29,7 +29,6 @@
     /** Sizing preset: posts get the larger controls. */
     variant?: 'post' | 'comment'
     showCounts?: boolean
-    children?: Snippet
   }
 
   let {
@@ -41,7 +40,6 @@
     emptyViewer,
     variant = 'post',
     showCounts = true,
-    children,
   }: Props = $props()
 
   let score = $derived(stats?.score ?? 0)
@@ -126,7 +124,7 @@
       'flex items-center justify-center transition-colors cursor-pointer disabled:cursor-default',
       variant === 'post'
         ? 'gap-1 rounded-xl px-2 py-1.5'
-        : 'gap-0.5 rounded-full px-1.5 py-1',
+        : 'gap-0.5 rounded-lg px-1.5 py-1',
       upvoted ? 'text-[#FF0033]' : 'btn-tertiary',
     ]}
     aria-pressed={upvoted}
@@ -151,17 +149,13 @@
     {/if}
   </button>
 
-  {@render children?.()}
-
   <button
     type="button"
     onclick={() => onPress('down')}
     disabled={voting}
     class={[
       'flex items-center justify-center transition-colors cursor-pointer disabled:cursor-default',
-      variant === 'post'
-        ? 'rounded-xl px-2 py-1.5'
-        : 'rounded-full px-1.5 py-1',
+      variant === 'post' ? 'rounded-xl px-2 py-1.5' : 'rounded-lg px-1.5 py-1',
       downvoted
         ? 'text-[#0F766E] dark:text-[#63B5B1]'
         : 'btn-tertiary text-slate-500 dark:text-zinc-400',

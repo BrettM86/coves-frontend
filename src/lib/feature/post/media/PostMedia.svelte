@@ -1,9 +1,5 @@
 <script lang="ts">
-  import type {
-    EmbedImage,
-    ExternalEmbedExternal,
-    PostEmbed,
-  } from '$lib/api/coves/types'
+  import type { EmbedImage, PostEmbed } from '$lib/api/coves/types'
   import { type View } from '$lib/app/state/settings.svelte'
   import { PostIframe, PostLink } from '..'
   import PostGallery from './PostGallery.svelte'
@@ -30,8 +26,7 @@
     /** Passed to the gallery: see PostGallery. */
     placedImages?: EmbedImage[]
     /**
-     * Feed card: a single image keeps its natural size, and Post draws the
-     * attached link as its link card.
+     * Feed card: a single image keeps its natural size.
      */
     feed?: boolean
     /** Passed to the gallery: see PostGallery. */
@@ -61,25 +56,6 @@
     const url = bestImageURL(embed, false)
     return url ? [{ thumb: url, fullsize: url }] : []
   })
-  /**
-   * The link card input for an `imagesWithAttachment` whose attachment is a
-   * flattened external link; a post attachment carries only a strongRef and
-   * renders nothing.
-   */
-  let attachedLink = $derived.by((): ExternalEmbedExternal | undefined => {
-    if (embed?.$type !== 'social.coves.embed.imagesWithAttachment#view')
-      return undefined
-    const attachment = embed.attachment
-    if (attachment.$type !== 'social.coves.embed.external#viewExternal')
-      return undefined
-    return {
-      uri: attachment.uri,
-      title: attachment.title,
-      description: attachment.description,
-      thumb: attachment.thumb,
-      domain: attachment.domain,
-    }
-  })
 </script>
 
 <!--
@@ -97,16 +73,6 @@
     {feed}
     {gifs}
   />
-  {#if attachedLink && !feed}
-    <div class="mt-3">
-      <PostLink
-        url={attachedLink.uri}
-        thumbnail_url={attachedLink.thumb}
-        embed_title={attachedLink.title}
-        {view}
-      />
-    </div>
-  {/if}
 {:else if type === 'embed' && blueskyEmbed}
   {#if view !== 'compact'}
     <BlueskyPostCard embed={blueskyEmbed} />

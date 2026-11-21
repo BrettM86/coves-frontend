@@ -268,3 +268,21 @@ describe('comment deletion confirmation', () => {
     expect(get(toasts)).toEqual([])
   })
 })
+
+describe('comment action order', () => {
+  it('matches the post action bar: upvote, downvote, then reply', () => {
+    const order = [
+      'post.actions.vote.upvote',
+      'post.actions.vote.downvote',
+      'comment.reply',
+    ]
+    const names = [...target.querySelectorAll('button')]
+      .map((element) => {
+        const name =
+          element.getAttribute('aria-label') ?? element.textContent ?? ''
+        return order.find((key) => name.trim().startsWith(key))
+      })
+      .filter((name) => name !== undefined)
+    expect(names).toEqual(order)
+  })
+})

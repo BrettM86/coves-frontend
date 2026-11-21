@@ -10,11 +10,13 @@
   import { formatRelativeDate } from '$lib/ui/util/RelativeDate.svelte'
   import { placeholderCopyKey } from './rows'
   import { usableDate } from './timestamp'
+  import { COMPACT_THUMBNAIL_SIZE } from '$lib/feature/post/media/thumbnail'
 
   /**
    * A notification's root post in the Kelp compact post look: author and time,
-   * title, score and comment count, and a media tile. Static: it sits inside
-   * the row's link, so it holds no links or buttons. A removed or deleted root
+   * title, score, downvote and comment count in the action bar's order, and
+   * the compact feed's square media tile. Static: it sits inside the row's
+   * link, so it holds no links or buttons. A removed or deleted root
    * shows its placeholder copy in the title position and a text tile only, as
    * does a thumbnail that fails to load. The ThumbsDown icon is decorative,
    * matching the compact post design; it shows no count.
@@ -116,19 +118,24 @@
             <FormattedNumber number={stats.score} />
           </span>
         </span>
+        <span data-part="post-downvote" class="inline-flex">
+          <Icon src={ThumbsDown} size="18" />
+        </span>
         <span class="inline-flex items-center gap-1">
           <Icon src={MessageSquare} size="16" />
           <span data-part="post-comments">
             <FormattedNumber number={stats.commentCount} />
           </span>
         </span>
-        <Icon src={ThumbsDown} size="18" />
       </div>
     {/if}
   </div>
   <div
     data-part="post-media"
-    class="w-22 h-22 sm:w-28 shrink-0 overflow-hidden rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-200 dark:bg-zinc-800"
+    class={[
+      COMPACT_THUMBNAIL_SIZE,
+      'shrink-0 overflow-hidden rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-200 dark:bg-zinc-800',
+    ]}
   >
     {#if thumbnail && !thumbnailFailed}
       <img

@@ -148,7 +148,7 @@ describe('Post feed card link card', () => {
     expect(preview.classList.contains('dark:text-zinc-100!')).toBe(true)
   })
 
-  it('keeps the detail page body in its muted colour', () => {
+  it('gives the detail page body the feed preview ink', () => {
     const article = renderPost(linkPost(), { view: 'cozy', expandBody: true })
     const body = [...article.querySelectorAll('section')].find((section) =>
       section.textContent?.includes('Sweeney spoke at length.'),
@@ -156,9 +156,8 @@ describe('Post feed card link card', () => {
 
     expect(body).toBeDefined()
     if (!body) return
-    expect(body.classList.contains('text-slate-600')).toBe(true)
-    expect(body.classList.contains('text-slate-900!')).toBe(false)
-    expect(body.classList.contains('dark:text-zinc-100!')).toBe(false)
+    expect(body.classList.contains('text-slate-900!')).toBe(true)
+    expect(body.classList.contains('dark:text-zinc-100!')).toBe(true)
   })
 
   it('shows a YouTube link as the player plus one link card without a thumbnail', () => {

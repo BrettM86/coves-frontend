@@ -23,9 +23,10 @@
   } from '../helpers'
   import BlueskyButterfly from './BlueskyButterfly.svelte'
   import BlueskyPostCard from './BlueskyPostCard.svelte'
+  import { COMPACT_THUMBNAIL_SIZE } from './thumbnail'
 
   const thumbnailSize = (view: View) =>
-    view == 'compact' ? 'size-22' : 'w-24 h-24 sm:w-32'
+    view == 'compact' ? COMPACT_THUMBNAIL_SIZE : 'w-24 h-24 sm:w-32'
 
   interface Props {
     embed?: PostEmbed

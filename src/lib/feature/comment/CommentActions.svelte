@@ -115,19 +115,19 @@
       emptyStats={EMPTY_COMMENT_STATS}
       emptyViewer={EMPTY_COMMENT_VIEWER}
       variant="comment"
+    />
+    <!-- After the votes, as the post action bar puts comments. -->
+    <Button
+      color="tertiary"
+      rounding="lg"
+      size="sm"
+      class="text-slate-500 dark:text-zinc-400 gap-1!"
+      onclick={() => (replying = !replying)}
+      disabled={disabled || !profile.current?.jwt}
+      icon={MessageSquare}
     >
-      <Button
-        color="tertiary"
-        rounding="pill"
-        size="sm"
-        class="text-slate-500 dark:text-zinc-400 gap-1!"
-        onclick={() => (replying = !replying)}
-        disabled={disabled || !profile.current?.jwt}
-        icon={MessageSquare}
-      >
-        {$t('comment.reply')}
-      </Button>
-    </VoteButton>
+      {$t('comment.reply')}
+    </Button>
   {/if}
   <Menu placement="bottom">
     {#snippet target(attachment)}
@@ -135,7 +135,7 @@
         {@attach attachment}
         title={$t('comment.actions.label')}
         color="tertiary"
-        rounding="pill"
+        rounding="lg"
         size="square-md"
         class="text-slate-600 dark:text-zinc-400"
         icon={Ellipsis}

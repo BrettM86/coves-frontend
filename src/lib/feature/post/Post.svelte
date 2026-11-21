@@ -29,6 +29,7 @@
   import { titleDuplicatesBlueskyEmbed } from './media/bluesky-card'
   import { type MetaTag, parseTags } from './tags'
   import { isSensitivePost } from './content-labels'
+  import { COMPACT_THUMBNAIL_SIZE } from './media/thumbnail'
   import { Badge, Button } from '$lib/ui/kit'
   import { Icon, Info } from '$lib/ui/kit/icon'
   import { t } from '$lib/app/state/i18n'
@@ -98,7 +99,7 @@
   })
   let embedUrl = $derived(extractEmbedUrl(post.embed))
   let embedTitle = $derived(extractEmbedTitle(post.embed))
-  // The feed card shows every external link as a link card, including URIs
+  // A cozy post shows every external link as a link card, including URIs
   // mediaType rejects ('none'): the card renders those inert.
   let externalUri = $derived.by(() => {
     const embed = post.embed
@@ -116,19 +117,18 @@
         return undefined
     }
   })
-  // A plain link (not an image or a player) replaces PostLink's card on the
-  // feed with the link card below the body, thumbnail included.
-  let feedLink = $derived(feedCard && !!externalUri && type === 'embed')
+  // A plain link (not an image or a player) replaces PostLink's card in cozy
+  // posts, in the feed and on the post page, with the link card below the
+  // body, thumbnail included.
+  let linkCard = $derived(view === 'cozy' && !!externalUri && type === 'embed')
   let hideTitle = $derived(
     !concealed &&
       settings.posts.deduplicateEmbed &&
       !!post.record?.title &&
-      // Link titles are single-line strings and match exactly; Bluesky text
-      // is free-form, so its match ignores whitespace differences. The feed
-      // card keeps a heading that repeats the link title and drops the title
-      // from its link card instead.
-      ((!feedCard && embedTitle === post.record.title) ||
-        titleDuplicatesBlueskyEmbed(post.record.title, post.embed)) &&
+      // Bluesky text is free-form, so the match ignores whitespace
+      // differences. A link card keeps a heading that repeats the link title
+      // and drops the title from the card instead.
+      titleDuplicatesBlueskyEmbed(post.record.title, post.embed) &&
       view !== 'compact' &&
       type !== 'iframe',
   )
@@ -168,7 +168,7 @@
     view == 'compact' && 'py-3 list-type compact',
     view == 'cozy' && 'py-5 flex flex-col',
     // The link card tightens its padding against the card's width.
-    view == 'cozy' && (feedCard ? '@container gap-2.5' : 'gap-2'),
+    view == 'cozy' && ['@container', feedCard ? 'gap-2.5' : 'gap-2'],
     clazz,
   ]}
   id={post.uri}
@@ -176,7 +176,7 @@
 >
   <PostMeta
     {navigation}
-    feed={feedCard}
+    feed={view === 'cozy'}
     titleLevel={expandBody ? 1 : 2}
     community={post.community}
     showCommunity={!hideCommunity}
@@ -235,7 +235,7 @@
         class={[
           'relative isolate overflow-hidden border border-slate-200 dark:border-zinc-700 bg-slate-200 dark:bg-zinc-900',
           view === 'compact'
-            ? ['size-22', settings.leftAlign ? 'me-3' : 'ms-3']
+            ? [COMPACT_THUMBNAIL_SIZE, settings.leftAlign ? 'me-3' : 'ms-3']
             : 'w-full',
         ]}
         aria-label={$t('post.sensitive.show')}
@@ -295,7 +295,7 @@
             '[&>*]:w-full': view === 'cozy' && nativeImage && !feedCard,
           }}
         >
-          {#if !feedLink}
+          {#if !linkCard}
             <PostMedia
               embed={mediaEmbed}
               {view}
@@ -343,14 +343,18 @@
           embed={post.embed}
           inlineImages={expandBody}
           style="grid-area: body"
-          class="relative"
+          class={[
+            'relative',
+            // The post page's body reads in the feed preview's ink.
+            expandBody && 'text-slate-900! dark:text-zinc-100!',
+          ]}
         />
       {/if}
-      {#if feedCard && externalUri}
+      {#if view === 'cozy' && externalUri}
         <LinkCard
           uri={externalUri}
           title={embedTitle !== post.record?.title ? embedTitle : undefined}
-          thumbnail={feedLink ? extractEmbedThumbnail(mediaEmbed) : undefined}
+          thumbnail={linkCard ? extractEmbedThumbnail(mediaEmbed) : undefined}
         />
       {/if}
       {#if galleryAfterBody}

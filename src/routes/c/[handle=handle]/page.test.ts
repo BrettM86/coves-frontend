@@ -241,6 +241,53 @@ describe('community loader', () => {
     consoleError.mockRestore()
   })
 
+  const invalidCursor = () =>
+    new XrpcError(400, 'InvalidCursor', 'Invalid pagination cursor')
+  it.each([
+    {
+      name: 'redirects a stale cursor to the same page without it',
+      query: '?sort=new&cursor=STALE',
+      makeError: invalidCursor,
+      expected: { status: 302, location: '/c/tech?sort=new' },
+    },
+    {
+      name: 'redirects a lone stale cursor to the bare path',
+      query: '?cursor=STALE',
+      makeError: invalidCursor,
+      expected: { status: 302, location: '/c/tech' },
+    },
+    {
+      name: 'rethrows InvalidCursor when the URL carried no cursor',
+      query: '',
+      makeError: invalidCursor,
+      expected: 'rethrown',
+    },
+    {
+      name: "rethrows the proxy's own 400 even with a cursor",
+      query: '?cursor=STALE',
+      makeError: () => new XrpcError(400, 'Bad Request', 'Invalid path'),
+      expected: 'rethrown',
+    },
+  ] as const)(
+    'handles an InvalidCursor feed error: $name',
+    async ({ query, makeError, expected }) => {
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      const feedError = makeError()
+      mockCovesMethods.getCommunityFeed.mockRejectedValue(feedError)
+
+      const outcome = load(makeArgs('tech', query))
+      if (expected === 'rethrown') {
+        await expect(outcome).rejects.toBe(feedError)
+      } else {
+        await expect(outcome).rejects.toMatchObject(expected)
+      }
+
+      consoleError.mockRestore()
+    },
+  )
+
   it('reports whether it built the request the server rendered', async () => {
     expect(
       (await load(makeArgs('news.coves.social'))).matchesServerRender,

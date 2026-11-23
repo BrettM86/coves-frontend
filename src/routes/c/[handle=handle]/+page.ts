@@ -92,6 +92,21 @@ export async function load({ params, fetch, url, route }) {
     ) {
       error(404, 'Community not found')
     }
+    // The AppView rejects a cursor it did not sign, one minted under an older
+    // cursor format, or one sent with a different sort or timeframe than it
+    // was minted for. A link carrying such a cursor lands on page one, not a
+    // 500.
+    if (
+      cursor &&
+      e instanceof XrpcError &&
+      e.status === 400 &&
+      e.errorName === 'InvalidCursor'
+    ) {
+      const search = new URLSearchParams(url.searchParams)
+      search.delete('cursor')
+      const query = search.toString()
+      redirect(302, query ? `${url.pathname}?${query}` : url.pathname)
+    }
     throw e
   }
 

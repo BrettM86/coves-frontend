@@ -7,7 +7,13 @@
 >
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%coves.favicon%" type="image/svg+xml" />
+    <!-- Stable, unhashed icon URLs: Google Search wants a favicon whose URL
+         does not change between deploys, and crawlers also probe
+         /favicon.ico. All four are the lil_dude mascot. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-96x96.png" type="image/png" sizes="96x96" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- hooks.server.ts swaps the comment below for an inline script that

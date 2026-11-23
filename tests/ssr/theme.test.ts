@@ -76,17 +76,56 @@ describe('GET /theme colour scheme', () => {
     expect(html).not.toContain('/theme-boot.js')
   })
 
-  it('points the favicon at a hashed, immutable asset', async () => {
+  it('serves the favicons from stable, unhashed URLs', async () => {
     const html = await themePage()
 
-    const icon = /<link rel="icon" href="([^"]+)"/.exec(html)?.[1] ?? ''
-    expect(icon).toMatch(/^\/_app\/immutable\/assets\/lil_dude\.[\w-]+\.svg$/)
+    // Google Search wants a favicon URL that does not change between
+    // deploys, so the icons live in static/, not behind a content hash.
+    const icons = [
+      ...html.matchAll(/<link rel="(?:icon|apple-touch-icon)" href="([^"]+)"/g),
+    ].map((m) => m[1])
+    expect(icons).toEqual([
+      '/favicon.ico',
+      '/favicon.svg',
+      '/favicon-96x96.png',
+      '/apple-touch-icon.png',
+    ])
+    for (const icon of icons) {
+      const asset = await fetch(`${baseUrl}${icon}`)
+      expect(asset.status, icon).toBe(200)
+      // sirv sends no Content-Type for .ico (Caddy sets it in prod), so
+      // check the ICO magic bytes there instead.
+      if (icon.endsWith('.ico')) {
+        const head = new Uint8Array(await asset.arrayBuffer()).slice(0, 4)
+        expect([...head], icon).toEqual([0, 0, 1, 0])
+      } else {
+        expect(asset.headers.get('content-type'), icon).toMatch(/^image\//)
+      }
+    }
+  })
+
+  it('points the splash logo at a hashed, immutable asset', async () => {
+    const html = await themePage()
+
+    const logo = /<img src="([^"]+)"/.exec(html)?.[1] ?? ''
+    expect(logo).toMatch(/^\/_app\/immutable\/assets\/lil_dude\.[\w-]+\.svg$/)
     expect(html).not.toContain('%coves.favicon%')
-    // The splash logo in the body uses the same asset.
-    expect(html).toContain(`<img src="${icon}"`)
-    const asset = await fetch(`${baseUrl}${icon}`)
+    const asset = await fetch(`${baseUrl}${logo}`)
     expect(asset.status).toBe(200)
     expect(asset.headers.get('cache-control')).toContain('immutable')
+  })
+
+  it('serves every icon the web app manifest lists', async () => {
+    const manifestUrl = `${baseUrl}/manifest.json`
+    const manifest = await fetch(manifestUrl)
+    expect(manifest.status).toBe(200)
+    const { icons } = (await manifest.json()) as { icons: { src: string }[] }
+    expect(icons.length).toBeGreaterThan(0)
+    for (const { src } of icons) {
+      const asset = await fetch(new URL(src, manifestUrl))
+      expect(asset.status, src).toBe(200)
+      expect(asset.headers.get('content-type'), src).toBe('image/png')
+    }
   })
 })
 

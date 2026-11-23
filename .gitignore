@@ -26,6 +26,8 @@ test-results
 
 # Playwright debug outputs
 *.png
+# ...but not the icons the app serves
+!static/*.png
 console-*.txt
 network-*.txt
 *-snapshot.md

@@ -4,13 +4,13 @@
   "start_url": "/",
   "icons": [
     {
-      "src": "logo_maskable_512.png",
+      "src": "/logo_maskable_512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"
     },
     {
-      "src": "logo_512.png",
+      "src": "/logo_512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any"

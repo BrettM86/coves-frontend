@@ -15,7 +15,8 @@ import { defaultFont, fontClass } from '$lib/app/util/font'
 import { installRequestEventAccessor } from '$lib/app/util/request-event'
 import { defaultThemeIsCoves } from '$lib/app/state/theme/presets'
 import themeBoot from '$lib/app/state/theme/theme-boot.js?raw'
-// The mascot doubles as the favicon (same file).
+// The mascot shown behind the app while it boots. The favicon itself is the
+// same artwork, served from static/ at stable URLs (see app.html).
 import favicon from '$lib/assets/lil_dude.svg'
 import {
   addressHeaderConfigWarning,
@@ -475,10 +476,6 @@ export const handle: Handle = async ({ event, resolve }) => {
               .replace(
                 '<!--%coves.themeboot%-->',
                 () => `<script>${themeBoot}</script>`,
-              )
-              .replace(
-                '<link rel="icon" href="%coves.favicon%"',
-                `<link rel="icon" href="${favicon}"`,
               )
               .replace('<img src="%coves.favicon%"', `<img src="${favicon}"`)
           )

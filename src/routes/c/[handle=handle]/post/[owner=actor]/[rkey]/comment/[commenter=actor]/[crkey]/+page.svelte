@@ -1,6 +1,8 @@
 <script lang="ts">
   import { coves } from '$lib/api/client.svelte'
+  import { parseAtUri } from '$lib/api/coves/types'
   import { profile } from '$lib/app/state/auth.svelte'
+  import { didAtUri } from '$lib/app/util/at-uri'
   import { errorMessage } from '$lib/app/util/error'
   import { isExpiredSessionError } from '$lib/app/util/session-expired-error'
   import { log } from '$lib/app/util/log'
@@ -53,6 +55,11 @@
     property="og:description"
     content={post.record?.content?.slice(0, 200) ?? ''}
   />
+  {#if !data.data.value.focusedWithheld && post.moderation?.state !== 'removed'}
+    <meta name="at:canonical" content={focused.uri} />
+    <meta name="at:author" content={didAtUri(parseAtUri(focused.uri).did)} />
+    <meta name="at:alternate" content={post.uri} />
+  {/if}
 </svelte:head>
 
 <div class="flex flex-col gap-4 w-full max-w-full">

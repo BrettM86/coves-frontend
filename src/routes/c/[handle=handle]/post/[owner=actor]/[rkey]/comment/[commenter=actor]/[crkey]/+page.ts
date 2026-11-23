@@ -165,6 +165,13 @@ export async function load({ params, url, fetch, route }) {
             ? parent.uri
             : undefined,
       },
+      // Whether the focused comment is deleted or removed, read synchronously
+      // by the page head, which then withholds the comment's at-tags. A
+      // missing record counts as deleted, matching the comment tree.
+      focusedWithheld:
+        root.comment.record == null ||
+        root.comment.isDeleted === true ||
+        root.comment.moderation?.state === 'removed',
       params: { postUri, comments },
     }
   })

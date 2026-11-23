@@ -2,6 +2,7 @@
   import { browser } from '$app/environment'
   import { navigating, page } from '$app/state'
   import { setSessionStorage } from '$lib/app/state/session'
+  import { communityProfileAtUri, didAtUri } from '$lib/app/util/at-uri'
   import { communityLink } from '$lib/app/util/links'
   import { communityDisplayName } from '$lib/feature/community/helpers'
   import CommunityHeader from '$lib/feature/community/CommunityHeader.svelte'
@@ -71,6 +72,13 @@
       title={communityDisplayName(data.community)}
       href={rssHref}
     />
+    {#if !data.community.status && (data.community.visibility ?? 'public') === 'public'}
+      <meta
+        name="at:canonical"
+        content={communityProfileAtUri(data.community.did)}
+      />
+      <meta name="at:me" content={didAtUri(data.community.did)} />
+    {/if}
   {/if}
 </svelte:head>
 

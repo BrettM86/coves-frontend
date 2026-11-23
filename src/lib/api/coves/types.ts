@@ -406,6 +406,11 @@ export interface CommunityView {
   displayHandle?: string
   avatar?: string
   visibility?: CommunityVisibility
+  /**
+   * Absent for a live community; `'removed'` while the instance has removed
+   * it (its display name, description, avatar and banner are then withheld).
+   */
+  status?: 'removed' | (string & {})
   viewer?: CommunityViewerState
 }
 
@@ -524,6 +529,11 @@ export interface ProfileViewDetailed {
   banner?: string
   stats?: ProfileStats
   viewer?: ProfileViewerState
+  /**
+   * Absent for an active account; `'suspended'` when the backend serves a
+   * reduced view of a suspended account.
+   */
+  accountStatus?: 'suspended' | (string & {})
 }
 
 export type ProfileImageMimeType = 'image/png' | 'image/jpeg' | 'image/webp'

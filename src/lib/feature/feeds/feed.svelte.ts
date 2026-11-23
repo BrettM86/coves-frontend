@@ -198,6 +198,7 @@ export interface FeedTypes {
       post: CovesPostView
       comments: Promise<ThreadViewComment[]>
       focused: { uri: AtUri; rkey: string; parentUri?: AtUri }
+      focusedWithheld: boolean
       // The focused comment's author, which names the repo the comment record
       // lives in — the commenter segment of its canonical permalink.
       commentAuthor: ThreadViewComment['comment']['author']

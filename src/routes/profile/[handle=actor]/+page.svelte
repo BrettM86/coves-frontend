@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/app/state/i18n'
+  import { didAtUri } from '$lib/app/util/at-uri'
   import { userLink } from '$lib/app/util/links'
   import PostFeed from '$lib/feature/post/feed/PostFeed.svelte'
   import Placeholder from '$lib/ui/info/Placeholder.svelte'
@@ -44,6 +45,9 @@
       title="{name} · {$t('content.comments')}"
       href="{userLink(profile)}/rss?type=comments"
     />
+    {#if !profile.accountStatus}
+      <meta name="at:author" content={didAtUri(profile.did)} />
+    {/if}
   {/if}
 </svelte:head>
 

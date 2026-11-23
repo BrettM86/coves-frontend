@@ -160,12 +160,27 @@ const RSS_FIXTURES: Record<string, (query: URLSearchParams) => unknown> = {
     allowExternalDiscovery: true,
     visibility: 'public',
   }),
-  '/xrpc/social.coves.actor.getProfile': () => ({
-    did: RSS_AUTHOR.did,
-    handle: RSS_AUTHOR.handle,
-    displayName: RSS_AUTHOR.displayName,
-    createdAt: '2026-01-01T00:00:00.000Z',
-  }),
+  // A mock account's own handle or DID gets that account's profile (no
+  // display name, so it shows as its handle); anything else is the RSS author.
+  '/xrpc/social.coves.actor.getProfile': (query) => {
+    const actor = query.get('actor')
+    const account = Object.values(MOCK_ACCOUNTS).find(
+      (candidate) => candidate.handle === actor || candidate.did === actor,
+    )
+    if (account !== undefined) {
+      return {
+        did: account.did,
+        handle: account.handle,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }
+    }
+    return {
+      did: RSS_AUTHOR.did,
+      handle: RSS_AUTHOR.handle,
+      displayName: RSS_AUTHOR.displayName,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }
+  },
   '/xrpc/social.coves.actor.getPosts': () => ({ feed: [{ post: RSS_POST }] }),
   '/xrpc/social.coves.actor.getComments': () => ({ comments: [RSS_COMMENT] }),
   // Mirrors the requested `uris` 1:1, as the real batch endpoint does.

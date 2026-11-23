@@ -5,18 +5,19 @@
   // https://github.com/sveltejs/svelte/issues/3088#issuecomment-505785516
 
   let slottedElements = $state<HTMLDivElement>(),
-    portal: HTMLDivElement
+    portal: HTMLDivElement | undefined
 
   onMount(() => {
     if (!browser) return
-    portal = document?.createElement('div')
-    if (portal) portal.className = 'portal-mount'
-    document?.body.appendChild(portal)
-    if (slottedElements) portal?.appendChild(slottedElements)
+    portal = document.createElement('div')
+    portal.className = 'portal-mount'
+    document.body.appendChild(portal)
+    if (slottedElements) portal.appendChild(slottedElements)
   })
 
+  // onDestroy also runs during server rendering, where onMount never assigned portal.
   onDestroy(() => {
-    portal.remove()
+    portal?.remove()
   })
 
   interface Props {

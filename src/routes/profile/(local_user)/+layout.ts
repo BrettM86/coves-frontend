@@ -2,6 +2,9 @@ import { redirect } from '@sveltejs/kit'
 import { profile } from '$lib/app/state/auth.svelte'
 import type { LayoutLoad } from './$types'
 
+// The reader's own pages: rendered in the browser only.
+export const ssr = false
+
 export const load: LayoutLoad = async ({ parent }) => {
   // Use the validated session before the root component syncs browser state.
   // An expired session is not a guest: the reader is still on this page with

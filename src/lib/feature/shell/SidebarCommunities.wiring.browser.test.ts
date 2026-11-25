@@ -256,3 +256,131 @@ it('a conflict whose refetch fails shows the error row, not the refreshed toast'
     expect.objectContaining({ type: 'warning' }),
   )
 })
+
+it('a second star during a burst settles the first row before holding the second', async () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: false }))
+  await mountSidebar()
+  api.subscribe.mockResolvedValue({ uri: 'at://x', cid: 'c', favorite: true })
+  vi.useFakeTimers()
+  pressStar(star('gamma'), 'mouse')
+  await settle()
+  await vi.advanceTimersByTimeAsync(300)
+  pressStar(star('beta'), 'mouse')
+  await settle()
+  expect(rowNames()).toEqual(['gamma', 'alpha', 'beta'])
+  await vi.advanceTimersByTimeAsync(700)
+  await settle()
+  expect(rowNames()).toEqual(['gamma', 'beta', 'alpha'])
+})
+
+it('keeps focus on the star when a failed star moves the row back', async () => {
+  await mountSidebar()
+  let reject: (error: Error) => void = () => {}
+  api.subscribe.mockReturnValue(
+    new Promise((_resolve, fail) => {
+      reject = fail
+    }),
+  )
+  const button = star('gamma')
+  button.focus()
+  pressStar(button, 'mouse')
+  await settle()
+  expect(rowNames()).toEqual(['gamma', 'alpha', 'beta'])
+  expect(document.activeElement).toBe(button)
+  reject(new Error('offline'))
+  await settle()
+  expect(rowNames()).toEqual(['alpha', 'beta', 'gamma'])
+  expect(document.activeElement).toBe(star('gamma'))
+})
+
+it('keeps focus on a neighbouring row when a held row is released', async () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: false }))
+  await mountSidebar()
+  api.subscribe.mockResolvedValue({ uri: 'at://x', cid: 'c', favorite: true })
+  vi.useFakeTimers()
+  pressStar(star('beta'), 'mouse')
+  await settle()
+  const neighbour = star('alpha')
+  neighbour.focus()
+  await vi.advanceTimersByTimeAsync(700)
+  await settle()
+  expect(rowNames()).toEqual(['beta', 'alpha', 'gamma'])
+  expect(document.activeElement).toBe(neighbour)
+})
+
+it('keeps a keyboard-held row inside its group when the list changes', async () => {
+  const favorite = (name: string): CommunityView => ({
+    ...community(name),
+    viewer: { subscribed: true, favorite: true },
+  })
+  api.listCommunities.mockResolvedValue({
+    communities: [favorite('alpha'), favorite('beta'), community('gamma')],
+  })
+  await mountSidebar()
+  api.subscribe.mockResolvedValue({ uri: 'at://x', cid: 'c', favorite: false })
+  const button = star('beta')
+  button.focus()
+  button.click()
+  await settle()
+  expect(rowNames()).toEqual(['alpha', 'beta', 'gamma'])
+  // Alpha is unsubscribed elsewhere while focus stays on beta's star.
+  api.listCommunities.mockResolvedValue({
+    communities: [community('beta'), community('gamma')],
+  })
+  await subscribedCommunities.load(api, VIEWER)
+  await settle()
+  expect(rowNames()).toEqual(['beta', 'gamma'])
+  expect(
+    target.querySelector<HTMLElement>('[data-row-did="did:plc:beta"]')?.dataset
+      .rowGroup,
+  ).toBe('favorites')
+})
+
+it('keeps focus on the star when a failed unstar moves the row back', async () => {
+  const favorite = (name: string): CommunityView => ({
+    ...community(name),
+    viewer: { subscribed: true, favorite: true },
+  })
+  api.listCommunities.mockResolvedValue({
+    communities: [favorite('alpha'), favorite('beta'), community('gamma')],
+  })
+  await mountSidebar()
+  let reject: (error: Error) => void = () => {}
+  api.subscribe.mockReturnValue(
+    new Promise((_resolve, fail) => {
+      reject = fail
+    }),
+  )
+  const button = star('alpha')
+  button.focus()
+  pressStar(button, 'mouse')
+  await settle()
+  expect(rowNames()).toEqual(['beta', 'gamma', 'alpha'])
+  expect(document.activeElement).toBe(button)
+  reject(new Error('offline'))
+  await settle()
+  expect(rowNames()).toEqual(['alpha', 'beta', 'gamma'])
+  expect(document.activeElement).toBe(star('alpha'))
+})
+
+it('keeps focus on the handle when a reorder key releases a keyboard-held row', async () => {
+  await mountSidebar()
+  api.subscribe.mockResolvedValue({ uri: 'at://x', cid: 'c', favorite: true })
+  const button = star('gamma')
+  button.focus()
+  button.click()
+  await settle()
+  const handle = target.querySelector<HTMLButtonElement>(
+    '[data-reorder-did="did:plc:gamma"]',
+  )
+  if (!handle) throw new Error('Missing handle for gamma')
+  handle.focus()
+  await settle()
+  expect(rowNames()).toEqual(['alpha', 'beta', 'gamma'])
+  handle.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+  )
+  await settle()
+  expect(rowNames()).toEqual(['gamma', 'alpha', 'beta'])
+  expect(document.activeElement).toBe(handle)
+})

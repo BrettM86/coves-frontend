@@ -114,6 +114,7 @@ afterEach(async () => {
   resetSubscribedCommunitiesState()
   resetSubscriptionState()
   communityOrder.reset()
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
@@ -130,18 +131,90 @@ it('loads the list for the viewer and drops it on sign-out', async () => {
   expect(communityOrder.order).toEqual([])
 })
 
-it('starring moves the row to the end of the favorites and saves that order', async () => {
+function pressStar(button: HTMLButtonElement, pointerType: 'mouse' | 'touch') {
+  for (const type of ['pointerdown', 'pointerup']) {
+    button.dispatchEvent(
+      Object.assign(new MouseEvent(type, { bubbles: true, detail: 1 }), {
+        pointerType,
+      }),
+    )
+  }
+  button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))
+}
+
+it('moves the mouse-starred row immediately with reduced motion', async () => {
   await mountSidebar()
   api.subscribe.mockResolvedValue({ uri: 'at://x', cid: 'c', favorite: true })
-  star('gamma').click()
+  const button = star('gamma')
+  pressStar(button, 'mouse')
   await settle()
   expect(api.subscribe).toHaveBeenCalledWith({
     community: 'did:plc:gamma',
     favorite: true,
   })
+  expect(button.getAttribute('aria-pressed')).toBe('true')
   expect(rowNames()).toEqual(['gamma', 'alpha', 'beta'])
   expect(saved).toEqual(['did:plc:gamma', 'did:plc:alpha', 'did:plc:beta'])
 })
+
+it('allows undo on the same star during the burst', async () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: false }))
+  await mountSidebar()
+  api.subscribe
+    .mockResolvedValueOnce({ uri: 'at://x', cid: 'c', favorite: true })
+    .mockResolvedValueOnce({ uri: 'at://x', cid: 'd', favorite: false })
+  const button = star('beta')
+  vi.useFakeTimers()
+  pressStar(button, 'mouse')
+  await settle()
+  await vi.advanceTimersByTimeAsync(350)
+  expect(rowNames()).toEqual(['alpha', 'beta', 'gamma'])
+  pressStar(button, 'mouse')
+  await settle()
+  await vi.advanceTimersByTimeAsync(700)
+  await settle()
+  expect(button.getAttribute('aria-pressed')).toBe('false')
+  expect(rowNames()).toEqual(['alpha', 'beta', 'gamma'])
+})
+
+it('moves a keyboard-starred row when focus leaves the whole row', async () => {
+  await mountSidebar()
+  api.subscribe.mockResolvedValue({ uri: 'at://x', cid: 'c', favorite: true })
+  const button = star('gamma')
+  button.focus()
+  button.click()
+  await settle()
+  expect(document.activeElement).toBe(button)
+  expect(rowNames()).toEqual(['alpha', 'beta', 'gamma'])
+  button.closest('li')?.querySelector('a')?.focus()
+  await settle()
+  expect(rowNames()).toEqual(['alpha', 'beta', 'gamma'])
+  const next = star('alpha')
+  next.focus()
+  await settle()
+  expect(rowNames()).toEqual(['gamma', 'alpha', 'beta'])
+  expect(document.activeElement).toBe(next)
+})
+
+it.each(['mouse', 'touch'] as const)(
+  'holds a %s-starred row for the star burst, then releases it',
+  async (pointerType) => {
+    vi.stubGlobal('matchMedia', () => ({ matches: false }))
+    await mountSidebar()
+    api.subscribe.mockResolvedValue({ uri: 'at://x', cid: 'c', favorite: true })
+    const button = star('gamma')
+    vi.useFakeTimers()
+    pressStar(button, pointerType)
+    await settle()
+    expect(button.getAttribute('aria-pressed')).toBe('true')
+    expect(rowNames()).toEqual(['alpha', 'beta', 'gamma'])
+    await vi.advanceTimersByTimeAsync(699)
+    expect(rowNames()).toEqual(['alpha', 'beta', 'gamma'])
+    await vi.advanceTimersByTimeAsync(1)
+    await settle()
+    expect(rowNames()).toEqual(['gamma', 'alpha', 'beta'])
+  },
+)
 
 it('a failed star puts the order back and shows the error', async () => {
   await mountSidebar()

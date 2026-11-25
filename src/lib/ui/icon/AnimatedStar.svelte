@@ -5,11 +5,17 @@
   interface Props {
     starred: boolean
     size?: number
+    onburstend?: () => void
     sparkColor?: string
   }
 
   // Amber sparks on purpose: a celebratory burst, not the star's own colour.
-  let { starred, size = 16, sparkColor = '#F59E0B' }: Props = $props()
+  let {
+    starred,
+    size = 16,
+    sparkColor = '#F59E0B',
+    onburstend,
+  }: Props = $props()
 
   // Same edge trigger as AnimatedHeart: the burst plays on a false -> true
   // change only, never on first render or when a star is cleared. The latch
@@ -23,6 +29,7 @@
       animating = true
       const timeout = setTimeout(() => {
         animating = false
+        onburstend?.()
       }, 700)
       wasStarred = current
       // Unstarred mid-burst (a quick undo or a failed request rolling back):

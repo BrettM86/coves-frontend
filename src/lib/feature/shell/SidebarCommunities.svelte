@@ -79,16 +79,67 @@
       : { favorites, others: previewed }
   })
 
-  let rows = $derived([
-    ...groups.favorites.map((community) => ({
-      community,
-      group: 'favorites' as const,
-    })),
-    ...groups.others.map((community) => ({
-      community,
-      group: 'others' as const,
-    })),
-  ])
+  type ReleaseCue = 'immediate' | 'focus' | 'burst'
+  let hold = $state.raw<{
+    did: DID
+    group: Group
+    index: number
+    cue: ReleaseCue
+    previousOrder: DID[]
+    afterMove: DID[]
+  }>()
+  let pressedPointer: string | undefined
+
+  let rows = $derived.by(() => {
+    const ordered = [
+      ...groups.favorites.map((community) => ({
+        community,
+        group: 'favorites' as const,
+      })),
+      ...groups.others.map((community) => ({
+        community,
+        group: 'others' as const,
+      })),
+    ]
+    if (hold) {
+      const from = ordered.findIndex((row) => row.community.did === hold?.did)
+      if (from >= 0) {
+        const [row] = ordered.splice(from, 1)
+        ordered.splice(hold.index, 0, { ...row, group: hold.group })
+      }
+    }
+    return ordered
+  })
+
+  function release(did: DID, cue: ReleaseCue): void {
+    if (hold?.did !== did || hold.cue !== cue) return
+    const tile = list?.querySelector<HTMLElement>(
+      `[data-row-did="${did}"] > .tile`,
+    )
+    if (!tile) {
+      hold = undefined
+      return
+    }
+    const top = tile.getBoundingClientRect().top
+    const focused = document.activeElement
+    moveTiles(undefined, tile, () => {
+      hold = undefined
+    })
+    if (
+      cue !== 'focus' &&
+      focused instanceof HTMLElement &&
+      tile.contains(focused) &&
+      document.activeElement === document.body
+    ) {
+      focused.focus({ preventScroll: true })
+    }
+    if (motionEnabled() && tile.getBoundingClientRect().top !== top) {
+      tile.animate([{ opacity: 0 }, { opacity: 1 }], {
+        duration: 150,
+        easing: 'ease-out',
+      })
+    }
+  }
 
   let announcement = $state('')
 
@@ -129,7 +180,7 @@
   }
 
   function moveTiles(
-    group: Group,
+    group: Group | undefined,
     held: HTMLElement,
     update: () => void,
   ): void {
@@ -139,7 +190,9 @@
     }
     const neighbors = Array.from(
       list?.querySelectorAll<HTMLElement>(
-        `[data-row-group="${group}"] > .tile`,
+        group
+          ? `[data-row-group="${group}"] > .tile`
+          : '[data-row-group] > .tile',
       ) ?? [],
     ).filter((tile) => tile !== held)
     const tops = neighbors.map((tile) => tile.getBoundingClientRect().top)
@@ -184,6 +237,10 @@
   ): void {
     if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
     event.preventDefault()
+    if (hold) {
+      release(hold.did, hold.cue)
+      group = isFavorite(community) ? 'favorites' : 'others'
+    }
     const order = dids(group)
     const from = order.indexOf(community.did)
     const to = from + (event.key === 'ArrowUp' ? -1 : 1)
@@ -214,6 +271,10 @@
   ): void {
     if (event.button !== 0 || drag !== undefined) return
     event.preventDefault()
+    if (hold) {
+      release(hold.did, hold.cue)
+      group = isFavorite(community) ? 'favorites' : 'others'
+    }
     const tile = (event.currentTarget as HTMLElement).closest<HTMLElement>(
       '.tile',
     )
@@ -303,7 +364,11 @@
   $effect(() => {
     void owner
     void settings.expand.communities
-    return () => cancelDrag?.()
+    return () => {
+      cancelDrag?.()
+      hold = undefined
+      pressedPointer = undefined
+    }
   })
 
   let list = $state<HTMLElement>()
@@ -319,43 +384,76 @@
       `[data-favorite-did="${did}"]`,
     )
     // A refetch can remove the row; keep focus inside the section.
-    if (star) star.focus()
-    else if (orHeader) header?.focus()
+    if (star) star.focus({ preventScroll: true })
+    else if (orHeader) header?.focus({ preventScroll: true })
   }
 
   async function onStar(
     community: ListedCommunity,
     event: MouseEvent,
   ): Promise<void> {
-    const hadFocus = event.currentTarget === document.activeElement
+    const button = event.currentTarget as HTMLButtonElement
+    const pointer = (event as PointerEvent).pointerType || pressedPointer
+    pressedPointer = undefined
     // A subscribe or unsubscribe in flight refuses the star; don't move it.
     if (isFavoritePending(community) || isSubscriptionPending(community)) return
     // Starring sends the row to the end of the other group.
     const startOwner = owner
     const wasFavorite = isFavorite(community)
     const previousOrder = communityOrder.order
-    const afterMove = orderWithMovedToEnd(
-      dids('favorites'),
-      dids('others'),
-      community.did,
-      wasFavorite ? 'others' : 'favorites',
-    )
+    const existing = hold?.did === community.did ? hold : undefined
+    const index = rows.findIndex((row) => row.community.did === community.did)
+    const afterMove =
+      existing && (existing.group === 'favorites') !== wasFavorite
+        ? undoMove(
+            previousOrder,
+            community.did,
+            existing.previousOrder,
+            existing.afterMove,
+          )
+        : orderWithMovedToEnd(
+            dids('favorites'),
+            dids('others'),
+            community.did,
+            wasFavorite ? 'others' : 'favorites',
+          )
+    let cue: ReleaseCue | undefined
+    if (pointer || event.detail) {
+      const playsBurst =
+        !wasFavorite &&
+        !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      cue = playsBurst ? 'burst' : 'immediate'
+    } else if (button === document.activeElement) {
+      cue = 'focus'
+    }
+    hold = cue
+      ? {
+          did: community.did,
+          group: existing?.group ?? (wasFavorite ? 'favorites' : 'others'),
+          index,
+          previousOrder: existing?.previousOrder ?? previousOrder,
+          afterMove,
+          cue,
+        }
+      : undefined
     communityOrder.save(afterMove)
-    const run = toggleFavorite(community, coves())
-    if (hadFocus) await refocusStar(community.did)
-    const outcome = await run
+    const request = toggleFavorite(community, coves())
+    if (cue === 'immediate') release(community.did, cue)
+    const outcome = await request
     // The row stayed in its group (failed, refused, or the server kept the
     // old value): put back only this move, and only for the same account.
     const stayed = outcome.kind !== 'ok' || outcome.favorite === wasFavorite
     // A request from the previous account says nothing to this one.
     if (owner !== startOwner) return
     if (stayed) {
+      if (hold?.did === community.did) hold = undefined
       communityOrder.save(
         undoMove(communityOrder.order, community.did, previousOrder, afterMove),
       )
     }
     if (outcome.kind === 'conflict') {
       // Changed or removed from another tab or device: show what is stored now.
+      const restoreFocus = document.activeElement === button
       await reload()
       // Signed out or switched mid-refetch: nothing here is about this viewer.
       if (owner !== startOwner) return
@@ -366,11 +464,11 @@
           type: 'warning',
         })
       }
-      if (hadFocus) await refocusStar(community.did, true)
+      if (restoreFocus && document.activeElement === document.body)
+        await refocusStar(community.did, true)
       return
     }
     if (outcome.kind !== 'error') return
-    if (hadFocus) await refocusStar(community.did)
     if (isExpiredSessionError(outcome.error) && profile.sessionExpired) return
     toast({ content: errorMessage(outcome.error), type: 'error' })
   }
@@ -393,6 +491,10 @@
     class:slot={dragging}
     data-row-did={community.did}
     data-row-group={group}
+    onfocusout={(event) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+        release(community.did, 'focus')
+    }}
   >
     <div
       class={[
@@ -442,9 +544,15 @@
         title={$t('nav.sidebarCommunities.favorite', { default: address })}
         aria-disabled={isFavoritePending(community) ||
           isSubscriptionPending(community)}
+        onpointerdown={(event) => (pressedPointer = event.pointerType)}
+        onpointercancel={() => (pressedPointer = undefined)}
+        onkeydown={() => (pressedPointer = undefined)}
         onclick={(event) => onStar(community, event)}
       >
-        <AnimatedStar starred={favorite} />
+        <AnimatedStar
+          starred={favorite}
+          onburstend={() => release(community.did, 'burst')}
+        />
       </button>
     </div>
   </li>
@@ -480,7 +588,7 @@
     {#if settings.expand.communities}
       <ul
         id="sidebar-communities"
-        class="mt-1 flex flex-col gap-1"
+        class="mt-1 flex flex-col gap-1 [overflow-anchor:none]"
         bind:this={list}
         transition:slide={{
           duration: motionEnabled()

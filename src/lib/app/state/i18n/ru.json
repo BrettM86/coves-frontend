@@ -220,8 +220,6 @@
                 "title": "Медиа"
             },
             "favorites": "Избранные",
-            "upvoted": "Понравившиеся",
-            "downvoted": "Непонравившиеся",
             "logins": "Входы",
             "welcome": "Добро пожаловать, {{default}}!",
             "delete": {

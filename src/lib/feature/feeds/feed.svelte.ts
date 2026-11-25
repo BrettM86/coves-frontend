@@ -7,7 +7,10 @@ import type {
   FeedPaginationParams,
   FeedViewPost,
   GetActorCommentsResponse,
+  GetActorLikesResponse,
   GetActorPostsResponse,
+  LikedItem,
+  LikesFilter,
   GetCommentsParams,
   GetCommentsResponse,
   PostView as CovesPostView,
@@ -122,8 +125,10 @@ export interface FeedTypes {
     {
       actor: string
       limit?: number
-      tab: 'posts' | 'comments'
+      tab: 'posts' | 'comments' | 'likes'
       cursor?: string
+      /** The Likes tab's filter; part of the params so a switch refetches. */
+      likesFilter?: LikesFilter
     },
     (
       | {
@@ -137,6 +142,13 @@ export interface FeedTypes {
           comments: GetActorCommentsResponse
           /** The comments' hydrated parent posts, for context and permalinks. */
           commentPosts: CovesPostView[]
+        }
+      | {
+          profile: ProfileViewDetailed
+          tab: 'likes'
+          likesFilter: LikesFilter
+          /** Only the item kinds this client renders; the loader drops the rest. */
+          likes: Omit<GetActorLikesResponse, 'feed'> & { feed: LikedItem[] }
         }
     ),
   ]

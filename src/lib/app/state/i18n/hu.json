@@ -187,8 +187,6 @@
             "credentials": "Fiók",
             "moderates": "Moderálás",
             "favorites": "Kedvencek",
-            "upvoted": "Felszavazva",
-            "downvoted": "Leszavazva",
             "media": {
                 "title": "Média",
                 "download": "Letöltés"

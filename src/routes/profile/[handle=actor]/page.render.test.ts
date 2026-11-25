@@ -120,6 +120,34 @@ describe('profile comments tab', () => {
   })
 })
 
+describe('profile comments tab author', () => {
+  // Every comment on the tab is the owner's, so a row never names its author.
+  it('does not name the owner on their own comment rows', () => {
+    const doc = renderPage(
+      {
+        profile,
+        tab: 'comments',
+        comments: {
+          comments: [
+            comment('c4', parent.uri, {
+              author: {
+                did: 'did:plc:alice',
+                handle: 'alice.coves.test',
+                displayName: 'Alice',
+              },
+            }),
+          ],
+        },
+        commentPosts: [parent],
+      },
+      '/profile/alice.coves.test?type=comments',
+    )
+    const row = article(doc, 'body c4').textContent
+    expect(row).not.toContain('Alice')
+    expect(row).not.toContain('alice.coves.test')
+  })
+})
+
 describe('profile header identity', () => {
   it('names the account by its handle when there is no display name', () => {
     const doc = renderPage(

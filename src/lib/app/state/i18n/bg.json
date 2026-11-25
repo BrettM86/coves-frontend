@@ -233,8 +233,6 @@
             "logins": "Влизания",
             "credentials": "Идентификационни данни",
             "welcome": "Добре дошли, {{default}}!",
-            "upvoted": "Гласувани нагоре",
-            "downvoted": "Гласувани надолу",
             "moderates": "Модериращ",
             "media": {
                 "download": "Изтегляне",

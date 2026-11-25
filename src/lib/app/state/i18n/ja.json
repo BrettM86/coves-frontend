@@ -448,8 +448,6 @@
             "credentials": "アカウント",
             "moderates": "モデレーター担当",
             "favorites": "お気に入り",
-            "upvoted": "賛成票済み",
-            "downvoted": "反対票済み",
             "media": {
                 "title": "メディア",
                 "download": "ダウンロード"

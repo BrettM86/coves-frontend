@@ -240,8 +240,6 @@
             },
             "credentials": "凭证",
             "favorites": "收藏",
-            "upvoted": "点赞",
-            "downvoted": "点踩",
             "media": {
                 "title": "媒体",
                 "download": "下载"

@@ -13,6 +13,7 @@ const mockCovesMethods = vi.hoisted(() => ({
   getProfile: vi.fn(),
   getActorPosts: vi.fn(),
   getActorComments: vi.fn(),
+  getActorLikes: vi.fn(),
   getPosts: vi.fn(),
 }))
 
@@ -30,7 +31,7 @@ vi.mock('$lib/app/state/auth.svelte', () => ({
   profile: { meta: { profile: undefined } },
 }))
 
-import { isHttpError } from '@sveltejs/kit'
+import { isHttpError, isRedirect } from '@sveltejs/kit'
 import { XrpcError } from '$lib/api/coves/xrpc'
 import { load } from './+page'
 
@@ -66,6 +67,29 @@ const profileFixture = {
 }
 const postsFixture = { posts: [] }
 const commentsFixture = { comments: [] }
+const likesFixture = {
+  feed: [
+    {
+      $type: 'social.coves.actor.getLikes#likedPost',
+      post: { uri: 'at://did:plc:bob/social.coves.community.post/liked' },
+    },
+  ],
+  cursor: 'l3',
+}
+
+const likedPostItem = {
+  $type: 'social.coves.actor.getLikes#likedPost',
+  post: { uri: 'at://did:plc:bob/social.coves.community.post/p1' },
+}
+const likedCommentItem = {
+  $type: 'social.coves.actor.getLikes#likedComment',
+  comment: { uri: 'at://did:plc:dave/social.coves.community.comment/c1' },
+  post: { uri: 'at://did:plc:carol/social.coves.community.post/p2' },
+}
+const unknownItem = {
+  $type: 'social.coves.actor.getLikes#likedSomethingNew',
+  post: { uri: 'at://did:plc:erin/social.coves.community.post/p3' },
+}
 
 describe('profile loader', () => {
   let consoleError: ReturnType<typeof vi.spyOn>
@@ -80,6 +104,7 @@ describe('profile loader', () => {
     mockCovesMethods.getActorComments
       .mockReset()
       .mockResolvedValue(commentsFixture)
+    mockCovesMethods.getActorLikes.mockReset().mockResolvedValue(likesFixture)
     mockCovesMethods.getPosts.mockReset()
   })
 
@@ -205,6 +230,186 @@ describe('profile loader', () => {
       commentPosts: [],
     })
     expect(mockCovesMethods.getPosts).not.toHaveBeenCalled()
+  })
+
+  it('loads the liked posts for the likes tab', async () => {
+    const result = await load(
+      makeArgs('alice.coves.social', '?type=likes&likesCursor=l2'),
+    )
+
+    expect(result.data.value).toEqual({
+      profile: profileFixture,
+      tab: 'likes',
+      likesFilter: 'all',
+      likes: likesFixture,
+    })
+    expect(mockCovesMethods.getActorLikes).toHaveBeenCalledWith({
+      actor: 'alice.coves.social',
+      limit: 20,
+      cursor: 'l2',
+    })
+    expect(mockCovesMethods.getActorPosts).not.toHaveBeenCalled()
+    expect(mockCovesMethods.getActorComments).not.toHaveBeenCalled()
+  })
+
+  // ?likes= narrows the mixed list; any other value (or none) is All, which
+  // sends no filter at all. One cursor param, likesCursor, serves every filter.
+  it.each([
+    ['?type=likes', { actor: 'alice.coves.social', limit: 20 }, 'all'],
+    [
+      '?type=likes&likes=posts',
+      { actor: 'alice.coves.social', limit: 20, filter: 'posts' },
+      'posts',
+    ],
+    [
+      '?type=likes&likes=comments',
+      { actor: 'alice.coves.social', limit: 20, filter: 'comments' },
+      'comments',
+    ],
+    [
+      '?type=likes&likes=comments&likesCursor=c1',
+      {
+        actor: 'alice.coves.social',
+        limit: 20,
+        cursor: 'c1',
+        filter: 'comments',
+      },
+      'comments',
+    ],
+    [
+      '?type=likes&likes=all',
+      { actor: 'alice.coves.social', limit: 20 },
+      'all',
+    ],
+    [
+      '?type=likes&likes=bogus',
+      { actor: 'alice.coves.social', limit: 20 },
+      'all',
+    ],
+  ])(
+    'maps %s to the getActorLikes filter and likesFilter',
+    async (query, expectedParams, expectedFilter) => {
+      const result = await load(makeArgs('alice.coves.social', query))
+
+      expect(mockCovesMethods.getActorLikes).toHaveBeenCalledTimes(1)
+      const [params] = mockCovesMethods.getActorLikes.mock.calls[0]
+      expect(params).toEqual(expectedParams)
+      expect(Object.hasOwn(params, 'filter')).toBe('filter' in expectedParams)
+      expect(result.data.value).toMatchObject({
+        tab: 'likes',
+        likesFilter: expectedFilter,
+      })
+    },
+  )
+
+  // Items with an unknown $type are dropped; the cursor survives even when
+  // nothing is left, so the page can keep following it. Liked comments carry
+  // their root post, so no getPosts lookup is made.
+  it.each([
+    [
+      'a mixed page with an unknown item',
+      { feed: [likedCommentItem, unknownItem, likedPostItem], cursor: 'c2' },
+      { feed: [likedCommentItem, likedPostItem], cursor: 'c2' },
+    ],
+    ['an empty page', { feed: [], cursor: 'c2' }, { feed: [], cursor: 'c2' }],
+    [
+      'a page of only unknown items',
+      { feed: [unknownItem], cursor: 'c2' },
+      { feed: [], cursor: 'c2' },
+    ],
+  ])('returns %s as the known items and cursor', async (_name, page, likes) => {
+    mockCovesMethods.getActorLikes.mockResolvedValue(page)
+
+    const result = await load(makeArgs('alice.coves.social', '?type=likes'))
+
+    expect(result.data.value).toEqual({
+      profile: profileFixture,
+      tab: 'likes',
+      likesFilter: 'all',
+      likes,
+    })
+    expect(mockCovesMethods.getPosts).not.toHaveBeenCalled()
+  })
+
+  // Likes are private to their owner: a signed-out viewer gets 401
+  // AuthenticationRequired and anyone else 403 NotAllowed. A shared ?type=likes
+  // link then redirects to the profile's posts tab, so the URL says posts and
+  // posts pagination (?type=posts&postsCursor=X) is not read as a likes page.
+  // Every other query param, the likes cursor included, is dropped.
+  it.each([
+    [401, 'AuthenticationRequired', '?type=likes'],
+    [403, 'NotAllowed', '?type=likes'],
+    [
+      401,
+      'AuthenticationRequired',
+      '?type=likes&likesCursor=l2&postsCursor=p9',
+    ],
+    [403, 'NotAllowed', '?type=likes&likesCursor=l2&postsCursor=p9'],
+  ])(
+    'redirects to the posts tab when getActorLikes answers %i %s (%s)',
+    async (status, errorName, query) => {
+      mockCovesMethods.getActorLikes.mockRejectedValue(
+        new XrpcError(status, errorName, 'not yours'),
+      )
+
+      const thrown = await rejection(
+        load(makeArgs('alice.coves.social', query)),
+      )
+
+      expect(mockCovesMethods.getActorLikes).toHaveBeenCalled()
+      expect(isRedirect(thrown)).toBe(true)
+      expect(thrown).toMatchObject({
+        status: 307,
+        location: '/profile/alice.coves.social?type=posts',
+      })
+    },
+  )
+
+  // Only the backend's not-the-owner answers redirect; anything else is a real
+  // fault. A 401/403 with another error name (the frontend proxy's 403
+  // Forbidden, for one) is rethrown unchanged.
+  it.each([
+    [404, 'UnknownError'],
+    [500, 'InternalServerError'],
+    [403, 'Forbidden'],
+    [401, 'InvalidToken'],
+  ])('propagates a %i %s from getActorLikes', async (status, errorName) => {
+    const upstream = new XrpcError(status, errorName, 'boom')
+    mockCovesMethods.getActorLikes.mockRejectedValue(upstream)
+
+    const thrown = await rejection(
+      load(makeArgs('alice.coves.social', '?type=likes')),
+    )
+
+    expect(thrown).toBe(upstream)
+  })
+
+  // A missing account answers 404 from both calls. The likes rejection settling
+  // first must not decide the outcome: the profile's answer wins.
+  it('keeps the profile 404 when getActorLikes rejects with 404 first', async () => {
+    mockCovesMethods.getProfile.mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          setTimeout(
+            () =>
+              reject(new XrpcError(404, 'ProfileNotFound', 'user not found')),
+            10,
+          )
+        }),
+    )
+    mockCovesMethods.getActorLikes.mockRejectedValue(
+      new XrpcError(404, 'ActorNotFound', 'actor not found'),
+    )
+
+    const thrown = await rejection(
+      load(makeArgs('ghost.coves.social', '?type=likes')),
+    )
+
+    expect(isHttpError(thrown)).toBe(true)
+    expect(thrown).toMatchObject({
+      status: 404,
+      body: { message: 'couldnt_find_person' },
+    })
   })
 
   // B1 — an upstream 404 must reach the router as a 404 whose message is the

@@ -190,8 +190,6 @@
             "credentials": "Cuenta",
             "moderates": "Moderando",
             "favorites": "Favoritos",
-            "upvoted": "Votos positivos",
-            "downvoted": "Votos negativos",
             "media": {
                 "download": "Descargar",
                 "title": "Multimedia"

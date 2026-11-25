@@ -312,8 +312,6 @@
             "credentials": "Credentials",
             "moderates": "Moderating",
             "favorites": "Favorites",
-            "upvoted": "Upvoted",
-            "downvoted": "Downvoted",
             "media": {
                 "title": "Media",
                 "download": "Download"
@@ -690,6 +688,7 @@
         "users": "Users",
         "posts": "Posts",
         "comments": "Comments",
+        "likes": "Likes",
         "communities": "Communities",
         "instances": "Servers",
         "message": "Message",
@@ -1259,6 +1258,7 @@
         },
         "loading": "Loading",
         "profileTabs": "Profile sections",
+        "likesFilter": "Filter likes",
         "element": {
             "pageHeader": "Page header"
         },

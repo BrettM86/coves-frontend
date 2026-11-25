@@ -204,8 +204,6 @@
             },
             "credentials": "حساب",
             "moderates": "يشرف",
-            "upvoted": "تصويات الإجابية",
-            "downvoted": "تصويات السالبة",
             "media": {
                 "title": "إعلام",
                 "download": "حمِّل"

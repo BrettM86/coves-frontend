@@ -24,6 +24,9 @@
   --color-zinc-100: rgb(255 248 240);
   --color-zinc-950: rgb(15 15 16);
 
+  /* The Coves logo's coral, for brand accents. */
+  --color-brand: #f3876a;
+
   --color-bluesky-surface: #151d28;
   --color-bluesky-surface-hover: #1c2939;
   --color-bluesky-border: #2c3a4e;

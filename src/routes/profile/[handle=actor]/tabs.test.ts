@@ -5,6 +5,7 @@ import { profileCommentHref, profileTab } from './tabs'
 describe('profileTab', () => {
   it.each([
     ['comments', 'comments'],
+    ['likes', 'likes'],
     ['posts', 'posts'],
     ['all', 'posts'],
     [null, 'posts'],

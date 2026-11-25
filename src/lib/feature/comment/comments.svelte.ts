@@ -112,6 +112,40 @@ function placeholderKey(
 }
 
 /**
+ * A CommentView with a guaranteed record. The server returns tombstones with
+ * a null record, so synthesize a complete one carrying the deleted-content
+ * placeholder — downstream components read record.* unconditionally.
+ */
+export function normalizeCommentView(cv: CommentView): NormalizedCommentView {
+  // `== null` (not `=== null`) is deliberate: it also guards against an
+  // undefined record at runtime, which the type does not rule out.
+  const record = cv.record
+  if (record == null || (cv.isDeleted && record.content === '')) {
+    if (record == null && !cv.isDeleted) {
+      log.warn(
+        `[comments] Comment ${cv.uri as string} has no record but is not marked deleted (backend data-integrity issue?); rendering as deleted.`,
+      )
+    }
+    return {
+      ...cv,
+      record: {
+        // Preserve optional fields (facets, langs, embed, labels) from
+        // non-null deleted records, then override the required fields.
+        ...record,
+        $type: 'social.coves.community.comment',
+        content: deletedContentPlaceholder(cv),
+        reply: record?.reply ?? {
+          root: cv.post,
+          parent: cv.parent ?? cv.post,
+        },
+        createdAt: record?.createdAt ?? cv.createdAt,
+      },
+    }
+  }
+  return { ...cv, record }
+}
+
+/**
  * Converts a server-provided comment tree (ThreadViewComment[]) into
  * the flat-depth CommentNodeI[] structure used by the UI.
  *
@@ -123,39 +157,7 @@ export function buildCommentsTree(
   baseDepth: number = 0,
 ): CommentNodeI[] {
   function walk(thread: ThreadViewComment, depth: number): CommentNodeI {
-    const cv = thread.comment
-
-    // Annotate deleted comments with a placeholder message. The server
-    // returns tombstones with a null record, so synthesize a complete
-    // record — downstream components read record.* unconditionally.
-    // `== null` (not `=== null`) is deliberate: it also guards against an
-    // undefined record at runtime, which the type does not rule out.
-    const record = cv.record
-    let normalized: NormalizedCommentView
-    if (record == null || (cv.isDeleted && record.content === '')) {
-      if (record == null && !cv.isDeleted) {
-        log.warn(
-          `[comments] Comment ${cv.uri as string} has no record but is not marked deleted (backend data-integrity issue?); rendering as deleted.`,
-        )
-      }
-      normalized = {
-        ...cv,
-        record: {
-          // Preserve optional fields (facets, langs, embed, labels) from
-          // non-null deleted records, then override the required fields.
-          ...record,
-          $type: 'social.coves.community.comment',
-          content: deletedContentPlaceholder(cv),
-          reply: record?.reply ?? {
-            root: cv.post,
-            parent: cv.parent ?? cv.post,
-          },
-          createdAt: record?.createdAt ?? cv.createdAt,
-        },
-      }
-    } else {
-      normalized = { ...cv, record }
-    }
+    const normalized = normalizeCommentView(thread.comment)
 
     const children: CommentNodeI[] = (thread.replies ?? []).map((reply) =>
       walk(reply, depth + 1),

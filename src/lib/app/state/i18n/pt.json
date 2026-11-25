@@ -313,9 +313,7 @@
             "media": {
                 "download": "Descarregar",
                 "title": "Multimédia"
-            },
-            "upvoted": "Votou positivamente",
-            "downvoted": "Votou negativamente"
+            }
         },
         "communities": "Comunidades",
         "saved": "Guardados",

@@ -86,8 +86,6 @@
             "credentials": "Account",
             "moderates": "Modereren",
             "favorites": "Favorieten",
-            "upvoted": "Opgestemd",
-            "downvoted": "Afgestemd",
             "media": {
                 "title": "Media",
                 "download": "Download"

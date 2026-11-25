@@ -20,6 +20,8 @@ import type {
   FeedResponse,
   GetActorCommentsParams,
   GetActorCommentsResponse,
+  GetActorLikesParams,
+  GetActorLikesResponse,
   GetActorPostsParams,
   GetActorPostsResponse,
   GetCommentsParams,
@@ -76,6 +78,7 @@ export const NSID = {
   dismissBlueskyProfileImport: 'social.coves.actor.dismissBlueskyProfileImport',
   getActorPosts: 'social.coves.actor.getPosts',
   getActorComments: 'social.coves.actor.getComments',
+  getActorLikes: 'social.coves.actor.getLikes',
   blockUser: 'social.coves.actor.blockUser',
   unblockUser: 'social.coves.actor.unblockUser',
   getBlockedUsers: 'social.coves.actor.getBlockedUsers',
@@ -179,6 +182,10 @@ export class CovesClient {
     params: GetActorCommentsParams,
   ): Promise<GetActorCommentsResponse> {
     return this.xrpc.query(NSID.getActorComments, params)
+  }
+
+  getActorLikes(params: GetActorLikesParams): Promise<GetActorLikesResponse> {
+    return this.xrpc.query(NSID.getActorLikes, params)
   }
 
   blockUser(input: BlockUserInput): Promise<void> {

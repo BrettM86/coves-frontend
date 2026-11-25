@@ -330,6 +330,16 @@ export function isHydratedPost(
   return !('$type' in el) || el.$type === POST_VIEW_TYPE
 }
 
+/** Whether a `getActorLikes` item is a kind this client can render. */
+export function isLikedItem(
+  item: LikedItem | UnknownLikedItem,
+): item is LikedItem {
+  return (
+    item.$type === 'social.coves.actor.getLikes#likedPost' ||
+    item.$type === 'social.coves.actor.getLikes#likedComment'
+  )
+}
+
 /** Whether a `getPosts` element is a post withheld by an instance moderation action. */
 export function isModeratedPost(
   el: PostViewUnion | null | undefined,
@@ -776,6 +786,44 @@ export interface GetActorPostsParams {
 
 export interface GetActorPostsResponse {
   feed: FeedViewPost[]
+  cursor?: string
+}
+
+export interface GetActorLikesParams {
+  actor: DID | Handle
+  limit?: number
+  cursor?: string
+  /** Narrows the mixed list; omitted means every liked post and comment. */
+  filter?: GetActorLikesFilter
+}
+
+/** The kinds `getActorLikes` can narrow its list to. */
+export type GetActorLikesFilter = 'posts' | 'comments'
+
+/** The Likes tab's filter: one kind, or `all` for the unfiltered list. */
+export type LikesFilter = 'all' | GetActorLikesFilter
+
+export interface LikedPost {
+  $type: 'social.coves.actor.getLikes#likedPost'
+  post: PostView
+}
+
+export interface LikedComment {
+  $type: 'social.coves.actor.getLikes#likedComment'
+  comment: CommentView
+  /** The comment's root post, for context and its permalink. */
+  post: PostView
+}
+
+export type LikedItem = LikedPost | LikedComment
+
+/** A liked-item kind added by a newer server than this client knows. */
+export interface UnknownLikedItem {
+  $type: string
+}
+
+export interface GetActorLikesResponse {
+  feed: (LikedItem | UnknownLikedItem)[]
   cursor?: string
 }
 

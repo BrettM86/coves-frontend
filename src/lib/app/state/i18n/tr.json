@@ -207,8 +207,6 @@
             "credentials": "Kimlik bilgileri",
             "moderates": "Denetleniyor",
             "favorites": "Favoriler",
-            "upvoted": "Olumlu oy verildi",
-            "downvoted": "Olumsuz oy verildi",
             "media": {
                 "title": "Medya",
                 "download": "İndirmek"

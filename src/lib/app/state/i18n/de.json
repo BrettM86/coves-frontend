@@ -248,9 +248,7 @@
             "media": {
                 "download": "Herunterladen",
                 "title": "Medien"
-            },
-            "upvoted": "Hochgestimmt",
-            "downvoted": "Heruntergestimmt"
+            }
         },
         "communities": {
             "trending": "im Trend",

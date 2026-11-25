@@ -231,6 +231,20 @@ describe('Actor methods', () => {
     })
   })
 
+  it('getActorLikes() calls query with the getLikes NSID', async () => {
+    await client.getActorLikes({
+      actor: 'did:plc:abc123' as DID,
+      limit: 20,
+      cursor: 'l2',
+    })
+
+    expect(querySpy).toHaveBeenCalledWith('social.coves.actor.getLikes', {
+      actor: 'did:plc:abc123',
+      limit: 20,
+      cursor: 'l2',
+    })
+  })
+
   it('blockUser() calls procedure with correct NSID', async () => {
     await client.blockUser({ subject: 'did:plc:abc123' as DID })
 

@@ -184,8 +184,6 @@
                     "title": "אין גופים חסומים"
                 }
             },
-            "upvoted": "הוצבע בעד",
-            "downvoted": "הוצבע נגד",
             "welcome": "שלום, {{default}}!",
             "overview": "סקירה",
             "submissions": "הגשות"

@@ -106,8 +106,6 @@
             },
             "credentials": "Dane uwierzytaleniające",
             "favorites": "Ulubione",
-            "upvoted": "Polubione",
-            "downvoted": "Niepolubione",
             "media": {
                 "title": "Media",
                 "download": "Pobierz"

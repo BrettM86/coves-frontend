@@ -222,7 +222,6 @@
             "credentials": "Credenciais",
             "moderates": "Moderando",
             "favorites": "Favoritos",
-            "upvoted": "Votado Positivamente",
             "media": {
                 "title": "Mídia",
                 "download": "Download"
@@ -235,7 +234,6 @@
             "overview": "Resumo",
             "submissions": "Submissões",
             "settings": "Configurações",
-            "downvoted": "Votado Negativamente",
             "welcome": "Bem-vindo(a), {{default}}!"
         },
         "communities": {

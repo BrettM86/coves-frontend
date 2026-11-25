@@ -215,8 +215,6 @@
             },
             "logins": "Connexions",
             "welcome": "Bienvenue, {{default}} !",
-            "upvoted": "Upvoted",
-            "downvoted": "Downvoted",
             "overview": "Vue d'ensemble",
             "submissions": "Soumissions"
         },
